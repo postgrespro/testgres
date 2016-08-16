@@ -7,7 +7,7 @@ setup(
   author = 'Ildar Musin',
   author_email = 'zildermann@gmail.com',
   url = 'https://github.com/postgrespro/testgres',
-  # download_url = 'https://github.com/postgrespro/testgres/tarball/0.1',
+  download_url = 'https://github.com/postgrespro/testgres/tarball/0.1',
   keywords = ['testing', 'postgresql'],
   classifiers = [],
 )
