@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'testgres',
   packages = ['testgres'],
-  version = '0.1.2',
+  version = '0.1.3',
   description = 'Testing utility for postgresql and it''s extensions',
   author = 'Ildar Musin',
   author_email = 'zildermann@gmail.com',
