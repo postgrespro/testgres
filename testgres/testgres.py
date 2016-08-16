@@ -53,10 +53,28 @@ class PostgresNode:
     def __init__(self, name, port):
         self.name = name
         self.port = port
-        self.data_dir = tempfile.mkdtemp()
+        self.base_dir = tempfile.mkdtemp()
+        os.makedirs(self.logs_dir)
+        os.makedirs(self.data_dir)
         self.working = False
         self.config = {}
         self.load_pg_config()
+
+    @property
+    def data_dir(self):
+        return "%s/data" % self.base_dir
+
+    @property
+    def logs_dir(self):
+        return "%s/logs" % self.base_dir
+
+    @property
+    def output_filename(self):
+        return "%s/stdout.log" % self.logs_dir
+
+    @property
+    def error_filename(self):
+        return "%s/stderr.log" % self.logs_dir
 
     def load_pg_config(self):
         """ Loads pg_config output into dict """
@@ -81,9 +99,15 @@ class PostgresNode:
 
         # initialize cluster
         initdb = self.get_bin_path("initdb")
-        ret = subprocess.call([initdb, self.data_dir, "-N"])
-        if ret:
-            raise ClusterException("Cluster initialization failed")
+        with open(self.output_filename, "a") as file_out, \
+             open(self.error_filename, "a") as file_err:
+            ret = subprocess.call(
+                [initdb, self.data_dir, "-N"],
+                stdout=file_out,
+                stderr=file_err
+            )
+            if ret:
+                raise ClusterException("Cluster initialization failed")
 
         # add parameters to config file
         config_name = "%s/postgresql.conf" % self.data_dir
@@ -102,31 +126,56 @@ class PostgresNode:
         with open(config_name, "a") as conf:
             conf.write(string)
 
+    def pg_ctl(self, command, params):
+        """Runs pg_ctl with specified params
+
+        This function is a workhorse for start(), stop() and reload()
+        functions"""
+        pg_ctl = self.get_bin_path("pg_ctl")
+
+        arguments = ['pg_ctl']
+        for key, value in params.iteritems():
+            arguments.append(key)
+            if value:
+                arguments.append(value)
+
+        with open(self.output_filename, "a") as file_out, \
+             open(self.error_filename, "a") as file_err:
+            return subprocess.call(
+                arguments + [command],
+                stdout=file_out,
+                stderr=file_err
+            )
+
     def start(self):
         """ Starts cluster """
-        pg_ctl = self.get_bin_path("pg_ctl")
-        logfile = self.data_dir + "/postgresql.log"
-        params = [
-            pg_ctl, "-D", self.data_dir,
-            "-w", "start", "-l", logfile
-        ]
-
-        ret = subprocess.call(params)
-        if ret:
+        logfile = self.logs_dir + "/postgresql.log"
+        params = {
+            "-D": self.data_dir,
+            "-w": None,
+            "-l": logfile,
+        }
+        if self.pg_ctl("start", params):
             raise ClusterException("Cluster startup failed")
 
         self.working = True
 
     def stop(self):
         """ Stops cluster """
-        pg_ctl = self.get_bin_path("pg_ctl")
-        params = [pg_ctl, "-D", self.data_dir, "-w", "stop"]
-
-        ret = subprocess.call(params)
-        if ret:
+        params = {
+            "-D": self.data_dir,
+            "-w": None
+        }
+        if self.pg_ctl("stop", params):
             raise ClusterException("Cluster stop failed")
 
         self.working = False
+
+    def reload(self):
+        """Reloads config files"""
+        params = {"-D": self.data_dir}
+        if self.pg_ctl("reload", params):
+            raise ClusterException("Cluster reload failed")
 
     def cleanup(self):
         """Stops cluster if needed and removes the data directory"""
