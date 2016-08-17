@@ -28,6 +28,7 @@ import subprocess
 import pwd
 import tempfile
 import shutil
+import time
 
 # Try to use psycopg2 by default. If psycopg2 isn"t available then use 
 # pg8000 which is slower but much more portable because uses only
@@ -45,13 +46,14 @@ registered_nodes = []
 last_assigned_port = int(random.random() * 16384) + 49152;
 
 
-class ClusterException(Exception):
-    pass
+class ClusterException(Exception): pass
+class QueryException(Exception): pass
 
 
 class PostgresNode:
     def __init__(self, name, port):
         self.name = name
+        self.host = '127.0.0.1'
         self.port = port
         self.base_dir = tempfile.mkdtemp()
         os.makedirs(self.logs_dir)
@@ -74,6 +76,11 @@ class PostgresNode:
     @property
     def error_filename(self):
         return "%s/stderr.log" % self.logs_dir
+
+    @property
+    def connstr(self):
+        return "port=%s" % self.port    
+        # return "port=%s host=%s" % (self.port, self.host)
 
     def load_pg_config(self):
         """ Loads pg_config output into dict """
@@ -116,6 +123,10 @@ class PostgresNode:
                 "fsync = off\n"
                 "log_statement = all\n"
                 "port = %s\n" % self.port)
+            conf.write(
+                # "unix_socket_directories = '%s'\n"
+                # "listen_addresses = ''\n";)
+                "listen_addresses = '%s'\n" % self.host)
 
             if allows_streaming:
                 conf.write(
@@ -129,7 +140,7 @@ class PostgresNode:
                     "max_connections = 10\n")
         self.set_replication_conf()
 
-    def init_from_backup(self, root_node, backup_name):
+    def init_from_backup(self, root_node, backup_name, has_streaming=False, hba_permit_replication=True):
         """Initializes cluster from backup, made by another node"""
 
         # Copy data from backup
@@ -142,11 +153,25 @@ class PostgresNode:
             "postgresql.conf",
             "port = %s" % self.port
         )
+        # Enable streaming
+        if hba_permit_replication:
+            self.set_replication_conf()
+        if has_streaming:
+            self.enable_streaming(root_node)
 
     def set_replication_conf(self):
         hba_conf = "%s/pg_hba.conf" % self.data_dir
         with open(hba_conf, "a") as conf:
             conf.write("local replication all trust\n")
+            # conf.write("host replication all 127.0.0.1/32 trust\n")
+
+    def enable_streaming(self, root_node):
+        config_name = "%s/recovery.conf" % self.data_dir
+        with open(config_name, "a") as conf:
+            conf.write(
+                "primary_conninfo='%s application_name=%s'\n"
+                "standby_mode=on\n"
+                % (root_node.connstr, self.name))
 
     def append_conf(self, filename, string):
         """Appends line to a config file like "postgresql.conf"
@@ -254,6 +279,22 @@ class PostgresNode:
             raise ClusterException("psql failed:\n" + err)
         return out
 
+    def poll_query_until(self, dbname, query):
+        """Runs a query once a second until it returs True"""
+        max_attemps = 60
+        attemps = 0
+
+        while attemps < max_attemps:
+            ret = self.safe_psql(dbname, query)
+
+            # TODO: fix psql so that it returns result without newline
+            if ret == "t\n":
+                return
+
+            time.sleep(1)
+            attemps += 1
+        raise QueryException("Timeout while waiting for query to return True")
+
     def execute(self, dbname, query):
         """Executes the query and returns all rows"""
         connection = pglib.connect(
@@ -327,3 +368,8 @@ def clean_all():
     for node in registered_nodes:
         node.cleanup()
     registered_nodes = []
+
+def stop_all():
+    global registered_nodes
+    for node in registered_nodes:
+        node.stop()
