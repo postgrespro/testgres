@@ -55,7 +55,6 @@ class PostgresNode:
         self.port = port
         self.base_dir = tempfile.mkdtemp()
         os.makedirs(self.logs_dir)
-        os.makedirs(self.data_dir)
         self.working = False
         self.config = {}
         self.load_pg_config()
@@ -94,10 +93,11 @@ class PostgresNode:
         else:
             return "%s/%s" % (self.config["BINDIR"], filename)
 
-    def init(self):
+    def init(self, allows_streaming=False):
         """ Performs initdb """
 
         # initialize cluster
+        os.makedirs(self.data_dir)
         initdb = self.get_bin_path("initdb")
         with open(self.output_filename, "a") as file_out, \
              open(self.error_filename, "a") as file_err:
@@ -112,9 +112,41 @@ class PostgresNode:
         # add parameters to config file
         config_name = "%s/postgresql.conf" % self.data_dir
         with open(config_name, "a") as conf:
-            conf.write("fsync = off\n")
-            conf.write("log_statement = all\n")
-            conf.write("port = %s\n" % self.port)
+            conf.write(
+                "fsync = off\n"
+                "log_statement = all\n"
+                "port = %s\n" % self.port)
+
+            if allows_streaming:
+                conf.write(
+                    "wal_level = replica\n"
+                    "max_wal_senders = 5\n"
+                    "wal_keep_segments = 20\n"
+                    "max_wal_size = 128MB\n"
+                    "shared_buffers = 1MB\n"
+                    "wal_log_hints = on\n"
+                    "hot_standby = on\n"
+                    "max_connections = 10\n")
+        self.set_replication_conf()
+
+    def init_from_backup(self, root_node, backup_name):
+        """Initializes cluster from backup, made by another node"""
+
+        # Copy data from backup
+        backup_path = "%s/%s" % (root_node.base_dir, backup_name)
+        shutil.copytree(backup_path, self.data_dir)
+        os.chmod(self.data_dir, 0o0700)
+
+        # Change port in config file
+        self.append_conf(
+            "postgresql.conf",
+            "port = %s" % self.port
+        )
+
+    def set_replication_conf(self):
+        hba_conf = "%s/pg_hba.conf" % self.data_dir
+        with open(hba_conf, "a") as conf:
+            conf.write("local replication all trust\n")
 
     def append_conf(self, filename, string):
         """Appends line to a config file like "postgresql.conf"
@@ -133,7 +165,7 @@ class PostgresNode:
         functions"""
         pg_ctl = self.get_bin_path("pg_ctl")
 
-        arguments = ['pg_ctl']
+        arguments = ["pg_ctl"]
         for key, value in params.iteritems():
             arguments.append(key)
             if value:
@@ -239,6 +271,24 @@ class PostgresNode:
         connection.close()
 
         return res
+
+    def backup(self, name):
+        """Performs pg_basebackup"""
+        pg_basebackup = self.get_bin_path("pg_basebackup")
+        backup_path = self.base_dir + "/" + name
+        os.makedirs(backup_path)
+        params = [pg_basebackup, "-D", backup_path, "-p %s" % self.port, "-x"]
+        with open(self.output_filename, "a") as file_out, \
+             open(self.error_filename, "a") as file_err:
+            ret = subprocess.call(
+                params,
+                stdout=file_out,
+                stderr=file_err
+            )
+            if ret:
+                raise ClusterException("Base backup failed")
+
+            return backup_path
 
 
 def get_username():
