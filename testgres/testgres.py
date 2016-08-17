@@ -190,7 +190,7 @@ class PostgresNode:
         functions"""
         pg_ctl = self.get_bin_path("pg_ctl")
 
-        arguments = ["pg_ctl"]
+        arguments = [pg_ctl]
         for key, value in params.iteritems():
             arguments.append(key)
             if value:

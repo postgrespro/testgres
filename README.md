@@ -52,7 +52,7 @@ Now we are ready to start:
 node.start()
 ```
 
-After this you are able to run queries over the cluster. There is three functions to do that:
+After this you are able to run queries over the cluster. There are three functions to do that:
 
 * `node.psql(database, query)` - runs query via `psql` command and returns tuple (error code, stdout, stderr)
 * `node.safe_psql(database, query)` - the same as `psql()` except that it returns only `stdout`. If error occures during the execution then it will throw an exception;
