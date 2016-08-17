@@ -373,5 +373,5 @@ def stop_all():
     global registered_nodes
     for node in registered_nodes:
         # stop server if it still working
-        if self.working:
+        if node.working:
             node.stop()
