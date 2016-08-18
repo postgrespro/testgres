@@ -47,8 +47,41 @@ last_assigned_port = int(random.random() * 16384) + 49152;
 pg_config_data = {}
 
 
+"""
+Predefined exceptions
+"""
 class ClusterException(Exception): pass
 class QueryException(Exception): pass
+
+
+"""
+Transaction wrapper returned by Node
+"""
+class NodeConnection(object):
+    def __init__(self, parent_node, dbname):
+        self.parent_node = parent_node
+
+        self.connection = pglib.connect(
+            database=dbname,
+            user=get_username(),
+            port=parent_node.port,
+            host="127.0.0.1"
+        )
+
+        self.cursor = self.connection.cursor()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        self.connection.close()
+
+    def execute(self, query):
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
+    def close(self):
+        self.connection.close()
 
 
 class PostgresNode:
@@ -134,6 +167,8 @@ class PostgresNode:
 
         self.set_replication_conf()
 
+        return self
+
     def init_from_backup(self, root_node, backup_name, has_streaming=False, hba_permit_replication=True):
         """Initializes cluster from backup, made by another node"""
 
@@ -175,7 +210,9 @@ class PostgresNode:
         """
         config_name = "%s/%s" % (self.data_dir, filename)
         with open(config_name, "a") as conf:
-            conf.write(string)
+            conf.write(''.join([string, '\n']))
+
+        return self
 
     def pg_ctl(self, command, params):
         """Runs pg_ctl with specified params
@@ -192,11 +229,16 @@ class PostgresNode:
 
         with open(self.output_filename, "a") as file_out, \
              open(self.error_filename, "a") as file_err:
-            return subprocess.call(
+
+            res = subprocess.call(
                 arguments + [command],
                 stdout=file_out,
                 stderr=file_err
             )
+
+            if res > 0:
+                with open(self.error_filename, "r") as errfile:
+                    raise ClusterException(errfile.readlines()[-1])
 
     def start(self):
         """ Starts cluster """
@@ -206,10 +248,11 @@ class PostgresNode:
             "-w": None,
             "-l": logfile,
         }
-        if self.pg_ctl("start", params):
-            raise ClusterException("Cluster startup failed")
+        self.pg_ctl("start", params)
 
         self.working = True
+
+        return self
 
     def stop(self):
         """ Stops cluster """
@@ -217,16 +260,18 @@ class PostgresNode:
             "-D": self.data_dir,
             "-w": None
         }
-        if self.pg_ctl("stop", params):
-            raise ClusterException("Cluster stop failed")
+        self.pg_ctl("stop", params)
 
         self.working = False
+
+        return self
 
     def reload(self):
         """Reloads config files"""
         params = {"-D": self.data_dir}
-        if self.pg_ctl("reload", params):
-            raise ClusterException("Cluster reload failed")
+        self.pg_ctl("reload", params)
+
+        return self
 
     def cleanup(self):
         """Stops cluster if needed and removes the data directory"""
@@ -237,6 +282,8 @@ class PostgresNode:
 
         # remove data directory
         shutil.rmtree(self.data_dir)
+
+        return self
 
     def psql(self, dbname, query):
         """Executes a query by the psql
@@ -291,21 +338,8 @@ class PostgresNode:
 
     def execute(self, dbname, query):
         """Executes the query and returns all rows"""
-        connection = pglib.connect(
-            database=dbname,
-            user=get_username(),
-            port=self.port,
-            host="127.0.0.1"
-        )
-        cur = connection.cursor()
-
-        cur.execute(query)
-        res = cur.fetchall()
-
-        cur.close()
-        connection.close()
-
-        return res
+        with self.connect(dbname) as node_con:
+            return node_con.execute(query)
 
     def backup(self, name):
         """Performs pg_basebackup"""
@@ -324,6 +358,9 @@ class PostgresNode:
                 raise ClusterException("Base backup failed")
 
             return backup_path
+
+    def connect(self, dbname):
+        return NodeConnection(parent_node=self, dbname=dbname)
 
 
 def get_username():
