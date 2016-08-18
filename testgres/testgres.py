@@ -44,6 +44,7 @@ except ImportError:
 
 registered_nodes = []
 last_assigned_port = int(random.random() * 16384) + 49152;
+pg_config_data = {}
 
 
 class ClusterException(Exception): pass
@@ -58,8 +59,6 @@ class PostgresNode:
         self.base_dir = tempfile.mkdtemp()
         os.makedirs(self.logs_dir)
         self.working = False
-        self.config = {}
-        self.load_pg_config()
 
     @property
     def data_dir(self):
@@ -82,23 +81,13 @@ class PostgresNode:
         return "port=%s" % self.port    
         # return "port=%s host=%s" % (self.port, self.host)
 
-    def load_pg_config(self):
-        """ Loads pg_config output into dict """
-        pg_config = os.environ.get("PG_CONFIG") \
-            if "PG_CONFIG" in os.environ else "pg_config"
-
-        out = subprocess.check_output([pg_config])
-        for line in out.split("\n"):
-            if line:
-                key, value = line.split("=", 1)
-                self.config[key.strip()] = value.strip()
-
     def get_bin_path(self, filename):
         """ Returns full path to an executable """
-        if not "BINDIR" in self.config:
+        pg_config = get_config()
+        if not "BINDIR" in pg_config:
             return filename
         else:
-            return "%s/%s" % (self.config["BINDIR"], filename)
+            return "%s/%s" % (pg_config.get("BINDIR"), filename)
 
     def init(self, allows_streaming=False):
         """ Performs initdb """
@@ -129,8 +118,8 @@ class PostgresNode:
                 "listen_addresses = '%s'\n" % self.host)
 
             if allows_streaming:
+                # TODO: wal_level = hot_standby (9.5)
                 conf.write(
-                    "wal_level = replica\n"
                     "max_wal_senders = 5\n"
                     "wal_keep_segments = 20\n"
                     "max_wal_size = 128MB\n"
@@ -138,6 +127,11 @@ class PostgresNode:
                     "wal_log_hints = on\n"
                     "hot_standby = on\n"
                     "max_connections = 10\n")
+                if get_config().get("VERSION_NUM") < 906000:
+                    conf.write("wal_level = hot_standby\n")
+                else:
+                    conf.write("wal_level = replica\n")
+
         self.set_replication_conf()
 
     def init_from_backup(self, root_node, backup_name, has_streaming=False, hba_permit_replication=True):
@@ -335,6 +329,38 @@ class PostgresNode:
 def get_username():
     """ Returns current user name """
     return pwd.getpwuid(os.getuid())[0]
+
+def get_config():
+    global pg_config_data
+
+    if not pg_config_data:
+        pg_config_cmd = os.environ.get("PG_CONFIG") \
+            if "PG_CONFIG" in os.environ else "pg_config"
+
+        out = subprocess.check_output([pg_config_cmd])
+        for line in out.split("\n"):
+            if line:
+                key, value = unicode(line).split("=", 1)
+                pg_config_data[key.strip()] = value.strip()
+
+        # Numeric version format
+        version_parts = pg_config_data.get("VERSION").split(" ")
+        pg_config_data["VERSION_NUM"] = version_to_num(version_parts[-1])
+
+    return pg_config_data
+
+def version_to_num(version):
+    """Converts PostgreSQL version to number for easier comparison"""
+    import re
+
+    if not version:
+        return 0
+    parts = version.split(".")
+    while len(parts) < 3: parts.append("0")
+    num = 0
+    for part in parts:
+        num = num*100 + int(re.sub("[^\d]", "", part))
+    return num
 
 def get_new_node(name):
     global registered_nodes

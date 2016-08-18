@@ -39,7 +39,7 @@ class SimpleTest(unittest.TestCase):
 		# Wait until data syncronizes
 		node.poll_query_until(
 			'postgres',
-			'SELECT pg_current_xlog_location() <= write_location '
+			'SELECT pg_current_xlog_location() <= replay_location '
 			'FROM pg_stat_replication WHERE application_name = \'%s\''
 			% replica.name)
 		# time.sleep(0.5)
