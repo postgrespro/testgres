@@ -76,9 +76,45 @@ class NodeConnection(object):
     def __exit__(self, type, value, tb):
         self.connection.close()
 
-    def execute(self, query):
-        self.cursor.execute(query)
-        return self.cursor.fetchall()
+    def begin(self, isolation_level=0):
+        levels = [ 'read uncommitted',
+                   'read committed',
+                   'repeatable read',
+                   'serializable' ]
+
+        # Check if level is int [0..3]
+        if isinstance(isolation_level, int) and \
+           isolation_level in range(0, 4):
+
+            # Replace index with isolation level type
+            isolation_level = levels[isolation_level]
+
+        # Or it might be a string
+        elif isinstance(isolation_level, str) and \
+             str.lower(isolation_level) in levels:
+
+            # Nothing to do here
+            pass
+
+        # Something is wrong, emit exception
+        else:
+            raise QueryException('Invalid isolation level "%s"'
+                                 % isolation_level)
+
+        self.cursor.execute('SET TRANSACTION ISOLATION LEVEL %s'
+                            % isolation_level)
+
+    def commit(self):
+        self.connection.commit()
+
+    def rollback(self):
+        self.connection.rollback()
+
+    def execute(self, query, *args):
+        self.cursor.execute(query, args)
+
+        if self.cursor.rowcount > 0:
+            return self.cursor.fetchall()
 
     def close(self):
         self.connection.close()
@@ -359,7 +395,7 @@ class PostgresNode:
 
             return backup_path
 
-    def connect(self, dbname):
+    def connect(self, dbname='postgres'):
         return NodeConnection(parent_node=self, dbname=dbname)
 
 
