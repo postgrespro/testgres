@@ -29,6 +29,7 @@ import pwd
 import tempfile
 import shutil
 import time
+import six
 
 # Try to use psycopg2 by default. If psycopg2 isn"t available then use 
 # pg8000 which is slower but much more portable because uses only
@@ -120,7 +121,7 @@ class NodeConnection(object):
         self.connection.close()
 
 
-class PostgresNode:
+class PostgresNode(object):
     def __init__(self, name, port):
         self.name = name
         self.host = '127.0.0.1'
@@ -258,7 +259,7 @@ class PostgresNode:
         pg_ctl = self.get_bin_path("pg_ctl")
 
         arguments = [pg_ctl]
-        for key, value in params.iteritems():
+        for key, value in six.iteritems(params):
             arguments.append(key)
             if value:
                 arguments.append(value)
@@ -363,9 +364,8 @@ class PostgresNode:
 
         while attemps < max_attemps:
             ret = self.safe_psql(dbname, query)
-
             # TODO: fix psql so that it returns result without newline
-            if ret == "t\n":
+            if ret == six.b("t\n"):
                 return
 
             time.sleep(1)
@@ -410,10 +410,10 @@ def get_config():
         pg_config_cmd = os.environ.get("PG_CONFIG") \
             if "PG_CONFIG" in os.environ else "pg_config"
 
-        out = subprocess.check_output([pg_config_cmd])
-        for line in out.split("\n"):
-            if line:
-                key, value = unicode(line).split("=", 1)
+        out = six.StringIO(subprocess.check_output([pg_config_cmd], universal_newlines=True))
+        for line in out:
+            if line and "=" in line:
+                key, value = line.split("=", 1)
                 pg_config_data[key.strip()] = value.strip()
 
         # Numeric version format
