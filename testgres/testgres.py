@@ -23,14 +23,15 @@ Copyright (c) 2016, Postgres Professional
 
 import os
 import random
-import socket
+# import socket
 import subprocess
 import pwd
 import tempfile
 import shutil
 import time
+import six
 
-# Try to use psycopg2 by default. If psycopg2 isn"t available then use 
+# Try to use psycopg2 by default. If psycopg2 isn"t available then use
 # pg8000 which is slower but much more portable because uses only
 # pure-Python code
 try:
@@ -43,21 +44,28 @@ except ImportError:
 
 
 registered_nodes = []
-last_assigned_port = int(random.random() * 16384) + 49152;
+last_assigned_port = int(random.random() * 16384) + 49152
 pg_config_data = {}
 
 
-"""
-Predefined exceptions
-"""
-class ClusterException(Exception): pass
-class QueryException(Exception): pass
+class ClusterException(Exception):
+    """
+    Predefined exceptions
+    """
+    pass
 
 
-"""
-Transaction wrapper returned by Node
-"""
+class QueryException(Exception):
+    """
+    Predefined exceptions
+    """
+    pass
+
+
 class NodeConnection(object):
+    """
+    Transaction wrapper returned by Node
+    """
     def __init__(self, parent_node, dbname):
         self.parent_node = parent_node
 
@@ -77,21 +85,22 @@ class NodeConnection(object):
         self.connection.close()
 
     def begin(self, isolation_level=0):
-        levels = [ 'read uncommitted',
-                   'read committed',
-                   'repeatable read',
-                   'serializable' ]
+        levels = ['read uncommitted',
+                  'read committed',
+                  'repeatable read',
+                  'serializable']
 
+        print(type(isolation_level))
         # Check if level is int [0..3]
-        if isinstance(isolation_level, int) and \
-           isolation_level in range(0, 4):
+        if (isinstance(isolation_level, int) and
+           isolation_level in range(0, 4)):
 
             # Replace index with isolation level type
             isolation_level = levels[isolation_level]
 
         # Or it might be a string
-        elif isinstance(isolation_level, str) and \
-             str.lower(isolation_level) in levels:
+        elif (isinstance(isolation_level, six.text_type) and
+              isolation_level.lower() in levels):
 
             # Nothing to do here
             pass
@@ -120,7 +129,7 @@ class NodeConnection(object):
         self.connection.close()
 
 
-class PostgresNode:
+class PostgresNode(object):
     def __init__(self, name, port):
         self.name = name
         self.host = '127.0.0.1'
@@ -147,13 +156,13 @@ class PostgresNode:
 
     @property
     def connstr(self):
-        return "port=%s" % self.port    
+        return "port=%s" % self.port
         # return "port=%s host=%s" % (self.port, self.host)
 
     def get_bin_path(self, filename):
         """ Returns full path to an executable """
         pg_config = get_config()
-        if not "BINDIR" in pg_config:
+        if "BINDIR" not in pg_config:
             return filename
         else:
             return "%s/%s" % (pg_config.get("BINDIR"), filename)
@@ -258,7 +267,7 @@ class PostgresNode:
         pg_ctl = self.get_bin_path("pg_ctl")
 
         arguments = [pg_ctl]
-        for key, value in params.iteritems():
+        for key, value in six.iteritems(params):
             arguments.append(key)
             if value:
                 arguments.append(value)
@@ -406,9 +415,8 @@ class PostgresNode:
 
         while attemps < max_attemps:
             ret = self.safe_psql(dbname, query)
-
             # TODO: fix psql so that it returns result without newline
-            if ret == "t\n":
+            if ret == six.b("t\n"):
                 return
 
             time.sleep(1)
@@ -446,6 +454,7 @@ def get_username():
     """ Returns current user name """
     return pwd.getpwuid(os.getuid())[0]
 
+
 def get_config():
     global pg_config_data
 
@@ -453,10 +462,10 @@ def get_config():
         pg_config_cmd = os.environ.get("PG_CONFIG") \
             if "PG_CONFIG" in os.environ else "pg_config"
 
-        out = subprocess.check_output([pg_config_cmd])
-        for line in out.split("\n"):
-            if line:
-                key, value = unicode(line).split("=", 1)
+        out = six.StringIO(subprocess.check_output([pg_config_cmd], universal_newlines=True))
+        for line in out:
+            if line and "=" in line:
+                key, value = line.split("=", 1)
                 pg_config_data[key.strip()] = value.strip()
 
         # Numeric version format
@@ -465,6 +474,7 @@ def get_config():
 
     return pg_config_data
 
+
 def version_to_num(version):
     """Converts PostgreSQL version to number for easier comparison"""
     import re
@@ -472,11 +482,13 @@ def version_to_num(version):
     if not version:
         return 0
     parts = version.split(".")
-    while len(parts) < 3: parts.append("0")
+    while len(parts) < 3:
+        parts.append("0")
     num = 0
     for part in parts:
         num = num*100 + int(re.sub("[^\d]", "", part))
     return num
+
 
 def get_new_node(name):
     global registered_nodes
@@ -505,11 +517,13 @@ def get_new_node(name):
 
     return node
 
+
 def clean_all():
     global registered_nodes
     for node in registered_nodes:
         node.cleanup()
     registered_nodes = []
+
 
 def stop_all():
     global registered_nodes

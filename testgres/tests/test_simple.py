@@ -1,6 +1,8 @@
 import unittest
-import time
-from testgres import get_new_node, clean_all, stop_all
+# import time
+# from testgres import clean_all
+from testgres import get_new_node, stop_all
+
 
 class SimpleTest(unittest.TestCase):
 

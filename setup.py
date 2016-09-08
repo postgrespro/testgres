@@ -10,5 +10,5 @@ setup(
   #download_url = 'https://github.com/postgrespro/testgres/tarball/0.1.1',
   keywords = ['testing', 'postgresql'],
   classifiers = [],
-  install_requires = ["pg8000"]
+  install_requires = ["pg8000", "six"]
 )
