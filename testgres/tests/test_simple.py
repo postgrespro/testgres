@@ -20,7 +20,6 @@ class SimpleTest(unittest.TestCase):
 		self.assertEqual(res[0][0], 1)
 		node.stop()
 
-	@unittest.skip("demo")
 	def test_backup_and_replication(self):
 		node = get_new_node('test')
 		replica = get_new_node('repl')
