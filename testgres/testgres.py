@@ -302,6 +302,13 @@ class PostgresNode:
 
         return self
 
+    def restart(self):
+        """ Restarts cluster """
+        params = {"-D": self.data_dir}
+        self.pg_ctl("restart", params)
+
+        return self
+
     def reload(self):
         """Reloads config files"""
         params = {"-D": self.data_dir}
@@ -321,7 +328,7 @@ class PostgresNode:
 
         return self
 
-    def psql(self, dbname, query):
+    def psql(self, dbname, query=None, filename=None):
         """Executes a query by the psql
 
         Returns a tuple (code, stdout, stderr) in which:
@@ -331,8 +338,15 @@ class PostgresNode:
         """
         psql = self.get_bin_path("psql")
         psql_params = [
-            psql, "-XAtq", "-c", query, "-p %s" % self.port, dbname
+            psql, "-XAtq", "-p %s" % self.port, dbname
         ]
+
+        if query:
+            psql_params.extend(("-c", query))
+        elif filename:
+            psql_params.extend(("-f", filename))
+        else:
+            raise QueryException('Query or filename must be provided')
 
         # start psql process
         process = subprocess.Popen(
@@ -355,6 +369,35 @@ class PostgresNode:
         if ret:
             raise ClusterException("psql failed:\n" + err)
         return out
+
+    def dump(self, dbname, filename):
+        """Invoke pg_dump and exports database to a file as an sql script"""
+        path = self.base_dir + "/" + filename
+        params = [
+            self.get_bin_path("pg_dump"),
+            "-p %s" % self.port,
+            "-f", path,
+            dbname
+        ]
+
+        with open(self.error_filename, "a") as file_err:
+            ret = subprocess.call(params, stderr=file_err)
+            if ret:
+                raise ClusterException("Dump creation failed")
+
+    def restore(self, dbname, filename, node=None):
+        """ Restore database from dump file
+
+        dbname     name of database we're restoring data to
+        filename   path to the dump file
+        node       the cluster node where the dump was taken from (if node
+                   wasn't specified then assume the same cluster)
+        """
+        if not node:
+            node = self
+
+        path = node.base_dir + "/" + filename
+        self.psql(dbname, filename=path)
 
     def poll_query_until(self, dbname, query):
         """Runs a query once a second until it returs True"""

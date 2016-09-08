@@ -18,6 +18,7 @@ class SimpleTest(unittest.TestCase):
 		self.assertEqual(res[0][0], 1)
 		node.stop()
 
+	@unittest.skip("demo")
 	def test_backup_and_replication(self):
 		node = get_new_node('test')
 		replica = get_new_node('repl')
@@ -50,6 +51,23 @@ class SimpleTest(unittest.TestCase):
 
 		node.stop()
 		replica.stop()
+
+	def test_dump(self):
+		node = get_new_node('test')
+		node.init().start()
+		node.safe_psql(
+			'postgres',
+			'create table abc as '
+			'select g as a, g as b from generate_series(1, 10) as g'
+		)
+		node.psql('postgres', 'create database test')
+		node.dump('postgres', 'test.sql')
+		node.restore('test', 'test.sql')
+		self.assertEqual(
+			node.psql('postgres', 'select * from abc'),
+			node.psql('test', 'select * from abc'),
+		)
+		node.stop()
 
 if __name__ == '__main__':
 	unittest.main()
