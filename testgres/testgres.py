@@ -376,7 +376,7 @@ class PostgresNode(object):
         """
         ret, out, err = self.psql(dbname, query)
         if ret:
-            raise ClusterException("psql failed:\n" + err)
+            raise ClusterException("psql failed:\n" + six.text_type(err))
         return out
 
     def dump(self, dbname, filename):
