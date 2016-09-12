@@ -1,4 +1,4 @@
-#coding: utf-8
+# coding: utf-8
 """
 testgres.py
         Postgres testing utility
@@ -49,6 +49,7 @@ pg_config_data = {}
 
 
 class ClusterException(Exception):
+
     """
     Predefined exceptions
     """
@@ -56,6 +57,7 @@ class ClusterException(Exception):
 
 
 class QueryException(Exception):
+
     """
     Predefined exceptions
     """
@@ -63,9 +65,11 @@ class QueryException(Exception):
 
 
 class NodeConnection(object):
+
     """
     Transaction wrapper returned by Node
     """
+
     def __init__(self, parent_node, dbname):
         self.parent_node = parent_node
 
@@ -93,7 +97,7 @@ class NodeConnection(object):
         print(type(isolation_level))
         # Check if level is int [0..3]
         if (isinstance(isolation_level, int) and
-           isolation_level in range(0, 4)):
+                isolation_level in range(0, 4)):
 
             # Replace index with isolation level type
             isolation_level = levels[isolation_level]
@@ -130,6 +134,7 @@ class NodeConnection(object):
 
 
 class PostgresNode(object):
+
     def __init__(self, name, port):
         self.name = name
         self.host = '127.0.0.1'
@@ -140,19 +145,19 @@ class PostgresNode(object):
 
     @property
     def data_dir(self):
-        return "%s/data" % self.base_dir
+        return os.path.join(self.base_dir, "data")
 
     @property
     def logs_dir(self):
-        return "%s/logs" % self.base_dir
+        return os.path.join(self.base_dir, "logs")
 
     @property
     def output_filename(self):
-        return "%s/stdout.log" % self.logs_dir
+        return os.path.join(self.logs_dir, "stdout.log")
 
     @property
     def error_filename(self):
-        return "%s/stderr.log" % self.logs_dir
+        return os.path.join(self.logs_dir, "stderr.log")
 
     @property
     def connstr(self):
@@ -165,7 +170,7 @@ class PostgresNode(object):
         if "BINDIR" not in pg_config:
             return filename
         else:
-            return "%s/%s" % (pg_config.get("BINDIR"), filename)
+            return os.path.join(pg_config.get("BINDIR"), filename)
 
     def init(self, allows_streaming=False):
         """ Performs initdb """
@@ -174,7 +179,7 @@ class PostgresNode(object):
         os.makedirs(self.data_dir)
         initdb = self.get_bin_path("initdb")
         with open(self.output_filename, "a") as file_out, \
-             open(self.error_filename, "a") as file_err:
+                open(self.error_filename, "a") as file_err:
             ret = subprocess.call(
                 [initdb, self.data_dir, "-N"],
                 stdout=file_out,
@@ -184,8 +189,8 @@ class PostgresNode(object):
                 raise ClusterException("Cluster initialization failed")
 
         # add parameters to config file
-        config_name = "%s/postgresql.conf" % self.data_dir
-        with open(config_name, "a") as conf:
+        postgres_conf = os.path.join(self.data_dir, "postgresql.conf")
+        with open(postgres_conf, "a") as conf:
             conf.write(
                 "fsync = off\n"
                 "log_statement = all\n"
@@ -218,7 +223,7 @@ class PostgresNode(object):
         """Initializes cluster from backup, made by another node"""
 
         # Copy data from backup
-        backup_path = "%s/%s" % (root_node.base_dir, backup_name)
+        backup_path = os.path.join(root_node.base_dir, backup_name)
         shutil.copytree(backup_path, self.data_dir)
         os.chmod(self.data_dir, 0o0700)
 
@@ -234,14 +239,14 @@ class PostgresNode(object):
             self.enable_streaming(root_node)
 
     def set_replication_conf(self):
-        hba_conf = "%s/pg_hba.conf" % self.data_dir
+        hba_conf = os.path.join(self.data_dir, "pg_hba.conf")
         with open(hba_conf, "a") as conf:
             conf.write("local replication all trust\n")
             # conf.write("host replication all 127.0.0.1/32 trust\n")
 
     def enable_streaming(self, root_node):
-        config_name = "%s/recovery.conf" % self.data_dir
-        with open(config_name, "a") as conf:
+        recovery_conf = os.path.join(self.data_dir, "recovery.conf")
+        with open(recovery_conf, "a") as conf:
             conf.write(
                 "primary_conninfo='%s application_name=%s'\n"
                 "standby_mode=on\n"
@@ -273,7 +278,7 @@ class PostgresNode(object):
                 arguments.append(value)
 
         with open(self.output_filename, "a") as file_out, \
-             open(self.error_filename, "a") as file_err:
+                open(self.error_filename, "a") as file_err:
 
             res = subprocess.call(
                 arguments + [command],
@@ -287,7 +292,7 @@ class PostgresNode(object):
 
     def start(self):
         """ Starts cluster """
-        logfile = self.logs_dir + "/postgresql.log"
+        logfile = os.path.join(self.logs_dir, "postgresql.log")
         params = {
             "-D": self.data_dir,
             "-w": None,
@@ -381,7 +386,7 @@ class PostgresNode(object):
 
     def dump(self, dbname, filename):
         """Invoke pg_dump and exports database to a file as an sql script"""
-        path = self.base_dir + "/" + filename
+        path = os.path.join(self.base_dir, filename)
         params = [
             self.get_bin_path("pg_dump"),
             "-p %s" % self.port,
@@ -405,7 +410,7 @@ class PostgresNode(object):
         if not node:
             node = self
 
-        path = node.base_dir + "/" + filename
+        path = os.path.join(node.base_dir, filename)
         self.psql(dbname, filename=path)
 
     def poll_query_until(self, dbname, query):
@@ -431,11 +436,11 @@ class PostgresNode(object):
     def backup(self, name):
         """Performs pg_basebackup"""
         pg_basebackup = self.get_bin_path("pg_basebackup")
-        backup_path = self.base_dir + "/" + name
+        backup_path = os.path.join(self.base_dir, name)
         os.makedirs(backup_path)
         params = [pg_basebackup, "-D", backup_path, "-p %s" % self.port, "-x"]
         with open(self.output_filename, "a") as file_out, \
-             open(self.error_filename, "a") as file_err:
+                open(self.error_filename, "a") as file_err:
             ret = subprocess.call(
                 params,
                 stdout=file_out,
@@ -462,7 +467,8 @@ def get_config():
         pg_config_cmd = os.environ.get("PG_CONFIG") \
             if "PG_CONFIG" in os.environ else "pg_config"
 
-        out = six.StringIO(subprocess.check_output([pg_config_cmd], universal_newlines=True))
+        out = six.StringIO(
+            subprocess.check_output([pg_config_cmd], universal_newlines=True))
         for line in out:
             if line and "=" in line:
                 key, value = line.split("=", 1)
