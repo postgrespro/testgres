@@ -41,7 +41,13 @@ Let's walk through the code. First you create new node:
 node = testgres.get_new_node('master')
 ```
 
-`master` is a node's name, not the database's name. The name matters if you're testing something like replication. Function `get_new_node()` only creates directory structure in `/tmp` for cluster. After that, we have to initialize the PostgreSQL cluster:
+or:
+
+```python
+node = testgres.get_new_node('master', '/path/to/base')
+```
+
+`master` is a node's name, not the database's name. The name matters if you're testing something like replication. Function `get_new_node()` only creates directory structure in specified directory (or in '/tmp' if we did not specify base directory) for cluster. After that, we have to initialize the PostgreSQL cluster:
 
 ```python
 node.init()
