@@ -3,7 +3,7 @@ setup(
     name='testgres',
     packages=['testgres'],
     version='0.1.11',
-    description='Testing utility for postgresql and it''s extensions',
+    description='Testing utility for postgresql and its extensions',
     author='Ildar Musin',
     author_email='zildermann@gmail.com',
     url='https://github.com/postgrespro/testgres',

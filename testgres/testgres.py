@@ -492,7 +492,7 @@ def version_to_num(version):
         parts.append("0")
     num = 0
     for part in parts:
-        num = num*100 + int(re.sub("[^\d]", "", part))
+        num = num * 100 + int(re.sub("[^\d]", "", part))
     return num
 
 
@@ -501,6 +501,9 @@ def get_new_node(name):
     global last_assigned_port
 
     port = last_assigned_port + 1
+
+    # TODO: check if port is already used
+
     # found = False
     # while found:
     #   # Check first that candidate port number is not included in
