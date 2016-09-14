@@ -135,12 +135,16 @@ class NodeConnection(object):
 
 class PostgresNode(object):
 
-    def __init__(self, name, port):
+    def __init__(self, name, port, base_dir=None):
         self.name = name
         self.host = '127.0.0.1'
         self.port = port
-        self.base_dir = tempfile.mkdtemp()
-        os.makedirs(self.logs_dir)
+        if base_dir is None:
+            self.base_dir = tempfile.mkdtemp()
+        else:
+            self.base_dir = base_dir
+        if not os.path.exists(self.logs_dir):
+            os.makedirs(self.logs_dir)
         self.working = False
 
     @property
@@ -175,6 +179,14 @@ class PostgresNode(object):
     def init(self, allows_streaming=False):
         """ Performs initdb """
 
+        postgres_conf = os.path.join(self.data_dir, "postgresql.conf")
+
+        if os.path.isfile(postgres_conf):
+            # if data directory exists then we don't need reinit it
+            with open(postgres_conf, "a") as conf:
+                conf.write("port = %s\n" % self.port)
+            return self
+
         # initialize cluster
         os.makedirs(self.data_dir)
         initdb = self.get_bin_path("initdb")
@@ -189,7 +201,6 @@ class PostgresNode(object):
                 raise ClusterException("Cluster initialization failed")
 
         # add parameters to config file
-        postgres_conf = os.path.join(self.data_dir, "postgresql.conf")
         with open(postgres_conf, "a") as conf:
             conf.write(
                 "fsync = off\n"
@@ -258,7 +269,7 @@ class PostgresNode(object):
 
         A new line is not automatically appended to the string
         """
-        config_name = "%s/%s" % (self.data_dir, filename)
+        config_name = os.path.join(self.data_dir, filename)
         with open(config_name, "a") as conf:
             conf.write(''.join([string, '\n']))
 
@@ -496,7 +507,7 @@ def version_to_num(version):
     return num
 
 
-def get_new_node(name):
+def get_new_node(name, base_dir=None):
     global registered_nodes
     global last_assigned_port
 
@@ -520,7 +531,7 @@ def get_new_node(name):
     #              socket.SOCK_STREAM,
     #              socket.getprotobyname("tcp"))
 
-    node = PostgresNode(name, port)
+    node = PostgresNode(name, port, base_dir)
     registered_nodes.append(node)
     last_assigned_port = port
 

@@ -13,7 +13,7 @@ To install `testgres`, run:
 pip install testgres
 ```
 
-We encourage you to use `virtualenv` for your testing environment. Currently `testgres` works only with Python 2.x, but this is going to change soon.
+We encourage you to use `virtualenv` for your testing environment. Both Python 2.7 and 3.5 are supported.
 
 
 ## Usage
@@ -25,14 +25,15 @@ Here is an example of what you can do with `testgres`:
 ```python
 import testgres
 
+node = None
 try:
     node = testgres.get_new_node('test').init().start()
-    print node.safe_psql('postgres', 'SELECT 1')
-    node.stop()
-except ClusterException, e:
-    print e
+    print(node.execute('postgres', 'select 1'))
+except testgres.ClusterException as e:
+    print(e)
 finally:
-    node.cleanup()
+    if node is not None:
+        node.cleanup()
 ```
 
 Let's walk through the code. First you create new node:
@@ -41,7 +42,13 @@ Let's walk through the code. First you create new node:
 node = testgres.get_new_node('master')
 ```
 
-`master` is a node's name, not the database's name. The name matters if you're testing something like replication. Function `get_new_node()` only creates directory structure in `/tmp` for cluster. After that, we have to initialize the PostgreSQL cluster:
+or:
+
+```python
+node = testgres.get_new_node('master', '/path/to/base')
+```
+
+`master` is a node's name, not the DB's name. The name matters if you're testing something like replication. Function `get_new_node()` only creates directory structure in specified directory (or somewhere in '/tmp' if we did not specify base directory) for cluster. After that, we have to initialize the PostgreSQL cluster:
 
 ```python
 node.init()
@@ -65,7 +72,7 @@ The last one is the most powerful: you can use `begin(isolation_level)`, `commit
 ```python
 with node.connect() as con:
     con.begin('serializable')
-    print con.execute('select %s', 1)
+    print(con.execute('select %s', 1))
     con.rollback()
 ```
 
