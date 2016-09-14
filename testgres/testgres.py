@@ -111,11 +111,9 @@ class NodeConnection(object):
 
         # Something is wrong, emit exception
         else:
-            raise QueryException('Invalid isolation level "%s"'
-                                 % isolation_level)
+            raise QueryException('Invalid isolation level "{}"'.format(isolation_level))
 
-        self.cursor.execute('SET TRANSACTION ISOLATION LEVEL %s'
-                            % isolation_level)
+        self.cursor.execute('SET TRANSACTION ISOLATION LEVEL {}'.format(isolation_level))
 
     def commit(self):
         self.connection.commit()
@@ -165,7 +163,7 @@ class PostgresNode(object):
 
     @property
     def connstr(self):
-        return "port=%s" % self.port
+        return "port={}".format(self.port)
         # return "port=%s host=%s" % (self.port, self.host)
 
     def get_bin_path(self, filename):
@@ -184,7 +182,7 @@ class PostgresNode(object):
         if os.path.isfile(postgres_conf):
             # if data directory exists then we don't need reinit it
             with open(postgres_conf, "a") as conf:
-                conf.write("port = %s\n" % self.port)
+                conf.write("port = {}\n".format(self.port))
             return self
 
         # initialize cluster
@@ -205,11 +203,11 @@ class PostgresNode(object):
             conf.write(
                 "fsync = off\n"
                 "log_statement = all\n"
-                "port = %s\n" % self.port)
+                "port = {}\n".format(self.port))
             conf.write(
                 # "unix_socket_directories = '%s'\n"
                 # "listen_addresses = ''\n";)
-                "listen_addresses = '%s'\n" % self.host)
+                "listen_addresses = {}\n".format(self.host))
 
             if allows_streaming:
                 # TODO: wal_level = hot_standby (9.5)
@@ -241,7 +239,7 @@ class PostgresNode(object):
         # Change port in config file
         self.append_conf(
             "postgresql.conf",
-            "port = %s" % self.port
+            "port = {}".format(self.port)
         )
         # Enable streaming
         if hba_permit_replication:
@@ -259,9 +257,8 @@ class PostgresNode(object):
         recovery_conf = os.path.join(self.data_dir, "recovery.conf")
         with open(recovery_conf, "a") as conf:
             conf.write(
-                "primary_conninfo='%s application_name=%s'\n"
-                "standby_mode=on\n"
-                % (root_node.connstr, self.name))
+                "primary_conninfo='{} application_name={}'\n"
+                "standby_mode=on\n".format(root_node.connstr, self.name))
 
     def append_conf(self, filename, string):
         """Appends line to a config file like "postgresql.conf"
@@ -363,7 +360,7 @@ class PostgresNode(object):
         """
         psql = self.get_bin_path("psql")
         psql_params = [
-            psql, "-XAtq", "-p %s" % self.port, dbname
+            psql, "-XAtq", "-p {}".format(self.port), dbname
         ]
 
         if query:
@@ -400,7 +397,7 @@ class PostgresNode(object):
         path = os.path.join(self.base_dir, filename)
         params = [
             self.get_bin_path("pg_dump"),
-            "-p %s" % self.port,
+            "-p {}".format(self.port),
             "-f", path,
             dbname
         ]
@@ -449,7 +446,7 @@ class PostgresNode(object):
         pg_basebackup = self.get_bin_path("pg_basebackup")
         backup_path = os.path.join(self.base_dir, name)
         os.makedirs(backup_path)
-        params = [pg_basebackup, "-D", backup_path, "-p %s" % self.port, "-x"]
+        params = [pg_basebackup, "-D", backup_path, "-p {}".format(self.port), "-x"]
         with open(self.output_filename, "a") as file_out, \
                 open(self.error_filename, "a") as file_err:
             ret = subprocess.call(
