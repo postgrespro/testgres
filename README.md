@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/postgrespro/testgres.svg?branch=master)](https://travis-ci.org/postgrespro/testgres)
 [![PyPI version](https://badge.fury.io/py/testgres.svg)](https://badge.fury.io/py/testgres)
 
 # testgres
