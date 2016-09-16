@@ -111,9 +111,11 @@ class NodeConnection(object):
 
         # Something is wrong, emit exception
         else:
-            raise QueryException('Invalid isolation level "{}"'.format(isolation_level))
+            raise QueryException('Invalid isolation level "{}"'.format(
+                isolation_level))
 
-        self.cursor.execute('SET TRANSACTION ISOLATION LEVEL {}'.format(isolation_level))
+        self.cursor.execute('SET TRANSACTION ISOLATION LEVEL {}'.format(
+            isolation_level))
 
     def commit(self):
         self.connection.commit()
@@ -228,7 +230,8 @@ class PostgresNode(object):
 
         return self
 
-    def init_from_backup(self, root_node, backup_name, has_streaming=False, hba_permit_replication=True):
+    def init_from_backup(self, root_node, backup_name, has_streaming=False,
+                         hba_permit_replication=True):
         """Initializes cluster from backup, made by another node"""
 
         # Copy data from backup
@@ -446,7 +449,8 @@ class PostgresNode(object):
         pg_basebackup = self.get_bin_path("pg_basebackup")
         backup_path = os.path.join(self.base_dir, name)
         os.makedirs(backup_path)
-        params = [pg_basebackup, "-D", backup_path, "-p {}".format(self.port), "-x"]
+        params = [pg_basebackup, "-D", backup_path, "-p {}".format(
+            self.port), "-x"]
         with open(self.output_filename, "a") as file_out, \
                 open(self.error_filename, "a") as file_err:
             ret = subprocess.call(
