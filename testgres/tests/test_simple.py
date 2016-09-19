@@ -15,7 +15,7 @@ class SimpleTest(unittest.TestCase):
 		node = get_new_node('test')
 		node.init()
 		node.start()
-		res = node.execute('postgres', 'select 1')
+		res = node.execute('postgres', '127.0.0.1', 'select 1')
 		self.assertEqual(len(res), 1)
 		self.assertEqual(res[0][0], 1)
 		node.stop()
@@ -32,7 +32,7 @@ class SimpleTest(unittest.TestCase):
 
 		replica.init_from_backup(node, 'my_backup', has_streaming=True)
 		replica.start()
-		res = replica.execute('postgres', 'select * from abc')
+		res = replica.execute('postgres', '127.0.0.1', 'select * from abc')
 		self.assertEqual(len(res), 1)
 		self.assertEqual(res[0], (1, 2))
 
@@ -46,7 +46,7 @@ class SimpleTest(unittest.TestCase):
 			% replica.name)
 		# time.sleep(0.5)
 		# Check that this record was exported to replica
-		res = replica.execute('postgres', 'select * from abc')
+		res = replica.execute('postgres', '127.0.0.1', 'select * from abc')
 		self.assertEqual(len(res), 2)
 		self.assertEqual(res[1], (3, 4))
 

@@ -70,14 +70,14 @@ class NodeConnection(object):
     Transaction wrapper returned by Node
     """
 
-    def __init__(self, parent_node, dbname):
+    def __init__(self, parent_node, dbname, host='127.0.0.1'):
         self.parent_node = parent_node
 
         self.connection = pglib.connect(
             database=dbname,
             user=get_username(),
             port=parent_node.port,
-            host="127.0.0.1"
+            host=host
         )
 
         self.cursor = self.connection.cursor()
@@ -111,11 +111,9 @@ class NodeConnection(object):
 
         # Something is wrong, emit exception
         else:
-            raise QueryException('Invalid isolation level "{}"'.format(
-                isolation_level))
+            raise QueryException('Invalid isolation level "{}"'.format(isolation_level))
 
-        self.cursor.execute('SET TRANSACTION ISOLATION LEVEL {}'.format(
-            isolation_level))
+        self.cursor.execute('SET TRANSACTION ISOLATION LEVEL {}'.format(isolation_level))
 
     def commit(self):
         self.connection.commit()
@@ -135,9 +133,9 @@ class NodeConnection(object):
 
 class PostgresNode(object):
 
-    def __init__(self, name, port, base_dir=None):
+    def __init__(self, name,  port, host='127.0.0.1',  base_dir=None):
         self.name = name
-        self.host = '127.0.0.1'
+        self.host = host
         self.port = port
         if base_dir is None:
             self.base_dir = tempfile.mkdtemp()
@@ -439,9 +437,15 @@ class PostgresNode(object):
             attemps += 1
         raise QueryException("Timeout while waiting for query to return True")
 
-    def execute(self, dbname, query):
-        """Executes the query and returns all rows"""
-        with self.connect(dbname) as node_con:
+    def execute(self, dbname, host, query):
+        """Executes the query and returns all rows
+
+        :param dbname: string, database name
+        :param host: string, hostname or ip address of database
+        :param query: string, query for database
+        :return : connection object
+        """
+        with self.connect(dbname, host) as node_con:
             return node_con.execute(query)
 
     def backup(self, name):
@@ -463,8 +467,8 @@ class PostgresNode(object):
 
             return backup_path
 
-    def connect(self, dbname='postgres'):
-        return NodeConnection(parent_node=self, dbname=dbname)
+    def connect(self, dbname='postgres', host='127.0.0.1' ):
+        return NodeConnection(parent_node=self, dbname=dbname, host=host)
 
 
 def get_username():
