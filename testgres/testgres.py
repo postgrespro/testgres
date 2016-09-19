@@ -70,14 +70,16 @@ class NodeConnection(object):
     Transaction wrapper returned by Node
     """
 
-    def __init__(self, parent_node, dbname):
+    def __init__(self, parent_node, dbname, host="127.0.0.1", user=None, password=None):
         self.parent_node = parent_node
-
+        if user is None:
+            user = get_username()
         self.connection = pglib.connect(
             database=dbname,
-            user=get_username(),
+            user=user,
             port=parent_node.port,
-            host="127.0.0.1"
+            host=host,
+            password=password
         )
 
         self.cursor = self.connection.cursor()
