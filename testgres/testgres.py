@@ -79,7 +79,7 @@ class NodeConnection(object):
             user=user,
             port=parent_node.port,
             host=host,
-            passwrod=password
+            password=password
         )
 
         self.cursor = self.connection.cursor()
