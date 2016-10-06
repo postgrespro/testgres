@@ -211,7 +211,7 @@ class PostgresNode(object):
             conf.write(
                 # "unix_socket_directories = '%s'\n"
                 # "listen_addresses = ''\n";)
-                "listen_addresses = {}\n".format(self.host))
+                "listen_addresses = '{}'\n".format(self.host))
 
             if allows_streaming:
                 # TODO: wal_level = hot_standby (9.5)
@@ -355,7 +355,7 @@ class PostgresNode(object):
 
         return self
 
-    def psql(self, dbname, query=None, filename=None):
+    def psql(self, dbname, query=None, filename=None, username=None):
         """Executes a query by the psql
 
         Returns a tuple (code, stdout, stderr) in which:
@@ -375,6 +375,10 @@ class PostgresNode(object):
         else:
             raise QueryException('Query or filename must be provided')
 
+        # Specify user if needed
+        if username:
+            psql_params.extend(("-U", username))
+
         # start psql process
         process = subprocess.Popen(
             psql_params,
@@ -386,13 +390,13 @@ class PostgresNode(object):
         out, err = process.communicate()
         return process.returncode, out, err
 
-    def safe_psql(self, dbname, query):
+    def safe_psql(self, dbname, query, username=None):
         """Executes a query by the psql
 
         Returns the stdout if succeed. Otherwise throws the
         ClusterException with stderr output
         """
-        ret, out, err = self.psql(dbname, query)
+        ret, out, err = self.psql(dbname, query, username=username)
         if ret:
             raise ClusterException("psql failed:\n" + six.text_type(err))
         return out
@@ -441,9 +445,9 @@ class PostgresNode(object):
             attemps += 1
         raise QueryException("Timeout while waiting for query to return True")
 
-    def execute(self, dbname, query):
+    def execute(self, dbname, query, username=None):
         """Executes the query and returns all rows"""
-        with self.connect(dbname) as node_con:
+        with self.connect(dbname, username) as node_con:
             return node_con.execute(query)
 
     def backup(self, name):
@@ -465,8 +469,8 @@ class PostgresNode(object):
 
             return backup_path
 
-    def connect(self, dbname='postgres'):
-        return NodeConnection(parent_node=self, dbname=dbname)
+    def connect(self, dbname='postgres', username=None):
+        return NodeConnection(parent_node=self, dbname=dbname, user=username)
 
 
 def get_username():
