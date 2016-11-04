@@ -128,8 +128,10 @@ class NodeConnection(object):
     def execute(self, query, *args):
         self.cursor.execute(query, args)
 
-        if self.cursor.rowcount > 0:
+        try:
             return self.cursor.fetchall()
+        except Exception:
+            return None
 
     def close(self):
         self.connection.close()
