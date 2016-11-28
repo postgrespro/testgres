@@ -333,7 +333,10 @@ class PostgresNode(object):
 
     def restart(self):
         """ Restarts cluster """
-        params = {"-D": self.data_dir}
+        params = {
+            "-D": self.data_dir,
+            "-w": None
+        }
         self.pg_ctl("restart", params)
 
         return self
