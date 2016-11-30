@@ -96,7 +96,6 @@ class NodeConnection(object):
                   'repeatable read',
                   'serializable']
 
-        print(type(isolation_level))
         # Check if level is int [0..3]
         if (isinstance(isolation_level, int) and
                 isolation_level in range(0, 4)):
