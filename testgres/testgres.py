@@ -193,12 +193,11 @@ class PostgresNode(object):
         # initialize cluster
         os.makedirs(self.data_dir)
         initdb = self.get_bin_path("initdb")
-        with open(self.output_filename, "a") as file_out, \
-                open(self.error_filename, "a") as file_err:
+        with open(os.path.join(self.logs_dir, "initdb.log"), "a") as file_out:
             ret = subprocess.call(
                 [initdb, self.data_dir, "-N"],
                 stdout=file_out,
-                stderr=file_err
+                stderr=subprocess.STDOUT
             )
             if ret:
                 raise ClusterException("Cluster initialization failed")
