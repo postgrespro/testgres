@@ -479,7 +479,7 @@ class PostgresNode(object):
             pgbench,
             "-i",
             "-s", "%i" % scale,
-            "-p",  "%i" % self.port,
+            "-p", "%i" % self.port
         ] + options + [dbname]
         with open(self.output_filename, "a") as file_out, \
                 open(self.error_filename, "a") as file_err:
@@ -498,7 +498,7 @@ class PostgresNode(object):
         pgbench = self.get_bin_path("pgbench")
         params = [
             pgbench,
-            "-p",  "%i" % self.port,
+            "-p", "%i" % self.port
         ] + options + [dbname]
         proc = subprocess.Popen(
             params,
