@@ -472,6 +472,42 @@ class PostgresNode(object):
 
             return backup_path
 
+    def pgbench_init(self, dbname='postgres', scale=1, options=[]):
+        """Prepare pgbench database"""
+        pgbench = self.get_bin_path("pgbench")
+        params = [
+            pgbench,
+            "-i",
+            "-s", "%i" % scale,
+            "-p", "%i" % self.port
+        ] + options + [dbname]
+        with open(self.output_filename, "a") as file_out, \
+                open(self.error_filename, "a") as file_err:
+            ret = subprocess.call(
+                params,
+                stdout=file_out,
+                stderr=file_err
+            )
+            if ret:
+                raise ClusterException("pgbench init failed")
+
+            return True
+
+    def pgbench(self, dbname='postgres', stdout=None, stderr=None, options=[]):
+        """Make pgbench process"""
+        pgbench = self.get_bin_path("pgbench")
+        params = [
+            pgbench,
+            "-p", "%i" % self.port
+        ] + options + [dbname]
+        proc = subprocess.Popen(
+            params,
+            stdout=stdout,
+            stderr=stderr
+        )
+
+        return proc
+
     def connect(self, dbname='postgres', username=None):
         return NodeConnection(parent_node=self, dbname=dbname, user=username)
 
