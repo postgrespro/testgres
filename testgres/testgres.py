@@ -229,7 +229,7 @@ class PostgresNode(object):
                 else:
                     conf.write("wal_level = replica\n")
 
-        self.set_replication_conf()
+                self.set_replication_conf()
 
         return self
 
