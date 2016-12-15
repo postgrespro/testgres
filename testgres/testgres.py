@@ -452,10 +452,13 @@ class PostgresNode(object):
             attemps += 1
         raise QueryException("Timeout while waiting for query to return True")
 
-    def execute(self, dbname, query, username=None):
+    def execute(self, dbname, query, username=None, commit=False):
         """Executes the query and returns all rows"""
         with self.connect(dbname, username) as node_con:
-            return node_con.execute(query)
+            res = node_con.execute(query)
+            if commit:
+                node_con.commit()
+            return res
 
     def backup(self, name):
         """Performs pg_basebackup"""
