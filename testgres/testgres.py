@@ -277,7 +277,7 @@ class PostgresNode(object):
 
         return self
 
-    def pg_ctl(self, command, params):
+    def pg_ctl(self, command, params, command_options=[]):
         """Runs pg_ctl with specified params
 
         This function is a workhorse for start(), stop() and reload()
@@ -294,7 +294,7 @@ class PostgresNode(object):
                 open(self.error_filename, "a") as file_err:
 
             res = subprocess.call(
-                arguments + [command],
+                arguments + [command] + command_options,
                 stdout=file_out,
                 stderr=file_err
             )
