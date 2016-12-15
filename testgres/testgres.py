@@ -303,46 +303,50 @@ class PostgresNode(object):
                 with open(self.error_filename, "r") as errfile:
                     raise ClusterException(errfile.readlines()[-1])
 
-    def start(self):
+    def start(self, params={}):
         """ Starts cluster """
         logfile = os.path.join(self.logs_dir, "postgresql.log")
-        params = {
+        _params = {
             "-D": self.data_dir,
             "-w": None,
             "-l": logfile,
         }
-        self.pg_ctl("start", params)
+        _params.update(params)
+        self.pg_ctl("start", _params)
 
         self.working = True
 
         return self
 
-    def stop(self):
+    def stop(self, params={}):
         """ Stops cluster """
-        params = {
+        _params = {
             "-D": self.data_dir,
             "-w": None
         }
-        self.pg_ctl("stop", params)
+        _params.update(params)
+        self.pg_ctl("stop", _params)
 
         self.working = False
 
         return self
 
-    def restart(self):
+    def restart(self, params={}):
         """ Restarts cluster """
-        params = {
+        _params = {
             "-D": self.data_dir,
             "-w": None
         }
-        self.pg_ctl("restart", params)
+        _params.update(params)
+        self.pg_ctl("restart", _params)
 
         return self
 
-    def reload(self):
+    def reload(self, params={}):
         """Reloads config files"""
-        params = {"-D": self.data_dir}
-        self.pg_ctl("reload", params)
+        _params = {"-D": self.data_dir}
+        _params.update(params)
+        self.pg_ctl("reload", _params)
 
         return self
 
