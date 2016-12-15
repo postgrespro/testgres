@@ -355,7 +355,10 @@ class PostgresNode(object):
 
         # stop server if it still working
         if self.working:
-            self.stop()
+            try:
+                self.stop()
+            except:
+                pass
 
         # remove data directory
         shutil.rmtree(self.data_dir)
