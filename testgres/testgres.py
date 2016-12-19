@@ -277,7 +277,7 @@ class PostgresNode(object):
 
         return self
 
-    def pg_ctl(self, command, params):
+    def pg_ctl(self, command, params, command_options=[]):
         """Runs pg_ctl with specified params
 
         This function is a workhorse for start(), stop() and reload()
@@ -294,7 +294,7 @@ class PostgresNode(object):
                 open(self.error_filename, "a") as file_err:
 
             res = subprocess.call(
-                arguments + [command],
+                arguments + [command] + command_options,
                 stdout=file_out,
                 stderr=file_err
             )
@@ -303,46 +303,50 @@ class PostgresNode(object):
                 with open(self.error_filename, "r") as errfile:
                     raise ClusterException(errfile.readlines()[-1])
 
-    def start(self):
+    def start(self, params={}):
         """ Starts cluster """
         logfile = os.path.join(self.logs_dir, "postgresql.log")
-        params = {
+        _params = {
             "-D": self.data_dir,
             "-w": None,
             "-l": logfile,
         }
-        self.pg_ctl("start", params)
+        _params.update(params)
+        self.pg_ctl("start", _params)
 
         self.working = True
 
         return self
 
-    def stop(self):
+    def stop(self, params={}):
         """ Stops cluster """
-        params = {
+        _params = {
             "-D": self.data_dir,
             "-w": None
         }
-        self.pg_ctl("stop", params)
+        _params.update(params)
+        self.pg_ctl("stop", _params)
 
         self.working = False
 
         return self
 
-    def restart(self):
+    def restart(self, params={}):
         """ Restarts cluster """
-        params = {
+        _params = {
             "-D": self.data_dir,
             "-w": None
         }
-        self.pg_ctl("restart", params)
+        _params.update(params)
+        self.pg_ctl("restart", _params)
 
         return self
 
-    def reload(self):
+    def reload(self, params={}):
         """Reloads config files"""
-        params = {"-D": self.data_dir}
-        self.pg_ctl("reload", params)
+        _params = {"-D": self.data_dir}
+        _params.update(params)
+        self.pg_ctl("reload", _params)
 
         return self
 
@@ -351,7 +355,10 @@ class PostgresNode(object):
 
         # stop server if it still working
         if self.working:
-            self.stop()
+            try:
+                self.stop()
+            except:
+                pass
 
         # remove data directory
         shutil.rmtree(self.data_dir)
@@ -448,10 +455,13 @@ class PostgresNode(object):
             attemps += 1
         raise QueryException("Timeout while waiting for query to return True")
 
-    def execute(self, dbname, query, username=None):
+    def execute(self, dbname, query, username=None, commit=False):
         """Executes the query and returns all rows"""
         with self.connect(dbname, username) as node_con:
-            return node_con.execute(query)
+            res = node_con.execute(query)
+            if commit:
+                node_con.commit()
+            return res
 
     def backup(self, name):
         """Performs pg_basebackup"""
