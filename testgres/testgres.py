@@ -179,7 +179,7 @@ class PostgresNode(object):
         else:
             return os.path.join(pg_config.get("BINDIR"), filename)
 
-    def init(self, allows_streaming=False):
+    def init(self, allows_streaming=False, initdb_params=[]):
         """ Performs initdb """
 
         postgres_conf = os.path.join(self.data_dir, "postgresql.conf")
@@ -195,7 +195,7 @@ class PostgresNode(object):
         initdb = self.get_bin_path("initdb")
         with open(os.path.join(self.logs_dir, "initdb.log"), "a") as file_out:
             ret = subprocess.call(
-                [initdb, self.data_dir, "-N"],
+                [initdb, self.data_dir, "-N"] + initdb_params,
                 stdout=file_out,
                 stderr=subprocess.STDOUT
             )
