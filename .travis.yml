@@ -36,7 +36,8 @@ before_script:
    - export PG_CONFIG=/usr/lib/postgresql/$PGVERSION/bin/pg_config
    - virtualenv /tmp/envs/testgres
    - source /tmp/envs/testgres/bin/activate
-   - pip install six psycopg2 pg8000 testgres flake8
+   - pip install six psycopg2 pg8000 flake8
+   - python setup.py install
 
 script:
    - cd testgres/tests
