@@ -91,5 +91,5 @@ Please see `testgres/tests` directory for replication configuration example.
 
 ## Authors
 
-Ildar Musin <i.musin@postgrespro.ru> Postgres Professional Ltd., Russia		
-Dmitry Ivanov <d.ivanov@postgrespro.ru> Postgres Professional Ltd., Russia		
+Ildar Musin <i.musin@postgrespro.ru> Postgres Professional Ltd., Russia     
+Dmitry Ivanov <d.ivanov@postgrespro.ru> Postgres Professional Ltd., Russia   
