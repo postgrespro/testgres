@@ -64,6 +64,16 @@ class QueryException(Exception):
     pass
 
 
+class PgcontroldataException(Exception):
+    def __init__(self, error_text, cmd):
+        self.error_text = error_text
+        self.cmd = cmd
+
+    def __str__(self):
+        self.error_text = repr(self.error_text)
+        return '\n ERROR: {0}\n CMD: {1}'.format(self.error_text, self.cmd)
+
+
 class NodeConnection(object):
 
     """
@@ -252,6 +262,26 @@ class PostgresNode(object):
         if has_streaming:
             self.enable_streaming(root_node)
 
+    def set_archiving_conf(self, archive_dir):
+        self.append_conf(
+                "postgresql.auto.conf",
+                "wal_level = archive"
+                )
+        self.append_conf(
+                "postgresql.auto.conf",
+                "archive_mode = on"
+                )
+        if os.name == 'posix':
+            self.append_conf(
+                    "postgresql.auto.conf",
+                    "archive_command = 'test ! -f {0}/%f && cp %p {0}/%f'".format(archive_dir)
+                    )
+        elif os.name == 'nt':
+            self.append_conf(
+                    "postgresql.auto.conf",
+                    "archive_command = 'copy %p {0}\\%f'".format(archive_dir)
+                    )
+
     def set_replication_conf(self):
         hba_conf = os.path.join(self.data_dir, "pg_hba.conf")
         with open(hba_conf, "a") as conf:
@@ -277,14 +307,15 @@ class PostgresNode(object):
 
         return self
 
-    def pg_ctl(self, command, params, command_options=[]):
+    def pg_ctl(self, command, params={}, command_options=[]):
         """Runs pg_ctl with specified params
 
-        This function is a workhorse for start(), stop() and reload()
+        This function is a workhorse for start(), stop(), reload() and status()
         functions"""
         pg_ctl = self.get_bin_path("pg_ctl")
 
         arguments = [pg_ctl]
+        arguments.append(command)
         for key, value in six.iteritems(params):
             arguments.append(key)
             if value:
@@ -294,7 +325,7 @@ class PostgresNode(object):
                 open(self.error_filename, "a") as file_err:
 
             res = subprocess.call(
-                arguments + [command] + command_options,
+                arguments + command_options,
                 stdout=file_out,
                 stderr=file_err
             )
@@ -317,6 +348,54 @@ class PostgresNode(object):
         self.working = True
 
         return self
+
+    def status(self):
+        """ Check cluster status
+            If Running - return True
+            If not Running - return False
+            If there is no data in data_dir or data_dir do not exists - return None
+        """
+        try:
+            res = subprocess.check_output([
+                    self.get_bin_path("pg_ctl"), 'status', '-D', '{0}'.format(self.data_dir)
+                ])
+            return True
+        except subprocess.CalledProcessError as e:
+            if e.returncode == 3:
+                # Not Running
+                self.working = False
+                return False
+            elif e.returncode == 4:
+                # No data or directory do not exists
+                self.working = False
+                return None
+
+    def get_pid(self):
+        """ Check that node is running and return postmaster pid
+            Otherwise return None
+        """
+        if self.status():
+            file = open(os.path.join(self.data_dir, 'postmaster.pid'))
+            pid = int(file.readline())
+            return pid
+        else:
+            return None
+
+    def get_control_data(self):
+        out_data = {}
+        pg_controldata = self.get_bin_path("pg_controldata")
+        try:
+            lines = subprocess.check_output(
+                [pg_controldata] + ["-D", self.data_dir],
+                stderr=subprocess.STDOUT
+            ).splitlines()
+        except subprocess.CalledProcessError as e:
+            raise PgcontroldataException(e.output, e.cmd)
+
+        for line in lines:
+            key, value = line.partition(':')[::2]
+            out_data[key.strip()] = value.strip()
+        return out_data
 
     def stop(self, params={}):
         """ Stops cluster """
@@ -361,6 +440,9 @@ class PostgresNode(object):
                 pass
 
         # remove data directory
+        tblspace_list = os.listdir(os.path.join(self.data_dir, 'pg_tblspc'))
+        for i in tblspace_list:
+            shutil.rmtree(os.readlink(os.path.join(self.data_dir, 'pg_tblspc', i)))
         shutil.rmtree(self.data_dir)
 
         return self
@@ -375,7 +457,7 @@ class PostgresNode(object):
         """
         psql = self.get_bin_path("psql")
         psql_params = [
-            psql, "-XAtq", "-p {}".format(self.port), dbname
+           psql, "-XAtq", "-h127.0.0.1", "-p {}".format(self.port), dbname
         ]
 
         if query:
