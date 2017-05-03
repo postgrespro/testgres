@@ -382,6 +382,7 @@ class PostgresNode(object):
             return None
 
     def get_control_data(self):
+        """ Return pg_control content """
         out_data = {}
         pg_controldata = self.get_bin_path("pg_controldata")
         try:
