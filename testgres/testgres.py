@@ -262,26 +262,6 @@ class PostgresNode(object):
         if has_streaming:
             self.enable_streaming(root_node)
 
-    def set_archiving_conf(self, archive_dir):
-        self.append_conf(
-                "postgresql.auto.conf",
-                "wal_level = archive"
-                )
-        self.append_conf(
-                "postgresql.auto.conf",
-                "archive_mode = on"
-                )
-        if os.name == 'posix':
-            self.append_conf(
-                    "postgresql.auto.conf",
-                    "archive_command = 'test ! -f {0}/%f && cp %p {0}/%f'".format(archive_dir)
-                    )
-        elif os.name == 'nt':
-            self.append_conf(
-                    "postgresql.auto.conf",
-                    "archive_command = 'copy %p {0}\\%f'".format(archive_dir)
-                    )
-
     def set_replication_conf(self):
         hba_conf = os.path.join(self.data_dir, "pg_hba.conf")
         with open(hba_conf, "a") as conf:
@@ -441,9 +421,6 @@ class PostgresNode(object):
                 pass
 
         # remove data directory
-        tblspace_list = os.listdir(os.path.join(self.data_dir, 'pg_tblspc'))
-        for i in tblspace_list:
-            shutil.rmtree(os.readlink(os.path.join(self.data_dir, 'pg_tblspc', i)))
         shutil.rmtree(self.data_dir)
 
         return self
@@ -458,7 +435,7 @@ class PostgresNode(object):
         """
         psql = self.get_bin_path("psql")
         psql_params = [
-           psql, "-XAtq", "-h127.0.0.1", "-p {}".format(self.port), dbname
+           psql, "-XAtq", "-h {}".format(self.host), "-p {}".format(self.port), dbname
         ]
 
         if query:
