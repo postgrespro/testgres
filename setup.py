@@ -4,6 +4,7 @@ setup(
     packages=['testgres'],
     version='0.2.0',
     description='Testing utility for postgresql and its extensions',
+    license='PostgreSQL',
     author='Ildar Musin',
     author_email='zildermann@gmail.com',
     url='https://github.com/postgrespro/testgres',
