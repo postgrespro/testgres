@@ -80,10 +80,10 @@ class PgcontroldataException(Exception):
         return '\n ERROR: {0}\n CMD: {1}'.format(self.error_text, self.cmd)
 
 
-class AsyncFileReader(threading.Thread):
+class LogWriter(threading.Thread):
     '''
-    Helper class to implement asynchronous reading of a file
-    in a separate thread.
+    Helper class to implement reading from postgresql.log and redirect
+	it python logging
     '''
 
     def __init__(self, node_name, fd):
@@ -120,7 +120,7 @@ def log_watch(node_name, pg_logname):
         to python logging system
     '''
 
-    reader = AsyncFileReader(node_name, open(pg_logname, 'r'))
+    reader = LogWriter(node_name, open(pg_logname, 'r'))
     reader.start()
 
     global util_threads
