@@ -452,6 +452,9 @@ class PostgresNode(object):
         _params.update(params)
         self.pg_ctl("stop", _params)
 
+        if self.logger:
+            self.logger.stop()
+
         self.working = False
 
         return self

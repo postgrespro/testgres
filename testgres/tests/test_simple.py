@@ -1,4 +1,11 @@
+#!/usr/bin/env python
+
 import unittest
+import re
+import six
+import tempfile
+import logging.config
+
 from testgres import get_new_node, stop_all
 
 
@@ -73,7 +80,50 @@ class SimpleTest(unittest.TestCase):
         node.init().start()
         node.psql('postgres', 'create role test_user login')
         value = node.safe_psql('postgres', 'select 1', username='test_user')
-        self.assertEqual(value, '1\n')
+        self.assertEqual(value, six.b('1\n'))
+
+    def test_logging(self):
+        regex = re.compile('\w+:\s{1}LOG:.*')
+        logfile = tempfile.NamedTemporaryFile('w', delete=True)
+
+        log_conf = {
+            'version': 1,
+            'handlers': {
+                'file': {
+                    'class': 'logging.FileHandler',
+                    'filename': logfile.name,
+                    'formatter': 'base_format',
+                    'level': logging.DEBUG,
+                },
+            },
+            'formatters': {
+                'base_format': {
+                    'format': '%(node)-5s: %(message)s',
+                },
+            },
+            'root': {
+                'handlers': ('file', ),
+                'level': 'DEBUG',
+            },
+        }
+
+        logging.config.dictConfig(log_conf)
+
+        node = get_new_node('master', use_logging=True)
+        node1 = get_new_node('slave1', use_logging=True)
+        node2 = get_new_node('slave2', use_logging=True)
+
+        node.init().start()
+        node1.init().start()
+        node2.init().start()
+
+        with open(logfile.name, 'r') as log:
+            for line in log:
+                self.assertTrue(regex.match(line))
+
+        node.stop()
+        node1.stop()
+        node2.stop()
 
 
 if __name__ == '__main__':
