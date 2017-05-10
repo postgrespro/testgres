@@ -31,6 +31,11 @@ import shutil
 import time
 import six
 
+import threading
+import logging
+import select
+import tempfile
+
 # Try to use psycopg2 by default. If psycopg2 isn"t available then use
 # pg8000 which is slower but much more portable because uses only
 # pure-Python code
@@ -44,6 +49,7 @@ except ImportError:
 
 
 registered_nodes = []
+util_threads = []
 last_assigned_port = int(random.random() * 16384) + 49152
 pg_config_data = {}
 
@@ -72,6 +78,54 @@ class PgcontroldataException(Exception):
     def __str__(self):
         self.error_text = repr(self.error_text)
         return '\n ERROR: {0}\n CMD: {1}'.format(self.error_text, self.cmd)
+
+
+class LogWriter(threading.Thread):
+    '''
+    Helper class to implement reading from postgresql.log and redirect
+	it python logging
+    '''
+
+    def __init__(self, node_name, fd):
+        assert callable(fd.readline)
+
+        threading.Thread.__init__(self)
+
+        self.node_name = node_name
+        self.fd = fd
+        self.stop_event = threading.Event()
+        self.logger = logging.getLogger(node_name)
+        self.logger.setLevel(logging.INFO)
+
+    def run(self):
+        while self.fd in select.select([self.fd], [], [], 0)[0]:
+            line = self.fd.readline()
+            if line:
+                extra = {'node': self.node_name}
+                self.logger.info(line.strip(), extra=extra)
+            elif self.stopped():
+                break
+            else:
+                time.sleep(0.1)
+
+    def stop(self):
+        self.stop_event.set()
+
+    def stopped(self):
+        return self.stop_event.isSet()
+
+
+def log_watch(node_name, pg_logname):
+    ''' Starts thread for node that redirects postgresql logs
+        to python logging system
+    '''
+
+    reader = LogWriter(node_name, open(pg_logname, 'r'))
+    reader.start()
+
+    global util_threads
+    util_threads.append(reader)
+    return reader
 
 
 class NodeConnection(object):
@@ -148,7 +202,7 @@ class NodeConnection(object):
 
 class PostgresNode(object):
 
-    def __init__(self, name, port, base_dir=None):
+    def __init__(self, name, port, base_dir=None, use_logging=False):
         self.name = name
         self.host = '127.0.0.1'
         self.port = port
@@ -159,6 +213,9 @@ class PostgresNode(object):
         if not os.path.exists(self.logs_dir):
             os.makedirs(self.logs_dir)
         self.working = False
+
+        self.use_logging = use_logging
+        self.logger = None
 
     @property
     def data_dir(self):
@@ -316,7 +373,15 @@ class PostgresNode(object):
 
     def start(self, params={}):
         """ Starts cluster """
-        logfile = os.path.join(self.logs_dir, "postgresql.log")
+
+        if self.use_logging:
+            tmpfile = tempfile.NamedTemporaryFile('w', dir=self.logs_dir, delete=False)
+            logfile = tmpfile.name
+
+            self.logger = log_watch(self.name, logfile)
+        else:
+            logfile = os.path.join(self.logs_dir, "postgresql.log")
+
         _params = {
             "-D": self.data_dir,
             "-w": None,
@@ -386,6 +451,9 @@ class PostgresNode(object):
         }
         _params.update(params)
         self.pg_ctl("stop", _params)
+
+        if self.logger:
+            self.logger.stop()
 
         self.working = False
 
@@ -623,7 +691,7 @@ def version_to_num(version):
     return num
 
 
-def get_new_node(name, base_dir=None):
+def get_new_node(name, base_dir=None, use_logging=False):
     global registered_nodes
     global last_assigned_port
 
@@ -647,7 +715,7 @@ def get_new_node(name, base_dir=None):
     #              socket.SOCK_STREAM,
     #              socket.getprotobyname("tcp"))
 
-    node = PostgresNode(name, port, base_dir)
+    node = PostgresNode(name, port, base_dir, use_logging=use_logging)
     registered_nodes.append(node)
     last_assigned_port = port
 
@@ -663,7 +731,12 @@ def clean_all():
 
 def stop_all():
     global registered_nodes
+    global util_threads
+
     for node in registered_nodes:
         # stop server if it still working
         if node.working:
             node.stop()
+
+    for thread in util_threads:
+        thread.stop()
