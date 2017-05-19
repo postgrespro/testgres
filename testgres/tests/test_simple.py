@@ -6,7 +6,7 @@ import six
 import tempfile
 import logging.config
 
-from testgres import get_new_node, stop_all
+from testgres import get_new_node, stop_all, clean_all
 
 
 class SimpleTest(unittest.TestCase):
