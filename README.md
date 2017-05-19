@@ -101,7 +101,7 @@ Please see `testgres/tests` directory for replication configuration example.
 
 ## Authors
 
-Ildar Musin <i.musin(at)postgrespro.ru> Postgres Professional Ltd., Russia     
-Dmitry Ivanov <d.ivanov(at)postgrespro.ru> Postgres Professional Ltd., Russia   
-Ildus Kurbangaliev <i.kurbangaliev(at)postgrespro.ru> Postgres Professional Ltd., Russia     
+[Ildar Musin](https://github.com/zilder) <i.musin(at)postgrespro.ru> Postgres Professional Ltd., Russia     
+[Dmitry Ivanov](https://github.com/funbringer) <d.ivanov(at)postgrespro.ru> Postgres Professional Ltd., Russia   
+[Ildus Kurbangaliev](https://github.com/ildus) <i.kurbangaliev(at)postgrespro.ru> Postgres Professional Ltd., Russia     
 [Yury Zhuravlev](https://github.com/stalkerg) <stalkerg(at)gmail.com>
