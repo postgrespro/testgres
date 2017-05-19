@@ -1,11 +1,13 @@
 import unittest
+import six
+
 from testgres import get_new_node, stop_all
 
 
 class SimpleTest(unittest.TestCase):
 
     def teardown(self):
-        # clean_all()
+        clean_all()
         stop_all()
 
     @unittest.skip("demo")
@@ -73,7 +75,8 @@ class SimpleTest(unittest.TestCase):
         node.init().start()
         node.psql('postgres', 'create role test_user login')
         value = node.safe_psql('postgres', 'select 1', username='test_user')
-        self.assertEqual(value, '1\n')
+        self.assertEqual(value, six.b('1\n'))
+        node.stop()
 
 
 if __name__ == '__main__':
