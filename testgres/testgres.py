@@ -597,7 +597,7 @@ class PostgresNode(object):
         backup_path = os.path.join(self.base_dir, name)
         os.makedirs(backup_path)
         params = [pg_basebackup, "-D", backup_path, "-p {}".format(
-            self.port), "-x"]
+            self.port), "-X", "fetch"]
         with open(self.output_filename, "a") as file_out, \
                 open(self.error_filename, "a") as file_err:
             ret = subprocess.call(
