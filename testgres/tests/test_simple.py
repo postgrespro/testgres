@@ -6,13 +6,13 @@ import six
 import tempfile
 import logging.config
 
-from testgres import get_new_node, stop_all, get_config
+from testgres import get_new_node, stop_all, get_config, clean_all
 
 
 class SimpleTest(unittest.TestCase):
 
     def teardown(self):
-        # clean_all()
+        clean_all()
         stop_all()
 
     @unittest.skip("demo")
@@ -87,6 +87,7 @@ class SimpleTest(unittest.TestCase):
         node.psql('postgres', 'create role test_user login')
         value = node.safe_psql('postgres', 'select 1', username='test_user')
         self.assertEqual(value, six.b('1\n'))
+        node.stop()
 
     def test_logging(self):
         regex = re.compile('.+?LOG:.*')
