@@ -457,7 +457,7 @@ class PostgresNode(object):
             lines = subprocess.check_output(
                 [pg_controldata] + ["-D", self.data_dir],
                 stderr=subprocess.STDOUT
-            ).splitlines()
+            ).decode("utf-8").splitlines()
         except subprocess.CalledProcessError as e:
             raise PgcontroldataException(e.output, e.cmd)
 
