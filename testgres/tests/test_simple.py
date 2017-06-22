@@ -6,13 +6,13 @@ import six
 import tempfile
 import logging.config
 
-from testgres import get_new_node, stop_all
+from testgres import get_new_node, stop_all, get_config, clean_all
 
 
 class SimpleTest(unittest.TestCase):
 
     def teardown(self):
-        # clean_all()
+        clean_all()
         stop_all()
 
     @unittest.skip("demo")
@@ -41,15 +41,21 @@ class SimpleTest(unittest.TestCase):
         self.assertEqual(len(res), 1)
         self.assertEqual(res[0], (1, 2))
 
+        # Prepare the query which would check whether record reached replica
+        # (It is slightly different for Postgres 9.6 and Postgres 10+)
+        if get_config()['VERSION_NUM'] >= 1000000:
+            wait_lsn = 'SELECT pg_current_wal_lsn() <= replay_lsn '           \
+                'FROM pg_stat_replication WHERE application_name = \'%s\''    \
+                % replica.name
+        else:
+            wait_lsn = 'SELECT pg_current_xlog_location() <= replay_location '\
+                'FROM pg_stat_replication WHERE application_name = \'%s\''    \
+                % replica.name
+
         # Insert into master node
         node.psql('postgres', 'insert into abc values (3, 4)')
         # Wait until data syncronizes
-        node.poll_query_until(
-            'postgres',
-            'SELECT pg_current_xlog_location() <= replay_location '
-            'FROM pg_stat_replication WHERE application_name = \'%s\''
-            % replica.name)
-        # time.sleep(0.5)
+        node.poll_query_until('postgres', wait_lsn)
         # Check that this record was exported to replica
         res = replica.execute('postgres', 'select * from abc')
         self.assertEqual(len(res), 2)
@@ -81,9 +87,10 @@ class SimpleTest(unittest.TestCase):
         node.psql('postgres', 'create role test_user login')
         value = node.safe_psql('postgres', 'select 1', username='test_user')
         self.assertEqual(value, six.b('1\n'))
+        node.stop()
 
     def test_logging(self):
-        regex = re.compile('\w+:\s{1}LOG:.*')
+        regex = re.compile('.+?LOG:.*')
         logfile = tempfile.NamedTemporaryFile('w', delete=True)
 
         log_conf = {

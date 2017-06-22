@@ -50,8 +50,10 @@ except ImportError:
 
 registered_nodes = []
 util_threads = []
+tmp_dirs = []
 last_assigned_port = int(random.random() * 16384) + 49152
 pg_config_data = {}
+base_data_dir = None
 
 
 class ClusterException(Exception):
@@ -208,6 +210,7 @@ class PostgresNode(object):
         self.port = port
         if base_dir is None:
             self.base_dir = tempfile.mkdtemp()
+            tmp_dirs.append(self.base_dir)
         else:
             self.base_dir = base_dir
         if not os.path.exists(self.logs_dir):
@@ -246,6 +249,31 @@ class PostgresNode(object):
         else:
             return os.path.join(pg_config.get("BINDIR"), filename)
 
+    def initdb(self, directory, initdb_params=[]):
+        initdb = self.get_bin_path("initdb")
+        initdb_logfile = os.path.join(self.logs_dir, "initdb.log")
+
+        with open(initdb_logfile, 'a') as file_out:
+            ret = subprocess.call(
+                [initdb, directory, "-N"] + initdb_params,
+                stdout=file_out,
+                stderr=subprocess.STDOUT)
+
+            if ret:
+                raise ClusterException("Cluster initialization failed. You"
+                    " can find additional information at '%s'" % initdb_logfile)
+
+    def _setup_data_dir(self, data_dir):
+        global base_data_dir
+
+        if base_data_dir is None:
+            base_data_dir = tempfile.mkdtemp()
+            tmp_dirs.append(base_data_dir)
+            self.initdb(base_data_dir)
+
+        shutil.copytree(base_data_dir, data_dir)
+
+
     def init(self, allows_streaming=False, initdb_params=[]):
         """ Performs initdb """
 
@@ -258,19 +286,13 @@ class PostgresNode(object):
             return self
 
         # initialize cluster
-        os.makedirs(self.data_dir)
-        initdb = self.get_bin_path("initdb")
-        with open(os.path.join(self.logs_dir, "initdb.log"), "a") as file_out:
-            ret = subprocess.call(
-                [initdb, self.data_dir, "-N"] + initdb_params,
-                stdout=file_out,
-                stderr=subprocess.STDOUT
-            )
-            if ret:
-                raise ClusterException("Cluster initialization failed")
+        if initdb_params:
+            self.initdb(self.data_dir, initdb_params)
+        else:
+            self._setup_data_dir(self.data_dir)
 
         # add parameters to config file
-        with open(postgres_conf, "a") as conf:
+        with open(postgres_conf, "w") as conf:
             conf.write(
                 "fsync = off\n"
                 "log_statement = all\n"
@@ -286,7 +308,6 @@ class PostgresNode(object):
                     "max_wal_senders = 5\n"
                     "wal_keep_segments = 20\n"
                     "max_wal_size = 128MB\n"
-                    "shared_buffers = 1MB\n"
                     "wal_log_hints = on\n"
                     "hot_standby = on\n"
                     "max_connections = 10\n")
@@ -369,7 +390,9 @@ class PostgresNode(object):
 
             if res > 0:
                 with open(self.error_filename, "r") as errfile:
-                    raise ClusterException(errfile.readlines()[-1])
+                    text = errfile.readlines()[-1]
+                    text += 'Logs at: %s' % self.logs_dir
+                    raise ClusterException(text)
 
     def start(self, params={}):
         """ Starts cluster """
@@ -434,7 +457,7 @@ class PostgresNode(object):
             lines = subprocess.check_output(
                 [pg_controldata] + ["-D", self.data_dir],
                 stderr=subprocess.STDOUT
-            ).splitlines()
+            ).decode("utf-8").splitlines()
         except subprocess.CalledProcessError as e:
             raise PgcontroldataException(e.output, e.cmd)
 
@@ -489,8 +512,7 @@ class PostgresNode(object):
                 pass
 
         # remove data directory
-        shutil.rmtree(self.data_dir)
-
+        shutil.rmtree(self.data_dir, ignore_errors=True)
         return self
 
     def psql(self, dbname, query=None, filename=None, username=None):
@@ -597,7 +619,7 @@ class PostgresNode(object):
         backup_path = os.path.join(self.base_dir, name)
         os.makedirs(backup_path)
         params = [pg_basebackup, "-D", backup_path, "-p {}".format(
-            self.port), "-x"]
+            self.port), "-X", "fetch"]
         with open(self.output_filename, "a") as file_out, \
                 open(self.error_filename, "a") as file_err:
             ret = subprocess.call(
@@ -726,7 +748,16 @@ def clean_all():
     global registered_nodes
     for node in registered_nodes:
         node.cleanup()
+
+    for cat in tmp_dirs:
+        if os.path.exists():
+            shutil.rmtree(cat, ignore_errors=True)
+
+        if cat == base_data_dir:
+            base_data_dir = None
+
     registered_nodes = []
+    tmp_dirs = []
 
 
 def stop_all():

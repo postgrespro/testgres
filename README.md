@@ -85,12 +85,23 @@ node.stop()
 
 It is essential to clean everything up, so make sure to call `node.cleanup()` once you've finished all of your tests.
 
+Nodes support python logging system, so if you have configured logging
+in your tests you can use it to redirect postgres logs to yours.
+To do that just use `use_logging` argument like here:
+
+```python
+node = testgres.get_new_node('master', use_logging=True)
+```
+
+Also you can find working configuration sample for logging in tests.
+
 Please see `testgres/tests` directory for replication configuration example.
 > Note: you could take a look at [`pg_pathman`](https://github.com/postgrespro/pg_pathman) to get an idea of `testgres`' capabilities.
 
 
 ## Authors
 
-Ildar Musin <i.musin(at)postgrespro.ru> Postgres Professional Ltd., Russia     
-Dmitry Ivanov <d.ivanov(at)postgrespro.ru> Postgres Professional Ltd., Russia   
-Ildus Kurbangaliev <i.kurbangaliev(at)postgrespro.ru> Postgres Professional Ltd., Russia
+[Ildar Musin](https://github.com/zilder) <i.musin(at)postgrespro.ru> Postgres Professional Ltd., Russia     
+[Dmitry Ivanov](https://github.com/funbringer) <d.ivanov(at)postgrespro.ru> Postgres Professional Ltd., Russia   
+[Ildus Kurbangaliev](https://github.com/ildus) <i.kurbangaliev(at)postgrespro.ru> Postgres Professional Ltd., Russia     
+[Yury Zhuravlev](https://github.com/stalkerg) <stalkerg(at)gmail.com>
