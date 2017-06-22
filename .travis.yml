@@ -19,8 +19,7 @@ python:
 
 before_install:
    - packages="postgresql-$PGVERSION postgresql-server-dev-$PGVERSION postgresql-common"
-   - wget https://raw.githubusercontent.com/postgrespro/pg_pathman/master/travis/apt.postgresql.org.sh
-   - sudo sh ./apt.postgresql.org.sh
+   - sudo sh ./travis/dep-ubuntu-postgres.sh
 
 install:
    - sudo apt-get update
