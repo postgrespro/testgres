@@ -18,21 +18,20 @@ python:
    - "pypy3"
 
 before_install:
-   - packages="postgresql-$PGVERSION postgresql-server-dev-$PGVERSION postgresql-common"
-   - sudo sh ./travis/dep-ubuntu-postgres.sh
+   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install -qq wget ca-certificates; fi
+   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo sh ./travis/dep-ubuntu-postgres.sh; fi
+   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
 
 install:
-   - sudo apt-get update
    - sudo service postgresql stop
    - echo 'exit 0' | sudo tee /etc/init.d/postgresql
    - sudo chmod a+x /etc/init.d/postgresql
-   - sudo apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install $packages
 
 before_script:
-   - sudo pg_createcluster --start $PGVERSION testgres -- -A trust
+   - sudo pg_createcluster --start $PG_VER testgres -- -A trust
    - sudo chmod a+w /var/run/postgresql/
    - sudo /etc/init.d/postgresql restart
-   - export PG_CONFIG=/usr/lib/postgresql/$PGVERSION/bin/pg_config
+   - export PG_CONFIG=/usr/lib/postgresql/$PG_VER/bin/pg_config
    - virtualenv /tmp/envs/testgres
    - source /tmp/envs/testgres/bin/activate
    - pip install six psycopg2 pg8000 flake8
