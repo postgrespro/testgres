@@ -5,7 +5,7 @@ language: python
 services:
     - docker
 
-before_script:
+install:
     - sed -e 's/${PYTHON_VERSION}/'${PYTHON_VERSION}/g -e 's/${PG_VERSION}/'${PG_VERSION}/g Dockerfile.tmpl  > Dockerfile
     - docker-compose build
 
