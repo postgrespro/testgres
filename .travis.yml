@@ -17,7 +17,7 @@ notifications:
         on_success: change
         on_failure: always
 
-matrix:
+env:
     - PYTHON_VERSION=2 PG_VERSION=10
     - PYTHON_VERSION=2 PG_VERSION=9.6
     - PYTHON_VERSION=2 PG_VERSION=9.5
