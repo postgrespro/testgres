@@ -1,0 +1,16 @@
+FROM postgres:${PG_VERSION}-alpine
+
+ENV LANG=C.UTF-8
+RUN apk --no-cache add python${PYTHON_VERSION} py-pip
+RUN pip install six pg8000 flake8
+
+RUN mkdir -p /pg
+VOLUME /pg
+COPY run_tests.sh /run.sh
+RUN chmod 755 /run.sh
+
+ADD . /pg/testgres
+WORKDIR /pg/testgres
+RUN	python setup.py install
+
+ENTRYPOINT su-exec postgres /run.sh
