@@ -244,7 +244,7 @@ class PostgresNode(object):
     def get_bin_path(self, filename):
         """ Returns full path to an executable """
         pg_config = get_config()
-        if "BINDIR" not in pg_config:
+        if pg_config is None or "BINDIR" not in pg_config:
             return filename
         else:
             return os.path.join(pg_config.get("BINDIR"), filename)
@@ -684,12 +684,15 @@ def get_config():
         pg_config_cmd = os.environ.get("PG_CONFIG") \
             if "PG_CONFIG" in os.environ else "pg_config"
 
-        out = six.StringIO(
-            subprocess.check_output([pg_config_cmd], universal_newlines=True))
-        for line in out:
-            if line and "=" in line:
-                key, value = line.split("=", 1)
-                pg_config_data[key.strip()] = value.strip()
+        try:
+            out = six.StringIO(
+                subprocess.check_output([pg_config_cmd], universal_newlines=True))
+            for line in out:
+                if line and "=" in line:
+                    key, value = line.split("=", 1)
+                    pg_config_data[key.strip()] = value.strip()
+        except OSError:
+            return None
 
         # Numeric version format
         version_parts = pg_config_data.get("VERSION").split(" ")

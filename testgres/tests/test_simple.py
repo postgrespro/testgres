@@ -39,7 +39,8 @@ class SimpleTest(unittest.TestCase):
         replica.start()
         res = replica.execute('postgres', 'select * from abc')
         self.assertEqual(len(res), 1)
-        self.assertEqual(res[0], (1, 2))
+        self.assertEqual(res[0][0], 1)
+        self.assertEqual(res[0][1], 2)
 
         # Prepare the query which would check whether record reached replica
         # (It is slightly different for Postgres 9.6 and Postgres 10+)
@@ -59,7 +60,8 @@ class SimpleTest(unittest.TestCase):
         # Check that this record was exported to replica
         res = replica.execute('postgres', 'select * from abc')
         self.assertEqual(len(res), 2)
-        self.assertEqual(res[1], (3, 4))
+        self.assertEqual(res[1][0], 3)
+        self.assertEqual(res[1][1], 4)
 
         node.stop()
         replica.stop()

@@ -1,48 +1,24 @@
-language: "python"
-
 sudo: required
 
 services:
-   - postgresql
-
-env:
-   - PG_VER=9.5
-   - PG_VER=9.6
-   - PG_VER=10
-
-python:
-   - "2.7"
-   - "3.5"
-   - "3.6"
-   - "pypy"
-   - "pypy3"
-
-before_install:
-   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -y install -qq wget ca-certificates; fi
-   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo sh ./travis/dep-ubuntu-postgres.sh; fi
-   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
-
-install:
-   - sudo service postgresql stop
-   - echo 'exit 0' | sudo tee /etc/init.d/postgresql
-   - sudo chmod a+x /etc/init.d/postgresql
+    - docker
 
 before_script:
-   - sudo pg_createcluster --start $PG_VER testgres -- -A trust
-   - sudo chmod a+w /var/run/postgresql/
-   - sudo /etc/init.d/postgresql restart
-   - export PG_CONFIG=/usr/lib/postgresql/$PG_VER/bin/pg_config
-   - virtualenv /tmp/envs/testgres
-   - source /tmp/envs/testgres/bin/activate
-   - pip install six psycopg2 pg8000 flake8
-   - python setup.py install
+    - sed -e 's/${PYTHON_VERSION}/'${PYTHON_VERSION}/g -e 's/${PG_VERSION}/'${PG_VERSION}/g Dockerfile.tmpl  > Dockerfile
+    - docker-compose build
 
 script:
-   - cd testgres/tests
-   - python -m unittest test_simple
-   - flake8 --ignore=W191,F401,E501,F403 .
+    - docker-compose run tests
 
 notifications:
-  email:
-    on_success: change
-    on_failure: always
+    email:
+        on_success: change
+        on_failure: always
+
+matrix:
+    - PYTHON_VERSION=2 PG_VERSION=10
+    - PYTHON_VERSION=2 PG_VERSION=9.6
+    - PYTHON_VERSION=2 PG_VERSION=9.5
+    - PYTHON_VERSION=3 PG_VERSION=10
+    - PYTHON_VERSION=3 PG_VERSION=9.6
+    - PYTHON_VERSION=3 PG_VERSION=9.5
