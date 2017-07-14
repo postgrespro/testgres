@@ -24,7 +24,6 @@ Copyright (c) 2016, Postgres Professional
 import os
 import subprocess
 import pwd
-import tempfile
 import shutil
 import time
 import six
@@ -49,9 +48,9 @@ except ImportError:
 bound_ports = set()
 registered_nodes = []
 util_threads = []
+base_data_dir = None
 tmp_dirs = []
 pg_config_data = {}
-base_data_dir = None
 
 
 class ClusterException(Exception):
@@ -87,8 +86,8 @@ class PgcontroldataException(Exception):
 
 class LogWriter(threading.Thread):
     '''
-    Helper class to implement reading from postgresql.log and redirect
-	it python logging
+    Helper class to implement reading from postgresql.log
+    and redirect it python logging
     '''
 
     def __init__(self, node_name, fd):
@@ -328,8 +327,6 @@ class PostgresNode(object):
                        "log_statement = all\n"
                        "port = {}\n".format(self.port))
             conf.write(
-    # "unix_socket_directories = '%s'\n"
-    # "listen_addresses = ''\n";)
                 "listen_addresses = '{}'\n".format(self.host))
 
             if allows_streaming:
@@ -451,7 +448,8 @@ class PostgresNode(object):
             If there is no data in data_dir or data_dir do not exists - return None
         """
         try:
-            res = subprocess.check_output([
+            # TODO: use result?
+            subprocess.check_output([
                 self.get_bin_path("pg_ctl"), 'status', '-D',
                 '{0}'.format(self.data_dir)
             ])
@@ -732,6 +730,9 @@ def get_new_node(name, base_dir=None, use_logging=False):
 
 def clean_all():
     global registered_nodes
+    global base_data_dir
+    global tmp_dirs
+
     for node in registered_nodes:
         node.cleanup()
 
