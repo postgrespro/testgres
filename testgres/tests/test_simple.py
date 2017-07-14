@@ -10,7 +10,6 @@ from testgres import get_new_node, stop_all, get_config, clean_all, bound_ports
 
 
 class SimpleTest(unittest.TestCase):
-
     def teardown(self):
         clean_all()
         stop_all()
@@ -63,17 +62,14 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('test') as node:
             node.init().start()
             node.safe_psql(
-                'postgres',
-                'create table abc as '
-                'select g as a, g as b from generate_series(1, 10) as g'
-            )
+                'postgres', 'create table abc as '
+                'select g as a, g as b from generate_series(1, 10) as g')
             node.psql('postgres', 'create database test')
             node.dump('postgres', 'test.sql')
             node.restore('test', 'test.sql')
             self.assertEqual(
                 node.psql('postgres', 'select * from abc'),
-                node.psql('test', 'select * from abc'),
-            )
+                node.psql('test', 'select * from abc'), )
 
     def test_users(self):
         with get_new_node('master') as node:

@@ -46,7 +46,6 @@ except ImportError:
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
-
 bound_ports = set()
 registered_nodes = []
 util_threads = []
@@ -56,7 +55,6 @@ base_data_dir = None
 
 
 class ClusterException(Exception):
-
     """
     Predefined exceptions
     """
@@ -64,7 +62,6 @@ class ClusterException(Exception):
 
 
 class QueryException(Exception):
-
     """
     Predefined exceptions
     """
@@ -72,7 +69,6 @@ class QueryException(Exception):
 
 
 class InitPostgresNodeException(Exception):
-
     """
     Predefined exceptions
     """
@@ -138,12 +134,16 @@ def log_watch(node_name, pg_logname):
 
 
 class NodeConnection(object):
-
     """
     Transaction wrapper returned by Node
     """
 
-    def __init__(self, parent_node, dbname, host="127.0.0.1", user=None, password=None):
+    def __init__(self,
+                 parent_node,
+                 dbname,
+                 host="127.0.0.1",
+                 user=None,
+                 password=None):
         self.parent_node = parent_node
         if user is None:
             user = get_username()
@@ -152,8 +152,7 @@ class NodeConnection(object):
             user=user,
             port=parent_node.port,
             host=host,
-            password=password
-        )
+            password=password)
 
         self.cursor = self.connection.cursor()
 
@@ -164,10 +163,13 @@ class NodeConnection(object):
         self.connection.close()
 
     def begin(self, isolation_level=0):
-        levels = ['read uncommitted',
-                  'read committed',
-                  'repeatable read',
-                  'serializable']
+        # yapf: disable
+        levels = [
+            'read uncommitted',
+            'read committed',
+            'repeatable read',
+            'serializable'
+        ]
 
         # Check if level is int [0..3]
         if (isinstance(isolation_level, int) and
@@ -185,11 +187,11 @@ class NodeConnection(object):
 
         # Something is wrong, emit exception
         else:
-            raise QueryException('Invalid isolation level "{}"'.format(
-                isolation_level))
+            raise QueryException(
+                'Invalid isolation level "{}"'.format(isolation_level))
 
-        self.cursor.execute('SET TRANSACTION ISOLATION LEVEL {}'.format(
-            isolation_level))
+        self.cursor.execute(
+            'SET TRANSACTION ISOLATION LEVEL {}'.format(isolation_level))
 
     def commit(self):
         self.connection.commit()
@@ -210,14 +212,13 @@ class NodeConnection(object):
 
 
 class PostgresNode(object):
-
     def __init__(self, name, port, base_dir=None, use_logging=False):
         global bound_ports
 
         # check that port is not used
         if port in bound_ports:
             raise InitPostgresNodeException(
-                    'port {} is already in use'.format(port))
+                'port {} is already in use'.format(port))
 
         # mark port as used
         bound_ports.add(port)
@@ -289,8 +290,10 @@ class PostgresNode(object):
                 stderr=subprocess.STDOUT)
 
             if ret:
-                raise ClusterException("Cluster initialization failed. You"
-                    " can find additional information at '%s'" % initdb_logfile)
+                raise ClusterException(
+                    "Cluster initialization failed. You"
+                    " can find additional information at '%s'" %
+                    initdb_logfile)
 
     def _setup_data_dir(self, data_dir):
         global base_data_dir
@@ -301,7 +304,6 @@ class PostgresNode(object):
             self.initdb(base_data_dir)
 
         shutil.copytree(base_data_dir, data_dir)
-
 
     def init(self, allows_streaming=False, initdb_params=[]):
         """ Performs initdb """
@@ -322,24 +324,22 @@ class PostgresNode(object):
 
         # add parameters to config file
         with open(postgres_conf, "w") as conf:
+            conf.write("fsync = off\n"
+                       "log_statement = all\n"
+                       "port = {}\n".format(self.port))
             conf.write(
-                "fsync = off\n"
-                "log_statement = all\n"
-                "port = {}\n".format(self.port))
-            conf.write(
-                # "unix_socket_directories = '%s'\n"
-                # "listen_addresses = ''\n";)
+    # "unix_socket_directories = '%s'\n"
+    # "listen_addresses = ''\n";)
                 "listen_addresses = '{}'\n".format(self.host))
 
             if allows_streaming:
                 # TODO: wal_level = hot_standby (9.5)
-                conf.write(
-                    "max_wal_senders = 5\n"
-                    "wal_keep_segments = 20\n"
-                    "max_wal_size = 128MB\n"
-                    "wal_log_hints = on\n"
-                    "hot_standby = on\n"
-                    "max_connections = 10\n")
+                conf.write("max_wal_senders = 5\n"
+                           "wal_keep_segments = 20\n"
+                           "max_wal_size = 128MB\n"
+                           "wal_log_hints = on\n"
+                           "hot_standby = on\n"
+                           "max_connections = 10\n")
                 if get_config().get("VERSION_NUM") < 906000:
                     conf.write("wal_level = hot_standby\n")
                 else:
@@ -349,7 +349,10 @@ class PostgresNode(object):
 
         return self
 
-    def init_from_backup(self, root_node, backup_name, has_streaming=False,
+    def init_from_backup(self,
+                         root_node,
+                         backup_name,
+                         has_streaming=False,
                          hba_permit_replication=True):
         """Initializes cluster from backup, made by another node"""
 
@@ -359,10 +362,7 @@ class PostgresNode(object):
         os.chmod(self.data_dir, 0o0700)
 
         # Change port in config file
-        self.append_conf(
-            "postgresql.conf",
-            "port = {}".format(self.port)
-        )
+        self.append_conf("postgresql.conf", "port = {}".format(self.port))
         # Enable streaming
         if hba_permit_replication:
             self.set_replication_conf()
@@ -378,9 +378,9 @@ class PostgresNode(object):
     def enable_streaming(self, root_node):
         recovery_conf = os.path.join(self.data_dir, "recovery.conf")
         with open(recovery_conf, "a") as conf:
-            conf.write(
-                "primary_conninfo='{} application_name={}'\n"
-                "standby_mode=on\n".format(root_node.connstr, self.name))
+            conf.write("primary_conninfo='{} application_name={}'\n"
+                       "standby_mode=on\n".format(root_node.connstr,
+                                                  self.name))
 
     def append_conf(self, filename, string):
         """Appends line to a config file like "postgresql.conf"
@@ -412,10 +412,7 @@ class PostgresNode(object):
                 open(self.error_filename, "a") as file_err:
 
             res = subprocess.call(
-                arguments + command_options,
-                stdout=file_out,
-                stderr=file_err
-            )
+                arguments + command_options, stdout=file_out, stderr=file_err)
 
             if res > 0:
                 with open(self.error_filename, "r") as errfile:
@@ -427,7 +424,8 @@ class PostgresNode(object):
         """ Starts cluster """
 
         if self.use_logging:
-            tmpfile = tempfile.NamedTemporaryFile('w', dir=self.logs_dir, delete=False)
+            tmpfile = tempfile.NamedTemporaryFile(
+                'w', dir=self.logs_dir, delete=False)
             logfile = tmpfile.name
 
             self.logger = log_watch(self.name, logfile)
@@ -454,8 +452,9 @@ class PostgresNode(object):
         """
         try:
             res = subprocess.check_output([
-                    self.get_bin_path("pg_ctl"), 'status', '-D', '{0}'.format(self.data_dir)
-                ])
+                self.get_bin_path("pg_ctl"), 'status', '-D',
+                '{0}'.format(self.data_dir)
+            ])
             return True
         except subprocess.CalledProcessError as e:
             if e.returncode == 3:
@@ -485,8 +484,7 @@ class PostgresNode(object):
         try:
             lines = subprocess.check_output(
                 [pg_controldata] + ["-D", self.data_dir],
-                stderr=subprocess.STDOUT
-            ).decode("utf-8").splitlines()
+                stderr=subprocess.STDOUT).decode("utf-8").splitlines()
         except subprocess.CalledProcessError as e:
             raise PgcontroldataException(e.output, e.cmd)
 
@@ -497,10 +495,7 @@ class PostgresNode(object):
 
     def stop(self, params={}):
         """ Stops cluster """
-        _params = {
-            "-D": self.data_dir,
-            "-w": None
-        }
+        _params = {"-D": self.data_dir, "-w": None}
         _params.update(params)
         self.pg_ctl("stop", _params)
 
@@ -513,10 +508,7 @@ class PostgresNode(object):
 
     def restart(self, params={}):
         """ Restarts cluster """
-        _params = {
-            "-D": self.data_dir,
-            "-w": None
-        }
+        _params = {"-D": self.data_dir, "-w": None}
         _params.update(params)
         self.pg_ctl("restart", _params)
 
@@ -554,7 +546,8 @@ class PostgresNode(object):
         """
         psql = self.get_bin_path("psql")
         psql_params = [
-           psql, "-XAtq", "-h{}".format(self.host), "-p {}".format(self.port), dbname
+            psql, "-XAtq", "-h{}".format(self.host), "-p {}".format(self.port),
+            dbname
         ]
 
         if query:
@@ -570,10 +563,7 @@ class PostgresNode(object):
 
         # start psql process
         process = subprocess.Popen(
-            psql_params,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+            psql_params, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # wait untill it finishes and get stdout and stderr
         out, err = process.communicate()
@@ -594,10 +584,8 @@ class PostgresNode(object):
         """Invoke pg_dump and exports database to a file as an sql script"""
         path = os.path.join(self.base_dir, filename)
         params = [
-            self.get_bin_path("pg_dump"),
-            "-p {}".format(self.port),
-            "-f", path,
-            dbname
+            self.get_bin_path("pg_dump"), "-p {}".format(self.port), "-f",
+            path, dbname
         ]
 
         with open(self.error_filename, "a") as file_err:
@@ -647,15 +635,13 @@ class PostgresNode(object):
         pg_basebackup = self.get_bin_path("pg_basebackup")
         backup_path = os.path.join(self.base_dir, name)
         os.makedirs(backup_path)
-        params = [pg_basebackup, "-D", backup_path, "-p {}".format(
-            self.port), "-X", "fetch"]
+        params = [
+            pg_basebackup, "-D", backup_path, "-p {}".format(self.port), "-X",
+            "fetch"
+        ]
         with open(self.output_filename, "a") as file_out, \
                 open(self.error_filename, "a") as file_err:
-            ret = subprocess.call(
-                params,
-                stdout=file_out,
-                stderr=file_err
-            )
+            ret = subprocess.call(params, stdout=file_out, stderr=file_err)
             if ret:
                 raise ClusterException("Base backup failed")
 
@@ -664,19 +650,12 @@ class PostgresNode(object):
     def pgbench_init(self, dbname='postgres', scale=1, options=[]):
         """Prepare pgbench database"""
         pgbench = self.get_bin_path("pgbench")
-        params = [
-            pgbench,
-            "-i",
-            "-s", "%i" % scale,
-            "-p", "%i" % self.port
-        ] + options + [dbname]
+        params = [pgbench, "-i", "-s",
+                  "%i" % scale, "-p",
+                  "%i" % self.port] + options + [dbname]
         with open(self.output_filename, "a") as file_out, \
                 open(self.error_filename, "a") as file_err:
-            ret = subprocess.call(
-                params,
-                stdout=file_out,
-                stderr=file_err
-            )
+            ret = subprocess.call(params, stdout=file_out, stderr=file_err)
             if ret:
                 raise ClusterException("pgbench init failed")
 
@@ -685,15 +664,8 @@ class PostgresNode(object):
     def pgbench(self, dbname='postgres', stdout=None, stderr=None, options=[]):
         """Make pgbench process"""
         pgbench = self.get_bin_path("pgbench")
-        params = [
-            pgbench,
-            "-p", "%i" % self.port
-        ] + options + [dbname]
-        proc = subprocess.Popen(
-            params,
-            stdout=stdout,
-            stderr=stderr
-        )
+        params = [pgbench, "-p", "%i" % self.port] + options + [dbname]
+        proc = subprocess.Popen(params, stdout=stdout, stderr=stderr)
 
         return proc
 
@@ -715,7 +687,8 @@ def get_config():
 
         try:
             out = six.StringIO(
-                subprocess.check_output([pg_config_cmd], universal_newlines=True))
+                subprocess.check_output(
+                    [pg_config_cmd], universal_newlines=True))
             for line in out:
                 if line and "=" in line:
                     key, value = line.split("=", 1)

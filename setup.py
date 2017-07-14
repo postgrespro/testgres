@@ -10,5 +10,4 @@ setup(
     url='https://github.com/postgrespro/testgres',
     keywords=['testing', 'postgresql'],
     classifiers=[],
-    install_requires=["pg8000", "six", "port-for"]
-)
+    install_requires=["pg8000", "six", "port-for"])
