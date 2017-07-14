@@ -22,14 +22,13 @@ Copyright (c) 2016, Postgres Professional
 """
 
 import os
-import random
-# import socket
 import subprocess
 import pwd
 import tempfile
 import shutil
 import time
 import six
+import port_for
 
 import threading
 import logging
@@ -48,10 +47,10 @@ except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
 
+bound_ports = set()
 registered_nodes = []
 util_threads = []
 tmp_dirs = []
-last_assigned_port = int(random.random() * 16384) + 49152
 pg_config_data = {}
 base_data_dir = None
 
@@ -65,6 +64,14 @@ class ClusterException(Exception):
 
 
 class QueryException(Exception):
+
+    """
+    Predefined exceptions
+    """
+    pass
+
+
+class InitPostgresNodeException(Exception):
 
     """
     Predefined exceptions
@@ -205,6 +212,16 @@ class NodeConnection(object):
 class PostgresNode(object):
 
     def __init__(self, name, port, base_dir=None, use_logging=False):
+        global bound_ports
+
+        # check that port is not used
+        if port in bound_ports:
+            raise InitPostgresNodeException(
+                    'port {} is already in use'.format(port))
+
+        # mark port as used
+        bound_ports.add(port)
+
         self.name = name
         self.host = '127.0.0.1'
         self.port = port
@@ -219,6 +236,18 @@ class PostgresNode(object):
 
         self.use_logging = use_logging
         self.logger = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        global bound_ports
+
+        # stop node if necessary
+        self.cleanup()
+
+        # mark port as free
+        bound_ports.remove(self.port)
 
     @property
     def data_dir(self):
@@ -718,31 +747,12 @@ def version_to_num(version):
 
 def get_new_node(name, base_dir=None, use_logging=False):
     global registered_nodes
-    global last_assigned_port
 
-    port = last_assigned_port + 1
-
-    # TODO: check if port is already used
-
-    # found = False
-    # while found:
-    #   # Check first that candidate port number is not included in
-    #   # the list of already-registered nodes.
-    #   found = True
-    #   for node in registered_nodes:
-    #       if node.port == port:
-    #           found = False
-    #           break
-
-    #   if found:
-    #       socket(socket.SOCK,
-    #              socket.PF_INET,
-    #              socket.SOCK_STREAM,
-    #              socket.getprotobyname("tcp"))
+    # generate a new unique port
+    port = port_for.select_random(exclude_ports=bound_ports)
 
     node = PostgresNode(name, port, base_dir, use_logging=use_logging)
     registered_nodes.append(node)
-    last_assigned_port = port
 
     return node
 
