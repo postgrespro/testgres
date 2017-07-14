@@ -107,7 +107,7 @@ class SimpleTest(unittest.TestCase):
 
         with get_new_node('master', use_logging=True) as node, \
             get_new_node('slave1', use_logging=True) as node1, \
-            get_new_node('slave2', use_logging=True) as node2:
+                get_new_node('slave2', use_logging=True) as node2:
 
             node.init().start()
             node1.init().start()
