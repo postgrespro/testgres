@@ -2,3 +2,4 @@
 dist
 tags
 *.egg-info
+Dockerfile
