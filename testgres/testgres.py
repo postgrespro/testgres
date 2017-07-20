@@ -424,6 +424,15 @@ class PostgresNode(object):
             else:
                 print("Log file not found: %s", log_filename)
 
+            conf_filename = os.path.join(self.data_dir, 'postgresql.conf')
+            if os.path.exists(conf_filename):
+                print("\npostgresql.conf:\n----")
+                with open(conf_filename, 'r') as conffile:
+                    text = conffile.readlines()[-1]
+                    print(text)
+            else:
+                print("Configuration file not found: %s", conf_filename)
+
             raise ClusterException("Couldn't start the new node")
 
         self.working = True
