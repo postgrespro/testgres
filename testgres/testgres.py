@@ -82,10 +82,10 @@ class PgcontroldataException(Exception):
 
 
 class LogWriter(threading.Thread):
-    '''
+    """
     Helper class to implement reading from postgresql.log
     and redirect it python logging
-    '''
+    """
 
     def __init__(self, node_name, fd):
         assert callable(fd.readline)
@@ -117,9 +117,10 @@ class LogWriter(threading.Thread):
 
 
 def log_watch(node_name, pg_logname):
-    ''' Starts thread for node that redirects postgresql logs
-        to python logging system
-    '''
+    """
+    Starts thread for node that redirects postgresql
+    logs to python logging system
+    """
 
     reader = LogWriter(node_name, open(pg_logname, 'r'))
     reader.start()
@@ -348,7 +349,7 @@ class PostgresNode(object):
                          backup_name,
                          has_streaming=False,
                          hba_permit_replication=True):
-        """Initializes cluster from backup, made by another node"""
+        """ Initializes cluster from backup, made by another node """
 
         # Copy data from backup
         backup_path = os.path.join(root_node.base_dir, backup_name)
@@ -377,8 +378,8 @@ class PostgresNode(object):
                                                   self.name))
 
     def append_conf(self, filename, string):
-        """Appends line to a config file like "postgresql.conf"
-        or "pg_hba.conf"
+        """
+        Appends line to a config file like postgresql.conf or pg_hba.conf
 
         A new line is not automatically appended to the string
         """
@@ -389,10 +390,13 @@ class PostgresNode(object):
         return self
 
     def pg_ctl(self, command, params={}, command_options=[]):
-        """Runs pg_ctl with specified params
+        """
+        Runs pg_ctl with specified params
 
         This function is a workhorse for start(), stop(), reload() and status()
-        functions"""
+        function
+        """
+
         pg_ctl = self.get_bin_path("pg_ctl")
 
         arguments = [pg_ctl]
@@ -458,16 +462,18 @@ class PostgresNode(object):
             print("\n{}:\n----".format(conf_filename))
             print_log_file(conf_filename)
 
-            raise ClusterException("Couldn't start the new node")
+            raise ClusterException("Cannot start node {}", self.node)
 
         self.working = True
         return self
 
     def status(self):
-        """ Check cluster status
-            If Running - return True
-            If not Running - return False
-            If there is no data in data_dir or data_dir do not exists - return None
+        """
+        Check cluster status
+
+        If Running - return True
+        If not Running - return False
+        If there is no data in data_dir or data_dir do not exists - return None
         """
         try:
             # TODO: use result?
@@ -487,8 +493,9 @@ class PostgresNode(object):
                 return None
 
     def get_pid(self):
-        """ Check that node is running and return postmaster pid
-            Otherwise return None
+        """
+        Check that node is running and return postmaster pid
+        Otherwise return None
         """
         if self.status():
             file = open(os.path.join(self.data_dir, 'postmaster.pid'))
@@ -535,7 +542,7 @@ class PostgresNode(object):
         return self
 
     def reload(self, params={}):
-        """Reloads config files"""
+        """ Reloads config files """
         _params = {"-D": self.data_dir}
         _params.update(params)
         self.pg_ctl("reload", _params)
@@ -543,7 +550,7 @@ class PostgresNode(object):
         return self
 
     def cleanup(self):
-        """Stops cluster if needed and removes the data directory"""
+        """ Stops cluster if needed and removes the data directory """
 
         # stop server if it still working
         if self.working:
@@ -557,7 +564,8 @@ class PostgresNode(object):
         return self
 
     def psql(self, dbname, query=None, filename=None, username=None):
-        """Executes a query by the psql
+        """
+        Executes a query by the psql
 
         Returns a tuple (code, stdout, stderr) in which:
         * code is a return code of psql (0 if alright)
@@ -590,9 +598,10 @@ class PostgresNode(object):
         return process.returncode, out, err
 
     def safe_psql(self, dbname, query, username=None):
-        """Executes a query by the psql
+        """
+        Executes a query by the psql
 
-        Returns the stdout if succeed. Otherwise throws the
+        Returns the stdout if succeed. Otherwise throws
         ClusterException with stderr output
         """
         ret, out, err = self.psql(dbname, query, username=username)
@@ -601,7 +610,7 @@ class PostgresNode(object):
         return out
 
     def dump(self, dbname, filename):
-        """Invoke pg_dump and exports database to a file as an sql script"""
+        """ Invoke pg_dump and exports database to a file as an sql script """
         path = os.path.join(self.base_dir, filename)
         params = [
             self.get_bin_path("pg_dump"), "-p {}".format(self.port), "-f",
@@ -614,7 +623,8 @@ class PostgresNode(object):
                 raise ClusterException("Dump creation failed")
 
     def restore(self, dbname, filename, node=None):
-        """ Restore database from dump file
+        """
+        Restore database from dump file
 
         dbname     name of database we're restoring data to
         filename   path to the dump file
@@ -628,7 +638,7 @@ class PostgresNode(object):
         self.psql(dbname, filename=path)
 
     def poll_query_until(self, dbname, query):
-        """Runs a query once a second until it returs True"""
+        """ Runs a query once a second until it returs True """
         max_attemps = 60
         attemps = 0
 
@@ -643,7 +653,7 @@ class PostgresNode(object):
         raise QueryException("Timeout while waiting for query to return True")
 
     def execute(self, dbname, query, username=None, commit=False):
-        """Executes the query and returns all rows"""
+        """ Executes the query and returns all rows """
         with self.connect(dbname, username) as node_con:
             res = node_con.execute(query)
             if commit:
@@ -651,7 +661,7 @@ class PostgresNode(object):
             return res
 
     def backup(self, name):
-        """Performs pg_basebackup"""
+        """ Performs pg_basebackup """
         pg_basebackup = self.get_bin_path("pg_basebackup")
         backup_path = os.path.join(self.base_dir, name)
         os.makedirs(backup_path)
@@ -668,7 +678,7 @@ class PostgresNode(object):
             return backup_path
 
     def pgbench_init(self, dbname='postgres', scale=1, options=[]):
-        """Prepare pgbench database"""
+        """ Prepare pgbench database """
         pgbench = self.get_bin_path("pgbench")
         params = [pgbench, "-i", "-s",
                   "%i" % scale, "-p",
@@ -682,7 +692,7 @@ class PostgresNode(object):
             return True
 
     def pgbench(self, dbname='postgres', stdout=None, stderr=None, options=[]):
-        """Make pgbench process"""
+        """ Make pgbench process """
         pgbench = self.get_bin_path("pgbench")
         params = [pgbench, "-p", "%i" % self.port] + options + [dbname]
         proc = subprocess.Popen(params, stdout=stdout, stderr=stderr)
@@ -724,7 +734,7 @@ def get_config():
 
 
 def version_to_num(version):
-    """Converts PostgreSQL version to number for easier comparison"""
+    """ Converts PostgreSQL version to number for easier comparison """
     import re
 
     if not version:
@@ -774,7 +784,7 @@ def stop_all():
     global util_threads
 
     for node in registered_nodes:
-        # stop server if it still working
+        # stop server if it's still working
         if node.working:
             node.stop()
 
