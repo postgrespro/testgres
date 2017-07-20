@@ -421,24 +421,35 @@ class PostgresNode(object):
         """ Starts cluster """
 
         if self.use_logging:
-            tmpfile = tempfile.NamedTemporaryFile(
-                'w', dir=self.logs_dir, delete=False)
-            logfile = tmpfile.name
+            tmpfile = tempfile.NamedTemporaryFile('w', dir=self.logs_dir, delete=False)
+            log_filename = tmpfile.name
 
-            self.logger = log_watch(self.name, logfile)
+            self.logger = log_watch(self.name, log_filename)
         else:
-            logfile = os.path.join(self.logs_dir, "postgresql.log")
+            log_filename = os.path.join(self.logs_dir, "postgresql.log")
 
         _params = {
             "-D": self.data_dir,
             "-w": None,
-            "-l": logfile,
+            "-l": log_filename,
         }
         _params.update(params)
-        self.pg_ctl("start", _params)
+        try:
+            self.pg_ctl("start", _params)
+        except ClusterException as e:
+            print("\npg_ctl log:\n----")
+            print(str(e))
+            if os.path.exists(log_filename):
+                print("\npostgresql.log:\n----")
+                with open(log_filename, 'r') as logfile:
+                    text = logfile.readlines()[-1]
+                    print(text)
+            else:
+                print("Log file not found: %s", log_filename)
+
+            raise ClusterException("Couldn't start the new node")
 
         self.working = True
-
         return self
 
     def status(self):
