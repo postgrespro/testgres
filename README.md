@@ -14,42 +14,38 @@ To install `testgres`, run:
 pip install testgres
 ```
 
-We encourage you to use `virtualenv` for your testing environment. Both Python 2.7 and 3.5 are supported.
+We encourage you to use `virtualenv` for your testing environment. Both Python 2.7 and 3.3+ are supported.
 
 
 ## Usage
 
-> Note: by default testgres runs `initdb`, `pg_ctl`, `psql` provided by `$PATH`. To specify a custom postgres installation, set the environment variable `$PG_CONFIG` pointing to the `pg_config` executable: `export PG_CONFIG=/path/to/pg_config`.
+> Note: by default testgres runs `initdb`, `pg_ctl`, `psql` provided by `PATH`. To specify a custom postgres installation, set the environment variable `PG_CONFIG` pointing to the `pg_config` executable: `export PG_CONFIG=/path/to/pg_config`.
 
 Here is an example of what you can do with `testgres`:
 
 ```python
 import testgres
 
-node = None
-try:
-    node = testgres.get_new_node('test').init().start()
+with testgres.get_new_node('test') as node:
+    node.init()  # run initdb
+	node.start() # start PostgreSQL
     print(node.execute('postgres', 'select 1'))
-except testgres.ClusterException as e:
-    print(e)
-finally:
-    if node is not None:
-        node.cleanup()
+	node.stop()  # stop PostgreSQL
 ```
 
-Let's walk through the code. First you create new node:
+Let's walk through the code. First, you create a new node using:
 
 ```python
-node = testgres.get_new_node('master')
+with testgres.get_new_node('master') as node:
 ```
 
-or:
+or
 
 ```python
-node = testgres.get_new_node('master', '/path/to/base')
+with testgres.get_new_node('master', '/path/to/DB') as node:
 ```
 
-`master` is a node's name, not the DB's name. The name matters if you're testing something like replication. Function `get_new_node()` only creates directory structure in specified directory (or somewhere in '/tmp' if we did not specify base directory) for cluster. After that, we have to initialize the PostgreSQL cluster:
+where `master` is a node's name, not a DB's name. Name matters if you're testing something like replication. Function `get_new_node()` only creates directory structure in specified directory (or somewhere in '/tmp' if we did not specify base directory) for cluster. After that, we have to initialize the PostgreSQL cluster:
 
 ```python
 node.init()

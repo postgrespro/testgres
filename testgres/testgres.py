@@ -8,15 +8,12 @@ This module was created under influence of Postgres TAP test feature
 edit configuration files, start/stop cluster, execute queries. The
 typical flow may look like:
 
-    try:
-        node = get_new_node('test')
+    with get_new_node('test') as node:
         node.init()
         node.start()
-        stdout = node.psql('postgres', 'SELECT 1')
-        print stdout
+        result = node.psql('postgres', 'SELECT 1')
+        print(result)
         node.stop()
-    except ClusterException, e:
-        node.cleanup()
 
 Copyright (c) 2016, Postgres Professional
 """
