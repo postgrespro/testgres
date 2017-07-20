@@ -417,6 +417,7 @@ class PostgresNode(object):
     def start(self, params={}):
         """ Starts cluster """
 
+        # choose log_filename
         if self.use_logging:
             tmpfile = tempfile.NamedTemporaryFile('w', dir=self.logs_dir, delete=False)
             log_filename = tmpfile.name
@@ -425,33 +426,37 @@ class PostgresNode(object):
         else:
             log_filename = os.path.join(self.logs_dir, "postgresql.log")
 
+        # choose conf_filename
+        conf_filename = os.path.join(self.data_dir, 'postgresql.conf')
+
         _params = {
             "-D": self.data_dir,
             "-w": None,
             "-l": log_filename,
         }
         _params.update(params)
+
         try:
             self.pg_ctl("start", _params)
         except ClusterException as e:
+            def print_log_file(log_file):
+                if os.path.exists(log_file):
+                    with open(log_filename, 'r') as logfile:
+                        print(logfile.read())
+                else:
+                    print("File not found: {}".format(log_file))
+
+            # show pg_ctl LOG
             print("\npg_ctl log:\n----")
             print(str(e))
-            if os.path.exists(log_filename):
-                print("\npostgresql.log:\n----")
-                with open(log_filename, 'r') as logfile:
-                    text = logfile.readlines()[-1]
-                    print(text)
-            else:
-                print("Log file not found: %s", log_filename)
 
-            conf_filename = os.path.join(self.data_dir, 'postgresql.conf')
-            if os.path.exists(conf_filename):
-                print("\npostgresql.conf:\n----")
-                with open(conf_filename, 'r') as conffile:
-                    text = conffile.readlines()[-1]
-                    print(text)
-            else:
-                print("Configuration file not found: %s", conf_filename)
+            # show postmaster LOG
+            print("\n{}:\n----".format(log_filename))
+            print_log_file(log_filename)
+
+            # show CONFIG
+            print("\n{}:\n----".format(conf_filename))
+            print_log_file(conf_filename)
 
             raise ClusterException("Couldn't start the new node")
 
