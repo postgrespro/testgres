@@ -430,7 +430,7 @@ class PostgresNode(object):
             log_filename = os.path.join(self.logs_dir, "postgresql.log")
 
         # choose conf_filename
-        conf_filename = os.path.join(self.data_dir, 'postgresql.conf')
+        conf_filename = os.path.join(self.data_dir, "postgresql.conf")
 
         _params = {
             "-D": self.data_dir,
@@ -442,12 +442,12 @@ class PostgresNode(object):
         try:
             self.pg_ctl("start", _params)
         except ClusterException as e:
-            def print_log_file(log_file):
-                if os.path.exists(log_file):
-                    with open(log_filename, 'r') as logfile:
-                        print(logfile.read())
+            def print_node_file(node_file):
+                if os.path.exists(node_file):
+                    with open(node_file, 'r') as f:
+                        print(f.read())
                 else:
-                    print("File not found: {}".format(log_file))
+                    print("File not found: {}".format(node_file))
 
             # show pg_ctl LOG
             print("\npg_ctl log:\n----")
@@ -455,13 +455,13 @@ class PostgresNode(object):
 
             # show postmaster LOG
             print("\n{}:\n----".format(log_filename))
-            print_log_file(log_filename)
+            print_node_file(log_filename)
 
             # show CONFIG
             print("\n{}:\n----".format(conf_filename))
-            print_log_file(conf_filename)
+            print_node_file(conf_filename)
 
-            raise ClusterException("Cannot start node {}", self.node)
+            raise ClusterException("Cannot start node {}".format(self.name))
 
         self.working = True
         return self
