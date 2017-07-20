@@ -331,7 +331,6 @@ class PostgresNode(object):
                 # TODO: wal_level = hot_standby (9.5)
                 conf.write("max_wal_senders = 5\n"
                            "wal_keep_segments = 20\n"
-                           "max_wal_size = 128MB\n"
                            "wal_log_hints = on\n"
                            "hot_standby = on\n"
                            "max_connections = 10\n")
