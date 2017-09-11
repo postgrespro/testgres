@@ -156,7 +156,7 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('master') as master, \
                 get_new_node('slave') as slave:
 
-            master.init()
+            master.init(allow_streaming=True)
             master.start()
             master.psql('postgres', 'create table test as select generate_series(1, 4) i')
             master.backup('master_backup')
