@@ -97,11 +97,11 @@ class SimpleTest(unittest.TestCase):
             self.assertEqual(res, b'1\n')
 
             res = node.execute('postgres', 'select 1')
-            self.assertEqual(res, ([1],))
+            self.assertEqual(res, ([1], ))
 
             with node.connect('postgres') as con:
                 res = con.execute('select 1')
-                self.assertEqual(res, ([1],))
+                self.assertEqual(res, ([1], ))
 
     def test_transactions(self):
         with get_new_node('test') as node:
@@ -121,7 +121,7 @@ class SimpleTest(unittest.TestCase):
 
                 con.begin()
                 res = con.execute('select * from test')
-                self.assertEqual(res, ([1],))
+                self.assertEqual(res, ([1], ))
                 con.rollback()
 
                 con.begin()
@@ -159,7 +159,8 @@ class SimpleTest(unittest.TestCase):
 
             master.init(allow_streaming=True)
             master.start()
-            master.psql('postgres', 'create table test as select generate_series(1, 4) i')
+            master.psql('postgres',
+                        'create table test as select generate_series(1, 4) i')
             master.backup('master_backup')
 
             slave.init_from_backup(master, 'master_backup')
@@ -269,9 +270,10 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('node') as node:
             node.init().start().pgbench_init()
 
-            proc = node.pgbench(stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                                options=['-T5'])
+            proc = node.pgbench(
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                options=['-T5'])
 
             out, _ = proc.communicate()
             out = out.decode('utf-8')
