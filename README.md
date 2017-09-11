@@ -28,9 +28,9 @@ import testgres
 
 with testgres.get_new_node('test') as node:
     node.init()  # run initdb
-	node.start() # start PostgreSQL
+    node.start() # start PostgreSQL
     print(node.execute('postgres', 'select 1'))
-	node.stop()  # stop PostgreSQL
+    node.stop()  # stop PostgreSQL
 ```
 
 Let's walk through the code. First, you create a new node using:
