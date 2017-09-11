@@ -424,7 +424,11 @@ class PostgresNode(object):
         Return contents of pg_control file
         """
 
-        _params = ["-D", self.data_dir]
+        if get_pg_config()["VERSION_NUM"] < '9.5.0':
+            _params = [self.data_dir]
+        else:
+            _params = ["-D", self.data_dir]
+
         lines = _execute_utility("pg_controldata", _params, self.utils_logname)
 
         out_data = {}
