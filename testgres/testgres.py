@@ -31,7 +31,10 @@ import logging
 import select
 import tempfile
 
-# Try to use psycopg2 by default. If psycopg2 isn"t available then use
+from enum import Enum
+from distutils.version import LooseVersion
+
+# Try to use psycopg2 by default. If psycopg2 isn't available then use
 # pg8000 which is slower but much more portable because uses only
 # pure-Python code
 try:
@@ -42,36 +45,46 @@ except ImportError:
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
+# ports used by nodes
 bound_ports = set()
-registered_nodes = []
+
+# threads for loggers
 util_threads = []
-base_data_dir = None
-tmp_dirs = []
+
+# chached initdb dir
+cached_data_dir = None
+
+# rows returned by PG_CONFIG
 pg_config_data = {}
 
 
+class ExecUtilException(Exception):
+    """
+    Stores exit code
+    """
+
+    def __init__(self, message, exit_code=0):
+        super(ExecUtilException, self).__init__(message)
+        self.exit_code = exit_code
+
+
 class ClusterException(Exception):
-    """
-    Predefined exceptions
-    """
     pass
 
 
 class QueryException(Exception):
-    """
-    Predefined exceptions
-    """
     pass
 
 
-class InitPostgresNodeException(Exception):
-    """
-    Predefined exceptions
-    """
+class StartNodeException(Exception):
     pass
 
 
-class PgcontroldataException(Exception):
+class InitNodeException(Exception):
+    pass
+
+
+class PgControlDataException(Exception):
     def __init__(self, error_text, cmd):
         self.error_text = error_text
         self.cmd = cmd
@@ -81,10 +94,9 @@ class PgcontroldataException(Exception):
         return '\n ERROR: {0}\n CMD: {1}'.format(self.error_text, self.cmd)
 
 
-class LogWriter(threading.Thread):
+class TestgresLogger(threading.Thread):
     """
     Helper class to implement reading from postgresql.log
-    and redirect it python logging
     """
 
     def __init__(self, node_name, fd):
@@ -118,15 +130,16 @@ class LogWriter(threading.Thread):
 
 def log_watch(node_name, pg_logname):
     """
-    Starts thread for node that redirects postgresql
-    logs to python logging system
+    Starts thread for node that redirects
+    postgresql logs to python logging system
     """
 
-    reader = LogWriter(node_name, open(pg_logname, 'r'))
+    reader = TestgresLogger(node_name, open(pg_logname, 'r'))
     reader.start()
 
     global util_threads
     util_threads.append(reader)
+
     return reader
 
 
@@ -141,9 +154,12 @@ class NodeConnection(object):
                  host="127.0.0.1",
                  user=None,
                  password=None):
+
+        # Use default user if not specified
+        user = user or _default_username()
+
         self.parent_node = parent_node
-        if user is None:
-            user = get_username()
+
         self.connection = pglib.connect(
             database=dbname,
             user=user,
@@ -156,8 +172,8 @@ class NodeConnection(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
-        self.connection.close()
+    def __exit__(self, type, value, traceback):
+        self.close()
 
     def begin(self, isolation_level=0):
         # yapf: disable
@@ -205,7 +221,19 @@ class NodeConnection(object):
             return None
 
     def close(self):
+        self.cursor.close()
         self.connection.close()
+
+
+class NodeStatus(Enum):
+    Running, Stopped, Uninitialized = range(3)
+
+    # for Python 3.x
+    def __bool__(self):
+        return self.value == NodeStatus.Running.value
+
+    # for Python 2.x
+    __nonzero__ = __bool__
 
 
 class PostgresNode(object):
@@ -214,8 +242,7 @@ class PostgresNode(object):
 
         # check that port is not used
         if port in bound_ports:
-            raise InitPostgresNodeException(
-                'port {} is already in use'.format(port))
+            raise InitNodeException('port {} is already in use'.format(port))
 
         # mark port as used
         bound_ports.add(port)
@@ -223,17 +250,12 @@ class PostgresNode(object):
         self.name = name
         self.host = '127.0.0.1'
         self.port = port
-        if base_dir is None:
-            self.base_dir = tempfile.mkdtemp()
-            tmp_dirs.append(self.base_dir)
-        else:
-            self.base_dir = base_dir
-        if not os.path.exists(self.logs_dir):
-            os.makedirs(self.logs_dir)
-        self.working = False
-
+        self.base_dir = base_dir or tempfile.mkdtemp()
         self.use_logging = use_logging
         self.logger = None
+
+        if not os.path.exists(self.logs_dir):
+            os.makedirs(self.logs_dir)
 
     def __enter__(self):
         return self
@@ -256,99 +278,87 @@ class PostgresNode(object):
         return os.path.join(self.base_dir, "logs")
 
     @property
-    def output_filename(self):
-        return os.path.join(self.logs_dir, "stdout.log")
-
-    @property
-    def error_filename(self):
-        return os.path.join(self.logs_dir, "stderr.log")
+    def utils_logname(self):
+        return os.path.join(self.logs_dir, "utils.log")
 
     @property
     def connstr(self):
         return "port={}".format(self.port)
-        # return "port=%s host=%s" % (self.port, self.host)
 
-    def get_bin_path(self, filename):
-        """ Returns full path to an executable """
-        pg_config = get_config()
-        if pg_config is None or "BINDIR" not in pg_config:
-            return filename
-        else:
-            return os.path.join(pg_config.get("BINDIR"), filename)
+    def _create_recovery_conf(self, root_node):
+        line = (
+            "primary_conninfo='{} application_name={}'\n"
+            "standby_mode=on\n"
+        ).format(root_node.connstr, self.name)
 
-    def initdb(self, directory, initdb_params=[]):
-        initdb = self.get_bin_path("initdb")
-        initdb_logfile = os.path.join(self.logs_dir, "initdb.log")
+        self.append_conf("recovery.conf", line)
 
-        with open(initdb_logfile, 'a') as file_out:
-            ret = subprocess.call(
-                [initdb, directory, "-N"] + initdb_params,
-                stdout=file_out,
-                stderr=subprocess.STDOUT)
+    def init(self, allow_streaming=False, initdb_params=[]):
+        """
+        Perform initdb for this node.
 
-            if ret:
-                raise ClusterException(
-                    "Cluster initialization failed. You"
-                    " can find additional information at '%s'" %
-                    initdb_logfile)
-
-    def _setup_data_dir(self, data_dir):
-        global base_data_dir
-
-        if base_data_dir is None:
-            base_data_dir = tempfile.mkdtemp()
-            tmp_dirs.append(base_data_dir)
-            self.initdb(base_data_dir)
-
-        shutil.copytree(base_data_dir, data_dir)
-
-    def init(self, allows_streaming=False, initdb_params=[]):
-        """ Performs initdb """
+        Arguments:
+        allow_streaming -- should this node add a hba entry for replication?
+        initdb_params -- parameters for initdb (list)
+        """
 
         postgres_conf = os.path.join(self.data_dir, "postgresql.conf")
+        hba_conf = os.path.join(self.data_dir, "pg_hba.conf")
 
+        # We don't have to reinit it if data directory exists
         if os.path.isfile(postgres_conf):
-            # if data directory exists then we don't need reinit it
-            with open(postgres_conf, "a") as conf:
-                conf.write("port = {}\n".format(self.port))
-            return self
+            raise InitNodeException('Node is already intialized')
 
-        # initialize cluster
-        if initdb_params:
-            self.initdb(self.data_dir, initdb_params)
-        else:
-            self._setup_data_dir(self.data_dir)
+        # initialize this PostgreSQL node
+        initdb_log = os.path.join(self.logs_dir, "initdb.log")
+        _cached_initdb(self.data_dir, initdb_log, initdb_params)
+
+        # add parameters to hba file
+        with open(hba_conf, "w") as conf:
+            conf.write("# TYPE\tDATABASE\tUSER\tADDRESS\t\tMETHOD\n"
+                       "local\tall\t\tall\t\t\ttrust\n"
+                       "host\tall\t\tall\t127.0.0.1/32\ttrust\n"
+                       "host\tall\t\tall\t::1/128\t\ttrust\n"
+                       # replication
+                       "local\treplication\tall\t\t\ttrust\n"
+                       "host\treplication\tall\t127.0.0.1/32\ttrust\n"
+                       "host\treplication\tall\t::1/128\t\ttrust\n")
 
         # add parameters to config file
         with open(postgres_conf, "w") as conf:
             conf.write("fsync = off\n"
                        "log_statement = all\n"
                        "port = {}\n".format(self.port))
-            conf.write(
-                "listen_addresses = '{}'\n".format(self.host))
 
-            if allows_streaming:
+            conf.write("listen_addresses = '{}'\n".format(self.host))
+
+            if allow_streaming:
                 # TODO: wal_level = hot_standby (9.5)
                 conf.write("max_wal_senders = 5\n"
                            "wal_keep_segments = 20\n"
                            "wal_log_hints = on\n"
                            "hot_standby = on\n"
                            "max_connections = 10\n")
-                if get_config().get("VERSION_NUM") < 906000:
+
+                cur_ver = LooseVersion(get_pg_config().get("VERSION_NUM"))
+                min_ver = LooseVersion('9.6.0')
+
+                if cur_ver < min_ver:
                     conf.write("wal_level = hot_standby\n")
                 else:
                     conf.write("wal_level = replica\n")
 
-                self.set_replication_conf()
-
         return self
 
-    def init_from_backup(self,
-                         root_node,
-                         backup_name,
-                         has_streaming=False,
-                         hba_permit_replication=True):
-        """ Initializes cluster from backup, made by another node """
+    def init_from_backup(self, root_node, backup_name, become_replica=False):
+        """
+        Initialize node from a backup of another node.
+
+        Arguments:
+        root_node -- master node that produced a backup (PostgresNode)
+        backup_name -- name of the backup (str)
+        become replica -- should this node become a binary replica of master?
+        """
 
         # Copy data from backup
         backup_path = os.path.join(root_node.base_dir, backup_name)
@@ -357,31 +367,16 @@ class PostgresNode(object):
 
         # Change port in config file
         self.append_conf("postgresql.conf", "port = {}".format(self.port))
-        # Enable streaming
-        if hba_permit_replication:
-            self.set_replication_conf()
-        if has_streaming:
-            self.enable_streaming(root_node)
 
-    def set_replication_conf(self):
-        hba_conf = os.path.join(self.data_dir, "pg_hba.conf")
-        with open(hba_conf, "a") as conf:
-            conf.write("local replication all trust\n")
-            # conf.write("host replication all 127.0.0.1/32 trust\n")
-
-    def enable_streaming(self, root_node):
-        recovery_conf = os.path.join(self.data_dir, "recovery.conf")
-        with open(recovery_conf, "a") as conf:
-            conf.write("primary_conninfo='{} application_name={}'\n"
-                       "standby_mode=on\n".format(root_node.connstr,
-                                                  self.name))
+        # Should we become replica?
+        if become_replica:
+            self._create_recovery_conf(root_node)
 
     def append_conf(self, filename, string):
         """
-        Appends line to a config file like postgresql.conf or pg_hba.conf
-
-        A new line is not automatically appended to the string
+        Append line to a config file (i.e. postgresql.conf)
         """
+
         config_name = os.path.join(self.data_dir, filename)
         with open(config_name, "a") as conf:
             conf.write(''.join([string, '\n']))
@@ -390,35 +385,74 @@ class PostgresNode(object):
 
     def pg_ctl(self, command, params={}, command_options=[]):
         """
-        Runs pg_ctl with specified params
-
-        This function is a workhorse for start(), stop(), reload() and status()
-        function
+        Runs pg_ctl with specified params. This function is a workhorse
+        for start(), stop(), reload() and status() functions.
         """
 
-        pg_ctl = self.get_bin_path("pg_ctl")
+        _params = [command]
 
-        arguments = [pg_ctl]
-        arguments.append(command)
         for key, value in six.iteritems(params):
-            arguments.append(key)
+            _params.append(key)
             if value:
-                arguments.append(value)
+                _params.append(value)
 
-        with open(self.output_filename, "a") as file_out, \
-                open(self.error_filename, "a") as file_err:
+        _execute_utility("pg_ctl", _params, self.utils_logname)
 
-            res = subprocess.call(
-                arguments + command_options, stdout=file_out, stderr=file_err)
+    def status(self):
+        """
+        Check this node's status (NodeStatus)
+        """
 
-            if res > 0:
-                with open(self.error_filename, "r") as errfile:
-                    text = errfile.readlines()[-1]
-                    text += 'Logs at: %s' % self.logs_dir
-                    raise ClusterException(text)
+        try:
+            _params = {"-D": self.data_dir}
+            self.pg_ctl("status", _params)
+            return NodeStatus.Running
+
+        except ExecUtilException as e:
+            # Node is not running
+            if e.exit_code == 3:
+                return NodeStatus.Stopped
+
+            # Node has no file dir
+            elif e.exit_code == 4:
+                return NodeStatus.Uninitialized
+
+    def get_pid(self):
+        """
+        Return postmaster's pid if node is running
+        """
+
+        if self.status():
+            with open(os.path.join(self.data_dir, 'postmaster.pid')) as f:
+                return int(f.readline())
+
+        # for clarity
+        return 0
+
+    def get_control_data(self):
+        """
+        Return contents of pg_control file
+        """
+
+        out_data = {}
+        pg_controldata = get_bin_path("pg_controldata")
+        try:
+            lines = subprocess.check_output(
+                [pg_controldata] + ["-D", self.data_dir],
+                stderr=subprocess.STDOUT).decode("utf-8").splitlines()
+        except subprocess.CalledProcessError as e:
+            raise PgControlDataException(e.output, e.cmd)
+
+        for line in lines:
+            key, value = line.partition(':')[::2]
+            out_data[key.strip()] = value.strip()
+
+        return out_data
 
     def start(self, params={}):
-        """ Starts cluster """
+        """
+        Start this node
+        """
 
         # choose log_filename
         if self.use_logging:
@@ -432,6 +466,12 @@ class PostgresNode(object):
         # choose conf_filename
         conf_filename = os.path.join(self.data_dir, "postgresql.conf")
 
+        # choose hba_filename
+        hba_filename = os.path.join(self.data_dir, "pg_hba.conf")
+
+        # choose recovery_filename
+        recovery_filename = os.path.join(self.data_dir, "recovery.conf")
+
         _params = {
             "-D": self.data_dir,
             "-w": None,
@@ -441,86 +481,38 @@ class PostgresNode(object):
 
         try:
             self.pg_ctl("start", _params)
-        except ClusterException as e:
+        except ExecUtilException as e:
             def print_node_file(node_file):
                 if os.path.exists(node_file):
-                    with open(node_file, 'r') as f:
-                        print(f.read())
-                else:
-                    print("File not found: {}".format(node_file))
+                    try:
+                        with open(node_file, 'r') as f:
+                            return f.read()
+                    except:
+                        pass
+                return "### file not found ###\n"
 
-            # show pg_ctl LOG
-            print("\npg_ctl log:\n----")
-            print(str(e))
+            error_text = (
+                "Cannot start node\n"
+                "{}\n"  # pg_ctl log
+                "{}:\n----\n{}\n"  # postgresql.log
+                "{}:\n----\n{}\n"  # postgresql.conf
+                "{}:\n----\n{}\n"  # pg_hba.conf
+                "{}:\n----\n{}\n"  # recovery.conf
+            ).format(str(e),
+                     log_filename, print_node_file(log_filename),
+                     conf_filename, print_node_file(conf_filename),
+                     hba_filename, print_node_file(hba_filename),
+                     recovery_filename, print_node_file(recovery_filename))
 
-            # show postmaster LOG
-            print("\n{}:\n----".format(log_filename))
-            print_node_file(log_filename)
+            raise StartNodeException(error_text)
 
-            # show CONFIG
-            print("\n{}:\n----".format(conf_filename))
-            print_node_file(conf_filename)
-
-            raise ClusterException("Cannot start node {}".format(self.name))
-
-        self.working = True
         return self
 
-    def status(self):
-        """
-        Check cluster status
-
-        If Running - return True
-        If not Running - return False
-        If there is no data in data_dir or data_dir do not exists - return None
-        """
-        try:
-            # TODO: use result?
-            subprocess.check_output([
-                self.get_bin_path("pg_ctl"), 'status', '-D',
-                '{0}'.format(self.data_dir)
-            ])
-            return True
-        except subprocess.CalledProcessError as e:
-            if e.returncode == 3:
-                # Not Running
-                self.working = False
-                return False
-            elif e.returncode == 4:
-                # No data or directory do not exists
-                self.working = False
-                return None
-
-    def get_pid(self):
-        """
-        Check that node is running and return postmaster pid
-        Otherwise return None
-        """
-        if self.status():
-            file = open(os.path.join(self.data_dir, 'postmaster.pid'))
-            pid = int(file.readline())
-            return pid
-        else:
-            return None
-
-    def get_control_data(self):
-        """ Return pg_control content """
-        out_data = {}
-        pg_controldata = self.get_bin_path("pg_controldata")
-        try:
-            lines = subprocess.check_output(
-                [pg_controldata] + ["-D", self.data_dir],
-                stderr=subprocess.STDOUT).decode("utf-8").splitlines()
-        except subprocess.CalledProcessError as e:
-            raise PgcontroldataException(e.output, e.cmd)
-
-        for line in lines:
-            key, value = line.partition(':')[::2]
-            out_data[key.strip()] = value.strip()
-        return out_data
-
     def stop(self, params={}):
-        """ Stops cluster """
+        """
+        Stop this node
+        """
+
         _params = {"-D": self.data_dir, "-w": None}
         _params.update(params)
         self.pg_ctl("stop", _params)
@@ -528,12 +520,13 @@ class PostgresNode(object):
         if self.logger:
             self.logger.stop()
 
-        self.working = False
-
         return self
 
     def restart(self, params={}):
-        """ Restarts cluster """
+        """
+        Restart this node
+        """
+
         _params = {"-D": self.data_dir, "-w": None}
         _params.update(params)
         self.pg_ctl("restart", _params)
@@ -541,7 +534,10 @@ class PostgresNode(object):
         return self
 
     def reload(self, params={}):
-        """ Reloads config files """
+        """
+        Reload config files
+        """
+
         _params = {"-D": self.data_dir}
         _params.update(params)
         self.pg_ctl("reload", _params)
@@ -549,31 +545,32 @@ class PostgresNode(object):
         return self
 
     def cleanup(self):
-        """ Stops cluster if needed and removes the data directory """
+        """
+        Stop node if needed and remove its data directory
+        """
 
-        # stop server if it still working
-        if self.working:
-            try:
-                self.stop()
-            except:
-                pass
+        # try stopping server
+        try:
+            self.stop()
+        except:
+            pass
 
         # remove data directory
         shutil.rmtree(self.data_dir, ignore_errors=True)
+
         return self
 
     def psql(self, dbname, query=None, filename=None, username=None):
         """
-        Executes a query by the psql
-
-        Returns a tuple (code, stdout, stderr) in which:
-        * code is a return code of psql (0 if alright)
-        * stdout and stderr are strings, representing standard output
-          and standard error output
+        Execute a query using psql and return a tuple (code, stdout, stderr)
         """
-        psql = self.get_bin_path("psql")
+
+        psql = get_bin_path("psql")
         psql_params = [
-            psql, "-XAtq", "-h{}".format(self.host), "-p {}".format(self.port),
+            psql,
+            "-XAtq",
+            "-h{}".format(self.host),
+            "-p {}".format(self.port),
             dbname
         ]
 
@@ -589,8 +586,9 @@ class PostgresNode(object):
             psql_params.extend(("-U", username))
 
         # start psql process
-        process = subprocess.Popen(
-            psql_params, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process = subprocess.Popen(psql_params,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
 
         # wait untill it finishes and get stdout and stderr
         out, err = process.communicate()
@@ -598,38 +596,32 @@ class PostgresNode(object):
 
     def safe_psql(self, dbname, query, username=None):
         """
-        Executes a query by the psql
-
-        Returns the stdout if succeed. Otherwise throws
-        ClusterException with stderr output
+        Execute a query using psql
         """
+
         ret, out, err = self.psql(dbname, query, username=username)
         if ret:
-            raise ClusterException("psql failed:\n" + six.text_type(err))
+            raise QueryException(six.text_type(err))
         return out
 
     def dump(self, dbname, filename):
-        """ Invoke pg_dump and exports database to a file as an sql script """
+        """
+        Dump database using pg_dump
+        """
+
         path = os.path.join(self.base_dir, filename)
-        params = [
-            self.get_bin_path("pg_dump"), "-p {}".format(self.port), "-f",
-            path, dbname
+        _params = [
+            "-p {}".format(self.port),
+            "-f", path, dbname
         ]
 
-        with open(self.error_filename, "a") as file_err:
-            ret = subprocess.call(params, stderr=file_err)
-            if ret:
-                raise ClusterException("Dump creation failed")
+        _execute_utility("pg_dump", _params, self.utils_logname)
 
     def restore(self, dbname, filename, node=None):
         """
-        Restore database from dump file
-
-        dbname     name of database we're restoring data to
-        filename   path to the dump file
-        node       the cluster node where the dump was taken from (if node
-                   wasn't specified then assume the same cluster)
+        Restore database from pg_dump's file
         """
+
         if not node:
             node = self
 
@@ -637,7 +629,10 @@ class PostgresNode(object):
         self.psql(dbname, filename=path)
 
     def poll_query_until(self, dbname, query):
-        """ Runs a query once a second until it returs True """
+        """
+        Run a query once a second until it returs True
+        """
+
         max_attemps = 60
         attemps = 0
 
@@ -649,10 +644,14 @@ class PostgresNode(object):
 
             time.sleep(1)
             attemps += 1
-        raise QueryException("Timeout while waiting for query to return True")
+
+        raise QueryException("Query timeout")
 
     def execute(self, dbname, query, username=None, commit=False):
-        """ Executes the query and returns all rows """
+        """
+        Execute a query and return all rows
+        """
+
         with self.connect(dbname, username) as node_con:
             res = node_con.execute(query)
             if commit:
@@ -660,39 +659,44 @@ class PostgresNode(object):
             return res
 
     def backup(self, name):
-        """ Performs pg_basebackup """
-        pg_basebackup = self.get_bin_path("pg_basebackup")
+        """
+        Perform pg_basebackup
+        """
+
         backup_path = os.path.join(self.base_dir, name)
         os.makedirs(backup_path)
-        params = [
-            pg_basebackup, "-D", backup_path, "-p {}".format(self.port), "-X",
+        _params = [
+            "-D", backup_path,
+            "-p {}".format(self.port),
+            "-X",
             "fetch"
         ]
-        with open(self.output_filename, "a") as file_out, \
-                open(self.error_filename, "a") as file_err:
-            ret = subprocess.call(params, stdout=file_out, stderr=file_err)
-            if ret:
-                raise ClusterException("Base backup failed")
 
-            return backup_path
+        _execute_utility("pg_basebackup", _params, self.utils_logname)
+
+        return backup_path
 
     def pgbench_init(self, dbname='postgres', scale=1, options=[]):
-        """ Prepare pgbench database """
-        pgbench = self.get_bin_path("pgbench")
-        params = [pgbench, "-i", "-s",
-                  "%i" % scale, "-p",
-                  "%i" % self.port] + options + [dbname]
-        with open(self.output_filename, "a") as file_out, \
-                open(self.error_filename, "a") as file_err:
-            ret = subprocess.call(params, stdout=file_out, stderr=file_err)
-            if ret:
-                raise ClusterException("pgbench init failed")
+        """
+        Prepare database for pgbench
+        """
 
-            return True
+        _params = [
+            "-i", "-s",
+            "%i" % scale, "-p",
+            "%i" % self.port
+        ] + options + [dbname]
+
+        _execute_utility("pgbench", _params, self.utils_logname)
+
+        return self
 
     def pgbench(self, dbname='postgres', stdout=None, stderr=None, options=[]):
-        """ Make pgbench process """
-        pgbench = self.get_bin_path("pgbench")
+        """
+        Spawn a pgbench process
+        """
+
+        pgbench = get_bin_path("pgbench")
         params = [pgbench, "-p", "%i" % self.port] + options + [dbname]
         proc = subprocess.Popen(params, stdout=stdout, stderr=stderr)
 
@@ -702,90 +706,112 @@ class PostgresNode(object):
         return NodeConnection(parent_node=self, dbname=dbname, user=username)
 
 
-def get_username():
-    """ Returns current user name """
+def _default_username():
+    """
+    Return current user name
+    """
+
     return pwd.getpwuid(os.getuid())[0]
 
 
-def get_config():
+def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
+    """
+    Perform initdb or use cached node files
+    """
+
+    def call_initdb(_data_dir):
+        _params = [_data_dir, "-N"] + initdb_params
+        try:
+            _execute_utility("initdb", _params, initdb_logfile)
+        except Exception as e:
+            raise InitNodeException(e.message)
+
+    # Call initdb if we have custom params
+    if initdb_params:
+        call_initdb(data_dir)
+    # Else we can use cached dir
+    else:
+        global cached_data_dir
+
+        # Initialize cached initdb
+        if cached_data_dir is None:
+            cached_data_dir = tempfile.mkdtemp()
+            call_initdb(cached_data_dir)
+
+        # Copy cached initdb to current data dir
+        shutil.copytree(cached_data_dir, data_dir)
+
+
+def _execute_utility(util, args, logfile):
+    with open(logfile, "a") as file_out:
+        # run pg_ctl
+        process = subprocess.Popen([get_bin_path(util)] + args,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT)
+
+        # get result of pg_ctl
+        out, _ = process.communicate()
+
+        # decode logs
+        log_text = out.decode('utf-8')
+
+        # write new log entry
+        file_out.write(''.join(map(lambda x: str(x) + ' ', [util] + args)))
+        file_out.write('\n')
+        file_out.write(log_text)
+
+        if process.returncode:
+            error_text = (
+                "{} failed\n"
+                "log:\n----\n{}\n"
+            ).format(util, out.decode('utf-8'))
+
+            raise ExecUtilException(error_text, process.returncode)
+
+
+def get_bin_path(filename):
+    """
+    Return full path to an executable
+    """
+
+    pg_config = get_pg_config()
+
+    if pg_config and "BINDIR" in pg_config:
+        return os.path.join(pg_config.get("BINDIR"), filename)
+
+    return filename
+
+
+def get_pg_config():
+    """
+    Return output of pg_config
+    """
+
     global pg_config_data
 
     if not pg_config_data:
-        pg_config_cmd = os.environ.get("PG_CONFIG") \
-            if "PG_CONFIG" in os.environ else "pg_config"
+        pg_config_cmd = os.environ.get("PG_CONFIG") or "pg_config"
 
-        try:
-            out = six.StringIO(
-                subprocess.check_output(
-                    [pg_config_cmd], universal_newlines=True))
-            for line in out:
-                if line and "=" in line:
-                    key, value = line.split("=", 1)
-                    pg_config_data[key.strip()] = value.strip()
-        except OSError:
-            return None
+        out = six.StringIO(subprocess.check_output([pg_config_cmd],
+                                                   universal_newlines=True))
+        for line in out:
+            if line and "=" in line:
+                key, value = line.split("=", 1)
+                pg_config_data[key.strip()] = value.strip()
 
-        # Numeric version format
+        # Fetch version of PostgreSQL and save it as VERSION_NUM
         version_parts = pg_config_data.get("VERSION").split(" ")
-        pg_config_data["VERSION_NUM"] = version_to_num(version_parts[-1])
+        pg_config_data["VERSION_NUM"] = version_parts[-1]
 
     return pg_config_data
 
 
-def version_to_num(version):
-    """ Converts PostgreSQL version to number for easier comparison """
-    import re
-
-    if not version:
-        return 0
-    parts = version.split(".")
-    while len(parts) < 3:
-        parts.append("0")
-    num = 0
-    for part in parts:
-        num = num * 100 + int(re.sub("[^\d]", "", part))
-    return num
-
-
 def get_new_node(name, base_dir=None, use_logging=False):
-    global registered_nodes
+    """
+    Create new node
+    """
 
     # generate a new unique port
     port = port_for.select_random(exclude_ports=bound_ports)
 
-    node = PostgresNode(name, port, base_dir, use_logging=use_logging)
-    registered_nodes.append(node)
-
-    return node
-
-
-def clean_all():
-    global registered_nodes
-    global base_data_dir
-    global tmp_dirs
-
-    for node in registered_nodes:
-        node.cleanup()
-
-    for cat in tmp_dirs:
-        if os.path.exists():
-            shutil.rmtree(cat, ignore_errors=True)
-
-        if cat == base_data_dir:
-            base_data_dir = None
-
-    registered_nodes = []
-    tmp_dirs = []
-
-
-def stop_all():
-    global registered_nodes
-    global util_threads
-
-    for node in registered_nodes:
-        # stop server if it's still working
-        if node.working:
-            node.stop()
-
-    for thread in util_threads:
-        thread.stop()
+    return PostgresNode(name, port, base_dir, use_logging=use_logging)
