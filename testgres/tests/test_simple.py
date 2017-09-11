@@ -147,6 +147,7 @@ class SimpleTest(unittest.TestCase):
                 data = node.get_control_data()
                 self.assertIsNotNode(data)
             except PgControlDataException as e:
+                print(e)
                 got_exception = True
             except Exception as e:
                 pass
