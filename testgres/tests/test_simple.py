@@ -9,7 +9,7 @@ import subprocess
 
 from distutils.version import LooseVersion
 
-from testgres import InitNodeException, StartNodeException, PgControlDataException
+from testgres import InitNodeException, StartNodeException, ExecUtilException
 from testgres import get_new_node, get_pg_config
 from testgres import bound_ports
 from testgres import NodeStatus
@@ -134,7 +134,7 @@ class SimpleTest(unittest.TestCase):
 
             try:
                 node.get_control_data()
-            except PgControlDataException as e:
+            except ExecUtilException as e:
                 got_exception = True
             except Exception as e:
                 pass
@@ -146,8 +146,8 @@ class SimpleTest(unittest.TestCase):
                 node.init()
                 data = node.get_control_data()
                 self.assertIsNotNode(data)
-            except PgControlDataException as e:
-                print(e)
+            except ExecUtilException as e:
+                print(e.message)
                 got_exception = True
             except Exception as e:
                 pass

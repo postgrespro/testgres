@@ -84,16 +84,6 @@ class InitNodeException(Exception):
     pass
 
 
-class PgControlDataException(Exception):
-    def __init__(self, error_text, cmd):
-        self.error_text = error_text
-        self.cmd = cmd
-
-    def __str__(self):
-        self.error_text = repr(self.error_text)
-        return '\n ERROR: {0}\n CMD: {1}'.format(self.error_text, self.cmd)
-
-
 class TestgresLogger(threading.Thread):
     """
     Helper class to implement reading from postgresql.log
@@ -434,14 +424,10 @@ class PostgresNode(object):
         Return contents of pg_control file
         """
 
+        _params = ["-D", self.data_dir]
+        lines = _execute_utility("pg_controldata", _params, self.utils_logname)
+
         out_data = {}
-        pg_controldata = get_bin_path("pg_controldata")
-        try:
-            lines = subprocess.check_output(
-                [pg_controldata] + ["-D", self.data_dir],
-                stderr=subprocess.STDOUT).decode("utf-8").splitlines()
-        except subprocess.CalledProcessError as e:
-            raise PgControlDataException(e.output, e.cmd)
 
         for line in lines:
             key, value = line.partition(':')[::2]
@@ -751,22 +737,22 @@ def _execute_utility(util, args, logfile):
 
         # get result of pg_ctl
         out, _ = process.communicate()
-
-        # decode logs
-        log_text = out.decode('utf-8')
+        out = out.decode('utf-8')
 
         # write new log entry
         file_out.write(''.join(map(lambda x: str(x) + ' ', [util] + args)))
         file_out.write('\n')
-        file_out.write(log_text)
+        file_out.write(out)
 
         if process.returncode:
             error_text = (
                 "{} failed\n"
                 "log:\n----\n{}\n"
-            ).format(util, out.decode('utf-8'))
+            ).format(util, out)
 
             raise ExecUtilException(error_text, process.returncode)
+
+        return out
 
 
 def get_bin_path(filename):
