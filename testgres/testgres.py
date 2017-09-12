@@ -411,12 +411,13 @@ class PostgresNode(object):
 
         self.append_conf("recovery.conf", line)
 
-    def init(self, allow_streaming=False, initdb_params=[]):
+    def init(self, allow_streaming=False, fsync=False, initdb_params=[]):
         """
         Perform initdb for this node.
 
         Args:
             allow_streaming: should this node add a hba entry for replication?
+            fsync: should this node use fsync to keep data safe?
             initdb_params: parameters for initdb (list).
 
         Returns:
@@ -447,27 +448,26 @@ class PostgresNode(object):
 
         # add parameters to config file
         with open(postgres_conf, "w") as conf:
-            conf.write("fsync = off\n"
-                       "log_statement = all\n"
+            if not fsync:
+                conf.write("fsync = off\n")
+
+            conf.write("log_statement = all\n"
                        "port = {}\n".format(self.port))
 
             conf.write("listen_addresses = '{}'\n".format(self.host))
 
             if allow_streaming:
-                # TODO: wal_level = hot_standby (9.5)
-                conf.write("max_wal_senders = 5\n"
-                           "wal_keep_segments = 20\n"
-                           "wal_log_hints = on\n"
-                           "hot_standby = on\n"
-                           "max_connections = 10\n")
-
                 cur_ver = LooseVersion(get_pg_config().get("VERSION_NUM"))
                 min_ver = LooseVersion('9.6.0')
 
-                if cur_ver < min_ver:
-                    conf.write("wal_level = hot_standby\n")
-                else:
-                    conf.write("wal_level = replica\n")
+                # select a proper wal_level for PostgreSQL
+                wal_level = "hot_standby" if cur_ver < min_ver else "replica"
+
+                conf.write("max_wal_senders = 5\n"
+                           "wal_keep_segments = 20\n"
+                           "hot_standby = on\n"
+                           "max_connections = 10\n"
+                           "wal_level = {}\n".format(wal_level))
 
         return self
 
