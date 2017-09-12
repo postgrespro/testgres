@@ -15,6 +15,16 @@ typical flow may look like:
         print(result)
         node.stop()
 
+    Or:
+
+    with get_new_node('node1') as node1:
+        node1.init().start()
+        with node1.backup() as backup:
+            with backup.spawn_primary('node2') as node2:
+                res = node2.start().execute('postgres', 'select 2')
+                print(res)
+
+
 Copyright (c) 2016, Postgres Professional
 """
 
@@ -57,6 +67,14 @@ cached_data_dir = None
 # rows returned by PG_CONFIG
 pg_config_data = {}
 
+UTILS_LOG_FILE = "utils.log"
+BACKUP_LOG_FILE = "backup.log"
+
+DATA_DIR = "data"
+LOGS_DIR = "logs"
+
+DEFAULT_XLOG_METHOD = "stream"
+
 
 class ExecUtilException(Exception):
     """
@@ -81,6 +99,10 @@ class StartNodeException(Exception):
 
 
 class InitNodeException(Exception):
+    pass
+
+
+class BackupException(Exception):
     pass
 
 
@@ -215,7 +237,112 @@ class NodeConnection(object):
         self.connection.close()
 
 
+class NodeBackup(object):
+    """
+    Smart object responsible for backups
+    """
+
+    @property
+    def log_file(self):
+        return os.path.join(self.base_dir, BACKUP_LOG_FILE)
+
+    def __init__(self, node, base_dir=None, xlog_method=DEFAULT_XLOG_METHOD):
+        if not node.status():
+            raise BackupException('Node must be running')
+
+        base_dir = base_dir or tempfile.mkdtemp()
+
+        # create directory if needed
+        if base_dir and not os.path.exists(base_dir):
+            os.makedirs(base_dir)
+
+        self.original_node = node
+        self.base_dir = base_dir
+        self.available = True
+
+        data_dir = os.path.join(self.base_dir, DATA_DIR)
+        _params = [
+            "-D{}".format(data_dir),
+            "-p{}".format(node.port),
+            "-X", xlog_method
+        ]
+        _execute_utility("pg_basebackup", _params, self.log_file)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.cleanup()
+
+    def spawn_primary(self, name, destroy=True):
+        """
+        Create a primary node from a backup.
+
+        Args:
+            name: name for a new node (str).
+            destroy: should we convert this backup into a node?
+
+        Returns:
+            New instance of PostgresNode.
+        """
+
+        if not self.available:
+            raise BackupException('Backup is exhausted')
+
+        # Do we want to use this backup several times?
+        available = not destroy
+
+        if available:
+            base_dir = tempfile.mkdtemp()
+
+            data1 = os.path.join(self.base_dir, DATA_DIR)
+            data2 = os.path.join(base_dir, DATA_DIR)
+
+            try:
+                # Copy backup to new data dir
+                shutil.copytree(data1, data2)
+            except Exception as e:
+                raise BackupException(e.message)
+        else:
+            base_dir = self.base_dir
+
+        # build a new PostgresNode
+        node = get_new_node(name, base_dir)
+        node.append_conf("postgresql.conf", "port = {}".format(node.port))
+
+        # record new status
+        self.available = available
+
+        return node
+
+    def spawn_replica(self, name, destroy=True):
+        """
+        Create a replica of the original node from a backup.
+
+        Args:
+            name: name for a new node (str).
+            destroy: should we convert this backup into a node?
+
+        Returns:
+            New instance of PostgresNode.
+        """
+
+        node = self.spawn_primary(name, destroy)
+        node._create_recovery_conf(self.original_node)
+
+        return node
+
+    def cleanup(self):
+        if self.available:
+            shutil.rmtree(self.base_dir, ignore_errors=True)
+            self.available = False
+
+
 class NodeStatus(Enum):
+    """
+    Status of a PostgresNode
+    """
+
     Running, Stopped, Uninitialized = range(3)
 
     # for Python 3.x
@@ -244,6 +371,7 @@ class PostgresNode(object):
         self.use_logging = use_logging
         self.logger = None
 
+        # create directory if needed
         if not os.path.exists(self.logs_dir):
             os.makedirs(self.logs_dir)
 
@@ -257,19 +385,19 @@ class PostgresNode(object):
         self.cleanup()
 
         # mark port as free
-        bound_ports.remove(self.port)
+        self.free_port()
 
     @property
     def data_dir(self):
-        return os.path.join(self.base_dir, "data")
+        return os.path.join(self.base_dir, DATA_DIR)
 
     @property
     def logs_dir(self):
-        return os.path.join(self.base_dir, "logs")
+        return os.path.join(self.base_dir, LOGS_DIR)
 
     @property
     def utils_logname(self):
-        return os.path.join(self.logs_dir, "utils.log")
+        return os.path.join(self.logs_dir, UTILS_LOG_FILE)
 
     @property
     def connstr(self):
@@ -287,9 +415,12 @@ class PostgresNode(object):
         """
         Perform initdb for this node.
 
-        Arguments:
-        allow_streaming -- should this node add a hba entry for replication?
-        initdb_params -- parameters for initdb (list)
+        Args:
+            allow_streaming: should this node add a hba entry for replication?
+            initdb_params: parameters for initdb (list).
+
+        Returns:
+            This instance of PostgresNode.
         """
 
         postgres_conf = os.path.join(self.data_dir, "postgresql.conf")
@@ -340,31 +471,16 @@ class PostgresNode(object):
 
         return self
 
-    def init_from_backup(self, root_node, backup_name, become_replica=False):
-        """
-        Initialize node from a backup of another node.
-
-        Arguments:
-        root_node -- master node that produced a backup (PostgresNode)
-        backup_name -- name of the backup (str)
-        become replica -- should this node become a binary replica of master?
-        """
-
-        # Copy data from backup
-        backup_path = os.path.join(root_node.base_dir, backup_name)
-        shutil.copytree(backup_path, self.data_dir)
-        os.chmod(self.data_dir, 0o0700)
-
-        # Change port in config file
-        self.append_conf("postgresql.conf", "port = {}".format(self.port))
-
-        # Should we become replica?
-        if become_replica:
-            self._create_recovery_conf(root_node)
-
     def append_conf(self, filename, string):
         """
-        Append line to a config file (i.e. postgresql.conf)
+        Append line to a config file (i.e. postgresql.conf).
+
+        Args:
+            filename: name of the config file.
+            string: string to be appended to config.
+
+        Returns:
+            This instance of PostgresNode.
         """
 
         config_name = os.path.join(self.data_dir, filename)
@@ -390,7 +506,10 @@ class PostgresNode(object):
 
     def status(self):
         """
-        Check this node's status (NodeStatus)
+        Check this node's status.
+
+        Returns:
+            An instance of NodeStatus.
         """
 
         try:
@@ -409,7 +528,7 @@ class PostgresNode(object):
 
     def get_pid(self):
         """
-        Return postmaster's pid if node is running
+        Return postmaster's pid if node is running, else 0.
         """
 
         if self.status():
@@ -421,7 +540,7 @@ class PostgresNode(object):
 
     def get_control_data(self):
         """
-        Return contents of pg_control file
+        Return contents of pg_control file.
         """
 
         if get_pg_config()["VERSION_NUM"] < '9.5.0':
@@ -441,7 +560,10 @@ class PostgresNode(object):
 
     def start(self, params={}):
         """
-        Start this node
+        Start this node using pg_ctl.
+
+        Returns:
+            This instance of PostgresNode.
         """
 
         # choose log_filename
@@ -500,7 +622,10 @@ class PostgresNode(object):
 
     def stop(self, params={}):
         """
-        Stop this node
+        Stop this node using pg_ctl.
+
+        Returns:
+            This instance of PostgresNode.
         """
 
         _params = {"-D": self.data_dir, "-w": None}
@@ -514,7 +639,10 @@ class PostgresNode(object):
 
     def restart(self, params={}):
         """
-        Restart this node
+        Restart this node using pg_ctl.
+
+        Returns:
+            This instance of PostgresNode.
         """
 
         _params = {"-D": self.data_dir, "-w": None}
@@ -525,7 +653,10 @@ class PostgresNode(object):
 
     def reload(self, params={}):
         """
-        Reload config files
+        Reload config files using pg_ctl.
+
+        Returns:
+            This instance of PostgresNode.
         """
 
         _params = {"-D": self.data_dir}
@@ -534,9 +665,19 @@ class PostgresNode(object):
 
         return self
 
+    def free_port(self):
+        """
+        Reclaim port used by this node
+        """
+
+        bound_ports.remove(self.port)
+
     def cleanup(self):
         """
-        Stop node if needed and remove its data directory
+        Stop node if needed and remove its data directory.
+
+        Returns:
+            This instance of PostgresNode.
         """
 
         # try stopping server
@@ -552,7 +693,16 @@ class PostgresNode(object):
 
     def psql(self, dbname, query=None, filename=None, username=None):
         """
-        Execute a query using psql and return a tuple (code, stdout, stderr)
+        Execute a query using psql.
+
+        Args:
+            dbname: database name to connect to (str).
+            query: query to be executed (str).
+            filename: file with a query (str).
+            username: database user name (str).
+
+        Returns:
+            A tuple of (code, stdout, stderr).
         """
 
         psql = get_bin_path("psql")
@@ -560,7 +710,7 @@ class PostgresNode(object):
             psql,
             "-XAtq",
             "-h{}".format(self.host),
-            "-p {}".format(self.port),
+            "-p{}".format(self.port),
             dbname
         ]
 
@@ -586,7 +736,15 @@ class PostgresNode(object):
 
     def safe_psql(self, dbname, query, username=None):
         """
-        Execute a query using psql
+        Execute a query using psql.
+
+        Args:
+            dbname: database name to connect to (str).
+            query: query to be executed (str).
+            username: database user name (str).
+
+        Returns:
+            psql's output as str.
         """
 
         ret, out, err = self.psql(dbname, query, username=username)
@@ -596,12 +754,16 @@ class PostgresNode(object):
 
     def dump(self, dbname, filename):
         """
-        Dump database using pg_dump
+        Dump database using pg_dump.
+
+        Args:
+            dbname: database name to connect to (str).
+            filename: output file (str).
         """
 
         path = os.path.join(self.base_dir, filename)
         _params = [
-            "-p {}".format(self.port),
+            "-p{}".format(self.port),
             "-f", path, dbname
         ]
 
@@ -609,7 +771,11 @@ class PostgresNode(object):
 
     def restore(self, dbname, filename, node=None):
         """
-        Restore database from pg_dump's file
+        Restore database from pg_dump's file.
+
+        Args:
+            dbname: database name to connect to (str).
+            filename: output file (str).
         """
 
         if not node:
@@ -620,7 +786,11 @@ class PostgresNode(object):
 
     def poll_query_until(self, dbname, query):
         """
-        Run a query once a second until it returs True
+        Run a query once a second until it returs True.
+
+        Args:
+            dbname: database name to connect to (str).
+            query: query to be executed (str).
         """
 
         max_attemps = 60
@@ -635,11 +805,20 @@ class PostgresNode(object):
             time.sleep(1)
             attemps += 1
 
-        raise QueryException("Query timeout")
+        raise QueryException('Query timeout')
 
     def execute(self, dbname, query, username=None, commit=False):
         """
-        Execute a query and return all rows
+        Execute a query and return all rows as list.
+
+        Args:
+            dbname: database name to connect to (str).
+            query: query to be executed (str).
+            username: database user name (str).
+            commit: should we commit this query?.
+
+        Returns:
+            A list of tuples representing rows.
         """
 
         with self.connect(dbname, username) as node_con:
@@ -648,33 +827,37 @@ class PostgresNode(object):
                 node_con.commit()
             return res
 
-    def backup(self, name):
+    def backup(self, xlog_method=DEFAULT_XLOG_METHOD):
         """
-        Perform pg_basebackup
+        Perform pg_basebackup.
+
+        Args:
+            xlog_method: a method for collecting the logs ('fetch' | 'stream')
+
+        Returns:
+            A smart object of type NodeBackup.
         """
 
-        backup_path = os.path.join(self.base_dir, name)
-        os.makedirs(backup_path)
-        _params = [
-            "-D", backup_path,
-            "-p {}".format(self.port),
-            "-X",
-            "fetch"
-        ]
-
-        _execute_utility("pg_basebackup", _params, self.utils_logname)
-
-        return backup_path
+        # NodeBackup will handle this
+        return NodeBackup(self, xlog_method=xlog_method)
 
     def pgbench_init(self, dbname='postgres', scale=1, options=[]):
         """
-        Prepare database for pgbench
+        Prepare database for pgbench (create tables etc).
+
+        Args:
+            dbname: database name to connect to (str).
+            scale: report this scale factor in output (int).
+            options: additional options for pgbench (list).
+
+        Returns:
+            This instance of PostgresNode.
         """
 
         _params = [
-            "-i", "-s",
-            "%i" % scale, "-p",
-            "%i" % self.port
+            "-i",
+            "-s{}".format(scale),
+            "-p{}".format(self.port)
         ] + options + [dbname]
 
         _execute_utility("pgbench", _params, self.utils_logname)
@@ -683,7 +866,16 @@ class PostgresNode(object):
 
     def pgbench(self, dbname='postgres', stdout=None, stderr=None, options=[]):
         """
-        Spawn a pgbench process
+        Spawn a pgbench process.
+
+        Args:
+            dbname: database name to connect to (str).
+            stdout: stdout file to be used by Popen.
+            stderr: stderr file to be used by Popen.
+            options: additional options for pgbench (list).
+
+        Returns:
+            Process created by subprocess.Popen.
         """
 
         pgbench = get_bin_path("pgbench")
@@ -693,12 +885,23 @@ class PostgresNode(object):
         return proc
 
     def connect(self, dbname='postgres', username=None):
+        """
+        Connect to a database.
+
+        Args:
+            dbname: database name to connect to (str).
+            username: database user name (str).
+
+        Returns:
+            An instance of NodeConnection.
+        """
+
         return NodeConnection(parent_node=self, dbname=dbname, user=username)
 
 
 def _default_username():
     """
-    Return current user name
+    Return current user.
     """
 
     return pwd.getpwuid(os.getuid())[0]
@@ -706,12 +909,12 @@ def _default_username():
 
 def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
     """
-    Perform initdb or use cached node files
+    Perform initdb or use cached node files.
     """
 
     def call_initdb(_data_dir):
-        _params = [_data_dir, "-N"] + initdb_params
         try:
+            _params = [_data_dir, "-N"] + initdb_params
             _execute_utility("initdb", _params, initdb_logfile)
         except Exception as e:
             raise InitNodeException(e.message)
@@ -728,11 +931,26 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             cached_data_dir = tempfile.mkdtemp()
             call_initdb(cached_data_dir)
 
-        # Copy cached initdb to current data dir
-        shutil.copytree(cached_data_dir, data_dir)
+        try:
+            # Copy cached initdb to current data dir
+            shutil.copytree(cached_data_dir, data_dir)
+        except Exception as e:
+            raise InitNodeException(e.message)
 
 
 def _execute_utility(util, args, logfile):
+    """
+    Execute utility (pg_ctl, pg_dump etc) using get_bin_path().
+
+    Args:
+        util: utility to be executed (str).
+        args: arguments for utility (list).
+        logfile: stores stdout and stderr (str).
+
+    Returns:
+        stdout of executed utility.
+    """
+
     with open(logfile, "a") as file_out:
         # run pg_ctl
         process = subprocess.Popen([get_bin_path(util)] + args,
@@ -761,7 +979,7 @@ def _execute_utility(util, args, logfile):
 
 def get_bin_path(filename):
     """
-    Return full path to an executable
+    Return full path to an executable using get_pg_config().
     """
 
     pg_config = get_pg_config()
@@ -774,7 +992,7 @@ def get_bin_path(filename):
 
 def get_pg_config():
     """
-    Return output of pg_config
+    Return output of pg_config.
     """
 
     global pg_config_data
@@ -798,7 +1016,15 @@ def get_pg_config():
 
 def get_new_node(name, base_dir=None, use_logging=False):
     """
-    Create new node
+    Create a new node (select port automatically).
+
+    Args:
+        name: node's name (str).
+        base_dir: path to node's data directory (str).
+        use_logging: should we use custom logger?
+
+    Returns:
+        An instance of PostgresNode.
     """
 
     # generate a new unique port

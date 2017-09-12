@@ -9,7 +9,7 @@ import subprocess
 
 from distutils.version import LooseVersion
 
-from testgres import InitNodeException, StartNodeException, ExecUtilException
+from testgres import InitNodeException, StartNodeException, ExecUtilException, BackupException
 from testgres import get_new_node, get_pg_config
 from testgres import bound_ports
 from testgres import NodeStatus
@@ -154,29 +154,64 @@ class SimpleTest(unittest.TestCase):
             self.assertFalse(got_exception)
 
     def test_backup_simple(self):
-        with get_new_node('master') as master, \
-                get_new_node('slave') as slave:
+        with get_new_node('master') as master:
 
             master.init(allow_streaming=True)
             master.start()
             master.psql('postgres',
                         'create table test as select generate_series(1, 4) i')
-            master.backup('master_backup')
 
-            slave.init_from_backup(master, 'master_backup')
-            slave.start()
-            res = slave.execute('postgres', 'select * from test order by i asc')
-            self.assertEqual(res, ([1], [2], [3], [4]))
+            with master.backup() as backup:
+                with backup.spawn_primary('slave') as slave:
+                    slave.start()
+                    res = slave.execute('postgres',
+                                        'select * from test order by i asc')
+                    self.assertEqual(res, ([1], [2], [3], [4]))
+
+    def test_backup_multiple(self):
+        with get_new_node('node') as node:
+            node.init().start()
+
+            with node.backup() as backup1, \
+                    node.backup() as backup2:
+
+                self.assertNotEqual(backup1.base_dir, backup2.base_dir)
+
+            with node.backup() as backup:
+                with backup.spawn_primary('node1', destroy=False) as node1, \
+                        backup.spawn_primary('node2', destroy=False) as node2:
+
+                    self.assertNotEqual(node1.base_dir, node2.base_dir)
+
+    def test_backup_exhaust(self):
+        with get_new_node('node') as node:
+            node.init().start()
+
+            with node.backup() as backup:
+                with backup.spawn_primary('node1') as node1:
+                    pass
+
+                got_exception = False
+                try:
+                    with backup.spawn_primary('node2') as node2:
+                        pass
+                except BackupException as e:
+                    got_exception = True
+                except Exception as e:
+                    pass
+
+                self.assertTrue(got_exception)
 
     def test_backup_and_replication(self):
-        with get_new_node('test') as node, get_new_node('repl') as replica:
+        with get_new_node('node') as node, get_new_node('repl') as replica:
             node.init(allow_streaming=True)
             node.start()
             node.psql('postgres', 'create table abc(a int, b int)')
             node.psql('postgres', 'insert into abc values (1, 2)')
-            node.backup('my_backup')
 
-            replica.init_from_backup(node, 'my_backup', become_replica=True)
+            backup = node.backup()
+
+            replica = backup.spawn_replica('replica')
             replica.start()
             res = replica.execute('postgres', 'select * from abc')
             self.assertEqual(len(res), 1)
@@ -206,6 +241,9 @@ class SimpleTest(unittest.TestCase):
             self.assertEqual(len(res), 2)
             self.assertEqual(res[1][0], 3)
             self.assertEqual(res[1][1], 4)
+
+            replica.cleanup()
+            replica.free_port()
 
     def test_dump(self):
         with get_new_node('test') as node:
