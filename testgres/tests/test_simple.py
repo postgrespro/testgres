@@ -161,7 +161,7 @@ class SimpleTest(unittest.TestCase):
             master.psql('postgres',
                         'create table test as select generate_series(1, 4) i')
 
-            with master.backup() as backup:
+            with master.backup('stream') as backup:
                 with backup.spawn_primary('slave') as slave:
                     slave.start()
                     res = slave.execute('postgres',
@@ -172,12 +172,12 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('node') as node:
             node.init().start()
 
-            with node.backup() as backup1, \
-                    node.backup() as backup2:
+            with node.backup('fetch') as backup1, \
+                    node.backup('fetch') as backup2:
 
                 self.assertNotEqual(backup1.base_dir, backup2.base_dir)
 
-            with node.backup() as backup:
+            with node.backup('fetch') as backup:
                 with backup.spawn_primary('node1', destroy=False) as node1, \
                         backup.spawn_primary('node2', destroy=False) as node2:
 
@@ -187,7 +187,7 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('node') as node:
             node.init().start()
 
-            with node.backup() as backup:
+            with node.backup('fetch') as backup:
                 with backup.spawn_primary('node1') as node1:
                     pass
 

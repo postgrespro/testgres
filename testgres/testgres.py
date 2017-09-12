@@ -73,7 +73,7 @@ BACKUP_LOG_FILE = "backup.log"
 DATA_DIR = "data"
 LOGS_DIR = "logs"
 
-DEFAULT_XLOG_METHOD = "stream"
+DEFAULT_XLOG_METHOD = "fetch"
 
 
 class ExecUtilException(Exception):
