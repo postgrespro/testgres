@@ -228,7 +228,12 @@ class NodeConnection(object):
         self.cursor.execute(query, args)
 
         try:
-            return self.cursor.fetchall()
+            res = self.cursor.fetchall()
+
+            if isinstance(res, tuple):
+                res = [tuple(t) for t in res]
+
+            return res
         except Exception:
             return None
 
@@ -752,37 +757,41 @@ class PostgresNode(object):
             raise QueryException(six.text_type(err))
         return out
 
-    def dump(self, dbname, filename):
+    def dump(self, dbname, filename=None):
         """
         Dump database using pg_dump.
 
         Args:
             dbname: database name to connect to (str).
             filename: output file (str).
+
+        Returns:
+            Path to file containing dump.
         """
 
-        path = os.path.join(self.base_dir, filename)
+        f, filename = filename or tempfile.mkstemp()
+        os.close(f)
+
         _params = [
             "-p{}".format(self.port),
-            "-f", path, dbname
+            "-f{}".format(filename),
+            dbname
         ]
 
         _execute_utility("pg_dump", _params, self.utils_logname)
 
-    def restore(self, dbname, filename, node=None):
+        return filename
+
+    def restore(self, dbname, filename):
         """
         Restore database from pg_dump's file.
 
         Args:
             dbname: database name to connect to (str).
-            filename: output file (str).
+            filename: database dump taken by pg_dump (str).
         """
 
-        if not node:
-            node = self
-
-        path = os.path.join(node.base_dir, filename)
-        self.psql(dbname, filename=path)
+        self.psql(dbname, filename=filename)
 
     def poll_query_until(self, dbname, query):
         """

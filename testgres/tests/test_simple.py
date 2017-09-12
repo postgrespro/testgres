@@ -97,11 +97,11 @@ class SimpleTest(unittest.TestCase):
             self.assertEqual(res, b'1\n')
 
             res = node.execute('postgres', 'select 1')
-            self.assertEqual(res, ([1], ))
+            self.assertListEqual(res, [(1, )])
 
             with node.connect('postgres') as con:
                 res = con.execute('select 1')
-                self.assertEqual(res, ([1], ))
+                self.assertListEqual(res, [(1, )])
 
     def test_transactions(self):
         with get_new_node('test') as node:
@@ -116,12 +116,12 @@ class SimpleTest(unittest.TestCase):
                 con.begin()
                 con.execute('insert into test values (2)')
                 res = con.execute('select * from test order by val asc')
-                self.assertEqual(res, ([1], [2]))
+                self.assertListEqual(res, [(1, ), (2, )])
                 con.rollback()
 
                 con.begin()
                 res = con.execute('select * from test')
-                self.assertEqual(res, ([1], ))
+                self.assertListEqual(res, [(1, )])
                 con.rollback()
 
                 con.begin()
@@ -165,7 +165,7 @@ class SimpleTest(unittest.TestCase):
                     slave.start()
                     res = slave.execute('postgres',
                                         'select * from test order by i asc')
-                    self.assertEqual(res, ([1], [2], [3], [4]))
+                    self.assertListEqual(res, [(1, ), (2, ), (3, ), (4, )])
 
     def test_backup_multiple(self):
         with get_new_node('node') as node:
@@ -210,53 +210,52 @@ class SimpleTest(unittest.TestCase):
 
             backup = node.backup()
 
-            replica = backup.spawn_replica('replica')
-            replica.start()
-            res = replica.execute('postgres', 'select * from abc')
-            self.assertEqual(len(res), 1)
-            self.assertEqual(res[0][0], 1)
-            self.assertEqual(res[0][1], 2)
+            with backup.spawn_replica('replica') as replica:
+                replica.start()
+                res = replica.execute('postgres', 'select * from abc')
+                self.assertListEqual(res, [(1, 2)])
 
-            cur_ver = LooseVersion(get_pg_config()['VERSION_NUM'])
-            min_ver = LooseVersion('10')
+                cur_ver = LooseVersion(get_pg_config()['VERSION_NUM'])
+                min_ver = LooseVersion('10')
 
-            # Prepare the query which would check whether record reached replica
-            # (It is slightly different for Postgres 9.6 and Postgres 10+)
-            if cur_ver >= min_ver:
-                wait_lsn = 'SELECT pg_current_wal_lsn() <= replay_lsn '           \
-                    'FROM pg_stat_replication WHERE application_name = \'%s\''    \
-                    % replica.name
-            else:
-                wait_lsn = 'SELECT pg_current_xlog_location() <= replay_location '\
-                    'FROM pg_stat_replication WHERE application_name = \'%s\''    \
-                    % replica.name
+                # Prepare the query which would check whether record reached replica
+                # (It is slightly different for Postgres 9.6 and Postgres 10+)
+                if cur_ver >= min_ver:
+                    wait_lsn = 'SELECT pg_current_wal_lsn() <= replay_lsn '           \
+                        'FROM pg_stat_replication WHERE application_name = \'%s\''    \
+                        % replica.name
+                else:
+                    wait_lsn = 'SELECT pg_current_xlog_location() <= replay_location '\
+                        'FROM pg_stat_replication WHERE application_name = \'%s\''    \
+                        % replica.name
 
-            # Insert into master node
-            node.psql('postgres', 'insert into abc values (3, 4)')
-            # Wait until data syncronizes
-            node.poll_query_until('postgres', wait_lsn)
-            # Check that this record was exported to replica
-            res = replica.execute('postgres', 'select * from abc')
-            self.assertEqual(len(res), 2)
-            self.assertEqual(res[1][0], 3)
-            self.assertEqual(res[1][1], 4)
-
-            # check manual cleanup
-            replica.cleanup()
-            replica.free_port()
+                # Insert into master node
+                node.psql('postgres', 'insert into abc values (3, 4)')
+                # Wait until data syncronizes
+                node.poll_query_until('postgres', wait_lsn)
+                # Check that this record was exported to replica
+                res = replica.execute('postgres', 'select * from abc')
+                self.assertListEqual(res, [(1, 2), (3, 4)])
 
     def test_dump(self):
-        with get_new_node('test') as node:
-            node.init().start()
-            node.safe_psql(
-                'postgres', 'create table abc as '
-                'select g as a, g as b from generate_series(1, 10) as g')
-            node.psql('postgres', 'create database test')
-            node.dump('postgres', 'test.sql')
-            node.restore('test', 'test.sql')
-            self.assertEqual(
-                node.psql('postgres', 'select * from abc'),
-                node.psql('test', 'select * from abc'), )
+        with get_new_node('node1') as node1:
+            node1.init().start()
+
+            with node1.connect('postgres') as con:
+                con.begin()
+                con.execute('create table test (val int)')
+                con.execute('insert into test values (1), (2)')
+                con.commit()
+
+            # take a new dump
+            dump = node1.dump('postgres')
+
+            with get_new_node('node2') as node2:
+                node2.init().start().restore('postgres', dump)
+
+                res = node2.execute('postgres',
+                                    'select * from test order by val asc')
+                self.assertListEqual(res, [(1, ), (2, )])
 
     def test_users(self):
         with get_new_node('master') as node:
