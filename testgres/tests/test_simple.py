@@ -155,9 +155,8 @@ class SimpleTest(unittest.TestCase):
 
     def test_backup_simple(self):
         with get_new_node('master') as master:
+            master.init(allow_streaming=True).start()
 
-            master.init(allow_streaming=True)
-            master.start()
             master.psql('postgres',
                         'create table test as select generate_series(1, 4) i')
 
@@ -170,7 +169,7 @@ class SimpleTest(unittest.TestCase):
 
     def test_backup_multiple(self):
         with get_new_node('node') as node:
-            node.init().start()
+            node.init(allow_streaming=True).start()
 
             with node.backup('fetch') as backup1, \
                     node.backup('fetch') as backup2:
@@ -185,7 +184,7 @@ class SimpleTest(unittest.TestCase):
 
     def test_backup_exhaust(self):
         with get_new_node('node') as node:
-            node.init().start()
+            node.init(allow_streaming=True).start()
 
             with node.backup('fetch') as backup:
                 with backup.spawn_primary('node1') as node1:
@@ -242,6 +241,7 @@ class SimpleTest(unittest.TestCase):
             self.assertEqual(res[1][0], 3)
             self.assertEqual(res[1][1], 4)
 
+            # check manual cleanup
             replica.cleanup()
             replica.free_port()
 
