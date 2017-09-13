@@ -6,11 +6,11 @@ services:
     - docker
 
 install:
-    - sed -e 's/${PYTHON_VERSION}/'${PYTHON_VERSION}/g -e 's/${PG_VERSION}/'${PG_VERSION}/g Dockerfile.tmpl  > Dockerfile
+    - sed -e 's/${PYTHON_VERSION}/'${PYTHON_VERSION}/g -e 's/${PG_VERSION}/'${PG_VERSION}/g Dockerfile.tmpl > Dockerfile
     - docker-compose build
 
 script:
-    - docker-compose run tests
+    - docker-compose run $(bash <(curl -s https://codecov.io/env)) tests
 
 notifications:
     email:
