@@ -164,17 +164,17 @@ class NodeConnection(object):
                  parent_node,
                  dbname,
                  host="127.0.0.1",
-                 user=None,
+                 username=None,
                  password=None):
 
         # Use default user if not specified
-        user = user or _default_username()
+        username = username or _default_username()
 
         self.parent_node = parent_node
 
         self.connection = pglib.connect(
             database=dbname,
-            user=user,
+            user=username,
             port=parent_node.port,
             host=host,
             password=password)
@@ -251,10 +251,17 @@ class NodeBackup(object):
     def log_file(self):
         return os.path.join(self.base_dir, BACKUP_LOG_FILE)
 
-    def __init__(self, node, base_dir=None, xlog_method=DEFAULT_XLOG_METHOD):
+    def __init__(self,
+                 node,
+                 base_dir=None,
+                 username=None,
+                 xlog_method=DEFAULT_XLOG_METHOD):
+
         if not node.status():
             raise BackupException('Node must be running')
 
+        # set default arguments
+        username = username or _default_username()
         base_dir = base_dir or tempfile.mkdtemp()
 
         # create directory if needed
@@ -269,7 +276,8 @@ class NodeBackup(object):
         _params = [
             "-D{}".format(data_dir),
             "-p{}".format(node.port),
-            "-X", xlog_method
+            "-U{}".format(username),
+            "-X{}".format(xlog_method)
         ]
         _execute_utility("pg_basebackup", _params, self.log_file)
 
@@ -782,7 +790,7 @@ class PostgresNode(object):
 
         return filename
 
-    def restore(self, dbname, filename):
+    def restore(self, dbname, filename, username=None):
         """
         Restore database from pg_dump's file.
 
@@ -791,9 +799,9 @@ class PostgresNode(object):
             filename: database dump taken by pg_dump (str).
         """
 
-        self.psql(dbname, filename=filename)
+        self.psql(dbname=dbname, filename=filename, username=username)
 
-    def poll_query_until(self, dbname, query):
+    def poll_query_until(self, dbname, query, username=None, max_attempts=60, sleep_time=1):
         """
         Run a query once a second until it returs True.
 
@@ -802,16 +810,17 @@ class PostgresNode(object):
             query: query to be executed (str).
         """
 
-        max_attemps = 60
         attemps = 0
+        while attemps < max_attempts:
+            res = self.execute(dbname=dbname,
+                               query=query,
+                               username=username,
+                               commit=True)
 
-        while attemps < max_attemps:
-            ret = self.safe_psql(dbname, query)
-            # TODO: fix psql so that it returns result without newline
-            if ret == six.b("t\n"):
-                return
+            if res[0][0]:
+                return  # done
 
-            time.sleep(1)
+            time.sleep(sleep_time)
             attemps += 1
 
         raise QueryException('Query timeout')
@@ -836,19 +845,21 @@ class PostgresNode(object):
                 node_con.commit()
             return res
 
-    def backup(self, xlog_method=DEFAULT_XLOG_METHOD):
+    def backup(self, username=None, xlog_method=DEFAULT_XLOG_METHOD):
         """
         Perform pg_basebackup.
 
         Args:
-            xlog_method: a method for collecting the logs ('fetch' | 'stream')
+            username: database user name (str).
+            xlog_method: a method for collecting the logs ('fetch' | 'stream').
 
         Returns:
             A smart object of type NodeBackup.
         """
 
-        # NodeBackup will handle this
-        return NodeBackup(self, xlog_method=xlog_method)
+        return NodeBackup(node=self,
+                          username=username,
+                          xlog_method=xlog_method)
 
     def pgbench_init(self, dbname='postgres', scale=1, options=[]):
         """
@@ -905,7 +916,9 @@ class PostgresNode(object):
             An instance of NodeConnection.
         """
 
-        return NodeConnection(parent_node=self, dbname=dbname, user=username)
+        return NodeConnection(parent_node=self,
+                              dbname=dbname,
+                              username=username)
 
 
 def _default_username():

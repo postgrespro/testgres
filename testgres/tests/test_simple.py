@@ -160,7 +160,7 @@ class SimpleTest(unittest.TestCase):
             master.psql('postgres',
                         'create table test as select generate_series(1, 4) i')
 
-            with master.backup('stream') as backup:
+            with master.backup(xlog_method='stream') as backup:
                 with backup.spawn_primary('slave') as slave:
                     slave.start()
                     res = slave.execute('postgres',
@@ -171,12 +171,12 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('node') as node:
             node.init(allow_streaming=True).start()
 
-            with node.backup('fetch') as backup1, \
-                    node.backup('fetch') as backup2:
+            with node.backup(xlog_method='fetch') as backup1, \
+                    node.backup(xlog_method='fetch') as backup2:
 
                 self.assertNotEqual(backup1.base_dir, backup2.base_dir)
 
-            with node.backup('fetch') as backup:
+            with node.backup(xlog_method='fetch') as backup:
                 with backup.spawn_primary('node1', destroy=False) as node1, \
                         backup.spawn_primary('node2', destroy=False) as node2:
 
@@ -186,7 +186,7 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('node') as node:
             node.init(allow_streaming=True).start()
 
-            with node.backup('fetch') as backup:
+            with node.backup(xlog_method='fetch') as backup:
                 with backup.spawn_primary('node1') as node1:
                     pass
 
@@ -263,6 +263,19 @@ class SimpleTest(unittest.TestCase):
             node.psql('postgres', 'create role test_user login')
             value = node.safe_psql('postgres', 'select 1', username='test_user')
             self.assertEqual(value, six.b('1\n'))
+
+    def test_poll_query_until(self):
+        with get_new_node('master') as node:
+            node.init().start()
+
+            get_time = 'select extract(epoch from now())'
+            check_time = 'select extract(epoch from now()) - {} >= 5'
+
+            start_time = node.execute('postgres', get_time)[0][0]
+            node.poll_query_until('postgres', check_time.format(start_time))
+            end_time = node.execute('postgres', get_time)[0][0]
+
+            self.assertTrue(end_time - start_time >= 5)
 
     def test_logging(self):
         regex = re.compile('.+?LOG:.*')
