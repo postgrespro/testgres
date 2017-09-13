@@ -16,6 +16,7 @@ RUN chmod 755 /run.sh
 
 ADD . /pg/testgres
 WORKDIR /pg/testgres
+RUN chown postgres:postgres /pg/testgres
 
 USER postgres
 ENTRYPOINT PYTHON=${PYTHON} /run.sh
