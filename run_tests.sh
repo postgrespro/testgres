@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
+# Copyright (c) 2017, Postgres Professional
+
 set -eux
 
-if [ "$PYTHON_VERSION" -eq "2" ]; then
+if [ "$PYTHON" == "python2" ]; then
 	virtualenv="virtualenv --python=/usr/bin/python2"
 	pip=pip2
 else
@@ -11,6 +13,7 @@ else
 fi
 
 # prepare environment
+echo using $virtualenv
 $virtualenv env
 source env/bin/activate
 
