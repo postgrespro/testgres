@@ -13,15 +13,17 @@ else
 fi
 
 # prepare environment
-echo using $virtualenv
+cd ..
 $virtualenv env
+export VIRTUAL_ENV_DISABLE_PROMPT=1
 source env/bin/activate
+cd -
 
 # install utilities
 $pip install coverage codecov flake8
 
 # install testgres
-$pip install -U .
+$pip install .
 
 # test code quality
 flake8 .

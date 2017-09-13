@@ -10,13 +10,12 @@ RUN if [ "${PYTHON_VERSION}" = "3" ] ; then \
 ENV LANG=C.UTF-8
 
 RUN mkdir -p /pg
-VOLUME /pg
 COPY run_tests.sh /run.sh
 RUN chmod 755 /run.sh
 
 ADD . /pg/testgres
 WORKDIR /pg/testgres
-RUN chown postgres:postgres /pg/testgres
+RUN chown -R postgres:postgres /pg
 
 USER postgres
 ENTRYPOINT PYTHON=${PYTHON} /run.sh
