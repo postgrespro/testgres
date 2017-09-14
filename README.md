@@ -4,7 +4,7 @@
 
 # testgres
 
-PostgreSQL testing utility.
+PostgreSQL testing utility. Both Python 2.7 and 3.3+ are supported.
 
 
 ## Installation
@@ -15,7 +15,7 @@ To install `testgres`, run:
 pip install testgres
 ```
 
-We encourage you to use `virtualenv` for your testing environment. Both Python 2.7 and 3.3+ are supported.
+We encourage you to use `virtualenv` for your testing environment.
 
 
 ## Usage
