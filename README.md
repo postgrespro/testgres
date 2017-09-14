@@ -22,6 +22,9 @@ We encourage you to use `virtualenv` for your testing environment. Both Python 2
 
 > Note: by default testgres runs `initdb`, `pg_ctl`, `psql` provided by `PATH`. To specify a custom postgres installation, set the environment variable `PG_CONFIG` pointing to the `pg_config` executable: `export PG_CONFIG=/path/to/pg_config`.
 
+
+### Overview
+
 Here is an example of what you can do with `testgres`:
 
 ```python
@@ -80,7 +83,7 @@ To stop the server, run:
 node.stop()
 ```
 
-It is essential to clean everything up, so make sure to call `node.cleanup()` once you've finished all of your tests.
+### Logging
 
 Nodes support python logging system, so if you have configured logging
 in your tests you can use it to redirect postgres logs to yours.
@@ -90,11 +93,22 @@ To do that just use `use_logging` argument like here:
 node = testgres.get_new_node('master', use_logging=True)
 ```
 
-Also you can find working configuration sample for logging in tests.
+You can find working configuration example for logging in `tests/test_simple.py`.
 
-Please see `testgres/tests` directory for replication configuration example.
+
+### Backup & replication
+
+It's quite easy to create a backup and start a new replica:
+
+```python
+with testgres.get_new_node('master') as master:
+    master.init().start()
+    with master.backup() as backup:
+	    replica = backup.spawn_replica('replica').start()
+		print(replica.execute('postgres', 'select 1'))
+```
+
 > Note: you could take a look at [`pg_pathman`](https://github.com/postgrespro/pg_pathman) to get an idea of `testgres`' capabilities.
-
 
 ## Authors
 
