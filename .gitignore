@@ -4,3 +4,4 @@ tags
 *.egg-info
 Dockerfile
 .coverage
+env

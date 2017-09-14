@@ -24,7 +24,6 @@ typical flow may look like:
                 res = node2.start().execute('postgres', 'select 2')
                 print(res)
 
-
 Copyright (c) 2016, Postgres Professional
 """
 
@@ -367,19 +366,17 @@ class NodeStatus(Enum):
 
 
 class PostgresNode(object):
-    def __init__(self, name, port, base_dir=None, use_logging=False):
+    def __init__(self, name, port=None, base_dir=None, use_logging=False):
         global bound_ports
 
         # check that port is not used
         if port in bound_ports:
             raise InitNodeException('port {} is already in use'.format(port))
 
-        # mark port as used
-        bound_ports.add(port)
-
         self.name = name
         self.host = '127.0.0.1'
-        self.port = port
+        self.port = port or reserve_port()
+        self.should_free_port = port is None
         self.base_dir = base_dir or tempfile.mkdtemp()
         self.use_logging = use_logging
         self.logger = None
@@ -397,7 +394,7 @@ class PostgresNode(object):
         # stop node if necessary
         self.cleanup()
 
-        # mark port as free
+        # free port if necessary
         self.free_port()
 
     @property
@@ -470,7 +467,7 @@ class PostgresNode(object):
             conf.write("listen_addresses = '{}'\n".format(self.host))
 
             if allow_streaming:
-                cur_ver = LooseVersion(get_pg_config().get("VERSION_NUM"))
+                cur_ver = LooseVersion(get_pg_config()["VERSION_NUM"])
                 min_ver = LooseVersion('9.6.0')
 
                 # select a proper wal_level for PostgreSQL
@@ -680,10 +677,11 @@ class PostgresNode(object):
 
     def free_port(self):
         """
-        Reclaim port used by this node
+        Reclaim port owned by this node.
         """
 
-        bound_ports.remove(self.port)
+        if self.should_free_port:
+            release_port(self.port)
 
     def cleanup(self):
         """
@@ -1007,9 +1005,28 @@ def get_bin_path(filename):
     pg_config = get_pg_config()
 
     if pg_config and "BINDIR" in pg_config:
-        return os.path.join(pg_config.get("BINDIR"), filename)
+        return os.path.join(pg_config["BINDIR"], filename)
 
     return filename
+
+
+def reserve_port():
+    """
+    Generate a new port and add it to 'bound_ports'.
+    """
+
+    port = port_for.select_random(exclude_ports=bound_ports)
+    bound_ports.add(port)
+
+    return port
+
+
+def release_port(port):
+    """
+    Free port provided by reserve_port().
+    """
+
+    bound_ports.remove(port)
 
 
 def get_pg_config():
@@ -1020,7 +1037,7 @@ def get_pg_config():
     global pg_config_data
 
     if not pg_config_data:
-        pg_config_cmd = os.environ.get("PG_CONFIG") or "pg_config"
+        pg_config_cmd = os.environ["PG_CONFIG"] or "pg_config"
 
         out = six.StringIO(subprocess.check_output([pg_config_cmd],
                                                    universal_newlines=True))
@@ -1030,7 +1047,7 @@ def get_pg_config():
                 pg_config_data[key.strip()] = value.strip()
 
         # Fetch version of PostgreSQL and save it as VERSION_NUM
-        version_parts = pg_config_data.get("VERSION").split(" ")
+        version_parts = pg_config_data["VERSION"].split(" ")
         pg_config_data["VERSION_NUM"] = version_parts[-1]
 
     return pg_config_data
@@ -1049,7 +1066,4 @@ def get_new_node(name, base_dir=None, use_logging=False):
         An instance of PostgresNode.
     """
 
-    # generate a new unique port
-    port = port_for.select_random(exclude_ports=bound_ports)
-
-    return PostgresNode(name, port, base_dir, use_logging=use_logging)
+    return PostgresNode(name=name, base_dir=base_dir, use_logging=use_logging)
