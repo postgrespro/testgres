@@ -16,9 +16,6 @@ from testgres import NodeStatus
 
 
 class SimpleTest(unittest.TestCase):
-    def teardown(self):
-        pass
-
     def test_double_init(self):
         with get_new_node('test') as node:
             got_exception = False

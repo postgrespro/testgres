@@ -16,7 +16,6 @@ fi
 cd ..
 $virtualenv env
 export VIRTUAL_ENV_DISABLE_PROMPT=1
-export PYTHONPATH=$(pwd)
 source env/bin/activate
 cd -
 
@@ -24,6 +23,7 @@ cd -
 $pip install coverage flake8
 
 # install testgres' dependencies
+export PYTHONPATH=$(pwd)
 $pip install .
 
 # test code quality
