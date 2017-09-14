@@ -1,9 +1,10 @@
-from distutils.core import setup
+from setuptools import setup
+
 setup(
     name='testgres',
     packages=['testgres'],
     version='0.4.0',
-    description='Testing utility for postgresql and its extensions',
+    description='Testing utility for PostgreSQL and its extensions',
     license='PostgreSQL',
     author='Ildar Musin',
     author_email='zildermann@gmail.com',
