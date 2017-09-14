@@ -1037,7 +1037,7 @@ def get_pg_config():
     global pg_config_data
 
     if not pg_config_data:
-        pg_config_cmd = os.environ["PG_CONFIG"] or "pg_config"
+        pg_config_cmd = os.environ.get("PG_CONFIG") or "pg_config"
 
         out = six.StringIO(subprocess.check_output([pg_config_cmd],
                                                    universal_newlines=True))
