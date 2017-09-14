@@ -965,26 +965,20 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
         stdout of executed utility.
     """
 
-    with open(logfile, "a") as file_out:
-        stdout_file = subprocess.DEVNULL
-        stderr_file = subprocess.DEVNULL
+    with open(logfile, "a") as file_out, \
+            open(os.devnull, "w") as devnull:  # hack for 2.7
 
-        if write_to_pipe:
-            stdout_file = subprocess.PIPE
-            stderr_file = subprocess.STDOUT
+        # choose file according to options
+        stdout_file = subprocess.PIPE if write_to_pipe else devnull
 
         # run utility
         process = subprocess.Popen([get_bin_path(util)] + args,
                                    stdout=stdout_file,
-                                   stderr=stderr_file)
+                                   stderr=subprocess.STDOUT)
 
         # get result
         out, _ = process.communicate()
-
-        if out:
-            out = out.decode('utf-8')
-        else:
-            out = ""
+        out = '' if not out else out.decode('utf-8')
 
         # write new log entry
         file_out.write(''.join(map(lambda x: str(x) + ' ', [util] + args)))
