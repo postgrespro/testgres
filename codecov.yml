@@ -1,2 +1,0 @@
-fixes:
-    - "env/*/*/site-packages/::testgres/"
