@@ -43,6 +43,15 @@ class SimpleTest(unittest.TestCase):
 
         self.assertTrue(got_exception)
 
+    def test_restart(self):
+        with get_new_node('test') as node:
+            node.init().start()
+            res = node.execute('postgres', 'select 1')
+            self.assertEqual(res, [(1, )])
+            node.restart()
+            res = node.execute('postgres', 'select 2')
+            self.assertEqual(res, [(2, )])
+
     def test_status(self):
         condition_triggered = False
         if NodeStatus.Running:

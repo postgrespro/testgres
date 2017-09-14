@@ -499,21 +499,6 @@ class PostgresNode(object):
 
         return self
 
-    def pg_ctl(self, command, params={}, command_options=[]):
-        """
-        Runs pg_ctl with specified params. This function is a workhorse
-        for start(), stop(), reload() and status() functions.
-        """
-
-        _params = [command]
-
-        for key, value in six.iteritems(params):
-            _params.append(key)
-            if value:
-                _params.append(value)
-
-        _execute_utility("pg_ctl", _params, self.utils_logname)
-
     def status(self):
         """
         Check this node's status.
@@ -523,8 +508,8 @@ class PostgresNode(object):
         """
 
         try:
-            _params = {"-D": self.data_dir}
-            self.pg_ctl("status", _params)
+            _params = ["status", "-D", self.data_dir]
+            _execute_utility("pg_ctl", _params, self.utils_logname)
             return NodeStatus.Running
 
         except ExecUtilException as e:
@@ -568,9 +553,12 @@ class PostgresNode(object):
 
         return out_data
 
-    def start(self, params={}):
+    def start(self, params=[]):
         """
         Start this node using pg_ctl.
+
+        Args:
+            params: additional arguments for _execute_utility().
 
         Returns:
             This instance of PostgresNode.
@@ -594,15 +582,16 @@ class PostgresNode(object):
         # choose recovery_filename
         recovery_filename = os.path.join(self.data_dir, "recovery.conf")
 
-        _params = {
-            "-D": self.data_dir,
-            "-w": None,
-            "-l": log_filename,
-        }
-        _params.update(params)
+        _params = [
+            "start",
+            "-D{}".format(self.data_dir),
+            "-l{}".format(log_filename),
+            "-w"
+        ] + params
 
         try:
-            self.pg_ctl("start", _params)
+            _execute_utility("pg_ctl", _params, self.utils_logname)
+
         except ExecUtilException as e:
             def print_node_file(node_file):
                 if os.path.exists(node_file):
@@ -630,38 +619,44 @@ class PostgresNode(object):
 
         return self
 
-    def stop(self, params={}):
+    def stop(self, params=[]):
         """
         Stop this node using pg_ctl.
+
+        Args:
+            params: additional arguments for _execute_utility().
 
         Returns:
             This instance of PostgresNode.
         """
 
-        _params = {"-D": self.data_dir, "-w": None}
-        _params.update(params)
-        self.pg_ctl("stop", _params)
+        _params = ["stop", "-D", self.data_dir, "-w"] + params
+        _execute_utility("pg_ctl", _params, self.utils_logname)
 
         if self.logger:
             self.logger.stop()
 
         return self
 
-    def restart(self, params={}):
+    def restart(self, params=[]):
         """
         Restart this node using pg_ctl.
+
+        Args:
+            params: additional arguments for _execute_utility().
 
         Returns:
             This instance of PostgresNode.
         """
 
-        _params = {"-D": self.data_dir, "-w": None}
-        _params.update(params)
-        self.pg_ctl("restart", _params)
+        _params = ["restart", "-D", self.data_dir, "-w"] + params
+        _execute_utility("pg_ctl", _params,
+                         self.utils_logname,
+                         write_to_pipe=False)
 
         return self
 
-    def reload(self, params={}):
+    def reload(self, params=[]):
         """
         Reload config files using pg_ctl.
 
@@ -669,9 +664,8 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        _params = {"-D": self.data_dir}
-        _params.update(params)
-        self.pg_ctl("reload", _params)
+        _params = ["reload", "-D", self.data_dir, "-w"] + params
+        _execute_utility("pg_ctl", _params, self.utils_logname)
 
         return self
 
@@ -958,7 +952,7 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             raise InitNodeException(e.message)
 
 
-def _execute_utility(util, args, logfile):
+def _execute_utility(util, args, logfile, write_to_pipe=True):
     """
     Execute utility (pg_ctl, pg_dump etc) using get_bin_path().
 
@@ -972,14 +966,25 @@ def _execute_utility(util, args, logfile):
     """
 
     with open(logfile, "a") as file_out:
-        # run pg_ctl
-        process = subprocess.Popen([get_bin_path(util)] + args,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT)
+        stdout_file = subprocess.DEVNULL
+        stderr_file = subprocess.DEVNULL
 
-        # get result of pg_ctl
+        if write_to_pipe:
+            stdout_file = subprocess.PIPE
+            stderr_file = subprocess.STDOUT
+
+        # run utility
+        process = subprocess.Popen([get_bin_path(util)] + args,
+                                   stdout=stdout_file,
+                                   stderr=stderr_file)
+
+        # get result
         out, _ = process.communicate()
-        out = out.decode('utf-8')
+
+        if out:
+            out = out.decode('utf-8')
+        else:
+            out = ""
 
         # write new log entry
         file_out.write(''.join(map(lambda x: str(x) + ' ', [util] + args)))
