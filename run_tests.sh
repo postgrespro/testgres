@@ -20,7 +20,7 @@ source env/bin/activate
 cd -
 
 # install utilities
-$pip install coverage codecov flake8
+$pip install coverage flake8
 
 # install testgres
 $pip install .
@@ -35,5 +35,5 @@ coverage run test_simple.py
 # show coverage
 coverage report
 
-# gather reports
-codecov
+# send coverage stats to Codecov
+bash <(curl -s https://codecov.io/bash)
