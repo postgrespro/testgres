@@ -7,6 +7,8 @@ import tempfile
 import logging.config
 import subprocess
 
+from distutils.version import LooseVersion
+
 from testgres import InitNodeException, \
     StartNodeException, ExecUtilException, \
     BackupException, QueryException, CatchUpException
@@ -395,6 +397,15 @@ class SimpleTest(unittest.TestCase):
 
         # check that port has been freed successfuly
         self.assertEqual(len(bound_ports), 0)
+
+    def test_version_management(self):
+        a = LooseVersion('10.0')
+        b = LooseVersion('10')
+        c = LooseVersion('9.6.5')
+
+        self.assertTrue(a > b)
+        self.assertTrue(b > c)
+        self.assertTrue(a > c)
 
 
 if __name__ == '__main__':
