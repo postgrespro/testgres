@@ -175,7 +175,7 @@ class NodeConnection(object):
                  password=None):
 
         # Use default user if not specified
-        username = username or _default_username()
+        username = username or default_username()
 
         self.parent_node = parent_node
 
@@ -268,7 +268,7 @@ class NodeBackup(object):
             raise BackupException('Node must be running')
 
         # set default arguments
-        username = username or _default_username()
+        username = username or default_username()
         base_dir = base_dir or tempfile.mkdtemp()
 
         # create directory if needed
@@ -985,14 +985,6 @@ class PostgresNode(object):
                               username=username)
 
 
-def _default_username():
-    """
-    Return current user.
-    """
-
-    return pwd.getpwuid(os.getuid())[0]
-
-
 def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
     """
     Perform initdb or use cached node files.
@@ -1066,6 +1058,14 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
             raise ExecUtilException(error_text, process.returncode)
 
         return out
+
+
+def default_username():
+    """
+    Return current user.
+    """
+
+    return pwd.getpwuid(os.getuid())[0]
 
 
 def get_bin_path(filename):
