@@ -484,7 +484,7 @@ class PostgresNode(object):
 
             if allow_streaming:
                 cur_ver = LooseVersion(get_pg_config()["VERSION_NUM"])
-                min_ver = LooseVersion('9.6.0')
+                min_ver = LooseVersion('9.6')
 
                 # select a proper wal_level for PostgreSQL
                 wal_level = "hot_standby" if cur_ver < min_ver else "replica"
@@ -907,7 +907,7 @@ class PostgresNode(object):
         master = self.master
 
         cur_ver = LooseVersion(get_pg_config()["VERSION_NUM"])
-        min_ver = LooseVersion('10.0')
+        min_ver = LooseVersion('10')
 
         if cur_ver >= min_ver:
             poll_lsn = "select pg_current_wal_lsn()::text"
@@ -1119,7 +1119,8 @@ def get_pg_config():
 
         # Fetch version of PostgreSQL and save it as VERSION_NUM
         version_parts = pg_config_data["VERSION"].split(" ")
-        pg_config_data["VERSION_NUM"] = version_parts[-1]
+        version, _, _ = version_parts[-1].partition('beta')
+        pg_config_data["VERSION_NUM"] = version
 
     return pg_config_data
 

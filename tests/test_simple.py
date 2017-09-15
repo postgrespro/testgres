@@ -7,11 +7,9 @@ import tempfile
 import logging.config
 import subprocess
 
-from distutils.version import LooseVersion
-
 from testgres import InitNodeException, \
     StartNodeException, ExecUtilException, \
-    BackupException, QueryException
+    BackupException, QueryException, CatchUpException
 
 from testgres import get_new_node, get_pg_config
 from testgres import bound_ports
@@ -28,8 +26,6 @@ class SimpleTest(unittest.TestCase):
                 node.init()
             except InitNodeException as e:
                 got_exception = True
-            except Exception as e:
-                pass
 
         self.assertTrue(got_exception)
 
@@ -41,8 +37,6 @@ class SimpleTest(unittest.TestCase):
                 node.start()
             except StartNodeException as e:
                 got_exception = True
-            except Exception as e:
-                pass
 
         self.assertTrue(got_exception)
 
@@ -145,8 +139,6 @@ class SimpleTest(unittest.TestCase):
                 node.get_control_data()
             except ExecUtilException as e:
                 got_exception = True
-            except Exception as e:
-                pass
             self.assertTrue(got_exception)
 
             got_exception = False
@@ -154,12 +146,10 @@ class SimpleTest(unittest.TestCase):
             try:
                 node.init()
                 data = node.get_control_data()
-                self.assertIsNotNode(data)
+                self.assertIsNotNone(data)
             except ExecUtilException as e:
                 print(e.message)
                 got_exception = True
-            except Exception as e:
-                pass
             self.assertFalse(got_exception)
 
     def test_backup_simple(self):
@@ -257,8 +247,8 @@ class SimpleTest(unittest.TestCase):
             got_exception = False
             try:
                 node.catchup()
-            except Exception as e:
-                pass
+            except CatchUpException as e:
+                got_exception = True
             self.assertTrue(got_exception)
 
     def test_dump(self):
