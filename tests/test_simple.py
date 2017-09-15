@@ -9,7 +9,10 @@ import subprocess
 
 from distutils.version import LooseVersion
 
-from testgres import InitNodeException, StartNodeException, ExecUtilException, BackupException
+from testgres import InitNodeException, \
+    StartNodeException, ExecUtilException, \
+    BackupException, QueryException
+
 from testgres import get_new_node, get_pg_config
 from testgres import bound_ports
 from testgres import NodeStatus
@@ -282,6 +285,30 @@ class SimpleTest(unittest.TestCase):
             end_time = node.execute('postgres', get_time)[0][0]
 
             self.assertTrue(end_time - start_time >= 5)
+
+            # check 0 rows
+            got_exception = False
+            try:
+                node.poll_query_until('postgres', 'select * from pg_class where true = false')
+            except QueryException as e:
+                got_exception = True
+            self.assertTrue(got_exception)
+
+            # check 0 columns
+            got_exception = False
+            try:
+                node.poll_query_until('postgres', 'select from pg_class limit 1')
+            except QueryException as e:
+                got_exception = True
+            self.assertTrue(got_exception)
+
+            # check None
+            got_exception = False
+            try:
+                node.poll_query_until('postgres', 'create table abc (val int)')
+            except QueryException as e:
+                got_exception = True
+            self.assertTrue(got_exception)
 
     def test_logging(self):
         regex = re.compile('.+?LOG:.*')

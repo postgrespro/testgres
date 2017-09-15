@@ -93,6 +93,10 @@ class QueryException(Exception):
     pass
 
 
+class TimeoutException(Exception):
+    pass
+
+
 class StartNodeException(Exception):
     pass
 
@@ -115,8 +119,8 @@ class TestgresLogger(threading.Thread):
 
         threading.Thread.__init__(self)
 
-        self.node_name = node_name
         self.fd = fd
+        self.node_name = node_name
         self.stop_event = threading.Event()
         self.logger = logging.getLogger(node_name)
         self.logger.setLevel(logging.INFO)
@@ -366,13 +370,19 @@ class NodeStatus(Enum):
 
 
 class PostgresNode(object):
-    def __init__(self, name, port=None, base_dir=None, use_logging=False):
+    def __init__(self,
+                 name,
+                 port=None,
+                 base_dir=None,
+                 use_logging=False,
+                 master=None):
         global bound_ports
 
         # check that port is not used
         if port in bound_ports:
             raise InitNodeException('port {} is already in use'.format(port))
 
+        self.master = master
         self.name = name
         self.host = '127.0.0.1'
         self.port = port or reserve_port()
@@ -809,13 +819,22 @@ class PostgresNode(object):
                                username=username,
                                commit=True)
 
+            if res is None:
+                raise QueryException('Query returned None')
+
+            if len(res) == 0:
+                raise QueryException('Query returned 0 rows')
+
+            if len(res[0]) == 0:
+                raise QueryException('Query returned 0 columns')
+
             if res[0][0]:
                 return  # done
 
             time.sleep(sleep_time)
             attemps += 1
 
-        raise QueryException('Query timeout')
+        raise TimeoutException('Query timeout')
 
     def execute(self, dbname, query, username=None, commit=False):
         """
