@@ -297,7 +297,8 @@ class SimpleTest(unittest.TestCase):
             # check 0 rows
             got_exception = False
             try:
-                node.poll_query_until('postgres', 'select * from pg_class where true = false')
+                node.poll_query_until(
+                    'postgres', 'select * from pg_class where true = false')
             except QueryException as e:
                 got_exception = True
             self.assertTrue(got_exception)
@@ -305,7 +306,8 @@ class SimpleTest(unittest.TestCase):
             # check 0 columns
             got_exception = False
             try:
-                node.poll_query_until('postgres', 'select from pg_class limit 1')
+                node.poll_query_until('postgres',
+                                      'select from pg_class limit 1')
             except QueryException as e:
                 got_exception = True
             self.assertTrue(got_exception)
