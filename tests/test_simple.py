@@ -246,6 +246,14 @@ class SimpleTest(unittest.TestCase):
                 res = replica.execute('postgres', 'select * from abc')
                 self.assertListEqual(res, [(1, 2), (3, 4)])
 
+    def test_replicate(self):
+        with get_new_node('node') as node:
+            node.init(allow_streaming=True).start()
+
+            with node.replicate(name='replica') as replica:
+                res = replica.start().execute('postgres', 'select 1')
+                self.assertListEqual(res, [(1, )])
+
     def test_dump(self):
         with get_new_node('node1') as node1:
             node1.init().start()

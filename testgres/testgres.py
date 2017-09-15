@@ -872,6 +872,19 @@ class PostgresNode(object):
                           username=username,
                           xlog_method=xlog_method)
 
+    def replicate(self, name, username=None, xlog_method=DEFAULT_XLOG_METHOD):
+        """
+        Create a replica of this node.
+
+        Args:
+            name: replica's name (str).
+            username: database user name (str).
+            xlog_method: a method for collecting the logs ('fetch' | 'stream').
+        """
+
+        return self.backup(username=username,
+                           xlog_method=xlog_method).spawn_replica(name)
+
     def pgbench_init(self, dbname='postgres', scale=1, options=[]):
         """
         Prepare database for pgbench (create tables etc).
