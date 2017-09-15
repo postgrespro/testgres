@@ -384,10 +384,6 @@ class PostgresNode(object):
                  master=None):
         global bound_ports
 
-        # check that port is not used
-        if port in bound_ports:
-            raise InitNodeException('port {} is already in use'.format(port))
-
         self.master = master
         self.name = name
         self.host = '127.0.0.1'
