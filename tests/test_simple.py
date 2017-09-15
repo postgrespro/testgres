@@ -224,24 +224,12 @@ class SimpleTest(unittest.TestCase):
                 res = replica.execute('postgres', 'select * from abc')
                 self.assertListEqual(res, [(1, 2)])
 
-                cur_ver = LooseVersion(get_pg_config()['VERSION_NUM'])
-                min_ver = LooseVersion('10')
-
-                # Prepare the query which would check whether record reached replica
-                # (It is slightly different for Postgres 9.6 and Postgres 10+)
-                if cur_ver >= min_ver:
-                    wait_lsn = 'SELECT pg_current_wal_lsn() <= replay_lsn '           \
-                        'FROM pg_stat_replication WHERE application_name = \'%s\''    \
-                        % replica.name
-                else:
-                    wait_lsn = 'SELECT pg_current_xlog_location() <= replay_location '\
-                        'FROM pg_stat_replication WHERE application_name = \'%s\''    \
-                        % replica.name
-
                 # Insert into master node
                 node.psql('postgres', 'insert into abc values (3, 4)')
+
                 # Wait until data syncronizes
-                node.poll_query_until('postgres', wait_lsn)
+                replica.catchup()
+
                 # Check that this record was exported to replica
                 res = replica.execute('postgres', 'select * from abc')
                 self.assertListEqual(res, [(1, 2), (3, 4)])
@@ -253,6 +241,25 @@ class SimpleTest(unittest.TestCase):
             with node.replicate(name='replica') as replica:
                 res = replica.start().execute('postgres', 'select 1')
                 self.assertListEqual(res, [(1, )])
+
+                node.execute(
+                    'postgres', 'create table test (val int)', commit=True)
+
+                replica.catchup()
+
+                res = node.execute('postgres', 'select * from test')
+                self.assertListEqual(res, [])
+
+    def test_incorrect_catchup(self):
+        with get_new_node('node') as node:
+            node.init(allow_streaming=True).start()
+
+            got_exception = False
+            try:
+                node.catchup()
+            except Exception as e:
+                pass
+            self.assertTrue(got_exception)
 
     def test_dump(self):
         with get_new_node('node1') as node1:

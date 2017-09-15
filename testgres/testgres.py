@@ -109,6 +109,10 @@ class BackupException(Exception):
     pass
 
 
+class CatchUpException(Exception):
+    pass
+
+
 class TestgresLogger(threading.Thread):
     """
     Helper class to implement reading from postgresql.log
@@ -318,12 +322,14 @@ class NodeBackup(object):
                 # Copy backup to new data dir
                 shutil.copytree(data1, data2)
             except Exception as e:
-                raise BackupException(e.message)
+                raise BackupException(str(e))
         else:
             base_dir = self.base_dir
 
         # build a new PostgresNode
-        node = get_new_node(name, base_dir)
+        node = PostgresNode(name=name,
+                            base_dir=base_dir,
+                            master=self.original_node)
         node.append_conf("postgresql.conf", "port = {}".format(node.port))
 
         # record new status
@@ -803,13 +809,21 @@ class PostgresNode(object):
 
         self.psql(dbname=dbname, filename=filename, username=username)
 
-    def poll_query_until(self, dbname, query, username=None, max_attempts=60, sleep_time=1):
+    def poll_query_until(self,
+                         dbname,
+                         query,
+                         username=None,
+                         max_attempts=60,
+                         sleep_time=1):
         """
         Run a query once a second until it returs True.
 
         Args:
             dbname: database name to connect to (str).
             query: query to be executed (str).
+            username: database user name (str).
+            max_attempts: how many times should we try?
+            sleep_time: how long should we sleep after a failure?
         """
 
         attemps = 0
@@ -844,7 +858,7 @@ class PostgresNode(object):
             dbname: database name to connect to (str).
             query: query to be executed (str).
             username: database user name (str).
-            commit: should we commit this query?.
+            commit: should we commit this query?
 
         Returns:
             A list of tuples representing rows.
@@ -884,6 +898,32 @@ class PostgresNode(object):
 
         return self.backup(username=username,
                            xlog_method=xlog_method).spawn_replica(name)
+
+    def catchup(self):
+        """
+        Wait until async replica catches up with its master.
+        """
+
+        master = self.master
+
+        cur_ver = LooseVersion(get_pg_config()["VERSION_NUM"])
+        min_ver = LooseVersion('10.0')
+
+        if cur_ver >= min_ver:
+            poll_lsn = "select pg_current_wal_lsn()::text"
+            wait_lsn = "select pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
+        else:
+            poll_lsn = "select pg_current_xlog_location()::text"
+            wait_lsn = "select pg_last_xlog_replay_location() >= '{}'::pg_lsn"
+
+        if not master:
+            raise CatchUpException("Master node is not specified")
+
+        try:
+            lsn = master.execute('postgres', poll_lsn)[0][0]
+            self.poll_query_until('postgres', wait_lsn.format(lsn))
+        except Exception as e:
+            raise CatchUpException(str(e))
 
     def pgbench_init(self, dbname='postgres', scale=1, options=[]):
         """
@@ -963,7 +1003,7 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             _params = [_data_dir, "-N"] + initdb_params
             _execute_utility("initdb", _params, initdb_logfile)
         except Exception as e:
-            raise InitNodeException(e.message)
+            raise InitNodeException(str(e))
 
     # Call initdb if we have custom params
     if initdb_params:
@@ -981,7 +1021,7 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             # Copy cached initdb to current data dir
             shutil.copytree(cached_data_dir, data_dir)
         except Exception as e:
-            raise InitNodeException(e.message)
+            raise InitNodeException(str(e))
 
 
 def _execute_utility(util, args, logfile, write_to_pipe=True):
