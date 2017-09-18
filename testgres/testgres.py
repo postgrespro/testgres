@@ -294,16 +294,15 @@ class NodeBackup(object):
     def __exit__(self, type, value, traceback):
         self.cleanup()
 
-    def spawn_primary(self, name, destroy=True):
+    def _prepare_dir(self, destroy):
         """
-        Create a primary node from a backup.
+        Provide a data directory for a copy of node.
 
         Args:
-            name: name for a new node (str).
             destroy: should we convert this backup into a node?
 
         Returns:
-            New instance of PostgresNode.
+            Path to data directory.
         """
 
         if not self.available:
@@ -326,14 +325,32 @@ class NodeBackup(object):
         else:
             base_dir = self.base_dir
 
+        # update value
+        self.available = available
+
+        return base_dir
+
+    def spawn_primary(self, name, destroy=True):
+        """
+        Create a primary node from a backup.
+
+        Args:
+            name: name for a new node (str).
+            destroy: should we convert this backup into a node?
+
+        Returns:
+            New instance of PostgresNode.
+        """
+
+        base_dir = self._prepare_dir(destroy)
+
         # build a new PostgresNode
         node = PostgresNode(name=name,
                             base_dir=base_dir,
                             master=self.original_node)
-        node.append_conf("postgresql.conf", "port = {}".format(node.port))
 
-        # record new status
-        self.available = available
+        node.append_conf("postgresql.conf", "\n")
+        node.append_conf("postgresql.conf", "port = {}".format(node.port))
 
         return node
 
