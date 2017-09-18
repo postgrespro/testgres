@@ -827,9 +827,12 @@ class PostgresNode(object):
                          query,
                          username=None,
                          max_attempts=60,
-                         sleep_time=1):
+                         sleep_time=1,
+                         expected=True,
+                         raise_programming_error=True,
+                         raise_internal_error=True):
         """
-        Run a query once a second until it returs True.
+        Run a query once a second until it returs 'expected'.
 
         Args:
             dbname: database name to connect to (str).
@@ -837,26 +840,41 @@ class PostgresNode(object):
             username: database user name (str).
             max_attempts: how many times should we try?
             sleep_time: how long should we sleep after a failure?
+            expected: what should be returned to break the cycle?
+            raise_programming_error: mute ProgrammingError?
+            raise_internal_error: mute InternalError?
         """
 
         attemps = 0
         while attemps < max_attempts:
-            res = self.execute(dbname=dbname,
-                               query=query,
-                               username=username,
-                               commit=True)
+            try:
+                res = self.execute(dbname=dbname,
+                                   query=query,
+                                   username=username,
+                                   commit=True)
 
-            if res is None:
-                raise QueryException('Query returned None')
+                if expected is None and res is None:
+                    return  # done
 
-            if len(res) == 0:
-                raise QueryException('Query returned 0 rows')
+                if res is None:
+                    raise QueryException('Query returned None')
 
-            if len(res[0]) == 0:
-                raise QueryException('Query returned 0 columns')
+                if len(res) == 0:
+                    raise QueryException('Query returned 0 rows')
 
-            if res[0][0]:
-                return  # done
+                if len(res[0]) == 0:
+                    raise QueryException('Query returned 0 columns')
+
+                if res[0][0]:
+                    return  # done
+
+            except pglib.ProgrammingError as e:
+                if raise_programming_error:
+                    raise e
+
+            except pglib.InternalError as e:
+                if raise_internal_error:
+                    raise e
 
             time.sleep(sleep_time)
             attemps += 1
