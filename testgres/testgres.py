@@ -1157,8 +1157,11 @@ def get_pg_config():
                 pg_config_data[key.strip()] = value.strip()
 
         # Fetch version of PostgreSQL and save it as VERSION_NUM
-        version_parts = pg_config_data["VERSION"].split(" ")
-        version, _, _ = version_parts[-1].partition('beta')
+        version = pg_config_data["VERSION"]
+        version = version.split(" ")[-1] \
+                         .partition('devel')[0] \
+                         .partition('beta')[0] \
+                         .partition('rc')[0]
         pg_config_data["VERSION_NUM"] = version
 
     return pg_config_data
