@@ -706,7 +706,7 @@ class PostgresNode(object):
         if self.should_free_port:
             release_port(self.port)
 
-    def cleanup(self):
+    def cleanup(self, max_attempts=3):
         """
         Stop node if needed and remove its data directory.
 
@@ -714,11 +714,19 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
+        attempts = 0
+
         # try stopping server
-        try:
-            self.stop()
-        except:
-            pass
+        while attempts < max_attempts:
+            try:
+                self.stop()
+                break  # OK
+            except ExecUtilException as e:
+                pass   # one more time
+            except Exception as e:
+                break  # screw this
+
+            attempts += 1
 
         # remove data directory
         shutil.rmtree(self.data_dir, ignore_errors=True)
@@ -845,8 +853,8 @@ class PostgresNode(object):
             raise_internal_error: mute InternalError?
         """
 
-        attemps = 0
-        while attemps < max_attempts:
+        attempts = 0
+        while attempts < max_attempts:
             try:
                 res = self.execute(dbname=dbname,
                                    query=query,
@@ -877,7 +885,7 @@ class PostgresNode(object):
                     raise e
 
             time.sleep(sleep_time)
-            attemps += 1
+            attempts += 1
 
         raise TimeoutException('Query timeout')
 
