@@ -382,6 +382,13 @@ class SimpleTest(unittest.TestCase):
 
             self.assertEqual(pid1, pid2)
 
+    def test_pg_ctl(self):
+        with get_new_node('node') as node:
+            node.init().start()
+
+            status = node.pg_ctl(['status'])
+            self.assertTrue("server is running" in status)
+
     def test_ports_management(self):
         # check that no ports have been bound yet
         self.assertEqual(len(bound_ports), 0)

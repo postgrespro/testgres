@@ -698,6 +698,17 @@ class PostgresNode(object):
 
         return self
 
+    def pg_ctl(self, params):
+        """
+        Invoke pg_ctl with params.
+
+        Returns:
+            Stdout + stderr of pg_ctl.
+        """
+
+        _params = params + ["-D", self.data_dir, "-w"]
+        return _execute_utility("pg_ctl", _params, self.utils_logname)
+
     def free_port(self):
         """
         Reclaim port owned by this node.
