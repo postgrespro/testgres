@@ -937,8 +937,9 @@ class PostgresNode(object):
                           username=username,
                           xlog_method=xlog_method)
 
-    def replicate(self, name, username=None, xlog_method=DEFAULT_XLOG_METHOD,
-                    use_logging=False):
+    def replicate(self, name, username=None,
+                  xlog_method=DEFAULT_XLOG_METHOD,
+                  use_logging=False):
         """
         Create a replica of this node.
 
