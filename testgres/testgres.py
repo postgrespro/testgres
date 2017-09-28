@@ -937,7 +937,8 @@ class PostgresNode(object):
                           username=username,
                           xlog_method=xlog_method)
 
-    def replicate(self, name, username=None, xlog_method=DEFAULT_XLOG_METHOD):
+    def replicate(self, name, username=None, xlog_method=DEFAULT_XLOG_METHOD,
+                    use_logging=False):
         """
         Create a replica of this node.
 
@@ -945,10 +946,11 @@ class PostgresNode(object):
             name: replica's name (str).
             username: database user name (str).
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
+            use_logging: enable python logging
         """
 
-        return self.backup(username=username,
-                           xlog_method=xlog_method).spawn_replica(name)
+        backup = self.backup(username=username, xlog_method=xlog_method)
+        return backup.spawn_replica(name, use_logging=use_logging)
 
     def catchup(self):
         """
