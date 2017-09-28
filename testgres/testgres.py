@@ -330,7 +330,7 @@ class NodeBackup(object):
 
         return base_dir
 
-    def spawn_primary(self, name, destroy=True):
+    def spawn_primary(self, name, destroy=True, use_logging=False):
         """
         Create a primary node from a backup.
 
@@ -347,14 +347,15 @@ class NodeBackup(object):
         # build a new PostgresNode
         node = PostgresNode(name=name,
                             base_dir=base_dir,
-                            master=self.original_node)
+                            master=self.original_node,
+                            use_logging=use_logging)
 
         node.append_conf("postgresql.conf", "\n")
         node.append_conf("postgresql.conf", "port = {}".format(node.port))
 
         return node
 
-    def spawn_replica(self, name, destroy=True):
+    def spawn_replica(self, name, destroy=True, use_logging=False):
         """
         Create a replica of the original node from a backup.
 
@@ -366,7 +367,7 @@ class NodeBackup(object):
             New instance of PostgresNode.
         """
 
-        node = self.spawn_primary(name, destroy)
+        node = self.spawn_primary(name, destroy, use_logging=use_logging)
         node._create_recovery_conf(self.original_node)
 
         return node
