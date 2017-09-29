@@ -337,6 +337,7 @@ class NodeBackup(object):
         Args:
             name: name for a new node (str).
             destroy: should we convert this backup into a node?
+            use_logging: enable python logging.
 
         Returns:
             New instance of PostgresNode.
@@ -362,6 +363,7 @@ class NodeBackup(object):
         Args:
             name: name for a new node (str).
             destroy: should we convert this backup into a node?
+            use_logging: enable python logging.
 
         Returns:
             New instance of PostgresNode.
@@ -947,7 +949,7 @@ class PostgresNode(object):
             name: replica's name (str).
             username: database user name (str).
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
-            use_logging: enable python logging
+            use_logging: enable python logging.
         """
 
         backup = self.backup(username=username, xlog_method=xlog_method)
