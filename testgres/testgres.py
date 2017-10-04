@@ -75,7 +75,14 @@ LOGS_DIR = "logs"
 DEFAULT_XLOG_METHOD = "fetch"
 
 
-class ExecUtilException(Exception):
+class TestgresException(Exception):
+    """
+    Base exception
+    """
+    pass
+
+
+class ExecUtilException(TestgresException):
     """
     Stores exit code
     """
@@ -85,31 +92,31 @@ class ExecUtilException(Exception):
         self.exit_code = exit_code
 
 
-class ClusterException(Exception):
+class ClusterTestgresException(TestgresException):
     pass
 
 
-class QueryException(Exception):
+class QueryException(TestgresException):
     pass
 
 
-class TimeoutException(Exception):
+class TimeoutException(TestgresException):
     pass
 
 
-class StartNodeException(Exception):
+class StartNodeException(TestgresException):
     pass
 
 
-class InitNodeException(Exception):
+class InitNodeException(TestgresException):
     pass
 
 
-class BackupException(Exception):
+class BackupException(TestgresException):
     pass
 
 
-class CatchUpException(Exception):
+class CatchUpException(TestgresException):
     pass
 
 
