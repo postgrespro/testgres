@@ -475,7 +475,6 @@ class PostgresNode(object):
         """
 
         postgres_conf = os.path.join(self.data_dir, "postgresql.conf")
-        hba_conf = os.path.join(self.data_dir, "pg_hba.conf")
 
         # We don't have to reinit it if data directory exists
         if os.path.isfile(postgres_conf):
@@ -484,6 +483,26 @@ class PostgresNode(object):
         # initialize this PostgreSQL node
         initdb_log = os.path.join(self.logs_dir, "initdb.log")
         _cached_initdb(self.data_dir, initdb_log, initdb_params)
+
+        # initialize default config files
+        self.default_conf(fsync=fsync)
+
+        return self
+
+    def default_conf(self, allow_streaming=True, fsync=False):
+        """
+        Apply default settings to this node.
+
+        Args:
+            allow_streaming: should this node add a hba entry for replication?
+            fsync: should this node use fsync to keep data safe?
+
+        Returns:
+            This instance of PostgresNode.
+        """
+
+        postgres_conf = os.path.join(self.data_dir, "postgresql.conf")
+        hba_conf = os.path.join(self.data_dir, "pg_hba.conf")
 
         # add parameters to hba file
         with open(hba_conf, "w") as conf:
@@ -502,9 +521,9 @@ class PostgresNode(object):
                 conf.write("fsync = off\n")
 
             conf.write("log_statement = all\n"
-                       "port = {}\n".format(self.port))
-
-            conf.write("listen_addresses = '{}'\n".format(self.host))
+                       "listen_addresses = '{}'\n"
+                       "port = {}\n".format(self.host,
+                                            self.port))
 
             if allow_streaming:
                 cur_ver = LooseVersion(get_pg_config()["VERSION_NUM"])
@@ -516,7 +535,6 @@ class PostgresNode(object):
                 conf.write("max_wal_senders = 5\n"
                            "wal_keep_segments = 20\n"
                            "hot_standby = on\n"
-                           "max_connections = 10\n"
                            "wal_level = {}\n".format(wal_level))
 
         return self
