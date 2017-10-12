@@ -417,6 +417,7 @@ class PostgresNode(object):
         self.port = port or reserve_port()
         self.should_free_port = port is None
         self.base_dir = base_dir or tempfile.mkdtemp()
+        self.should_rm_base_dir = base_dir is None
         self.use_logging = use_logging
         self.logger = None
 
@@ -749,8 +750,9 @@ class PostgresNode(object):
 
             attempts += 1
 
-        # remove data directory
-        shutil.rmtree(self.data_dir, ignore_errors=True)
+        # remove data directory if necessary
+        if self.should_rm_base_dir:
+            shutil.rmtree(self.data_dir, ignore_errors=True)
 
         return self
 
