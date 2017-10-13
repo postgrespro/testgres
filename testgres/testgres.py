@@ -76,6 +76,10 @@ DEFAULT_XLOG_METHOD = "fetch"
 
 
 class TestgresConfig:
+    """
+    Global config (override default settings)
+    """
+
     cache_pg_config = True
     cache_initdb = True
 
@@ -84,6 +88,7 @@ class TestgresException(Exception):
     """
     Base exception
     """
+
     pass
 
 
@@ -1239,8 +1244,10 @@ def get_new_node(name, base_dir=None, use_logging=False):
 
 
 def configure_testgres(**options):
-    '''
-    Configure testgres. Look for TestgresConfig to check what can be changed.
-    '''
+    """
+    Configure testgres.
+    Look at TestgresConfig to check what can be changed.
+    """
+
     for key, option in options.items():
         setattr(TestgresConfig, key, option)
