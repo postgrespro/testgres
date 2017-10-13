@@ -112,13 +112,13 @@ with testgres.get_new_node('master') as master:
 
 ### Benchmarks
 
-`testgres` also can help you to make benchmarks using `pgbench` from postgres installation.
+`testgres` also can help you to make benchmarks using `pgbench` from postgres installation:
 
 ```
 with testgres.get_new_node('master') as master:
-	master.init().start()
-	p = master.pg_bench_init(scale=10).pgbench(options=['-T', '60'])
-	p.wait()
+    master.init().start()
+    p = master.pg_bench_init(scale=10).pgbench(options=['-T', '60'])
+    p.wait()
 ```
 
 ## Authors
