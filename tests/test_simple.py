@@ -6,6 +6,7 @@ import six
 import tempfile
 import logging.config
 import subprocess
+import testgres
 
 from distutils.version import LooseVersion
 
@@ -13,7 +14,7 @@ from testgres import InitNodeException, \
     StartNodeException, ExecUtilException, \
     BackupException, QueryException, CatchUpException
 
-from testgres import get_new_node, get_pg_config
+from testgres import get_new_node, get_pg_config, configure_testgres
 from testgres import bound_ports
 from testgres import NodeStatus
 
@@ -413,6 +414,19 @@ class SimpleTest(unittest.TestCase):
         self.assertTrue(a > b)
         self.assertTrue(b > c)
         self.assertTrue(a > c)
+
+    def test_configure(self):
+        # set global if it wasn't set
+        pg_config = get_pg_config()
+        configure_testgres(cache_initdb=True, cache_pg_config=True)
+
+        # check that is the same instance
+        self.assertEqual(id(get_pg_config()), id(testgres.pg_config_data))
+        configure_testgres(cache_initdb=True, cache_pg_config=False)
+        self.assertNotEqual(id(get_pg_config()), id(testgres.pg_config_data))
+
+        # return to the base state
+        configure_testgres(cache_initdb=True, cache_pg_config=True)
 
 
 if __name__ == '__main__':

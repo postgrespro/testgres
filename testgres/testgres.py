@@ -75,6 +75,11 @@ LOGS_DIR = "logs"
 DEFAULT_XLOG_METHOD = "fetch"
 
 
+class TestgresConfig:
+    cache_pg_config = True
+    cache_initdb = True
+
+
 class TestgresException(Exception):
     """
     Base exception
@@ -1081,7 +1086,7 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             raise InitNodeException(str(e))
 
     # Call initdb if we have custom params
-    if initdb_params:
+    if initdb_params or not TestgresConfig.cache_initdb:
         call_initdb(data_dir)
     # Else we can use cached dir
     else:
@@ -1190,25 +1195,31 @@ def get_pg_config():
 
     global pg_config_data
 
-    if not pg_config_data:
-        pg_config_cmd = os.environ.get("PG_CONFIG") or "pg_config"
+    if TestgresConfig.cache_pg_config and pg_config_data:
+        return pg_config_data
 
-        out = six.StringIO(subprocess.check_output([pg_config_cmd],
-                                                   universal_newlines=True))
-        for line in out:
-            if line and "=" in line:
-                key, value = line.split("=", 1)
-                pg_config_data[key.strip()] = value.strip()
+    data = {}
+    pg_config_cmd = os.environ.get("PG_CONFIG") or "pg_config"
+    out = six.StringIO(subprocess.check_output([pg_config_cmd],
+                                               universal_newlines=True))
+    for line in out:
+        if line and "=" in line:
+            key, value = line.split("=", 1)
+            data[key.strip()] = value.strip()
 
-        # Fetch version of PostgreSQL and save it as VERSION_NUM
-        version = pg_config_data["VERSION"]
-        version = version.split(" ")[-1] \
-                         .partition('devel')[0] \
-                         .partition('beta')[0] \
-                         .partition('rc')[0]
-        pg_config_data["VERSION_NUM"] = version
+    # Fetch version of PostgreSQL and save it as VERSION_NUM
+    version = data["VERSION"]
+    version = version.split(" ")[-1] \
+                     .partition('devel')[0] \
+                     .partition('beta')[0] \
+                     .partition('rc')[0]
+    data["VERSION_NUM"] = version
 
-    return pg_config_data
+    if TestgresConfig.cache_pg_config:
+        pg_config_data.clear()
+        pg_config_data.update(data)
+
+    return data
 
 
 def get_new_node(name, base_dir=None, use_logging=False):
@@ -1225,3 +1236,11 @@ def get_new_node(name, base_dir=None, use_logging=False):
     """
 
     return PostgresNode(name=name, base_dir=base_dir, use_logging=use_logging)
+
+
+def configure_testgres(**options):
+    '''
+    Configure testgres. Look for TestgresConfig to check what can be changed.
+    '''
+    for key, option in options.items():
+        setattr(TestgresConfig, key, option)

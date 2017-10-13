@@ -5,3 +5,5 @@ tags
 Dockerfile
 .coverage
 env
+/build
+coverage.xml
