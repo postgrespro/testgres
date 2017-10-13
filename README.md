@@ -110,6 +110,17 @@ with testgres.get_new_node('master') as master:
 
 > Note: you could take a look at [`pg_pathman`](https://github.com/postgrespro/pg_pathman) to get an idea of `testgres`' capabilities.
 
+### Benchmarks
+
+`testgres` also can help you to make benchmarks using `pgbench` from postgres installation.
+
+```
+with testgres.get_new_node('master') as master:
+	master.init().start()
+	p = master.pg_bench_init(scale=10).pgbench(options=['-T', '60'])
+	p.wait()
+```
+
 ## Authors
 
 [Ildar Musin](https://github.com/zilder) <i.musin(at)postgrespro.ru> Postgres Professional Ltd., Russia     
