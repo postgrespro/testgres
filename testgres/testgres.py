@@ -499,13 +499,15 @@ class PostgresNode(object):
 
         return self
 
-    def default_conf(self, allow_streaming=True, fsync=False):
+    def default_conf(self, allow_streaming=True, fsync=False, log_statement='all'):
         """
         Apply default settings to this node.
 
         Args:
             allow_streaming: should this node add a hba entry for replication?
             fsync: should this node use fsync to keep data safe?
+            log_statement: one of ('all', 'off', 'mod', 'ddl'), look at
+                postgresql docs for more information
 
         Returns:
             This instance of PostgresNode.
@@ -530,9 +532,10 @@ class PostgresNode(object):
             if not fsync:
                 conf.write("fsync = off\n")
 
-            conf.write("log_statement = all\n"
+            conf.write("log_statement = {}\n"
                        "listen_addresses = '{}'\n"
-                       "port = {}\n".format(self.host,
+                       "port = {}\n".format(log_statement,
+                                            self.host,
                                             self.port))
 
             if allow_streaming:
