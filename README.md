@@ -104,8 +104,8 @@ It's quite easy to create a backup and start a new replica:
 with testgres.get_new_node('master') as master:
     master.init().start()
     with master.backup() as backup:
-	    replica = backup.spawn_replica('replica').start()
-		print(replica.execute('postgres', 'select 1'))
+        replica = backup.spawn_replica('replica').start()
+        print(replica.execute('postgres', 'select 1'))
 ```
 
 > Note: you could take a look at [`pg_pathman`](https://github.com/postgrespro/pg_pathman) to get an idea of `testgres`' capabilities.
