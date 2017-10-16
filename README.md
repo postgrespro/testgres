@@ -114,7 +114,7 @@ with testgres.get_new_node('master') as master:
 
 `testgres` also can help you to make benchmarks using `pgbench` from postgres installation:
 
-```
+```python
 with testgres.get_new_node('master') as master:
     master.init().start()
     p = master.pg_bench_init(scale=10).pgbench(options=['-T', '60'])
