@@ -539,7 +539,7 @@ class PostgresNode(object):
                                             self.port))
 
             if allow_streaming:
-                cur_ver = LooseVersion(get_pg_config()["VERSION_NUM"])
+                cur_ver = LooseVersion(get_pg_version())
                 min_ver = LooseVersion('9.6')
 
                 # select a proper wal_level for PostgreSQL
@@ -609,7 +609,10 @@ class PostgresNode(object):
         Return contents of pg_control file.
         """
 
-        if get_pg_config()["VERSION_NUM"] < '9.5.0':
+        cur_ver = LooseVersion(get_pg_version())
+        min_ver = LooseVersion('9.5')
+
+        if cur_ver < min_ver:
             _params = [self.data_dir]
         else:
             _params = ["-D", self.data_dir]
@@ -1002,7 +1005,7 @@ class PostgresNode(object):
 
         master = self.master
 
-        cur_ver = LooseVersion(get_pg_config()["VERSION_NUM"])
+        cur_ver = LooseVersion(get_pg_version())
         min_ver = LooseVersion('10')
 
         if cur_ver >= min_ver:
@@ -1166,8 +1169,13 @@ def default_username():
 
 def get_bin_path(filename):
     """
-    Return full path to an executable using get_pg_config().
+    Return full path to an executable using PG_BIN or PG_CONFIG.
     """
+
+    pg_bin_path = os.environ.get("PG_BIN")
+
+    if pg_bin_path:
+        return os.path.join(pg_bin_path, filename)
 
     pg_config = get_pg_config()
 
@@ -1175,6 +1183,28 @@ def get_bin_path(filename):
         return os.path.join(pg_config["BINDIR"], filename)
 
     return filename
+
+
+def get_pg_version():
+    """
+    Return PostgreSQL version using PG_BIN or PG_CONFIG.
+    """
+
+    pg_bin_path = os.environ.get("PG_BIN")
+
+    if pg_bin_path:
+        _params = ['--version']
+        raw_ver = _execute_utility('psql', _params, os.devnull)
+    else:
+        raw_ver = get_pg_config()["VERSION"]
+
+    # Cook version of PostgreSQL
+    version = raw_ver.strip().split(" ")[-1] \
+                     .partition('devel')[0] \
+                     .partition('beta')[0] \
+                     .partition('rc')[0]
+
+    return version
 
 
 def reserve_port():
@@ -1214,14 +1244,6 @@ def get_pg_config():
         if line and "=" in line:
             key, value = line.split("=", 1)
             data[key.strip()] = value.strip()
-
-    # Fetch version of PostgreSQL and save it as VERSION_NUM
-    version = data["VERSION"]
-    version = version.split(" ")[-1] \
-                     .partition('devel')[0] \
-                     .partition('beta')[0] \
-                     .partition('rc')[0]
-    data["VERSION_NUM"] = version
 
     if TestgresConfig.cache_pg_config:
         pg_config_data.clear()
