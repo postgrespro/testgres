@@ -672,7 +672,7 @@ class PostgresNode(object):
                     try:
                         with open(node_file, 'r') as f:
                             return f.read()
-                    except:
+                    except Exception as e:
                         pass
                 return "### file not found ###\n"
 
