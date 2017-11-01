@@ -495,7 +495,7 @@ class PostgresNode(object):
         _cached_initdb(self.data_dir, initdb_log, initdb_params)
 
         # initialize default config files
-        self.default_conf(fsync=fsync)
+        self.default_conf(allow_streaming=allow_streaming, fsync=fsync)
 
         return self
 
