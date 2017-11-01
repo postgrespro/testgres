@@ -27,21 +27,23 @@ typical flow may look like:
 Copyright (c) 2016, Postgres Professional
 """
 
-import os
-import subprocess
-import pwd
-import shutil
-import time
-import six
-import port_for
-
-import threading
+import atexit
 import logging
+import os
+import pwd
 import select
+import shutil
+import six
+import subprocess
 import tempfile
+import threading
+import time
+
+import port_for
 
 from enum import Enum
 from distutils.version import LooseVersion
+
 
 # Try to use psycopg2 by default. If psycopg2 isn't available then use
 # pg8000 which is slower but much more portable because uses only
@@ -60,9 +62,6 @@ bound_ports = set()
 # threads for loggers
 util_threads = []
 
-# chached initdb dir
-cached_data_dir = None
-
 # rows returned by PG_CONFIG
 pg_config_data = {}
 
@@ -80,8 +79,17 @@ class TestgresConfig:
     Global config (override default settings)
     """
 
+    # shall we cache pg_config results?
     cache_pg_config = True
+
+    # shall we use cached initdb instance?
     cache_initdb = True
+
+    # shall we create a temp dir for cached initdb?
+    cached_initdb_dir = None
+
+    # shall we remove EVERYTHING (including logs)?
+    node_cleanup_full = False
 
 
 class TestgresException(Exception):
@@ -427,7 +435,7 @@ class PostgresNode(object):
         self.port = port or reserve_port()
         self.should_free_port = port is None
         self.base_dir = base_dir or tempfile.mkdtemp()
-        self.should_rm_base_dir = base_dir is None
+        self.should_rm_dirs = base_dir is None
         self.use_logging = use_logging
         self.logger = None
 
@@ -741,8 +749,6 @@ class PostgresNode(object):
         _params = ["reload", "-D", self.data_dir, "-w"] + params
         _execute_utility("pg_ctl", _params, self.utils_logname)
 
-        return self
-
     def pg_ctl(self, params):
         """
         Invoke pg_ctl with params.
@@ -784,9 +790,16 @@ class PostgresNode(object):
 
             attempts += 1
 
-        # remove data directory if necessary
-        if self.should_rm_base_dir:
-            shutil.rmtree(self.data_dir, ignore_errors=True)
+        # remove directory tree if necessary
+        if self.should_rm_dirs:
+
+            # choose directory to be removed
+            if TestgresConfig.node_cleanup_full:
+                rm_dir = self.base_dir  # everything
+            else:
+                rm_dir = self.data_dir  # just data, save logs
+
+            shutil.rmtree(rm_dir, ignore_errors=True)
 
         return self
 
@@ -1101,16 +1114,29 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
         call_initdb(data_dir)
     # Else we can use cached dir
     else:
-        global cached_data_dir
+        # Set default temp dir for cached initdb
+        if TestgresConfig.cached_initdb_dir is None:
+            def rm_cached_data_dir(rm_dir):
+                shutil.rmtree(rm_dir, ignore_errors=True)
 
-        # Initialize cached initdb
-        if cached_data_dir is None:
-            cached_data_dir = tempfile.mkdtemp()
-            call_initdb(cached_data_dir)
+            # Create default temp dir
+            TestgresConfig.cached_initdb_dir = tempfile.mkdtemp()
+
+            # Schedule cleanup
+            atexit.register(rm_cached_data_dir,
+                            TestgresConfig.cached_initdb_dir)
 
         try:
+            # Fetch cached initdb dir
+            cached_data_dir = TestgresConfig.cached_initdb_dir
+
+            # Initialize cached initdb
+            if not os.listdir(cached_data_dir):
+                call_initdb(cached_data_dir)
+
             # Copy cached initdb to current data dir
             shutil.copytree(cached_data_dir, data_dir)
+
         except Exception as e:
             raise InitNodeException(str(e))
 
