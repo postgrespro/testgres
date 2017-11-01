@@ -20,7 +20,19 @@ We encourage you to use `virtualenv` for your testing environment.
 
 ## Usage
 
-> Note: by default testgres runs `initdb`, `pg_ctl`, `psql` provided by `PATH`. To specify a custom postgres installation, set the environment variable `PG_CONFIG` pointing to the `pg_config` executable: `export PG_CONFIG=/path/to/pg_config`.
+> Note: by default testgres runs `initdb`, `pg_ctl`, `psql` provided by `PATH`.
+
+There are several ways to specify a custom postgres installation:
+
+* export `PG_CONFIG` environment variable pointing to the `pg_config` executable;
+* export `PG_BIN` environment variable pointing to the directory with executable files.
+
+Example:
+
+```bash
+export PG_BIN=$HOME/pg_10/bin
+python my_tests.py
+```
 
 
 ### Overview
