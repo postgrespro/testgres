@@ -499,7 +499,7 @@ class PostgresNode(object):
 
         return self
 
-    def default_conf(self, allow_streaming=True, fsync=False, log_statement='all'):
+    def default_conf(self, allow_streaming=False, fsync=False, log_statement='all'):
         """
         Apply default settings to this node.
 
