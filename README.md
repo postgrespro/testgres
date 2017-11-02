@@ -20,6 +20,8 @@ We encourage you to use `virtualenv` for your testing environment.
 
 ## Usage
 
+### Environment
+
 > Note: by default testgres runs `initdb`, `pg_ctl`, `psql` provided by `PATH`.
 
 There are several ways to specify a custom postgres installation:
@@ -33,6 +35,13 @@ Example:
 export PG_BIN=$HOME/pg_10/bin
 python my_tests.py
 ```
+
+
+### Logging
+
+By default, `cleanup()` removes all temporary files (DB files, logs etc) that were created by testgres' API methods. If you'd like to keep logs, execute `configure_testgres(node_cleanup_full=False)` before running any tests.
+
+> Note: context managers (aka `with`) call `cleanup()` automatically.
 
 
 ### Overview
