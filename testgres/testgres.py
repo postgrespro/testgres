@@ -1181,7 +1181,7 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
                                            [util] + args)))
                 file_out.write('\n')
                 file_out.write(out)
-        except FileNotFoundError:
+        except IOError:
             pass
 
         if process.returncode:
