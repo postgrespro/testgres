@@ -43,8 +43,19 @@ By default, `cleanup()` removes all temporary files (DB files, logs etc) that we
 
 > Note: context managers (aka `with`) call `cleanup()` automatically.
 
+Nodes support python logging system, so if you have configured logging
+in your tests, you can use it to redirect postgres logs to yours.
 
-### Overview
+To do that, just use `use_logging` argument:
+
+```python
+node = testgres.get_new_node('master', use_logging=True)
+```
+
+You can find working configuration example for logging in `tests/test_simple.py`.
+
+
+### Examples
 
 Here is an example of what you can do with `testgres`:
 
@@ -103,18 +114,6 @@ To stop the server, run:
 ```python
 node.stop()
 ```
-
-### Logging
-
-Nodes support python logging system, so if you have configured logging
-in your tests you can use it to redirect postgres logs to yours.
-To do that just use `use_logging` argument like here:
-
-```python
-node = testgres.get_new_node('master', use_logging=True)
-```
-
-You can find working configuration example for logging in `tests/test_simple.py`.
 
 
 ### Backup & replication
