@@ -292,11 +292,11 @@ class NodeBackup(object):
         if not node.status():
             raise BackupException('Node must be running')
 
-        # set default arguments
+        # Set default arguments
         username = username or default_username()
         base_dir = base_dir or tempfile.mkdtemp()
 
-        # create directory if needed
+        # Create directory if needed
         if base_dir and not os.path.exists(base_dir):
             os.makedirs(base_dir)
 
@@ -350,7 +350,7 @@ class NodeBackup(object):
         else:
             base_dir = self.base_dir
 
-        # update value
+        # Update value
         self.available = available
 
         return base_dir
@@ -370,11 +370,14 @@ class NodeBackup(object):
 
         base_dir = self._prepare_dir(destroy)
 
-        # build a new PostgresNode
+        # Build a new PostgresNode
         node = PostgresNode(name=name,
                             base_dir=base_dir,
                             master=self.original_node,
                             use_logging=use_logging)
+
+        # New nodes should always remove dir tree
+        node.should_rm_dirs = True
 
         node.append_conf("postgresql.conf", "\n")
         node.append_conf("postgresql.conf", "port = {}".format(node.port))
@@ -1149,13 +1152,14 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
         util: utility to be executed (str).
         args: arguments for utility (list).
         logfile: stores stdout and stderr (str).
+        write_to_pipe: do we care about stdout?
 
     Returns:
         stdout of executed utility.
     """
 
-    with open(logfile, "a") as file_out, \
-            open(os.devnull, "w") as devnull:  # hack for 2.7
+    # we can't use subprocess.DEVNULL on 2.7
+    with open(os.devnull, "w") as devnull:
 
         # choose file according to options
         stdout_file = subprocess.PIPE if write_to_pipe else devnull
@@ -1169,10 +1173,16 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
         out, _ = process.communicate()
         out = '' if not out else out.decode('utf-8')
 
-        # write new log entry
-        file_out.write(''.join(map(lambda x: str(x) + ' ', [util] + args)))
-        file_out.write('\n')
-        file_out.write(out)
+        # write new log entry if possible
+        try:
+            with open(logfile, "a") as file_out:
+                # write util name + args
+                file_out.write(''.join(map(lambda x: str(x) + ' ',
+                                           [util] + args)))
+                file_out.write('\n')
+                file_out.write(out)
+        except FileNotFoundError:
+            pass
 
         if process.returncode:
             error_text = (

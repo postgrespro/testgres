@@ -1,18 +1,24 @@
 #!/usr/bin/env python
 
-import unittest
+import os
 import re
 import six
-import tempfile
-import logging.config
 import subprocess
+import tempfile
 import testgres
+import unittest
+
+import logging.config
 
 from distutils.version import LooseVersion
 
-from testgres import InitNodeException, \
-    StartNodeException, ExecUtilException, \
-    BackupException, QueryException, CatchUpException
+from testgres import \
+    InitNodeException, \
+    StartNodeException, \
+    ExecUtilException, \
+    BackupException, \
+    QueryException, \
+    CatchUpException
 
 from testgres import get_new_node, get_pg_config, configure_testgres
 from testgres import bound_ports
@@ -266,6 +272,7 @@ class SimpleTest(unittest.TestCase):
 
             # take a new dump
             dump = node1.dump('postgres')
+            self.assertTrue(os.path.isfile(dump))
 
             with get_new_node('node2') as node2:
                 node2.init().start().restore('postgres', dump)
@@ -273,6 +280,9 @@ class SimpleTest(unittest.TestCase):
                 res = node2.execute('postgres',
                                     'select * from test order by val asc')
                 self.assertListEqual(res, [(1, ), (2, )])
+
+            # finally, remove dump
+            os.remove(dump)
 
     def test_users(self):
         with get_new_node('master') as node:
