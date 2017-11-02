@@ -89,7 +89,7 @@ class TestgresConfig:
     cached_initdb_dir = None
 
     # shall we remove EVERYTHING (including logs)?
-    node_cleanup_full = False
+    node_cleanup_full = True
 
 
 class TestgresException(Exception):
