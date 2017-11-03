@@ -628,15 +628,15 @@ class PostgresNode(object):
         else:
             _params = ["-D", self.data_dir]
 
-        lines = _execute_utility("pg_controldata", _params, self.utils_logname)
+        data = _execute_utility("pg_controldata", _params, self.utils_logname)
 
-        out_data = {}
+        out_dict = {}
 
-        for line in lines:
-            key, value = line.partition(':')[::2]
-            out_data[key.strip()] = value.strip()
+        for line in data.splitlines():
+            key, _, value = line.partition(':')
+            out_dict[key.strip()] = value.strip()
 
-        return out_data
+        return out_dict
 
     def start(self, params=[]):
         """

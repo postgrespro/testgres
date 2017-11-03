@@ -155,7 +155,11 @@ class SimpleTest(unittest.TestCase):
             try:
                 node.init()
                 data = node.get_control_data()
+
+                # check returned dict
                 self.assertIsNotNone(data)
+                self.assertTrue(any('pg_control' in s for s in data.keys()))
+
             except ExecUtilException as e:
                 print(e.message)
                 got_exception = True
