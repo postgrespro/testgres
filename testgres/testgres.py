@@ -44,7 +44,6 @@ import port_for
 from enum import Enum
 from distutils.version import LooseVersion
 
-
 # Try to use psycopg2 by default. If psycopg2 isn't available then use
 # pg8000 which is slower but much more portable because uses only
 # pure-Python code
