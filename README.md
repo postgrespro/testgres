@@ -98,7 +98,7 @@ Finally our temporary cluster is able to process queries. There are four ways to
 
 * `node.psql(database, query)` - runs query via `psql` command and returns tuple `(error code, stdout, stderr)`
 * `node.safe_psql(database, query)` - same as `psql()` except that it returns only `stdout`. If an error occures during the execution, an exception will be thrown.
-* `node.execute(database, query)` - connects to postgresql server using `psycopg2` or `pg8000` library (depends on which is installed in your system) and returns two-dimensional array with data.
+* `node.execute(database, query, username=None, commit=True)` - connects to postgresql server using `psycopg2` or `pg8000` library (depends on which is installed in your system) and returns two-dimensional array with data.
 * `node.connect(database='postgres')` - returns connection wrapper (`NodeConnection`) capable of running several queries within a single transaction.
 
 The last one is the most powerful: you can use `begin(isolation_level)`, `commit()` and `rollback()`:
