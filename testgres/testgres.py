@@ -962,7 +962,7 @@ class PostgresNode(object):
 
         raise TimeoutException('Query timeout')
 
-    def execute(self, dbname, query, username=None, commit=False):
+    def execute(self, dbname, query, username=None, commit=True):
         """
         Execute a query and return all rows as list.
 
