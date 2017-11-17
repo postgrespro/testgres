@@ -171,19 +171,12 @@ class TestgresLogger(threading.Thread):
         return self.stop_event.isSet()
 
 
-def log_watch(node_name, pg_logname):
+class IsolationLevel(Enum):
     """
-    Starts thread for node that redirects
-    postgresql logs to python logging system
+    Transaction isolation level for NodeConnection
     """
 
-    reader = TestgresLogger(node_name, open(pg_logname, 'r'))
-    reader.start()
-
-    global util_threads
-    util_threads.append(reader)
-
-    return reader
+    ReadUncommitted, ReadCommitted, RepeatableRead, Serializable = range(4)
 
 
 class NodeConnection(object):
@@ -218,7 +211,7 @@ class NodeConnection(object):
     def __exit__(self, type, value, traceback):
         self.close()
 
-    def begin(self, isolation_level=0):
+    def begin(self, isolation_level=IsolationLevel.ReadCommitted):
         # yapf: disable
         levels = [
             'read uncommitted',
@@ -227,33 +220,43 @@ class NodeConnection(object):
             'serializable'
         ]
 
-        # Check if level is int [0..3]
-        if (isinstance(isolation_level, int) and
-                isolation_level in range(0, 4)):
+        # Check if level is an IsolationLevel
+        if (isinstance(isolation_level, IsolationLevel)):
 
-            # Replace index with isolation level type
-            isolation_level = levels[isolation_level]
+            # Get index of isolation level
+            level_idx = isolation_level.value
+            assert(level_idx in range(4))
 
-        # Or it might be a string
-        elif (isinstance(isolation_level, six.text_type) and
-              isolation_level.lower() in levels):
+            # Replace isolation level with its name
+            isolation_level = levels[level_idx]
 
-            # Nothing to do here
-            pass
-
-        # Something is wrong, emit exception
         else:
-            raise QueryException(
-                'Invalid isolation level "{}"'.format(isolation_level))
+            # Get name of isolation level
+            level_str = str(isolation_level).lower()
 
-        self.cursor.execute(
-            'SET TRANSACTION ISOLATION LEVEL {}'.format(isolation_level))
+            # Validate level string
+            if level_str not in levels:
+                error = 'Invalid isolation level "{}"'
+                raise QueryException(error.format(level_str))
+
+            # Replace isolation level with its name
+            isolation_level = level_str
+
+        # Set isolation level
+        cmd = 'SET TRANSACTION ISOLATION LEVEL {}'
+        self.cursor.execute(cmd.format(isolation_level))
+
+        return self
 
     def commit(self):
         self.connection.commit()
 
+        return self
+
     def rollback(self):
         self.connection.rollback()
+
+        return self
 
     def execute(self, query, *args):
         self.cursor.execute(query, args)
@@ -261,6 +264,7 @@ class NodeConnection(object):
         try:
             res = self.cursor.fetchall()
 
+            # pg8000 might return tuples
             if isinstance(res, tuple):
                 res = [tuple(t) for t in res]
 
@@ -1311,3 +1315,18 @@ def configure_testgres(**options):
 
     for key, option in options.items():
         setattr(TestgresConfig, key, option)
+
+
+def log_watch(node_name, pg_logname):
+    """
+    Start thread for node that redirects
+    PostgreSQL logs to python logging system.
+    """
+
+    reader = TestgresLogger(node_name, open(pg_logname, 'r'))
+    reader.start()
+
+    global util_threads
+    util_threads.append(reader)
+
+    return reader

@@ -1,4 +1,16 @@
-from distutils.core import setup
+import sys
+
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
+
+# Basic dependencies
+install_requires = ["pg8000", "six", "port-for"]
+
+# Add compatibility enum class
+if sys.version_info < (3, 4):
+    install_requires.append("enum34")
 
 setup(
     name='testgres',
@@ -11,4 +23,4 @@ setup(
     url='https://github.com/postgrespro/testgres',
     keywords=['testing', 'postgresql'],
     classifiers=[],
-    install_requires=["pg8000", "six", "port-for", "enum34"])
+    install_requires=install_requires)

@@ -23,6 +23,7 @@ from testgres import \
 from testgres import get_new_node, get_pg_config, configure_testgres
 from testgres import bound_ports
 from testgres import NodeStatus
+from testgres import IsolationLevel
 
 
 class SimpleTest(unittest.TestCase):
@@ -441,6 +442,30 @@ class SimpleTest(unittest.TestCase):
 
         # return to the base state
         configure_testgres(cache_initdb=True, cache_pg_config=True)
+
+    def test_isolation_levels(self):
+        with get_new_node('node').init().start() as node:
+            with node.connect() as con:
+                # string levels
+                con.begin('Read Uncommitted').commit()
+                con.begin('Read Committed').commit()
+                con.begin('Repeatable Read').commit()
+                con.begin('Serializable').commit()
+
+                # enum levels
+                con.begin(IsolationLevel.ReadUncommitted).commit()
+                con.begin(IsolationLevel.ReadCommitted).commit()
+                con.begin(IsolationLevel.RepeatableRead).commit()
+                con.begin(IsolationLevel.Serializable).commit()
+
+                # check wrong level
+                got_exception = False
+                try:
+                    con.begin('Garbage').commit()
+                except QueryException:
+                    got_exception = True
+
+                self.assertTrue(got_exception)
 
 
 if __name__ == '__main__':
