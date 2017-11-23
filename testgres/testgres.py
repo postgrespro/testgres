@@ -363,7 +363,7 @@ class NodeBackup(object):
         Create a primary node from a backup.
 
         Args:
-            name: name for a new node (str).
+            name: name for a new node.
             destroy: should we convert this backup into a node?
             use_logging: enable python logging.
 
@@ -392,7 +392,7 @@ class NodeBackup(object):
         Create a replica of the original node from a backup.
 
         Args:
-            name: name for a new node (str).
+            name: name for a new node.
             destroy: should we convert this backup into a node?
             use_logging: enable python logging.
 
@@ -814,10 +814,10 @@ class PostgresNode(object):
         Execute a query using psql.
 
         Args:
-            dbname: database name to connect to (str).
-            query: query to be executed (str).
-            filename: file with a query (str).
-            username: database user name (str).
+            dbname: database name to connect to.
+            query: query to be executed.
+            filename: file with a query.
+            username: database user name.
 
         Returns:
             A tuple of (code, stdout, stderr).
@@ -857,9 +857,9 @@ class PostgresNode(object):
         Execute a query using psql.
 
         Args:
-            dbname: database name to connect to (str).
-            query: query to be executed (str).
-            username: database user name (str).
+            dbname: database name to connect to.
+            query: query to be executed.
+            username: database user name.
 
         Returns:
             psql's output as str.
@@ -875,8 +875,8 @@ class PostgresNode(object):
         Dump database using pg_dump.
 
         Args:
-            dbname: database name to connect to (str).
-            filename: output file (str).
+            dbname: database name to connect to.
+            filename: output file.
 
         Returns:
             Path to file containing dump.
@@ -900,8 +900,8 @@ class PostgresNode(object):
         Restore database from pg_dump's file.
 
         Args:
-            dbname: database name to connect to (str).
-            filename: database dump taken by pg_dump (str).
+            dbname: database name to connect to.
+            filename: database dump taken by pg_dump.
         """
 
         self.psql(dbname=dbname, filename=filename, username=username)
@@ -919,9 +919,9 @@ class PostgresNode(object):
         Run a query once a second until it returs 'expected'.
 
         Args:
-            dbname: database name to connect to (str).
-            query: query to be executed (str).
-            username: database user name (str).
+            dbname: database name to connect to.
+            query: query to be executed.
+            username: database user name.
             max_attempts: how many times should we try?
             sleep_time: how long should we sleep after a failure?
             expected: what should be returned to break the cycle?
@@ -970,9 +970,9 @@ class PostgresNode(object):
         Execute a query and return all rows as list.
 
         Args:
-            dbname: database name to connect to (str).
-            query: query to be executed (str).
-            username: database user name (str).
+            dbname: database name to connect to.
+            query: query to be executed.
+            username: database user name.
             commit: should we commit this query?
 
         Returns:
@@ -990,7 +990,7 @@ class PostgresNode(object):
         Perform pg_basebackup.
 
         Args:
-            username: database user name (str).
+            username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
 
         Returns:
@@ -1008,8 +1008,8 @@ class PostgresNode(object):
         Create a replica of this node.
 
         Args:
-            name: replica's name (str).
-            username: database user name (str).
+            name: replica's name.
+            username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
             use_logging: enable python logging.
         """
@@ -1048,7 +1048,7 @@ class PostgresNode(object):
         Prepare database for pgbench (create tables etc).
 
         Args:
-            dbname: database name to connect to (str).
+            dbname: database name to connect to.
             scale: report this scale factor in output (int).
             options: additional options for pgbench (list).
 
@@ -1071,7 +1071,7 @@ class PostgresNode(object):
         Spawn a pgbench process.
 
         Args:
-            dbname: database name to connect to (str).
+            dbname: database name to connect to.
             stdout: stdout file to be used by Popen.
             stderr: stderr file to be used by Popen.
             options: additional options for pgbench (list).
@@ -1091,8 +1091,8 @@ class PostgresNode(object):
         Connect to a database.
 
         Args:
-            dbname: database name to connect to (str).
-            username: database user name (str).
+            dbname: database name to connect to.
+            username: database user name.
 
         Returns:
             An instance of NodeConnection.
@@ -1152,9 +1152,9 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
     Execute utility (pg_ctl, pg_dump etc) using get_bin_path().
 
     Args:
-        util: utility to be executed (str).
+        util: utility to be executed.
         args: arguments for utility (list).
-        logfile: stores stdout and stderr (str).
+        logfile: path to file to store stdout and stderr.
         write_to_pipe: do we care about stdout?
 
     Returns:
@@ -1174,7 +1174,7 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
 
         # get result
         out, _ = process.communicate()
-        out = '' if not out else out.decode('utf-8')
+        out = '' if not out else six.text_type(out)
 
         # write new log entry if possible
         try:
@@ -1296,8 +1296,8 @@ def get_new_node(name, base_dir=None, use_logging=False):
     Create a new node (select port automatically).
 
     Args:
-        name: node's name (str).
-        base_dir: path to node's data directory (str).
+        name: node's name.
+        base_dir: path to node's data directory.
         use_logging: should we use custom logger?
 
     Returns:

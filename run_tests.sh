@@ -5,26 +5,26 @@
 set -eux
 
 if [ "$PYTHON" == "python2" ]; then
-	virtualenv="virtualenv --python=/usr/bin/python2"
-	pip=pip2
+	VIRTUALENV="virtualenv --python=/usr/bin/python2"
+	PIP=pip2
 else
-	virtualenv="virtualenv --python=/usr/bin/python3"
-	pip=pip3
+	VIRTUALENV="virtualenv --python=/usr/bin/python3"
+	PIP=pip3
 fi
 
 # prepare environment
-cd ..
-$virtualenv env
+VENV_PATH=/tmp/testgres_venv
+rm -rf $VENV_PATH
+$VIRTUALENV $VENV_PATH
 export VIRTUAL_ENV_DISABLE_PROMPT=1
-source env/bin/activate
-cd -
+source $VENV_PATH/bin/activate
 
 # install utilities
-$pip install coverage flake8
+$PIP install coverage flake8
 
 # install testgres' dependencies
 export PYTHONPATH=$(pwd)
-$pip install .
+$PIP install .
 
 # test code quality
 flake8 .

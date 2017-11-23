@@ -336,7 +336,6 @@ class SimpleTest(unittest.TestCase):
             self.assertTrue(got_exception)
 
     def test_logging(self):
-        regex = re.compile('.+?LOG:.*')
         logfile = tempfile.NamedTemporaryFile('w', delete=True)
 
         log_conf = {
@@ -362,17 +361,17 @@ class SimpleTest(unittest.TestCase):
 
         logging.config.dictConfig(log_conf)
 
-        with get_new_node('master', use_logging=True) as node0, \
-            get_new_node('slave1', use_logging=True) as node1, \
-                get_new_node('slave2', use_logging=True) as node2:
+        with get_new_node('master', use_logging=True) as master:
+            master.init().start()
 
-            node0.init().start()
-            node1.init().start()
-            node2.init().start()
+            import time
+            time.sleep(0.5)
 
+            # check that master's port is found
             with open(logfile.name, 'r') as log:
-                for line in log:
-                    self.assertTrue(regex.match(line))
+                lines = log.readlines()
+                port = str(master.port)
+                self.assertTrue(any(port in s for s in lines))
 
     def test_pgbench(self):
         with get_new_node('node') as node:
@@ -403,7 +402,7 @@ class SimpleTest(unittest.TestCase):
             node.init().start()
 
             status = node.pg_ctl(['status'])
-            self.assertTrue("server is running" in status)
+            self.assertTrue('PID' in status)
 
     def test_ports_management(self):
         # check that no ports have been bound yet
