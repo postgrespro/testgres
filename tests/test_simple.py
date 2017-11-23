@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# coding: utf-8
 
 import os
 import re
@@ -364,14 +365,18 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('master', use_logging=True) as master:
             master.init().start()
 
+            # execute a dummy query a few times
+            for i in range(20):
+                master.execute('postgres', 'select 1')
+
+            # let logging worker do the job
             import time
             time.sleep(0.5)
 
             # check that master's port is found
             with open(logfile.name, 'r') as log:
                 lines = log.readlines()
-                port = str(master.port)
-                self.assertTrue(any(port in s for s in lines))
+                self.assertTrue(any('select' in s for s in lines))
 
     def test_pgbench(self):
         with get_new_node('node') as node:

@@ -38,6 +38,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import traceback
 
 import port_for
 
@@ -349,7 +350,7 @@ class NodeBackup(object):
                 # Copy backup to new data dir
                 shutil.copytree(data1, data2)
             except Exception as e:
-                raise BackupException(str(e))
+                raise BackupException(_explain_exception(e))
         else:
             base_dir = self.base_dir
 
@@ -691,13 +692,13 @@ class PostgresNode(object):
                 return "### file not found ###\n"
 
             error_text = (
-                "Cannot start node\n"
-                "{}\n"  # pg_ctl log
-                "{}:\n----\n{}\n"  # postgresql.log
-                "{}:\n----\n{}\n"  # postgresql.conf
-                "{}:\n----\n{}\n"  # pg_hba.conf
-                "{}:\n----\n{}\n"  # recovery.conf
-            ).format(str(e),
+                u"Cannot start node\n"
+                u"{}\n"  # pg_ctl log
+                u"{}:\n----\n{}\n"  # postgresql.log
+                u"{}:\n----\n{}\n"  # postgresql.conf
+                u"{}:\n----\n{}\n"  # pg_hba.conf
+                u"{}:\n----\n{}\n"  # recovery.conf
+            ).format(_explain_exception(e),
                      log_filename, print_node_file(log_filename),
                      conf_filename, print_node_file(conf_filename),
                      hba_filename, print_node_file(hba_filename),
@@ -867,7 +868,9 @@ class PostgresNode(object):
 
         ret, out, err = self.psql(dbname, query, username=username)
         if ret:
-            raise QueryException(six.text_type(err))
+            if err:
+                err = err.decode('utf-8')
+            raise QueryException(err)
         return out
 
     def dump(self, dbname, filename=None):
@@ -1041,7 +1044,7 @@ class PostgresNode(object):
             lsn = master.execute('postgres', poll_lsn)[0][0]
             self.poll_query_until('postgres', wait_lsn.format(lsn))
         except Exception as e:
-            raise CatchUpException(str(e))
+            raise CatchUpException(_explain_exception(e))
 
     def pgbench_init(self, dbname='postgres', scale=1, options=[]):
         """
@@ -1103,6 +1106,15 @@ class PostgresNode(object):
                               username=username)
 
 
+def _explain_exception(e):
+    """
+    Use this function instead of str(e).
+    """
+
+    lines = traceback.format_exception_only(type(e), e)
+    return ''.join(lines)
+
+
 def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
     """
     Perform initdb or use cached node files.
@@ -1113,7 +1125,7 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             _params = [_data_dir, "-N"] + initdb_params
             _execute_utility("initdb", _params, initdb_logfile)
         except Exception as e:
-            raise InitNodeException(str(e))
+            raise InitNodeException(_explain_exception(e))
 
     # Call initdb if we have custom params
     if initdb_params or not TestgresConfig.cache_initdb:
@@ -1144,7 +1156,7 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             shutil.copytree(cached_data_dir, data_dir)
 
         except Exception as e:
-            raise InitNodeException(str(e))
+            raise InitNodeException(_explain_exception(e))
 
 
 def _execute_utility(util, args, logfile, write_to_pipe=True):
@@ -1174,23 +1186,29 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
 
         # get result
         out, _ = process.communicate()
-        out = '' if not out else six.text_type(out)
 
         # write new log entry if possible
         try:
             with open(logfile, "a") as file_out:
-                # write util name + args
-                file_out.write(''.join(map(lambda x: str(x) + ' ',
-                                           [util] + args)))
-                file_out.write('\n')
-                file_out.write(out)
+                # write util name
+                file_out.write(util)
+                # write args
+                for arg in args:
+                    file_out.write(arg)
+            with open(logfile, "ab") as file_out:
+                # write output
+                if out:
+                    file_out.write(out)
         except IOError:
             pass
 
+        # decode output
+        out = '' if not out else out.decode('utf-8')
+
         if process.returncode:
             error_text = (
-                "{} failed\n"
-                "log:\n----\n{}\n"
+                u"{} failed\n"
+                u"log:\n----\n{}\n"
             ).format(util, out)
 
             raise ExecUtilException(error_text, process.returncode)
