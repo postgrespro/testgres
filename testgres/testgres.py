@@ -852,7 +852,7 @@ class PostgresNode(object):
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
 
-        # wait untill it finishes and get stdout and stderr
+        # wait until it finishes and get stdout and stderr
         out, err = process.communicate()
         return process.returncode, out, err
 

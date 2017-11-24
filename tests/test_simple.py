@@ -470,7 +470,7 @@ class SimpleTest(unittest.TestCase):
             port_2 = node.port
             self.assertEqual(port_1, port_2)
 
-        # check that port has been freed successfuly
+        # check that port has been freed successfully
         self.assertEqual(len(bound_ports), 0)
 
     def test_version_management(self):
