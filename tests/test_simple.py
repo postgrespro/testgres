@@ -195,8 +195,18 @@ class SimpleTest(unittest.TestCase):
 
     def test_backup_simple(self):
         with get_new_node('master') as master:
-            master.init(allow_streaming=True).start()
 
+            # enable streaming for backups
+            master.init(allow_streaming=True)
+
+            # node must be running
+            with self.assertRaises(BackupException):
+                master.backup()
+
+            # it's time to start node
+            master.start()
+
+            # fill node with some data
             master.psql('postgres',
                         'create table test as select generate_series(1, 4) i')
 

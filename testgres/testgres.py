@@ -915,7 +915,7 @@ class PostgresNode(object):
                          dbname,
                          query,
                          username=None,
-                         max_attempts=60,
+                         max_attempts=0,
                          sleep_time=1,
                          expected=True,
                          raise_programming_error=True,
@@ -1027,7 +1027,7 @@ class PostgresNode(object):
         backup = self.backup(username=username, xlog_method=xlog_method)
         return backup.spawn_replica(name, use_logging=use_logging)
 
-    def catchup(self):
+    def catchup(self, username=None):
         """
         Wait until async replica catches up with its master.
         """
@@ -1049,7 +1049,10 @@ class PostgresNode(object):
 
         try:
             lsn = master.execute('postgres', poll_lsn)[0][0]
-            self.poll_query_until('postgres', wait_lsn.format(lsn))
+            self.poll_query_until(dbname='postgres',
+                                  username=username,
+                                  query=wait_lsn.format(lsn),
+                                  max_attempts=0)  # infinite
         except Exception as e:
             raise CatchUpException(_explain_exception(e))
 
