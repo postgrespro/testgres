@@ -868,8 +868,7 @@ class PostgresNode(object):
 
         ret, out, err = self.psql(dbname, query, username=username)
         if ret:
-            if err:
-                err = err.decode('utf-8')
+            err = '' if not err else err.decode('utf-8')
             raise QueryException(err)
         return out
 
