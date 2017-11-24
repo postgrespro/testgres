@@ -440,15 +440,14 @@ class PostgresNode(object):
         self.name = name
         self.host = '127.0.0.1'
         self.port = port or reserve_port()
+        self.base_dir = base_dir
         self.should_free_port = port is None
-        self.base_dir = base_dir or tempfile.mkdtemp()
         self.should_rm_dirs = base_dir is None
         self.use_logging = use_logging
         self.logger = None
 
-        # create directory if needed
-        if not os.path.exists(self.logs_dir):
-            os.makedirs(self.logs_dir)
+        # create directories if needed
+        self._prepare_dirs()
 
     def __enter__(self):
         return self
@@ -486,6 +485,13 @@ class PostgresNode(object):
 
         self.append_conf("recovery.conf", line)
 
+    def _prepare_dirs(self):
+        if not self.base_dir or not os.path.exists(self.base_dir):
+            self.base_dir = tempfile.mkdtemp()
+
+        if not os.path.exists(self.logs_dir):
+            os.makedirs(self.logs_dir)
+
     def init(self, allow_streaming=False, fsync=False, initdb_params=[]):
         """
         Perform initdb for this node.
@@ -499,11 +505,8 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        postgres_conf = os.path.join(self.data_dir, "postgresql.conf")
-
-        # We don't have to reinit it if data directory exists
-        if os.path.isfile(postgres_conf):
-            raise InitNodeException('Node is already intialized')
+        # create directories if needed
+        self._prepare_dirs()
 
         # initialize this PostgreSQL node
         initdb_log = os.path.join(self.logs_dir, "initdb.log")
@@ -1123,7 +1126,7 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
         try:
             _params = [_data_dir, "-N"] + initdb_params
             _execute_utility("initdb", _params, initdb_logfile)
-        except Exception as e:
+        except ExecUtilException as e:
             raise InitNodeException(_explain_exception(e))
 
     # Call initdb if we have custom params
@@ -1143,17 +1146,16 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             atexit.register(rm_cached_data_dir,
                             TestgresConfig.cached_initdb_dir)
 
+        # Fetch cached initdb dir
+        cached_data_dir = TestgresConfig.cached_initdb_dir
+
+        # Initialize cached initdb
+        if not os.listdir(cached_data_dir):
+            call_initdb(cached_data_dir)
+
         try:
-            # Fetch cached initdb dir
-            cached_data_dir = TestgresConfig.cached_initdb_dir
-
-            # Initialize cached initdb
-            if not os.listdir(cached_data_dir):
-                call_initdb(cached_data_dir)
-
             # Copy cached initdb to current data dir
             shutil.copytree(cached_data_dir, data_dir)
-
         except Exception as e:
             raise InitNodeException(_explain_exception(e))
 
@@ -1189,14 +1191,12 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
         # write new log entry if possible
         try:
             with open(logfile, "a") as file_out:
-                # write util name
-                file_out.write(util)
-                # write args
-                for arg in args:
-                    file_out.write(arg)
-            with open(logfile, "ab") as file_out:
-                # write output
-                if out:
+                # write util name and args
+                file_out.write(' '.join([util] + args))
+                file_out.write('\n')
+            if out:
+                with open(logfile, "ab") as file_out:
+                    # write output
                     file_out.write(out)
         except IOError:
             pass
