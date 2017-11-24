@@ -29,6 +29,12 @@ from testgres import IsolationLevel
 
 
 class SimpleTest(unittest.TestCase):
+    def test_custom_init(self):
+        with get_new_node('test') as node:
+            # enable page checksums
+            node.init(initdb_params=['-k']).start()
+            node.safe_psql('postgres', 'select 1')
+
     def test_double_init(self):
         with get_new_node('test') as node:
             # can't initialize node more than once
