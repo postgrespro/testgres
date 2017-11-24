@@ -19,7 +19,8 @@ from testgres import \
     ExecUtilException, \
     BackupException, \
     QueryException, \
-    CatchUpException
+    CatchUpException, \
+    TimeoutException
 
 from testgres import get_new_node, get_pg_config, configure_testgres
 from testgres import bound_ports
@@ -60,22 +61,58 @@ class SimpleTest(unittest.TestCase):
             res = node.execute('postgres', 'select 2')
             self.assertEqual(res, [(2, )])
 
+    def test_psql(self):
+        with get_new_node('test') as node:
+            node.init().start()
+
+            # check default params
+            got_exception = False
+            try:
+                node.psql('postgres')
+            except QueryException as e:
+                got_exception = True
+            self.assertTrue(got_exception)
+
+            # check returned values
+            res = node.psql('postgres', 'select 1')
+            self.assertEqual(res[0], 0)
+            self.assertEqual(res[1], b'1\n')
+            self.assertEqual(res[2], b'')
+
+            # check returned values
+            res = node.safe_psql('postgres', 'select 1')
+            self.assertEqual(res, b'1\n')
+
+            node.stop()
+
+            # check psql on stopped node
+            got_exception = False
+            try:
+                node.safe_psql('postgres', 'select 1')
+            except QueryException as e:
+                got_exception = True
+            self.assertTrue(got_exception)
+
     def test_status(self):
+        # check NodeStatus cast to bool
         condition_triggered = False
         if NodeStatus.Running:
             condition_triggered = True
         self.assertTrue(condition_triggered)
 
+        # check NodeStatus cast to bool
         condition_triggered = False
         if NodeStatus.Stopped:
             condition_triggered = True
         self.assertFalse(condition_triggered)
 
+        # check NodeStatus cast to bool
         condition_triggered = False
         if NodeStatus.Uninitialized:
             condition_triggered = True
         self.assertFalse(condition_triggered)
 
+        # check statuses after each operation
         with get_new_node('test') as node:
             self.assertEqual(node.get_pid(), 0)
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
@@ -333,6 +370,17 @@ class SimpleTest(unittest.TestCase):
             try:
                 node.poll_query_until('postgres', 'create table abc (val int)')
             except QueryException as e:
+                got_exception = True
+            self.assertTrue(got_exception)
+
+            # check timeout
+            got_exception = False
+            try:
+                node.poll_query_until(dbname='postgres',
+                                      query='select 1 > 2',
+                                      max_attempts=5,
+                                      sleep_time=0.2)
+            except TimeoutException as e:
                 got_exception = True
             self.assertTrue(got_exception)
 
