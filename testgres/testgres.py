@@ -922,20 +922,25 @@ class PostgresNode(object):
                          raise_internal_error=True):
         """
         Run a query once a second until it returs 'expected'.
+        Query should return single column.
 
         Args:
             dbname: database name to connect to.
             query: query to be executed.
             username: database user name.
-            max_attempts: how many times should we try?
-            sleep_time: how long should we sleep after a failure?
+            max_attempts: how many times should we try? 0 == infinite
+            sleep_time: how much should we sleep after a failure?
             expected: what should be returned to break the cycle?
             raise_programming_error: mute ProgrammingError?
             raise_internal_error: mute InternalError?
         """
 
+        # sanity checks
+        assert(max_attempts >= 0)
+        assert(sleep_time > 0)
+
         attempts = 0
-        while attempts < max_attempts:
+        while max_attempts == 0 or attempts < max_attempts:
             try:
                 res = self.execute(dbname=dbname,
                                    query=query,
@@ -1010,7 +1015,7 @@ class PostgresNode(object):
                   xlog_method=DEFAULT_XLOG_METHOD,
                   use_logging=False):
         """
-        Create a replica of this node.
+        Create a binary replica of this node.
 
         Args:
             name: replica's name.
