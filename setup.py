@@ -15,7 +15,7 @@ if sys.version_info < (3, 4):
 setup(
     name='testgres',
     packages=['testgres'],
-    version='1.3.4',
+    version='1.4.0',
     description='Testing utility for PostgreSQL and its extensions',
     license='PostgreSQL',
     author='Ildar Musin',
