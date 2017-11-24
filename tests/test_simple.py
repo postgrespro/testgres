@@ -31,26 +31,28 @@ from testgres import IsolationLevel
 class SimpleTest(unittest.TestCase):
     def test_double_init(self):
         with get_new_node('test') as node:
-            got_exception = False
-
-            try:
+            # can't initialize node more than once
+            with self.assertRaises(InitNodeException):
                 node.init()
                 node.init()
-            except InitNodeException as e:
-                got_exception = True
 
-        self.assertTrue(got_exception)
+    def test_init_after_cleanup(self):
+        with get_new_node('test') as node:
+            node.init().start()
+            node.status()
+            node.safe_psql('postgres', 'select 1')
+
+            node.cleanup()
+
+            node.init().start()
+            node.status()
+            node.safe_psql('postgres', 'select 1')
 
     def test_uninitialized_start(self):
         with get_new_node('test') as node:
-            got_exception = False
-
-            try:
+            # node is not initialized yet
+            with self.assertRaises(StartNodeException):
                 node.start()
-            except StartNodeException as e:
-                got_exception = True
-
-        self.assertTrue(got_exception)
 
     def test_restart(self):
         with get_new_node('test') as node:
@@ -66,12 +68,8 @@ class SimpleTest(unittest.TestCase):
             node.init().start()
 
             # check default params
-            got_exception = False
-            try:
+            with self.assertRaises(QueryException):
                 node.psql('postgres')
-            except QueryException as e:
-                got_exception = True
-            self.assertTrue(got_exception)
 
             # check returned values
             res = node.psql('postgres', 'select 1')
@@ -86,12 +84,8 @@ class SimpleTest(unittest.TestCase):
             node.stop()
 
             # check psql on stopped node
-            got_exception = False
-            try:
+            with self.assertRaises(QueryException):
                 node.safe_psql('postgres', 'select 1')
-            except QueryException as e:
-                got_exception = True
-            self.assertTrue(got_exception)
 
     def test_status(self):
         # check NodeStatus cast to bool
@@ -181,28 +175,17 @@ class SimpleTest(unittest.TestCase):
 
     def test_control_data(self):
         with get_new_node('test') as node:
-            got_exception = False
 
-            try:
+            # node is not initialized yet
+            with self.assertRaises(ExecUtilException):
                 node.get_control_data()
-            except ExecUtilException as e:
-                got_exception = True
-            self.assertTrue(got_exception)
 
-            got_exception = False
+            node.init()
+            data = node.get_control_data()
 
-            try:
-                node.init()
-                data = node.get_control_data()
-
-                # check returned dict
-                self.assertIsNotNone(data)
-                self.assertTrue(any('pg_control' in s for s in data.keys()))
-
-            except ExecUtilException as e:
-                print(e.message)
-                got_exception = True
-            self.assertFalse(got_exception)
+            # check returned dict
+            self.assertIsNotNone(data)
+            self.assertTrue(any('pg_control' in s for s in data.keys()))
 
     def test_backup_simple(self):
         with get_new_node('master') as master:
@@ -238,19 +221,15 @@ class SimpleTest(unittest.TestCase):
             node.init(allow_streaming=True).start()
 
             with node.backup(xlog_method='fetch') as backup:
+
+                # exhaust backup by creating new node
                 with backup.spawn_primary('node1') as node1:
                     pass
 
-                got_exception = False
-                try:
+                # now let's try to create one more node
+                with self.assertRaises(BackupException):
                     with backup.spawn_primary('node2') as node2:
                         pass
-                except BackupException as e:
-                    got_exception = True
-                except Exception as e:
-                    pass
-
-                self.assertTrue(got_exception)
 
     def test_backup_and_replication(self):
         with get_new_node('node') as node, get_new_node('repl') as replica:
@@ -296,12 +275,9 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('node') as node:
             node.init(allow_streaming=True).start()
 
-            got_exception = False
-            try:
+            # node has no master, can't catch up
+            with self.assertRaises(CatchUpException):
                 node.catchup()
-            except CatchUpException as e:
-                got_exception = True
-            self.assertTrue(got_exception)
 
     def test_dump(self):
         with get_new_node('node1') as node1:
@@ -348,41 +324,24 @@ class SimpleTest(unittest.TestCase):
             self.assertTrue(end_time - start_time >= 5)
 
             # check 0 rows
-            got_exception = False
-            try:
+            with self.assertRaises(QueryException):
                 node.poll_query_until(
                     'postgres', 'select * from pg_class where true = false')
-            except QueryException as e:
-                got_exception = True
-            self.assertTrue(got_exception)
 
             # check 0 columns
-            got_exception = False
-            try:
+            with self.assertRaises(QueryException):
                 node.poll_query_until('postgres',
                                       'select from pg_class limit 1')
-            except QueryException as e:
-                got_exception = True
-            self.assertTrue(got_exception)
-
             # check None
-            got_exception = False
-            try:
+            with self.assertRaises(QueryException):
                 node.poll_query_until('postgres', 'create table abc (val int)')
-            except QueryException as e:
-                got_exception = True
-            self.assertTrue(got_exception)
 
             # check timeout
-            got_exception = False
-            try:
+            with self.assertRaises(TimeoutException):
                 node.poll_query_until(dbname='postgres',
                                       query='select 1 > 2',
                                       max_attempts=5,
                                       sleep_time=0.2)
-            except TimeoutException as e:
-                got_exception = True
-            self.assertTrue(got_exception)
 
     def test_logging(self):
         logfile = tempfile.NamedTemporaryFile('w', delete=True)
@@ -511,13 +470,8 @@ class SimpleTest(unittest.TestCase):
                 con.begin(IsolationLevel.Serializable).commit()
 
                 # check wrong level
-                got_exception = False
-                try:
+                with self.assertRaises(QueryException):
                     con.begin('Garbage').commit()
-                except QueryException:
-                    got_exception = True
-
-                self.assertTrue(got_exception)
 
 
 if __name__ == '__main__':
