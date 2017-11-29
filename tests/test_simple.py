@@ -35,6 +35,21 @@ class SimpleTest(unittest.TestCase):
             node.init(initdb_params=['-k']).start()
             node.safe_psql('postgres', 'select 1')
 
+        with get_new_node('test') as node:
+            node.init(allow_streaming=True,
+                      initdb_params=['--auth-local=reject',
+                                     '--auth-host=reject'])
+
+            hba_file = os.path.join(node.data_dir, 'pg_hba.conf')
+            with open(hba_file, 'r') as conf:
+                lines = conf.readlines()
+
+                # check number of lines
+                self.assertGreaterEqual(len(lines), 6)
+
+                # there should be no trust entries at all
+                self.assertFalse(any('trust' in s for s in lines))
+
     def test_double_init(self):
         with get_new_node('test') as node:
             # can't initialize node more than once

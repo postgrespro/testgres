@@ -552,10 +552,19 @@ class PostgresNode(object):
 
             # replication-related settings
             if allow_streaming:
+                # get auth method for host or local users
+                def get_auth_method(t):
+                    return next((s.split()[-1] for s in lines
+                                 if s.startswith(t)), 'trust')
+
+                # get auth methods
+                auth_local = get_auth_method('local')
+                auth_host = get_auth_method('host')
+
                 new_lines = [
-                    "local\treplication\tall\t\t\ttrust\n",
-                    "host\treplication\tall\t127.0.0.1/32\ttrust\n",
-                    "host\treplication\tall\t::1/128\t\ttrust\n"
+                    "local\treplication\tall\t\t\t{}\n".format(auth_local),
+                    "host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
+                    "host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
                 ]
 
                 # write missing lines
