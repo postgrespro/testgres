@@ -248,7 +248,7 @@ class SimpleTest(unittest.TestCase):
                         pass
 
     def test_backup_and_replication(self):
-        with get_new_node('node') as node, get_new_node('repl') as replica:
+        with get_new_node('node') as node:
             node.init(allow_streaming=True)
             node.start()
             node.psql('postgres', 'create table abc(a int, b int)')

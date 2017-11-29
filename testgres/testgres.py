@@ -517,7 +517,10 @@ class PostgresNode(object):
 
         return self
 
-    def default_conf(self, allow_streaming=False, fsync=False, log_statement='all'):
+    def default_conf(self,
+                     allow_streaming=False,
+                     fsync=False,
+                     log_statement='all'):
         """
         Apply default settings to this node.
 
@@ -525,7 +528,7 @@ class PostgresNode(object):
             allow_streaming: should this node add a hba entry for replication?
             fsync: should this node use fsync to keep data safe?
             log_statement: one of ('all', 'off', 'mod', 'ddl'), look at
-                postgresql docs for more information
+                PostgreSQL docs for more information
 
         Returns:
             This instance of PostgresNode.
@@ -534,18 +537,33 @@ class PostgresNode(object):
         postgres_conf = os.path.join(self.data_dir, "postgresql.conf")
         hba_conf = os.path.join(self.data_dir, "pg_hba.conf")
 
-        # add parameters to hba file
-        with open(hba_conf, "w") as conf:
-            conf.write("# TYPE\tDATABASE\tUSER\tADDRESS\t\tMETHOD\n"
-                       "local\tall\t\tall\t\t\ttrust\n"
-                       "host\tall\t\tall\t127.0.0.1/32\ttrust\n"
-                       "host\tall\t\tall\t::1/128\t\ttrust\n"
-                       # replication
-                       "local\treplication\tall\t\t\ttrust\n"
-                       "host\treplication\tall\t127.0.0.1/32\ttrust\n"
-                       "host\treplication\tall\t::1/128\t\ttrust\n")
+        # filter lines in hba file
+        with open(hba_conf, "r+") as conf:
+            # get rid of comments and blank lines
+            lines = [
+                s for s in conf.readlines()
+                if len(s.strip()) > 0 and not s.startswith('#')
+            ]
 
-        # add parameters to config file
+            # write filtered lines
+            conf.seek(0)
+            conf.truncate()
+            conf.writelines(lines)
+
+            # replication-related settings
+            if allow_streaming:
+                new_lines = [
+                    "local\treplication\tall\t\t\ttrust\n",
+                    "host\treplication\tall\t127.0.0.1/32\ttrust\n",
+                    "host\treplication\tall\t::1/128\t\ttrust\n"
+                ]
+
+                # write missing lines
+                for line in new_lines:
+                    if line not in lines:
+                        conf.write(line)
+
+        # overwrite postgresql.conf file
         with open(postgres_conf, "w") as conf:
             if not fsync:
                 conf.write("fsync = off\n")
@@ -556,6 +574,7 @@ class PostgresNode(object):
                                             self.host,
                                             self.port))
 
+            # replication-related settings
             if allow_streaming:
                 cur_ver = LooseVersion(get_pg_version())
                 min_ver = LooseVersion('9.6')
@@ -563,10 +582,14 @@ class PostgresNode(object):
                 # select a proper wal_level for PostgreSQL
                 wal_level = "hot_standby" if cur_ver < min_ver else "replica"
 
-                conf.write("max_wal_senders = 5\n"
-                           "wal_keep_segments = 20\n"
-                           "hot_standby = on\n"
-                           "wal_level = {}\n".format(wal_level))
+                max_wal_senders = 5
+                wal_keep_segments = 20
+                conf.write("hot_standby = on\n"
+                           "max_wal_senders = {}\n"
+                           "wal_keep_segments = {}\n"
+                           "wal_level = {}\n".format(max_wal_senders,
+                                                     wal_keep_segments,
+                                                     wal_level))
 
         return self
 
