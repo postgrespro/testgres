@@ -53,7 +53,7 @@ import testgres
 with testgres.get_new_node('test') as node:
     node.init()  # run initdb
     node.start() # start PostgreSQL
-    print(node.execute('postgres', 'select 1'))
+    print(await node.fetch('postgres', 'select 1'))
     node.stop()  # stop PostgreSQL
 ```
 
@@ -93,10 +93,10 @@ Finally, our temporary cluster is able to process queries. There are four ways t
 
 The last one is the most powerful: you can use `begin(isolation_level)`, `commit()` and `rollback()`:
 ```python
-with node.connect() as con:
-    con.begin('serializable')
-    print(con.execute('select %s', 1))
-    con.rollback()
+async with node.connect() as con:
+    await con.begin('serializable')
+    print(await con.fetch('select %s', 1))
+    await con.rollback()
 ```
 
 To stop the server, run:
@@ -115,7 +115,7 @@ with testgres.get_new_node('master') as master:
     master.init().start()
     with master.backup() as backup:
         replica = backup.spawn_replica('replica').start()
-        print(replica.execute('postgres', 'select 1'))
+        print(await replica.fetch('postgres', 'select 1'))
 ```
 
 > Note: you could take a look at [`pg_pathman`](https://github.com/postgrespro/pg_pathman) to get an idea of `testgres`' capabilities.
