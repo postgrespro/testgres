@@ -1,21 +1,9 @@
-[![Build Status](https://travis-ci.org/postgrespro/testgres.svg?branch=master)](https://travis-ci.org/postgrespro/testgres)
-[![codecov](https://codecov.io/gh/postgrespro/testgres/branch/master/graph/badge.svg)](https://codecov.io/gh/postgrespro/testgres)
-[![PyPI version](https://badge.fury.io/py/testgres.svg)](https://badge.fury.io/py/testgres)
+[![Build Status](https://travis-ci.org/postgrespro/testgres.svg?branch=python3_async)](https://travis-ci.org/postgrespro/testgres)
+[![codecov](https://codecov.io/gh/postgrespro/testgres/branch/python3_async/graph/badge.svg)](https://codecov.io/gh/postgrespro/testgres)
 
-# testgres
+# testgres (async version)
 
-PostgreSQL testing utility. Both Python 2.7 and 3.3+ are supported.
-
-
-## Installation
-
-To install `testgres`, run:
-
-```
-pip install testgres
-```
-
-We encourage you to use `virtualenv` for your testing environment.
+PostgreSQL testing utility. Python 3.5+ are supported.
 
 
 ## Usage

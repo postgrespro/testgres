@@ -20,7 +20,7 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 source $VENV_PATH/bin/activate
 
 # install utilities
-$PIP install coverage flake8
+$PIP install coverage flake8 asyncpg asynctest
 
 # install testgres' dependencies
 export PYTHONPATH=$(pwd)
