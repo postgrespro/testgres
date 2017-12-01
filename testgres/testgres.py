@@ -45,16 +45,10 @@ import port_for
 from enum import Enum
 from distutils.version import LooseVersion
 
-# Try to use psycopg2 by default. If psycopg2 isn't available then use
-# pg8000 which is slower but much more portable because uses only
-# pure-Python code
 try:
-    import psycopg2 as pglib
+    import asyncpg as pglib
 except ImportError:
-    try:
-        import pg8000 as pglib
-    except ImportError:
-        raise ImportError("You must have psycopg2 or pg8000 modules installed")
+    raise ImportError("You must have asyncpg module installed")
 
 # ports used by nodes
 bound_ports = set()
@@ -193,26 +187,34 @@ class NodeConnection(object):
                  password=None):
 
         # Use default user if not specified
-        username = username or default_username()
-
+        self.username = username or default_username()
+        self.dbname = dbname
+        self.host = host
+        self.password = password
         self.parent_node = parent_node
+        self.connection = None
+        self.current_transaction = None
 
-        self.connection = pglib.connect(
-            database=dbname,
-            user=username,
-            port=parent_node.port,
-            host=host,
-            password=password)
+    async def init_connection(self):
+        if self.connection:
+            return
 
-        self.cursor = self.connection.cursor()
+        self.connection = await pglib.connect(
+            database=self.dbname,
+            user=self.username,
+            port=self.parent_node.port,
+            host=self.host,
+            password=self.password)
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, type, value, traceback):
-        self.close()
+    async def __aexit__(self, type, value, traceback):
+        await self.close()
 
-    def begin(self, isolation_level=IsolationLevel.ReadCommitted):
+    async def begin(self, isolation_level=IsolationLevel.ReadCommitted):
+        await self.init_connection()
+
         # yapf: disable
         levels = [
             'read uncommitted',
@@ -245,37 +247,45 @@ class NodeConnection(object):
 
         # Set isolation level
         cmd = 'SET TRANSACTION ISOLATION LEVEL {}'
-        self.cursor.execute(cmd.format(isolation_level))
+        self.current_transaction = self.connection.transaction()
+        await self.current_transaction.start()
+        await self.connection.execute(cmd.format(isolation_level))
 
         return self
 
-    def commit(self):
-        self.connection.commit()
+    async def commit(self):
+        if not self.current_transaction:
+            raise QueryException("transaction is not started")
 
-        return self
+        await self.current_transaction.commit()
+        self.current_transaction = None
 
-    def rollback(self):
-        self.connection.rollback()
+    async def rollback(self):
+        if not self.current_transaction:
+            raise QueryException("transaction is not started")
 
-        return self
+        await self.current_transaction.rollback()
+        self.current_transaction = None
 
-    def execute(self, query, *args):
-        self.cursor.execute(query, args)
+    async def execute(self, query, *args):
+        await self.init_connection()
+        if self.current_transaction:
+            return await self.connection.execute(query, *args)
+        else:
+            async with self.connection.transaction():
+                return await self.connection.execute(query, *args)
 
-        try:
-            res = self.cursor.fetchall()
+    async def fetch(self, query, *args):
+        await self.init_connection()
+        if self.current_transaction:
+            return await self.connection.fetch(query, *args)
+        else:
+            async with self.connection.transaction():
+                return await self.connection.fetch(query, *args)
 
-            # pg8000 might return tuples
-            if isinstance(res, tuple):
-                res = [tuple(t) for t in res]
-
-            return res
-        except Exception:
-            return None
-
-    def close(self):
-        self.cursor.close()
-        self.connection.close()
+    async def close(self):
+        if self.connection:
+            await self.connection.close()
 
 
 class NodeBackup(object):
@@ -943,7 +953,7 @@ class PostgresNode(object):
 
         self.psql(dbname=dbname, filename=filename, username=username)
 
-    def poll_query_until(self,
+    async def poll_query_until(self,
                          dbname,
                          query,
                          username=None,
@@ -973,41 +983,54 @@ class PostgresNode(object):
 
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
-            try:
-                res = self.execute(dbname=dbname,
-                                   query=query,
-                                   username=username,
-                                   commit=True)
+            res = await self.fetch(dbname=dbname,
+                               query=query,
+                               username=username,
+                               commit=True)
 
-                if expected is None and res is None:
-                    return  # done
+            if expected is None and res is None:
+                return  # done
 
-                if res is None:
-                    raise QueryException('Query returned None')
+            if res is None:
+                raise QueryException('Query returned None')
 
-                if len(res) == 0:
-                    raise QueryException('Query returned 0 rows')
+            if len(res) == 0:
+                raise QueryException('Query returned 0 rows')
 
-                if len(res[0]) == 0:
-                    raise QueryException('Query returned 0 columns')
+            if len(res[0]) == 0:
+                raise QueryException('Query returned 0 columns')
 
-                if res[0][0]:
-                    return  # done
-
-            except pglib.ProgrammingError as e:
-                if raise_programming_error:
-                    raise e
-
-            except pglib.InternalError as e:
-                if raise_internal_error:
-                    raise e
+            if res[0][0]:
+                return  # done
 
             time.sleep(sleep_time)
             attempts += 1
 
         raise TimeoutException('Query timeout')
 
-    def execute(self, dbname, query, username=None, commit=True):
+    async def execute(self, dbname, query, username=None, commit=True):
+        """
+        Execute a query
+
+        Args:
+            dbname: database name to connect to.
+            query: query to be executed.
+            username: database user name.
+            commit: should we commit this query?
+
+        Returns:
+            A list of tuples representing rows.
+        """
+
+        async with self.connect(dbname, username) as node_con:
+            if commit:
+                await node_con.begin()
+
+            await node_con.execute(query)
+            if commit:
+                await node_con.commit()
+
+    async def fetch(self, dbname, query, username=None, commit=True):
         """
         Execute a query and return all rows as list.
 
@@ -1021,10 +1044,13 @@ class PostgresNode(object):
             A list of tuples representing rows.
         """
 
-        with self.connect(dbname, username) as node_con:
-            res = node_con.execute(query)
+        async with self.connect(dbname, username) as node_con:
             if commit:
-                node_con.commit()
+                await node_con.begin()
+
+            res = await node_con.fetch(query)
+            if commit:
+                await node_con.commit()
             return res
 
     def backup(self, username=None, xlog_method=DEFAULT_XLOG_METHOD):
@@ -1059,7 +1085,7 @@ class PostgresNode(object):
         backup = self.backup(username=username, xlog_method=xlog_method)
         return backup.spawn_replica(name, use_logging=use_logging)
 
-    def catchup(self, username=None):
+    async def catchup(self, username=None):
         """
         Wait until async replica catches up with its master.
         """
@@ -1080,8 +1106,8 @@ class PostgresNode(object):
             raise CatchUpException("Master node is not specified")
 
         try:
-            lsn = master.execute('postgres', poll_lsn)[0][0]
-            self.poll_query_until(dbname='postgres',
+            lsn = (await master.fetch('postgres', poll_lsn))[0][0]
+            await self.poll_query_until(dbname='postgres',
                                   username=username,
                                   query=wait_lsn.format(lsn),
                                   max_attempts=0)  # infinite
