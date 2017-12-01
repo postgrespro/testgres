@@ -385,7 +385,7 @@ class AsyncTest(asynctest.TestCase):
                 with backup.spawn_primary('slave') as slave:
                     slave.start()
                     res = await slave.fetch('postgres',
-                                        'select * from test order by i asc')
+                                            'select * from test order by i asc')
                     self.assertListEqual(res, [(1, ), (2, ), (3, ), (4, )])
 
     async def test_dump(self):
@@ -406,7 +406,7 @@ class AsyncTest(asynctest.TestCase):
                 node2.init().start().restore('postgres', dump)
 
                 res = await node2.fetch('postgres',
-                                    'select * from test order by val asc')
+                                        'select * from test order by val asc')
                 self.assertListEqual(res, [(1, ), (2, )])
 
             # finally, remove dump
@@ -475,7 +475,7 @@ class AsyncTest(asynctest.TestCase):
             # check 0 columns
             with self.assertRaises(QueryException):
                 await node.poll_query_until('postgres',
-                                      'select from pg_class limit 1')
+                                            'select from pg_class limit 1')
             # check None
             with self.assertRaises(QueryException):
                 await node.poll_query_until('postgres', 'create table abc (val int)')
@@ -483,9 +483,9 @@ class AsyncTest(asynctest.TestCase):
             # check timeout
             with self.assertRaises(TimeoutException):
                 await node.poll_query_until(dbname='postgres',
-                                      query='select 1 > 2',
-                                      max_attempts=5,
-                                      sleep_time=0.2)
+                                            query='select 1 > 2',
+                                            max_attempts=5,
+                                            sleep_time=0.2)
 
     async def test_replicate(self):
         with get_new_node('node') as node:

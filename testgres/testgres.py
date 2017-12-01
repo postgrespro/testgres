@@ -954,14 +954,14 @@ class PostgresNode(object):
         self.psql(dbname=dbname, filename=filename, username=username)
 
     async def poll_query_until(self,
-                         dbname,
-                         query,
-                         username=None,
-                         max_attempts=0,
-                         sleep_time=1,
-                         expected=True,
-                         raise_programming_error=True,
-                         raise_internal_error=True):
+                               dbname,
+                               query,
+                               username=None,
+                               max_attempts=0,
+                               sleep_time=1,
+                               expected=True,
+                               raise_programming_error=True,
+                               raise_internal_error=True):
         """
         Run a query once a second until it returs 'expected'.
         Query should return single column.
@@ -984,9 +984,9 @@ class PostgresNode(object):
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
             res = await self.fetch(dbname=dbname,
-                               query=query,
-                               username=username,
-                               commit=True)
+                                   query=query,
+                                   username=username,
+                                   commit=True)
 
             if expected is None and res is None:
                 return  # done
@@ -1108,9 +1108,9 @@ class PostgresNode(object):
         try:
             lsn = (await master.fetch('postgres', poll_lsn))[0][0]
             await self.poll_query_until(dbname='postgres',
-                                  username=username,
-                                  query=wait_lsn.format(lsn),
-                                  max_attempts=0)  # infinite
+                                        username=username,
+                                        query=wait_lsn.format(lsn),
+                                        max_attempts=0)  # infinite
         except Exception as e:
             raise CatchUpException(_explain_exception(e))
 
