@@ -776,7 +776,7 @@ class PostgresNode(object):
         _params = ["restart", "-D", self.data_dir, "-w"] + params
         _execute_utility("pg_ctl", _params,
                          self.utils_logname,
-                         write_to_pipe=False)
+                         write_to_pipe=True)
 
         return self
 
