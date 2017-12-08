@@ -677,11 +677,12 @@ class PostgresNode(object):
 
         return out_dict
 
-    def start(self, params=[]):
+    def start(self, restart=False, params=[]):
         """
-        Start this node using pg_ctl.
+        (Re)start this node using pg_ctl.
 
         Args:
+            restart: restart or start?
             params: additional arguments for _execute_utility().
 
         Returns:
@@ -706,8 +707,9 @@ class PostgresNode(object):
         # choose recovery_filename
         recovery_filename = os.path.join(self.data_dir, "recovery.conf")
 
+        action = "restart" if restart else "start"
         _params = [
-            "start",
+            action,
             "-D{}".format(self.data_dir),
             "-l{}".format(log_filename),
             "-w"
@@ -727,7 +729,7 @@ class PostgresNode(object):
                 return "### file not found ###\n"
 
             error_text = (
-                u"Cannot start node\n"
+                u"Cannot {} node\n".format(action) +
                 u"{}\n"  # pg_ctl log
                 u"{}:\n----\n{}\n"  # postgresql.log
                 u"{}:\n----\n{}\n"  # postgresql.conf
@@ -773,10 +775,10 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        _params = ["restart", "-D", self.data_dir, "-w"] + params
-        _execute_utility("pg_ctl", _params,
-                         self.utils_logname,
-                         write_to_pipe=True)
+        if self.logger:
+            self.logger.stop()
+
+        self.start(restart=True, params=params)
 
         return self
 
@@ -845,7 +847,7 @@ class PostgresNode(object):
 
         return self
 
-    def psql(self, dbname, query=None, filename=None, username=None, inp=None):
+    def psql(self, dbname, query=None, filename=None, username=None, input=None):
         """
         Execute a query using psql.
 
@@ -886,10 +888,10 @@ class PostgresNode(object):
                                    stderr=subprocess.PIPE)
 
         # wait until it finishes and get stdout and stderr
-        out, err = process.communicate(input=inp)
+        out, err = process.communicate(input=input)
         return process.returncode, out, err
 
-    def safe_psql(self, dbname, query, username=None, inp=None):
+    def safe_psql(self, dbname, query, username=None, input=None):
         """
         Execute a query using psql.
 
@@ -902,7 +904,7 @@ class PostgresNode(object):
             psql's output as str.
         """
 
-        ret, out, err = self.psql(dbname, query, username=username, inp=inp)
+        ret, out, err = self.psql(dbname, query, username=username, input=input)
         if ret:
             err = '' if not err else err.decode('utf-8')
             raise QueryException(err)
@@ -1201,7 +1203,7 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             raise InitNodeException(_explain_exception(e))
 
 
-def _execute_utility(util, args, logfile, write_to_pipe=True):
+def _execute_utility(util, args, logfile):
     """
     Execute utility (pg_ctl, pg_dump etc) using get_bin_path().
 
@@ -1209,7 +1211,6 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
         util: utility to be executed.
         args: arguments for utility (list).
         logfile: path to file to store stdout and stderr.
-        write_to_pipe: do we care about stdout?
 
     Returns:
         stdout of executed utility.
@@ -1217,13 +1218,9 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
 
     # we can't use subprocess.DEVNULL on 2.7
     with open(os.devnull, "w") as devnull:
-
-        # choose file according to options
-        stdout_file = subprocess.PIPE if write_to_pipe else devnull
-
         # run utility
         process = subprocess.Popen([get_bin_path(util)] + args,
-                                   stdout=stdout_file,
+                                   stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT)
 
         # get result
