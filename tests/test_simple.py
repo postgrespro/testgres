@@ -53,9 +53,10 @@ class SimpleTest(unittest.TestCase):
 
     def test_double_init(self):
         with get_new_node('test') as node:
+            node.init()
+
             # can't initialize node more than once
             with self.assertRaises(InitNodeException):
-                node.init()
                 node.init()
 
     def test_init_after_cleanup(self):
@@ -69,6 +70,14 @@ class SimpleTest(unittest.TestCase):
             node.init().start()
             node.status()
             node.safe_psql('postgres', 'select 1')
+
+    def test_double_start(self):
+        with get_new_node('test') as node:
+            node.init().start()
+
+            # can't start node more than once
+            with self.assertRaises(StartNodeException):
+                node.start()
 
     def test_uninitialized_start(self):
         with get_new_node('test') as node:
@@ -119,22 +128,13 @@ class SimpleTest(unittest.TestCase):
 
     def test_status(self):
         # check NodeStatus cast to bool
-        condition_triggered = False
-        if NodeStatus.Running:
-            condition_triggered = True
-        self.assertTrue(condition_triggered)
+        self.assertTrue(NodeStatus.Running)
 
         # check NodeStatus cast to bool
-        condition_triggered = False
-        if NodeStatus.Stopped:
-            condition_triggered = True
-        self.assertFalse(condition_triggered)
+        self.assertFalse(NodeStatus.Stopped)
 
         # check NodeStatus cast to bool
-        condition_triggered = False
-        if NodeStatus.Uninitialized:
-            condition_triggered = True
-        self.assertFalse(condition_triggered)
+        self.assertFalse(NodeStatus.Uninitialized)
 
         # check statuses after each operation
         with get_new_node('test') as node:
@@ -425,6 +425,10 @@ class SimpleTest(unittest.TestCase):
             with open(logfile.name, 'r') as log:
                 lines = log.readlines()
                 self.assertTrue(any(node_name in s for s in lines))
+
+            # test logger after restart
+            master.restart()
+            self.assertTrue(master._logger.is_alive())
 
     def test_pgbench(self):
         with get_new_node('node') as node:
