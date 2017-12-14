@@ -1,9 +1,11 @@
 *.pyc
 dist
 tags
-*.egg-info
+*.egg-info/
+*.egg
 Dockerfile
 .coverage
-env
-/build
+env/
+venv/
+build/
 coverage.xml

@@ -429,7 +429,9 @@ class SimpleTest(unittest.TestCase):
                 lines = log.readlines()
                 self.assertTrue(any(node_name in s for s in lines))
 
-            # test logger after restart
+            # test logger after stop/start/restart
+            master.stop()
+            master.start()
             master.restart()
             self.assertTrue(master._logger.is_alive())
 

@@ -30,8 +30,6 @@ Copyright (c) 2016, Postgres Professional
 import atexit
 import logging
 import os
-import pwd
-import select
 import shutil
 import six
 import subprocess
@@ -156,6 +154,7 @@ class TestgresLogger(threading.Thread):
             # work until we're asked to stop
             while not self._stop_event.is_set():
                 # do we have new lines?
+                import select  # used only here
                 if fd in select.select([fd], [], [], 0)[0]:
                     for line in fd.readlines():
                         line = line.strip()
@@ -307,9 +306,12 @@ class NodeBackup(object):
         if base_dir and not os.path.exists(base_dir):
             os.makedirs(base_dir)
 
+        # public
         self.original_node = node
         self.base_dir = base_dir
-        self.available = True
+
+        # private
+        self._available = True
 
         data_dir = os.path.join(self.base_dir, DATA_DIR)
         _params = [
@@ -337,17 +339,17 @@ class NodeBackup(object):
             Path to data directory.
         """
 
-        if not self.available:
+        if not self._available:
             raise BackupException('Backup is exhausted')
 
         # Do we want to use this backup several times?
         available = not destroy
 
         if available:
-            base_dir = tempfile.mkdtemp()
+            dest_base_dir = tempfile.mkdtemp()
 
             data1 = os.path.join(self.base_dir, DATA_DIR)
-            data2 = os.path.join(base_dir, DATA_DIR)
+            data2 = os.path.join(dest_base_dir, DATA_DIR)
 
             try:
                 # Copy backup to new data dir
@@ -355,12 +357,13 @@ class NodeBackup(object):
             except Exception as e:
                 raise BackupException(_explain_exception(e))
         else:
-            base_dir = self.base_dir
+            dest_base_dir = self.base_dir
 
-        # Update value
-        self.available = available
+        # Is this backup exhausted?
+        self._available = available
 
-        return base_dir
+        # Return path to new node
+        return dest_base_dir
 
     def spawn_primary(self, name, destroy=True, use_logging=False):
         """
@@ -410,9 +413,9 @@ class NodeBackup(object):
         return node
 
     def cleanup(self):
-        if self.available:
+        if self._available:
             shutil.rmtree(self.base_dir, ignore_errors=True)
-            self.available = False
+            self._available = False
 
 
 class NodeStatus(Enum):
@@ -504,11 +507,9 @@ class PostgresNode(object):
 
     def _maybe_start_logger(self):
         if self._use_logging:
-            if not self._logger:
+            # spawn new logger if it doesn't exist or stopped
+            if not self._logger or not self._logger.is_alive():
                 self._logger = TestgresLogger(self.name, self.pg_log_name)
-                self._logger.start()
-
-            elif not self._logger.is_alive():
                 self._logger.start()
 
     def _maybe_stop_logger(self):
@@ -1290,6 +1291,7 @@ def default_username():
     Return current user.
     """
 
+    import pwd  # used only here
     return pwd.getpwuid(os.getuid())[0]
 
 
