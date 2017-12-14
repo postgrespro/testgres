@@ -96,12 +96,12 @@ node.start()
 
 Finally, our temporary cluster is able to process queries. There are four ways to run them:
 
-| Command                                                     | Description                                                                                                                                         |
-|-------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| `node.psql(database, query)`                                | Runs query via `psql` command and returns tuple `(error code, stdout, stderr)`.                                                                     |
-| `node.safe_psql(database, query)`                           | Same as `psql()` except that it returns only `stdout`. If an error occures during the execution, an exception will be thrown.                       |
-| `node.execute(database, query, username=None, commit=True)` | Connects to PostgreSQL using `psycopg2` or `pg8000` (depends on which one is installed in your system) and returns two-dimensional array with data. |
-| `node.connect(database='postgres')`                         | Returns connection wrapper (`NodeConnection`) capable of running several queries within a single transaction.                                       |
+| Command | Description |
+|----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| `node.psql(dbname, query)` | Runs query via `psql` command and returns tuple `(error code, stdout, stderr)`. |
+| `node.safe_psql(dbname, query)` | Same as `psql()` except that it returns only `stdout`. If an error occures during the execution, an exception will be thrown. |
+| `node.execute(dbname, query)` | Connects to PostgreSQL using `psycopg2` or `pg8000` (depends on which one is installed in your system) and returns two-dimensional array with data. |
+| `node.connect(dbname, username)` | Returns connection wrapper (`NodeConnection`) capable of running several queries within a single transaction. |
 
 The last one is the most powerful: you can use `begin(isolation_level)`, `commit()` and `rollback()`:
 ```python
@@ -127,6 +127,7 @@ with testgres.get_new_node('master') as master:
     master.init().start()
     with master.backup() as backup:
         replica = backup.spawn_replica('replica').start()
+        replica.catchup()  # catch up with master
         print(replica.execute('postgres', 'select 1'))
 ```
 
