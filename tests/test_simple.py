@@ -7,6 +7,7 @@ import six
 import subprocess
 import tempfile
 import testgres
+import time
 import unittest
 
 import logging.config
@@ -408,21 +409,22 @@ class SimpleTest(unittest.TestCase):
 
         logging.config.dictConfig(log_conf)
 
-        with get_new_node('master', use_logging=True) as master:
+        node_name = 'master'
+        with get_new_node(node_name, use_logging=True) as master:
             master.init().start()
 
             # execute a dummy query a few times
             for i in range(20):
                 master.execute('postgres', 'select 1')
+                time.sleep(0.01)
 
             # let logging worker do the job
-            import time
-            time.sleep(0.5)
+            time.sleep(0.1)
 
             # check that master's port is found
             with open(logfile.name, 'r') as log:
                 lines = log.readlines()
-                self.assertTrue(any('select' in s for s in lines))
+                self.assertTrue(any(node_name in s for s in lines))
 
     def test_pgbench(self):
         with get_new_node('node') as node:

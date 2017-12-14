@@ -158,8 +158,10 @@ class TestgresLogger(threading.Thread):
                 # do we have new lines?
                 if fd in select.select([fd], [], [], 0)[0]:
                     for line in fd.readlines():
-                        extra = {'node': self._node_name}
-                        self._logger.info(line, extra=extra)
+                        line = line.strip()
+                        if line:
+                            extra = {'node': self._node_name}
+                            self._logger.info(line, extra=extra)
                 else:
                     time.sleep(0.1)
 
