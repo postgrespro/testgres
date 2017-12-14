@@ -37,9 +37,9 @@ class SimpleTest(unittest.TestCase):
             node.safe_psql('postgres', 'select 1')
 
         with get_new_node('test') as node:
-            node.init(allow_streaming=True,
-                      initdb_params=['--auth-local=reject',
-                                     '--auth-host=reject'])
+            node.init(
+                allow_streaming=True,
+                initdb_params=['--auth-local=reject', '--auth-host=reject'])
 
             hba_file = os.path.join(node.data_dir, 'pg_hba.conf')
             with open(hba_file, 'r') as conf:
@@ -114,8 +114,10 @@ class SimpleTest(unittest.TestCase):
 
             # check feeding input
             node.safe_psql('postgres', 'create table horns (w int)')
-            node.safe_psql('postgres', 'copy horns from stdin (format csv)',
-                           input=b"1\n2\n3\n\.\n")
+            node.safe_psql(
+                'postgres',
+                'copy horns from stdin (format csv)',
+                input=b"1\n2\n3\n\.\n")
             sum = node.safe_psql('postgres', 'select sum(w) from horns')
             self.assertEqual(sum, b'6\n')
             node.safe_psql('postgres', 'drop table horns')
@@ -378,10 +380,11 @@ class SimpleTest(unittest.TestCase):
 
             # check timeout
             with self.assertRaises(TimeoutException):
-                node.poll_query_until(dbname='postgres',
-                                      query='select 1 > 2',
-                                      max_attempts=5,
-                                      sleep_time=0.2)
+                node.poll_query_until(
+                    dbname='postgres',
+                    query='select 1 > 2',
+                    max_attempts=5,
+                    sleep_time=0.2)
 
     def test_logging(self):
         logfile = tempfile.NamedTemporaryFile('w', delete=True)
