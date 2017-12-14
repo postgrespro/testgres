@@ -59,12 +59,10 @@ except ImportError:
 # ports used by nodes
 bound_ports = set()
 
-# threads for loggers
-util_threads = []
-
 # rows returned by PG_CONFIG
 pg_config_data = {}
 
+PG_LOG_FILE = "postgresql.log"
 UTILS_LOG_FILE = "utils.log"
 BACKUP_LOG_FILE = "backup.log"
 
@@ -143,33 +141,36 @@ class TestgresLogger(threading.Thread):
     Helper class to implement reading from postgresql.log
     """
 
-    def __init__(self, node_name, fd):
-        assert callable(fd.readline)
-
+    def __init__(self, node_name, log_file_name):
         threading.Thread.__init__(self)
 
-        self.fd = fd
-        self.node_name = node_name
-        self.stop_event = threading.Event()
-        self.logger = logging.getLogger(node_name)
-        self.logger.setLevel(logging.INFO)
+        self._node_name = node_name
+        self._log_file_name = log_file_name
+        self._stop_event = threading.Event()
+        self._logger = logging.getLogger(node_name)
+        self._logger.setLevel(logging.INFO)
 
     def run(self):
-        while self.fd in select.select([self.fd], [], [], 0)[0]:
-            line = self.fd.readline()
-            if line:
-                extra = {'node': self.node_name}
-                self.logger.info(line.strip(), extra=extra)
-            elif self.stopped():
-                break
-            else:
-                time.sleep(0.1)
+        # open log file for reading
+        with open(self._log_file_name, 'r') as fd:
+            # work until we're asked to stop
+            while not self._stop_event.is_set():
+                # do we have new lines?
+                if fd in select.select([fd], [], [], 0)[0]:
+                    for line in fd.readlines():
+                        extra = {'node': self._node_name}
+                        self._logger.info(line, extra=extra)
+                else:
+                    time.sleep(0.1)
 
-    def stop(self):
-        self.stop_event.set()
+            # don't forget to clear event
+            self._stop_event.clear()
 
-    def stopped(self):
-        return self.stop_event.isSet()
+    def stop(self, wait=True):
+        self._stop_event.set()
+
+        if wait:
+            self.join()
 
 
 class IsolationLevel(Enum):
@@ -381,7 +382,7 @@ class NodeBackup(object):
                             use_logging=use_logging)
 
         # New nodes should always remove dir tree
-        node.should_rm_dirs = True
+        node._should_rm_dirs = True
 
         node.append_conf("postgresql.conf", "\n")
         node.append_conf("postgresql.conf", "port = {}".format(node.port))
@@ -436,15 +437,18 @@ class PostgresNode(object):
                  master=None):
         global bound_ports
 
+        # public
         self.master = master
         self.name = name
         self.host = '127.0.0.1'
         self.port = port or reserve_port()
         self.base_dir = base_dir
-        self.should_free_port = port is None
-        self.should_rm_dirs = base_dir is None
-        self.use_logging = use_logging
-        self.logger = None
+
+        # private
+        self._should_free_port = port is None
+        self._should_rm_dirs = base_dir is None
+        self._use_logging = use_logging
+        self._logger = None
 
         # create directories if needed
         self._prepare_dirs()
@@ -470,8 +474,12 @@ class PostgresNode(object):
         return os.path.join(self.base_dir, LOGS_DIR)
 
     @property
-    def utils_logname(self):
+    def utils_log_name(self):
         return os.path.join(self.logs_dir, UTILS_LOG_FILE)
+
+    @property
+    def pg_log_name(self):
+        return os.path.join(self.data_dir, PG_LOG_FILE)
 
     @property
     def connstr(self):
@@ -491,6 +499,53 @@ class PostgresNode(object):
 
         if not os.path.exists(self.logs_dir):
             os.makedirs(self.logs_dir)
+
+    def _maybe_start_logger(self):
+        if self._use_logging:
+            if not self._logger:
+                self._logger = TestgresLogger(self.name, self.pg_log_name)
+                self._logger.start()
+
+            elif not self._logger.is_alive():
+                self._logger.start()
+
+    def _maybe_stop_logger(self):
+        if self._logger:
+            self._logger.stop()
+
+    def _format_verbose_error(self):
+        # choose log_filename
+        log_filename = self.pg_log_name
+
+        # choose conf_filename
+        conf_filename = os.path.join(self.data_dir, "postgresql.conf")
+
+        # choose hba_filename
+        hba_filename = os.path.join(self.data_dir, "pg_hba.conf")
+
+        # choose recovery_filename
+        recovery_filename = os.path.join(self.data_dir, "recovery.conf")
+
+        def print_node_file(node_file):
+            if os.path.exists(node_file):
+                try:
+                    with open(node_file, 'r') as f:
+                        return f.read()
+                except Exception as e:
+                    pass
+            return "### file not found ###\n"
+
+        error_text = (
+            u"{}:\n----\n{}\n"  # log file, e.g. postgresql.log
+            u"{}:\n----\n{}\n"  # postgresql.conf
+            u"{}:\n----\n{}\n"  # pg_hba.conf
+            u"{}:\n----\n{}\n"  # recovery.conf
+        ).format(log_filename, print_node_file(log_filename),
+                 conf_filename, print_node_file(conf_filename),
+                 hba_filename, print_node_file(hba_filename),
+                 recovery_filename, print_node_file(recovery_filename))
+
+        return error_text
 
     def init(self, allow_streaming=False, fsync=False, initdb_params=[]):
         """
@@ -630,7 +685,7 @@ class PostgresNode(object):
 
         try:
             _params = ["status", "-D", self.data_dir]
-            _execute_utility("pg_ctl", _params, self.utils_logname)
+            _execute_utility("pg_ctl", _params, self.utils_log_name)
             return NodeStatus.Running
 
         except ExecUtilException as e:
@@ -667,7 +722,7 @@ class PostgresNode(object):
         else:
             _params = ["-D", self.data_dir]
 
-        data = _execute_utility("pg_controldata", _params, self.utils_logname)
+        data = _execute_utility("pg_controldata", _params, self.utils_log_name)
 
         out_dict = {}
 
@@ -688,58 +743,23 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        # choose log_filename
-        if self.use_logging:
-            tmpfile = tempfile.NamedTemporaryFile('w', dir=self.logs_dir, delete=False)
-            log_filename = tmpfile.name
-
-            self.logger = log_watch(self.name, log_filename)
-        else:
-            log_filename = os.path.join(self.logs_dir, "postgresql.log")
-
-        # choose conf_filename
-        conf_filename = os.path.join(self.data_dir, "postgresql.conf")
-
-        # choose hba_filename
-        hba_filename = os.path.join(self.data_dir, "pg_hba.conf")
-
-        # choose recovery_filename
-        recovery_filename = os.path.join(self.data_dir, "recovery.conf")
-
         _params = [
             "start",
             "-D{}".format(self.data_dir),
-            "-l{}".format(log_filename),
+            "-l{}".format(self.pg_log_name),
             "-w"
         ] + params
 
         try:
-            _execute_utility("pg_ctl", _params, self.utils_logname)
-
+            _execute_utility("pg_ctl", _params, self.utils_log_name)
         except ExecUtilException as e:
-            def print_node_file(node_file):
-                if os.path.exists(node_file):
-                    try:
-                        with open(node_file, 'r') as f:
-                            return f.read()
-                    except Exception as e:
-                        pass
-                return "### file not found ###\n"
-
-            error_text = (
+            msg = (
                 u"Cannot start node\n"
                 u"{}\n"  # pg_ctl log
-                u"{}:\n----\n{}\n"  # postgresql.log
-                u"{}:\n----\n{}\n"  # postgresql.conf
-                u"{}:\n----\n{}\n"  # pg_hba.conf
-                u"{}:\n----\n{}\n"  # recovery.conf
-            ).format(_explain_exception(e),
-                     log_filename, print_node_file(log_filename),
-                     conf_filename, print_node_file(conf_filename),
-                     hba_filename, print_node_file(hba_filename),
-                     recovery_filename, print_node_file(recovery_filename))
+            ).format(self._format_verbose_error())
+            raise StartNodeException(msg)
 
-            raise StartNodeException(error_text)
+        self._maybe_start_logger()
 
         return self
 
@@ -755,10 +775,9 @@ class PostgresNode(object):
         """
 
         _params = ["stop", "-D", self.data_dir, "-w"] + params
-        _execute_utility("pg_ctl", _params, self.utils_logname)
+        _execute_utility("pg_ctl", _params, self.utils_log_name)
 
-        if self.logger:
-            self.logger.stop()
+        self._maybe_stop_logger()
 
         return self
 
@@ -773,10 +792,23 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        _params = ["restart", "-D", self.data_dir, "-w"] + params
-        _execute_utility("pg_ctl", _params,
-                         self.utils_logname,
-                         write_to_pipe=False)
+        _params = [
+            "restart",
+            "-D{}".format(self.data_dir),
+            "-l{}".format(self.pg_log_name),
+            "-w"
+        ] + params
+
+        try:
+            _execute_utility("pg_ctl", _params, self.utils_log_name)
+        except ExecUtilException as e:
+            msg = (
+                u"Cannot restart node\n"
+                u"{}\n"  # pg_ctl log
+            ).format(self._format_verbose_error())
+            raise StartNodeException(msg)
+
+        self._maybe_start_logger()
 
         return self
 
@@ -789,7 +821,7 @@ class PostgresNode(object):
         """
 
         _params = ["reload", "-D", self.data_dir, "-w"] + params
-        _execute_utility("pg_ctl", _params, self.utils_logname)
+        _execute_utility("pg_ctl", _params, self.utils_log_name)
 
     def pg_ctl(self, params):
         """
@@ -800,14 +832,14 @@ class PostgresNode(object):
         """
 
         _params = params + ["-D", self.data_dir, "-w"]
-        return _execute_utility("pg_ctl", _params, self.utils_logname)
+        return _execute_utility("pg_ctl", _params, self.utils_log_name)
 
     def free_port(self):
         """
         Reclaim port owned by this node.
         """
 
-        if self.should_free_port:
+        if self._should_free_port:
             release_port(self.port)
 
     def cleanup(self, max_attempts=3):
@@ -833,7 +865,7 @@ class PostgresNode(object):
             attempts += 1
 
         # remove directory tree if necessary
-        if self.should_rm_dirs:
+        if self._should_rm_dirs:
 
             # choose directory to be removed
             if TestgresConfig.node_cleanup_full:
@@ -845,7 +877,7 @@ class PostgresNode(object):
 
         return self
 
-    def psql(self, dbname, query=None, filename=None, username=None):
+    def psql(self, dbname, query=None, filename=None, username=None, input=None):
         """
         Execute a query using psql.
 
@@ -881,14 +913,15 @@ class PostgresNode(object):
 
         # start psql process
         process = subprocess.Popen(psql_params,
+                                   stdin=subprocess.PIPE,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
 
         # wait until it finishes and get stdout and stderr
-        out, err = process.communicate()
+        out, err = process.communicate(input=input)
         return process.returncode, out, err
 
-    def safe_psql(self, dbname, query, username=None):
+    def safe_psql(self, dbname, query, username=None, input=None):
         """
         Execute a query using psql.
 
@@ -901,7 +934,7 @@ class PostgresNode(object):
             psql's output as str.
         """
 
-        ret, out, err = self.psql(dbname, query, username=username)
+        ret, out, err = self.psql(dbname, query, username=username, input=input)
         if ret:
             err = '' if not err else err.decode('utf-8')
             raise QueryException(err)
@@ -928,7 +961,7 @@ class PostgresNode(object):
             dbname
         ]
 
-        _execute_utility("pg_dump", _params, self.utils_logname)
+        _execute_utility("pg_dump", _params, self.utils_log_name)
 
         return filename
 
@@ -1107,7 +1140,7 @@ class PostgresNode(object):
             "-p{}".format(self.port)
         ] + options + [dbname]
 
-        _execute_utility("pgbench", _params, self.utils_logname)
+        _execute_utility("pgbench", _params, self.utils_log_name)
 
         return self
 
@@ -1200,7 +1233,7 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             raise InitNodeException(_explain_exception(e))
 
 
-def _execute_utility(util, args, logfile, write_to_pipe=True):
+def _execute_utility(util, args, logfile):
     """
     Execute utility (pg_ctl, pg_dump etc) using get_bin_path().
 
@@ -1208,7 +1241,6 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
         util: utility to be executed.
         args: arguments for utility (list).
         logfile: path to file to store stdout and stderr.
-        write_to_pipe: do we care about stdout?
 
     Returns:
         stdout of executed utility.
@@ -1216,13 +1248,9 @@ def _execute_utility(util, args, logfile, write_to_pipe=True):
 
     # we can't use subprocess.DEVNULL on 2.7
     with open(os.devnull, "w") as devnull:
-
-        # choose file according to options
-        stdout_file = subprocess.PIPE if write_to_pipe else devnull
-
         # run utility
         process = subprocess.Popen([get_bin_path(util)] + args,
-                                   stdout=stdout_file,
+                                   stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT)
 
         # get result
@@ -1355,7 +1383,7 @@ def get_new_node(name, base_dir=None, use_logging=False):
     Args:
         name: node's name.
         base_dir: path to node's data directory.
-        use_logging: should we use custom logger?
+        use_logging: enable python logging.
 
     Returns:
         An instance of PostgresNode.
@@ -1372,18 +1400,3 @@ def configure_testgres(**options):
 
     for key, option in options.items():
         setattr(TestgresConfig, key, option)
-
-
-def log_watch(node_name, pg_logname):
-    """
-    Start thread for node that redirects
-    PostgreSQL logs to python logging system.
-    """
-
-    reader = TestgresLogger(node_name, open(pg_logname, 'r'))
-    reader.start()
-
-    global util_threads
-    util_threads.append(reader)
-
-    return reader

@@ -102,6 +102,14 @@ class SimpleTest(unittest.TestCase):
             res = node.safe_psql('postgres', 'select 1')
             self.assertEqual(res, b'1\n')
 
+            # check feeding input
+            node.safe_psql('postgres', 'create table horns (w int)')
+            node.safe_psql('postgres', 'copy horns from stdin (format csv)',
+                           input=b"1\n2\n3\n\.\n")
+            sum = node.safe_psql('postgres', 'select sum(w) from horns')
+            self.assertEqual(sum, b'6\n')
+            node.safe_psql('postgres', 'drop table horns')
+
             node.stop()
 
             # check psql on stopped node
