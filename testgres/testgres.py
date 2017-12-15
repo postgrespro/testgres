@@ -302,10 +302,6 @@ class NodeBackup(object):
         username = username or default_username()
         base_dir = base_dir or tempfile.mkdtemp()
 
-        # Create directory if needed
-        if base_dir and not os.path.exists(base_dir):
-            os.makedirs(base_dir)
-
         # public
         self.original_node = node
         self.base_dir = base_dir
@@ -1095,7 +1091,7 @@ class PostgresNode(object):
         backup = self.backup(username=username, xlog_method=xlog_method)
         return backup.spawn_replica(name, use_logging=use_logging)
 
-    def catchup(self, username=None):
+    def catchup(self, dbname='postgres', username=None):
         """
         Wait until async replica catches up with its master.
         """
@@ -1116,8 +1112,13 @@ class PostgresNode(object):
             raise CatchUpException("Master node is not specified")
 
         try:
-            lsn = master.execute('postgres', poll_lsn)[0][0]
-            self.poll_query_until(dbname='postgres',
+            # fetch latest LSN
+            lsn = master.execute(dbname=dbname,
+                                 username=username,
+                                 query=poll_lsn)[0][0]
+
+            # wait until this LSN reaches replica
+            self.poll_query_until(dbname=dbname,
                                   username=username,
                                   query=wait_lsn.format(lsn),
                                   max_attempts=0)  # infinite
@@ -1249,41 +1250,39 @@ def _execute_utility(util, args, logfile):
         stdout of executed utility.
     """
 
-    # we can't use subprocess.DEVNULL on 2.7
-    with open(os.devnull, "w") as devnull:
-        # run utility
-        process = subprocess.Popen([get_bin_path(util)] + args,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT)
+    # run utility
+    process = subprocess.Popen([get_bin_path(util)] + args,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT)
 
-        # get result
-        out, _ = process.communicate()
+    # get result
+    out, _ = process.communicate()
 
-        # write new log entry if possible
-        try:
-            with open(logfile, "a") as file_out:
-                # write util name and args
-                file_out.write(' '.join([util] + args))
-                file_out.write('\n')
-            if out:
-                with open(logfile, "ab") as file_out:
-                    # write output
-                    file_out.write(out)
-        except IOError:
-            pass
+    # write new log entry if possible
+    try:
+        with open(logfile, "a") as file_out:
+            # write util name and args
+            file_out.write(' '.join([util] + args))
+            file_out.write('\n')
+        if out:
+            with open(logfile, "ab") as file_out:
+                # write output
+                file_out.write(out)
+    except IOError:
+        pass
 
-        # decode output
-        out = '' if not out else out.decode('utf-8')
+    # decode output
+    out = '' if not out else out.decode('utf-8')
 
-        if process.returncode:
-            error_text = (
-                u"{} failed\n"
-                u"log:\n----\n{}\n"
-            ).format(util, out)
+    if process.returncode:
+        error_text = (
+            u"{} failed\n"
+            u"log:\n----\n{}\n"
+        ).format(util, out)
 
-            raise ExecUtilException(error_text, process.returncode)
+        raise ExecUtilException(error_text, process.returncode)
 
-        return out
+    return out
 
 
 def default_username():

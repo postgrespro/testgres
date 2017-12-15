@@ -9,3 +9,4 @@ env/
 venv/
 build/
 coverage.xml
+*.swp
