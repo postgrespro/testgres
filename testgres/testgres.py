@@ -154,7 +154,7 @@ class TestgresLogger(threading.Thread):
             # work until we're asked to stop
             while not self._stop_event.is_set():
                 # do we have new lines?
-                import select  # used only here
+                import select    # used only here
                 if fd in select.select([fd], [], [], 0)[0]:
                     for line in fd.readlines():
                         line = line.strip()
@@ -982,6 +982,7 @@ class PostgresNode(object):
                          max_attempts=0,
                          sleep_time=1,
                          expected=True,
+                         commit=True,
                          raise_programming_error=True,
                          raise_internal_error=True):
         """
@@ -1009,7 +1010,7 @@ class PostgresNode(object):
                 res = self.execute(dbname=dbname,
                                    query=query,
                                    username=username,
-                                   commit=True)
+                                   commit=commit)
 
                 if expected is None and res is None:
                     return  # done

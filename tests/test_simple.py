@@ -360,7 +360,8 @@ class SimpleTest(unittest.TestCase):
             check_time = 'select extract(epoch from now()) - {} >= 5'
 
             start_time = node.execute('postgres', get_time)[0][0]
-            node.poll_query_until('postgres', check_time.format(start_time))
+            node.poll_query_until(
+                dbname='postgres', query=check_time.format(start_time))
             end_time = node.execute('postgres', get_time)[0][0]
 
             self.assertTrue(end_time - start_time >= 5)
@@ -368,15 +369,26 @@ class SimpleTest(unittest.TestCase):
             # check 0 rows
             with self.assertRaises(QueryException):
                 node.poll_query_until(
-                    'postgres', 'select * from pg_class where true = false')
+                    dbname='postgres',
+                    query='select * from pg_class where true = false')
 
             # check 0 columns
             with self.assertRaises(QueryException):
-                node.poll_query_until('postgres',
-                                      'select from pg_class limit 1')
-            # check None
+                node.poll_query_until(
+                    dbname='postgres', query='select from pg_class limit 1')
+            # check None, fail
             with self.assertRaises(QueryException):
-                node.poll_query_until('postgres', 'create table abc (val int)')
+                node.poll_query_until(
+                    dbname='postgres', query='create table abc (val int)')
+
+            # check None, ok
+            node.poll_query_until(
+                dbname='postgres', query='create table def()',
+                expected=None)    # returns nothing
+
+            # check arbitrary expected value
+            node.poll_query_until(
+                dbname='postgres', query='select 1', expected=1)
 
             # check timeout
             with self.assertRaises(TimeoutException):
