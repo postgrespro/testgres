@@ -376,6 +376,7 @@ class SimpleTest(unittest.TestCase):
             with self.assertRaises(QueryException):
                 node.poll_query_until(
                     dbname='postgres', query='select from pg_class limit 1')
+
             # check None, fail
             with self.assertRaises(QueryException):
                 node.poll_query_until(
@@ -386,17 +387,26 @@ class SimpleTest(unittest.TestCase):
                 dbname='postgres', query='create table def()',
                 expected=None)    # returns nothing
 
-            # check arbitrary expected value
+            # check arbitrary expected value, fail
+            with self.assertRaises(TimeoutException):
+                node.poll_query_until(
+                    dbname='postgres',
+                    query='select 3',
+                    expected=1,
+                    max_attempts=3,
+                    sleep_time=0.01)
+
+            # check arbitrary expected value, ok
             node.poll_query_until(
-                dbname='postgres', query='select 1', expected=1)
+                dbname='postgres', query='select 2', expected=2)
 
             # check timeout
             with self.assertRaises(TimeoutException):
                 node.poll_query_until(
                     dbname='postgres',
                     query='select 1 > 2',
-                    max_attempts=5,
-                    sleep_time=0.2)
+                    max_attempts=3,
+                    sleep_time=0.01)
 
     def test_logging(self):
         logfile = tempfile.NamedTemporaryFile('w', delete=True)

@@ -996,6 +996,7 @@ class PostgresNode(object):
             max_attempts: how many times should we try? 0 == infinite
             sleep_time: how much should we sleep after a failure?
             expected: what should be returned to break the cycle?
+            commit: should (possible) changes be committed?
             raise_programming_error: mute ProgrammingError?
             raise_internal_error: mute InternalError?
         """
@@ -1024,7 +1025,7 @@ class PostgresNode(object):
                 if len(res[0]) == 0:
                     raise QueryException('Query returned 0 columns')
 
-                if res[0][0]:
+                if res[0][0] == expected:
                     return  # done
 
             except pglib.ProgrammingError as e:
