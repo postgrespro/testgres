@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import io
 import os
 import port_for
 import six
@@ -9,6 +10,7 @@ from distutils.version import LooseVersion
 
 from .config import TestgresConfig
 from .exceptions import ExecUtilException
+
 
 # rows returned by PG_CONFIG
 _pg_config_data = {}
@@ -77,24 +79,25 @@ def execute_utility(util, args, logfile):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT)
 
-    # get result
+    # get result and decode it
     out, _ = process.communicate()
+    out = '' if not out else out.decode('utf-8')
 
     # write new log entry if possible
     try:
-        with open(logfile, "a") as file_out:
-            # write util name and args
-            file_out.write(' '.join([util] + args))
-            file_out.write('\n')
-        if out:
-            with open(logfile, "ab") as file_out:
-                # write output
+        with io.open(logfile, 'a') as file_out:
+            # write util's name and args
+            file_out.write(u' '.join([util] + args))
+
+            # write output
+            if out:
+                file_out.write(u'\n')
                 file_out.write(out)
+
+            # finally, a separator
+            file_out.write(u'\n')
     except IOError:
         pass
-
-    # decode output
-    out = '' if not out else out.decode('utf-8')
 
     # format exception, if needed
     error_code = process.returncode
@@ -173,6 +176,7 @@ def get_pg_version():
         # there might be no pg_config installed, try this first
         raw_ver = execute_utility('psql', ['--version'], os.devnull)
     else:
+        # ok, we have no other choice
         raw_ver = get_pg_config()['VERSION']
 
     # cook version of PostgreSQL
