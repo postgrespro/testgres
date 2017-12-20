@@ -23,6 +23,7 @@ from testgres import \
     CatchUpException, \
     TimeoutException
 
+from testgres import TestgresConfig
 from testgres import get_new_node, get_pg_config, configure_testgres
 from testgres import bound_ports
 from testgres import NodeStatus
@@ -513,18 +514,27 @@ class SimpleTest(unittest.TestCase):
         self.assertTrue(b > c)
         self.assertTrue(a > c)
 
-    def test_configure(self):
+    def test_config(self):
         # set global if it wasn't set
         pg_config = get_pg_config()
         configure_testgres(cache_initdb=True, cache_pg_config=True)
 
-        # check that is the same instance
-        self.assertEqual(id(get_pg_config()), id(testgres.pg_config_data))
-        configure_testgres(cache_initdb=True, cache_pg_config=False)
-        self.assertNotEqual(id(get_pg_config()), id(testgres.pg_config_data))
+        # check same instances
+        a = get_pg_config()
+        b = get_pg_config()
+        self.assertEqual(id(a), id(b))
 
-        # return to the base state
-        configure_testgres(cache_initdb=True, cache_pg_config=True)
+        # modify setting
+        configure_testgres(cache_pg_config=False)
+        self.assertFalse(TestgresConfig.cache_pg_config)
+
+        # check different instances
+        a = get_pg_config()
+        b = get_pg_config()
+        self.assertNotEqual(id(a), id(b))
+
+        # restore setting
+        configure_testgres(cache_pg_config=True)
 
     def test_isolation_levels(self):
         with get_new_node('node').init().start() as node:

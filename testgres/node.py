@@ -1,417 +1,46 @@
 # coding: utf-8
-"""
-testgres.py
-        Postgres testing utility
-
-This module was created under influence of Postgres TAP test feature
-(PostgresNode.pm module). It can manage Postgres clusters: initialize,
-edit configuration files, start/stop cluster, execute queries. The
-typical flow may look like:
-
-    with get_new_node('test') as node:
-        node.init()
-        node.start()
-        result = node.psql('postgres', 'SELECT 1')
-        print(result)
-        node.stop()
-
-    Or:
-
-    with get_new_node('node1') as node1:
-        node1.init().start()
-        with node1.backup() as backup:
-            with backup.spawn_primary('node2') as node2:
-                res = node2.start().execute('postgres', 'select 2')
-                print(res)
-
-Copyright (c) 2016, Postgres Professional
-"""
 
 import atexit
-import logging
 import os
 import shutil
-import six
 import subprocess
 import tempfile
-import threading
 import time
-import traceback
-
-import port_for
 
 from enum import Enum
-from distutils.version import LooseVersion
 
-# Try to use psycopg2 by default. If psycopg2 isn't available then use
-# pg8000 which is slower but much more portable because uses only
-# pure-Python code
-try:
-    import psycopg2 as pglib
-except ImportError:
-    try:
-        import pg8000 as pglib
-    except ImportError:
-        raise ImportError("You must have psycopg2 or pg8000 modules installed")
-
-# ports used by nodes
-bound_ports = set()
-
-# rows returned by PG_CONFIG
-pg_config_data = {}
-
-PG_LOG_FILE = "postgresql.log"
-UTILS_LOG_FILE = "utils.log"
-BACKUP_LOG_FILE = "backup.log"
-
-DATA_DIR = "data"
-LOGS_DIR = "logs"
-
-DEFAULT_XLOG_METHOD = "fetch"
-
-
-class TestgresConfig:
-    """
-    Global config (override default settings)
-    """
-
-    # shall we cache pg_config results?
-    cache_pg_config = True
-
-    # shall we use cached initdb instance?
-    cache_initdb = True
-
-    # shall we create a temp dir for cached initdb?
-    cached_initdb_dir = None
-
-    # shall we remove EVERYTHING (including logs)?
-    node_cleanup_full = True
-
-
-class TestgresException(Exception):
-    """
-    Base exception
-    """
-
-    pass
-
-
-class ExecUtilException(TestgresException):
-    """
-    Stores exit code
-    """
-
-    def __init__(self, message, exit_code=0):
-        super(ExecUtilException, self).__init__(message)
-        self.exit_code = exit_code
-
-
-class ClusterTestgresException(TestgresException):
-    pass
-
-
-class QueryException(TestgresException):
-    pass
-
-
-class TimeoutException(TestgresException):
-    pass
-
-
-class StartNodeException(TestgresException):
-    pass
-
-
-class InitNodeException(TestgresException):
-    pass
-
-
-class BackupException(TestgresException):
-    pass
-
-
-class CatchUpException(TestgresException):
-    pass
-
-
-class TestgresLogger(threading.Thread):
-    """
-    Helper class to implement reading from postgresql.log
-    """
-
-    def __init__(self, node_name, log_file_name):
-        threading.Thread.__init__(self)
-
-        self._node_name = node_name
-        self._log_file_name = log_file_name
-        self._stop_event = threading.Event()
-        self._logger = logging.getLogger(node_name)
-        self._logger.setLevel(logging.INFO)
-
-    def run(self):
-        # open log file for reading
-        with open(self._log_file_name, 'r') as fd:
-            # work until we're asked to stop
-            while not self._stop_event.is_set():
-                # do we have new lines?
-                import select    # used only here
-                if fd in select.select([fd], [], [], 0)[0]:
-                    for line in fd.readlines():
-                        line = line.strip()
-                        if line:
-                            extra = {'node': self._node_name}
-                            self._logger.info(line, extra=extra)
-                else:
-                    time.sleep(0.1)
-
-            # don't forget to clear event
-            self._stop_event.clear()
-
-    def stop(self, wait=True):
-        self._stop_event.set()
-
-        if wait:
-            self.join()
-
-
-class IsolationLevel(Enum):
-    """
-    Transaction isolation level for NodeConnection
-    """
-
-    ReadUncommitted, ReadCommitted, RepeatableRead, Serializable = range(4)
-
-
-class NodeConnection(object):
-    """
-    Transaction wrapper returned by Node
-    """
-
-    def __init__(self,
-                 parent_node,
-                 dbname,
-                 host="127.0.0.1",
-                 username=None,
-                 password=None):
-
-        # Use default user if not specified
-        username = username or default_username()
-
-        self.parent_node = parent_node
-
-        self.connection = pglib.connect(
-            database=dbname,
-            user=username,
-            port=parent_node.port,
-            host=host,
-            password=password)
-
-        self.cursor = self.connection.cursor()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.close()
-
-    def begin(self, isolation_level=IsolationLevel.ReadCommitted):
-        # yapf: disable
-        levels = [
-            'read uncommitted',
-            'read committed',
-            'repeatable read',
-            'serializable'
-        ]
-
-        # Check if level is an IsolationLevel
-        if (isinstance(isolation_level, IsolationLevel)):
-
-            # Get index of isolation level
-            level_idx = isolation_level.value
-            assert(level_idx in range(4))
-
-            # Replace isolation level with its name
-            isolation_level = levels[level_idx]
-
-        else:
-            # Get name of isolation level
-            level_str = str(isolation_level).lower()
-
-            # Validate level string
-            if level_str not in levels:
-                error = 'Invalid isolation level "{}"'
-                raise QueryException(error.format(level_str))
-
-            # Replace isolation level with its name
-            isolation_level = level_str
-
-        # Set isolation level
-        cmd = 'SET TRANSACTION ISOLATION LEVEL {}'
-        self.cursor.execute(cmd.format(isolation_level))
-
-        return self
-
-    def commit(self):
-        self.connection.commit()
-
-        return self
-
-    def rollback(self):
-        self.connection.rollback()
-
-        return self
-
-    def execute(self, query, *args):
-        self.cursor.execute(query, args)
-
-        try:
-            res = self.cursor.fetchall()
-
-            # pg8000 might return tuples
-            if isinstance(res, tuple):
-                res = [tuple(t) for t in res]
-
-            return res
-        except Exception:
-            return None
-
-    def close(self):
-        self.cursor.close()
-        self.connection.close()
-
-
-class NodeBackup(object):
-    """
-    Smart object responsible for backups
-    """
-
-    @property
-    def log_file(self):
-        return os.path.join(self.base_dir, BACKUP_LOG_FILE)
-
-    def __init__(self,
-                 node,
-                 base_dir=None,
-                 username=None,
-                 xlog_method=DEFAULT_XLOG_METHOD):
-
-        if not node.status():
-            raise BackupException('Node must be running')
-
-        # Set default arguments
-        username = username or default_username()
-        base_dir = base_dir or tempfile.mkdtemp()
-
-        # public
-        self.original_node = node
-        self.base_dir = base_dir
-
-        # private
-        self._available = True
-
-        data_dir = os.path.join(self.base_dir, DATA_DIR)
-        _params = [
-            "-D{}".format(data_dir),
-            "-p{}".format(node.port),
-            "-U{}".format(username),
-            "-X{}".format(xlog_method)
-        ]
-        _execute_utility("pg_basebackup", _params, self.log_file)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.cleanup()
-
-    def _prepare_dir(self, destroy):
-        """
-        Provide a data directory for a copy of node.
-
-        Args:
-            destroy: should we convert this backup into a node?
-
-        Returns:
-            Path to data directory.
-        """
-
-        if not self._available:
-            raise BackupException('Backup is exhausted')
-
-        # Do we want to use this backup several times?
-        available = not destroy
-
-        if available:
-            dest_base_dir = tempfile.mkdtemp()
-
-            data1 = os.path.join(self.base_dir, DATA_DIR)
-            data2 = os.path.join(dest_base_dir, DATA_DIR)
-
-            try:
-                # Copy backup to new data dir
-                shutil.copytree(data1, data2)
-            except Exception as e:
-                raise BackupException(_explain_exception(e))
-        else:
-            dest_base_dir = self.base_dir
-
-        # Is this backup exhausted?
-        self._available = available
-
-        # Return path to new node
-        return dest_base_dir
-
-    def spawn_primary(self, name, destroy=True, use_logging=False):
-        """
-        Create a primary node from a backup.
-
-        Args:
-            name: name for a new node.
-            destroy: should we convert this backup into a node?
-            use_logging: enable python logging.
-
-        Returns:
-            New instance of PostgresNode.
-        """
-
-        base_dir = self._prepare_dir(destroy)
-
-        # Build a new PostgresNode
-        node = PostgresNode(name=name,
-                            base_dir=base_dir,
-                            master=self.original_node,
-                            use_logging=use_logging)
-
-        # New nodes should always remove dir tree
-        node._should_rm_dirs = True
-
-        node.append_conf("postgresql.conf", "\n")
-        node.append_conf("postgresql.conf", "port = {}".format(node.port))
-
-        return node
-
-    def spawn_replica(self, name, destroy=True, use_logging=False):
-        """
-        Create a replica of the original node from a backup.
-
-        Args:
-            name: name for a new node.
-            destroy: should we convert this backup into a node?
-            use_logging: enable python logging.
-
-        Returns:
-            New instance of PostgresNode.
-        """
-
-        node = self.spawn_primary(name, destroy, use_logging=use_logging)
-        node._create_recovery_conf(self.original_node)
-
-        return node
-
-    def cleanup(self):
-        if self._available:
-            shutil.rmtree(self.base_dir, ignore_errors=True)
-            self._available = False
+from .config import TestgresConfig
+
+from .connection import \
+    NodeConnection, \
+    InternalError,  \
+    ProgrammingError
+
+from .consts import \
+    DATA_DIR as _DATA_DIR, \
+    LOGS_DIR as _LOGS_DIR, \
+    PG_LOG_FILE as _PG_LOG_FILE, \
+    UTILS_LOG_FILE as _UTILS_LOG_FILE, \
+    DEFAULT_XLOG_METHOD as _DEFAULT_XLOG_METHOD
+
+from .exceptions import \
+    CatchUpException,   \
+    ExecUtilException,  \
+    InitNodeException,  \
+    QueryException,     \
+    StartNodeException, \
+    TimeoutException
+
+from .logger import TestgresLogger
+
+from .utils import \
+    get_bin_path, \
+    get_pg_version, \
+    pg_version_ge as _pg_version_ge, \
+    reserve_port as _reserve_port, \
+    release_port as _release_port, \
+    execute_utility as _execute_utility, \
+    explain_exception as _explain_exception
 
 
 class NodeStatus(Enum):
@@ -442,7 +71,7 @@ class PostgresNode(object):
         self.master = master
         self.name = name
         self.host = '127.0.0.1'
-        self.port = port or reserve_port()
+        self.port = port or _reserve_port()
         self.base_dir = base_dir
 
         # private
@@ -468,29 +97,27 @@ class PostgresNode(object):
 
     @property
     def data_dir(self):
-        return os.path.join(self.base_dir, DATA_DIR)
+        return os.path.join(self.base_dir, _DATA_DIR)
 
     @property
     def logs_dir(self):
-        return os.path.join(self.base_dir, LOGS_DIR)
+        return os.path.join(self.base_dir, _LOGS_DIR)
 
     @property
     def utils_log_name(self):
-        return os.path.join(self.logs_dir, UTILS_LOG_FILE)
+        return os.path.join(self.logs_dir, _UTILS_LOG_FILE)
 
     @property
     def pg_log_name(self):
-        return os.path.join(self.data_dir, PG_LOG_FILE)
+        return os.path.join(self.data_dir, _PG_LOG_FILE)
 
     @property
     def connstr(self):
         return "port={}".format(self.port)
 
     def _create_recovery_conf(self, root_node):
-        line = (
-            "primary_conninfo='{} application_name={}'\n"
-            "standby_mode=on\n"
-        ).format(root_node.connstr, self.name)
+        line = ("primary_conninfo='{} application_name={}'\n"
+                "standby_mode=on\n").format(root_node.connstr, self.name)
 
         self.append_conf("recovery.conf", line)
 
@@ -535,14 +162,14 @@ class PostgresNode(object):
             return "### file not found ###\n"
 
         error_text = (
-            u"{}:\n----\n{}\n"  # log file, e.g. postgresql.log
-            u"{}:\n----\n{}\n"  # postgresql.conf
-            u"{}:\n----\n{}\n"  # pg_hba.conf
-            u"{}:\n----\n{}\n"  # recovery.conf
-        ).format(log_filename, print_node_file(log_filename),
-                 conf_filename, print_node_file(conf_filename),
-                 hba_filename, print_node_file(hba_filename),
-                 recovery_filename, print_node_file(recovery_filename))
+            u"{}:\n----\n{}\n"    # log file, e.g. postgresql.log
+            u"{}:\n----\n{}\n"    # postgresql.conf
+            u"{}:\n----\n{}\n"    # pg_hba.conf
+            u"{}:\n----\n{}\n"    # recovery.conf
+        ).format(log_filename, print_node_file(log_filename), conf_filename,
+                 print_node_file(conf_filename), hba_filename,
+                 print_node_file(hba_filename), recovery_filename,
+                 print_node_file(recovery_filename))
 
         return error_text
 
@@ -617,7 +244,8 @@ class PostgresNode(object):
 
                 new_lines = [
                     "local\treplication\tall\t\t\t{}\n".format(auth_local),
-                    "host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
+                    "host\treplication\tall\t127.0.0.1/32\t{}\n".format(
+                        auth_host),
                     "host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
                 ]
 
@@ -633,26 +261,25 @@ class PostgresNode(object):
 
             conf.write("log_statement = {}\n"
                        "listen_addresses = '{}'\n"
-                       "port = {}\n".format(log_statement,
-                                            self.host,
+                       "port = {}\n".format(log_statement, self.host,
                                             self.port))
 
             # replication-related settings
             if allow_streaming:
-                cur_ver = LooseVersion(get_pg_version())
-                min_ver = LooseVersion('9.6')
 
                 # select a proper wal_level for PostgreSQL
-                wal_level = "hot_standby" if cur_ver < min_ver else "replica"
+                if _pg_version_ge('9.6'):
+                    wal_level = "replica"
+                else:
+                    wal_level = "hot_standby"
 
                 max_wal_senders = 5
                 wal_keep_segments = 20
                 conf.write("hot_standby = on\n"
                            "max_wal_senders = {}\n"
                            "wal_keep_segments = {}\n"
-                           "wal_level = {}\n".format(max_wal_senders,
-                                                     wal_keep_segments,
-                                                     wal_level))
+                           "wal_level = {}\n".format(
+                               max_wal_senders, wal_keep_segments, wal_level))
 
         return self
 
@@ -713,13 +340,10 @@ class PostgresNode(object):
         Return contents of pg_control file.
         """
 
-        cur_ver = LooseVersion(get_pg_version())
-        min_ver = LooseVersion('9.5')
-
-        if cur_ver < min_ver:
-            _params = [self.data_dir]
-        else:
+        if _pg_version_ge('9.5'):
             _params = ["-D", self.data_dir]
+        else:
+            _params = [self.data_dir]
 
         data = _execute_utility("pg_controldata", _params, self.utils_log_name)
 
@@ -743,10 +367,8 @@ class PostgresNode(object):
         """
 
         _params = [
-            "start",
-            "-D{}".format(self.data_dir),
-            "-l{}".format(self.pg_log_name),
-            "-w"
+            "start", "-D{}".format(self.data_dir), "-l{}".format(
+                self.pg_log_name), "-w"
         ] + params
 
         try:
@@ -754,7 +376,7 @@ class PostgresNode(object):
         except ExecUtilException as e:
             msg = (
                 u"Cannot start node\n"
-                u"{}\n"  # pg_ctl log
+                u"{}\n"    # pg_ctl log
             ).format(self._format_verbose_error())
             raise StartNodeException(msg)
 
@@ -792,10 +414,8 @@ class PostgresNode(object):
         """
 
         _params = [
-            "restart",
-            "-D{}".format(self.data_dir),
-            "-l{}".format(self.pg_log_name),
-            "-w"
+            "restart", "-D{}".format(self.data_dir), "-l{}".format(
+                self.pg_log_name), "-w"
         ] + params
 
         try:
@@ -803,7 +423,7 @@ class PostgresNode(object):
         except ExecUtilException as e:
             msg = (
                 u"Cannot restart node\n"
-                u"{}\n"  # pg_ctl log
+                u"{}\n"    # pg_ctl log
             ).format(self._format_verbose_error())
             raise StartNodeException(msg)
 
@@ -839,7 +459,7 @@ class PostgresNode(object):
         """
 
         if self._should_free_port:
-            release_port(self.port)
+            _release_port(self.port)
 
     def cleanup(self, max_attempts=3):
         """
@@ -855,11 +475,11 @@ class PostgresNode(object):
         while attempts < max_attempts:
             try:
                 self.stop()
-                break  # OK
+                break    # OK
             except ExecUtilException as e:
-                pass   # one more time
+                pass    # one more time
             except Exception as e:
-                break  # screw this
+                break    # screw this
 
             attempts += 1
 
@@ -868,15 +488,16 @@ class PostgresNode(object):
 
             # choose directory to be removed
             if TestgresConfig.node_cleanup_full:
-                rm_dir = self.base_dir  # everything
+                rm_dir = self.base_dir    # everything
             else:
-                rm_dir = self.data_dir  # just data, save logs
+                rm_dir = self.data_dir    # just data, save logs
 
             shutil.rmtree(rm_dir, ignore_errors=True)
 
         return self
 
-    def psql(self, dbname, query=None, filename=None, username=None, input=None):
+    def psql(self, dbname, query=None, filename=None, username=None,
+             input=None):
         """
         Execute a query using psql.
 
@@ -892,10 +513,7 @@ class PostgresNode(object):
 
         psql = get_bin_path("psql")
         psql_params = [
-            psql,
-            "-XAtq",
-            "-h{}".format(self.host),
-            "-p{}".format(self.port),
+            psql, "-XAtq", "-h{}".format(self.host), "-p{}".format(self.port),
             dbname
         ]
 
@@ -911,10 +529,11 @@ class PostgresNode(object):
             psql_params.extend(("-U", username))
 
         # start psql process
-        process = subprocess.Popen(psql_params,
-                                   stdin=subprocess.PIPE,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+        process = subprocess.Popen(
+            psql_params,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
 
         # wait until it finishes and get stdout and stderr
         out, err = process.communicate(input=input)
@@ -954,11 +573,7 @@ class PostgresNode(object):
         f, filename = filename or tempfile.mkstemp()
         os.close(f)
 
-        _params = [
-            "-p{}".format(self.port),
-            "-f{}".format(filename),
-            dbname
-        ]
+        _params = ["-p{}".format(self.port), "-f{}".format(filename), dbname]
 
         _execute_utility("pg_dump", _params, self.utils_log_name)
 
@@ -1002,19 +617,20 @@ class PostgresNode(object):
         """
 
         # sanity checks
-        assert(max_attempts >= 0)
-        assert(sleep_time > 0)
+        assert (max_attempts >= 0)
+        assert (sleep_time > 0)
 
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
             try:
-                res = self.execute(dbname=dbname,
-                                   query=query,
-                                   username=username,
-                                   commit=commit)
+                res = self.execute(
+                    dbname=dbname,
+                    query=query,
+                    username=username,
+                    commit=commit)
 
                 if expected is None and res is None:
-                    return  # done
+                    return    # done
 
                 if res is None:
                     raise QueryException('Query returned None')
@@ -1026,13 +642,13 @@ class PostgresNode(object):
                     raise QueryException('Query returned 0 columns')
 
                 if res[0][0] == expected:
-                    return  # done
+                    return    # done
 
-            except pglib.ProgrammingError as e:
+            except ProgrammingError as e:
                 if raise_programming_error:
                     raise e
 
-            except pglib.InternalError as e:
+            except InternalError as e:
                 if raise_internal_error:
                     raise e
 
@@ -1061,7 +677,7 @@ class PostgresNode(object):
                 node_con.commit()
             return res
 
-    def backup(self, username=None, xlog_method=DEFAULT_XLOG_METHOD):
+    def backup(self, username=None, xlog_method=_DEFAULT_XLOG_METHOD):
         """
         Perform pg_basebackup.
 
@@ -1073,12 +689,13 @@ class PostgresNode(object):
             A smart object of type NodeBackup.
         """
 
-        return NodeBackup(node=self,
-                          username=username,
-                          xlog_method=xlog_method)
+        from .backup import NodeBackup
+        return NodeBackup(node=self, username=username, xlog_method=xlog_method)
 
-    def replicate(self, name, username=None,
-                  xlog_method=DEFAULT_XLOG_METHOD,
+    def replicate(self,
+                  name,
+                  username=None,
+                  xlog_method=_DEFAULT_XLOG_METHOD,
                   use_logging=False):
         """
         Create a binary replica of this node.
@@ -1100,10 +717,7 @@ class PostgresNode(object):
 
         master = self.master
 
-        cur_ver = LooseVersion(get_pg_version())
-        min_ver = LooseVersion('10')
-
-        if cur_ver >= min_ver:
+        if _pg_version_ge('10'):
             poll_lsn = "select pg_current_wal_lsn()::text"
             wait_lsn = "select pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
         else:
@@ -1115,15 +729,15 @@ class PostgresNode(object):
 
         try:
             # fetch latest LSN
-            lsn = master.execute(dbname=dbname,
-                                 username=username,
-                                 query=poll_lsn)[0][0]
+            lsn = master.execute(
+                dbname=dbname, username=username, query=poll_lsn)[0][0]
 
             # wait until this LSN reaches replica
-            self.poll_query_until(dbname=dbname,
-                                  username=username,
-                                  query=wait_lsn.format(lsn),
-                                  max_attempts=0)  # infinite
+            self.poll_query_until(
+                dbname=dbname,
+                username=username,
+                query=wait_lsn.format(lsn),
+                max_attempts=0)    # infinite
         except Exception as e:
             raise CatchUpException(_explain_exception(e))
 
@@ -1140,11 +754,8 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        _params = [
-            "-i",
-            "-s{}".format(scale),
-            "-p{}".format(self.port)
-        ] + options + [dbname]
+        _params = ["-i", "-s{}".format(scale), "-p{}".format(self.port)
+                   ] + options + [dbname]
 
         _execute_utility("pgbench", _params, self.utils_log_name)
 
@@ -1182,18 +793,8 @@ class PostgresNode(object):
             An instance of NodeConnection.
         """
 
-        return NodeConnection(parent_node=self,
-                              dbname=dbname,
-                              username=username)
-
-
-def _explain_exception(e):
-    """
-    Use this function instead of str(e).
-    """
-
-    lines = traceback.format_exception_only(type(e), e)
-    return ''.join(lines)
+        return NodeConnection(
+            parent_node=self, dbname=dbname, username=username)
 
 
 def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
@@ -1215,6 +816,7 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
     else:
         # Set default temp dir for cached initdb
         if TestgresConfig.cached_initdb_dir is None:
+
             def rm_cached_data_dir(rm_dir):
                 shutil.rmtree(rm_dir, ignore_errors=True)
 
@@ -1237,171 +839,3 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             shutil.copytree(cached_data_dir, data_dir)
         except Exception as e:
             raise InitNodeException(_explain_exception(e))
-
-
-def _execute_utility(util, args, logfile):
-    """
-    Execute utility (pg_ctl, pg_dump etc) using get_bin_path().
-
-    Args:
-        util: utility to be executed.
-        args: arguments for utility (list).
-        logfile: path to file to store stdout and stderr.
-
-    Returns:
-        stdout of executed utility.
-    """
-
-    # run utility
-    process = subprocess.Popen([get_bin_path(util)] + args,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT)
-
-    # get result
-    out, _ = process.communicate()
-
-    # write new log entry if possible
-    try:
-        with open(logfile, "a") as file_out:
-            # write util name and args
-            file_out.write(' '.join([util] + args))
-            file_out.write('\n')
-        if out:
-            with open(logfile, "ab") as file_out:
-                # write output
-                file_out.write(out)
-    except IOError:
-        pass
-
-    # decode output
-    out = '' if not out else out.decode('utf-8')
-
-    if process.returncode:
-        error_text = (
-            u"{} failed\n"
-            u"log:\n----\n{}\n"
-        ).format(util, out)
-
-        raise ExecUtilException(error_text, process.returncode)
-
-    return out
-
-
-def default_username():
-    """
-    Return current user.
-    """
-
-    import pwd  # used only here
-    return pwd.getpwuid(os.getuid())[0]
-
-
-def get_bin_path(filename):
-    """
-    Return full path to an executable using PG_BIN or PG_CONFIG.
-    """
-
-    pg_bin_path = os.environ.get("PG_BIN")
-
-    if pg_bin_path:
-        return os.path.join(pg_bin_path, filename)
-
-    pg_config = get_pg_config()
-
-    if pg_config and "BINDIR" in pg_config:
-        return os.path.join(pg_config["BINDIR"], filename)
-
-    return filename
-
-
-def get_pg_version():
-    """
-    Return PostgreSQL version using PG_BIN or PG_CONFIG.
-    """
-
-    pg_bin_path = os.environ.get("PG_BIN")
-
-    if pg_bin_path:
-        _params = ['--version']
-        raw_ver = _execute_utility('psql', _params, os.devnull)
-    else:
-        raw_ver = get_pg_config()["VERSION"]
-
-    # Cook version of PostgreSQL
-    version = raw_ver.strip().split(" ")[-1] \
-                     .partition('devel')[0] \
-                     .partition('beta')[0] \
-                     .partition('rc')[0]
-
-    return version
-
-
-def reserve_port():
-    """
-    Generate a new port and add it to 'bound_ports'.
-    """
-
-    port = port_for.select_random(exclude_ports=bound_ports)
-    bound_ports.add(port)
-
-    return port
-
-
-def release_port(port):
-    """
-    Free port provided by reserve_port().
-    """
-
-    bound_ports.remove(port)
-
-
-def get_pg_config():
-    """
-    Return output of pg_config.
-    """
-
-    global pg_config_data
-
-    if TestgresConfig.cache_pg_config and pg_config_data:
-        return pg_config_data
-
-    data = {}
-    pg_config_cmd = os.environ.get("PG_CONFIG") or "pg_config"
-    out = six.StringIO(subprocess.check_output([pg_config_cmd],
-                                               universal_newlines=True))
-    for line in out:
-        if line and "=" in line:
-            key, value = line.split("=", 1)
-            data[key.strip()] = value.strip()
-
-    if TestgresConfig.cache_pg_config:
-        pg_config_data.clear()
-        pg_config_data.update(data)
-
-    return data
-
-
-def get_new_node(name, base_dir=None, use_logging=False):
-    """
-    Create a new node (select port automatically).
-
-    Args:
-        name: node's name.
-        base_dir: path to node's data directory.
-        use_logging: enable python logging.
-
-    Returns:
-        An instance of PostgresNode.
-    """
-
-    return PostgresNode(name=name, base_dir=base_dir, use_logging=use_logging)
-
-
-def configure_testgres(**options):
-    """
-    Configure testgres.
-    Look at TestgresConfig to check what can be changed.
-    """
-
-    for key, option in options.items():
-        setattr(TestgresConfig, key, option)
