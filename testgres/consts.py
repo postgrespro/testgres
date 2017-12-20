@@ -1,3 +1,5 @@
+# coding: utf-8
+
 # names for dirs in base_dir
 DATA_DIR = "data"
 LOGS_DIR = "logs"

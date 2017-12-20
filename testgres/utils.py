@@ -99,10 +99,8 @@ def execute_utility(util, args, logfile):
     # format exception, if needed
     error_code = process.returncode
     if error_code:
-        error_text = (
-            u"{} failed with exit code {}\n"
-            u"log:\n----\n{}\n"
-        ).format(util, error_code, out)
+        error_text = (u"{} failed with exit code {}\n"
+                      u"log:\n----\n{}\n").format(util, error_code, out)
 
         raise ExecUtilException(error_text, error_code)
 

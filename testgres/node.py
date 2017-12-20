@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import atexit
+import io
 import os
 import shutil
 import subprocess
@@ -155,21 +156,22 @@ class PostgresNode(object):
         def print_node_file(node_file):
             if os.path.exists(node_file):
                 try:
-                    with open(node_file, 'r') as f:
-                        return f.read()
+                    with io.open(node_file, "r") as f:
+                        return f.read().decode('utf-8')
                 except Exception as e:
                     pass
             return "### file not found ###\n"
 
+        # yapf: disable
         error_text = (
             u"{}:\n----\n{}\n"    # log file, e.g. postgresql.log
             u"{}:\n----\n{}\n"    # postgresql.conf
             u"{}:\n----\n{}\n"    # pg_hba.conf
             u"{}:\n----\n{}\n"    # recovery.conf
-        ).format(log_filename, print_node_file(log_filename), conf_filename,
-                 print_node_file(conf_filename), hba_filename,
-                 print_node_file(hba_filename), recovery_filename,
-                 print_node_file(recovery_filename))
+        ).format(log_filename, print_node_file(log_filename),
+                 conf_filename, print_node_file(conf_filename),
+                 hba_filename, print_node_file(hba_filename),
+                 recovery_filename, print_node_file(recovery_filename))
 
         return error_text
 
@@ -219,7 +221,7 @@ class PostgresNode(object):
         hba_conf = os.path.join(self.data_dir, "pg_hba.conf")
 
         # filter lines in hba file
-        with open(hba_conf, "r+") as conf:
+        with io.open(hba_conf, "r+") as conf:
             # get rid of comments and blank lines
             lines = [
                 s for s in conf.readlines()
@@ -242,11 +244,11 @@ class PostgresNode(object):
                 auth_local = get_auth_method('local')
                 auth_host = get_auth_method('host')
 
+                # yapf: disable
                 new_lines = [
-                    "local\treplication\tall\t\t\t{}\n".format(auth_local),
-                    "host\treplication\tall\t127.0.0.1/32\t{}\n".format(
-                        auth_host),
-                    "host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
+                    u"local\treplication\tall\t\t\t{}\n".format(auth_local),
+                    u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
+                    u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
                 ]
 
                 # write missing lines
@@ -255,14 +257,16 @@ class PostgresNode(object):
                         conf.write(line)
 
         # overwrite postgresql.conf file
-        with open(postgres_conf, "w") as conf:
+        with io.open(postgres_conf, "w") as conf:
             if not fsync:
-                conf.write("fsync = off\n")
+                conf.write(u"fsync = off\n")
 
-            conf.write("log_statement = {}\n"
-                       "listen_addresses = '{}'\n"
-                       "port = {}\n".format(log_statement, self.host,
-                                            self.port))
+            # yapf: disable
+            conf.write(u"log_statement = {}\n"
+                       u"listen_addresses = '{}'\n"
+                       u"port = {}\n".format(log_statement,
+                                             self.host,
+                                             self.port))
 
             # replication-related settings
             if allow_streaming:
@@ -273,13 +277,15 @@ class PostgresNode(object):
                 else:
                     wal_level = "hot_standby"
 
+                # yapf: disable
                 max_wal_senders = 5
                 wal_keep_segments = 20
-                conf.write("hot_standby = on\n"
-                           "max_wal_senders = {}\n"
-                           "wal_keep_segments = {}\n"
-                           "wal_level = {}\n".format(
-                               max_wal_senders, wal_keep_segments, wal_level))
+                conf.write(u"hot_standby = on\n"
+                           u"max_wal_senders = {}\n"
+                           u"wal_keep_segments = {}\n"
+                           u"wal_level = {}\n".format(max_wal_senders,
+                                                      wal_keep_segments,
+                                                      wal_level))
 
         return self
 
@@ -296,8 +302,8 @@ class PostgresNode(object):
         """
 
         config_name = os.path.join(self.data_dir, filename)
-        with open(config_name, "a") as conf:
-            conf.write(''.join([string, '\n']))
+        with io.open(config_name, "a") as conf:
+            conf.write(u"".join([string, '\n']))
 
         return self
 
@@ -329,7 +335,7 @@ class PostgresNode(object):
         """
 
         if self.status():
-            with open(os.path.join(self.data_dir, 'postmaster.pid')) as f:
+            with io.open(os.path.join(self.data_dir, 'postmaster.pid')) as f:
                 return int(f.readline())
 
         # for clarity
