@@ -409,6 +409,21 @@ class SimpleTest(unittest.TestCase):
                     max_attempts=3,
                     sleep_time=0.01)
 
+            # check ProgrammingError, fail
+            with self.assertRaises(testgres.ProgrammingError):
+                node.poll_query_until(
+                    dbname='postgres',
+                    query='dummy1')
+
+            # check ProgrammingError, ok
+            with self.assertRaises(TimeoutException):
+                node.poll_query_until(
+                    dbname='postgres',
+                    query='dummy2',
+                    max_attempts=3,
+                    sleep_time=0.01,
+                    raise_programming_error=False)
+
     def test_logging(self):
         logfile = tempfile.NamedTemporaryFile('w', delete=True)
 
