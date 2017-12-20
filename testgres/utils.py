@@ -3,7 +3,6 @@
 import io
 import os
 import port_for
-import six
 import subprocess
 
 from distutils.version import LooseVersion
