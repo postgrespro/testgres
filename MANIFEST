@@ -2,4 +2,12 @@
 setup.cfg
 setup.py
 testgres/__init__.py
-testgres/testgres.py
+testgres/api.py
+testgres/backup.py
+testgres/config.py
+testgres/connection.py
+testgres/consts.py
+testgres/exceptions.py
+testgres/logger.py
+testgres/node.py
+testgres/utils.py

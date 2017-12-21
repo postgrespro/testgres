@@ -23,6 +23,7 @@ from testgres import \
     CatchUpException, \
     TimeoutException
 
+from testgres import TestgresConfig
 from testgres import get_new_node, get_pg_config, configure_testgres
 from testgres import bound_ports
 from testgres import NodeStatus
@@ -408,6 +409,21 @@ class SimpleTest(unittest.TestCase):
                     max_attempts=3,
                     sleep_time=0.01)
 
+            # check ProgrammingError, fail
+            with self.assertRaises(testgres.ProgrammingError):
+                node.poll_query_until(
+                    dbname='postgres',
+                    query='dummy1')
+
+            # check ProgrammingError, ok
+            with self.assertRaises(TimeoutException):
+                node.poll_query_until(
+                    dbname='postgres',
+                    query='dummy2',
+                    max_attempts=3,
+                    sleep_time=0.01,
+                    raise_programming_error=False)
+
     def test_logging(self):
         logfile = tempfile.NamedTemporaryFile('w', delete=True)
 
@@ -513,18 +529,27 @@ class SimpleTest(unittest.TestCase):
         self.assertTrue(b > c)
         self.assertTrue(a > c)
 
-    def test_configure(self):
+    def test_config(self):
         # set global if it wasn't set
         pg_config = get_pg_config()
         configure_testgres(cache_initdb=True, cache_pg_config=True)
 
-        # check that is the same instance
-        self.assertEqual(id(get_pg_config()), id(testgres.pg_config_data))
-        configure_testgres(cache_initdb=True, cache_pg_config=False)
-        self.assertNotEqual(id(get_pg_config()), id(testgres.pg_config_data))
+        # check same instances
+        a = get_pg_config()
+        b = get_pg_config()
+        self.assertEqual(id(a), id(b))
 
-        # return to the base state
-        configure_testgres(cache_initdb=True, cache_pg_config=True)
+        # modify setting
+        configure_testgres(cache_pg_config=False)
+        self.assertFalse(TestgresConfig.cache_pg_config)
+
+        # check different instances
+        a = get_pg_config()
+        b = get_pg_config()
+        self.assertNotEqual(id(a), id(b))
+
+        # restore setting
+        configure_testgres(cache_pg_config=True)
 
     def test_isolation_levels(self):
         with get_new_node('node').init().start() as node:
