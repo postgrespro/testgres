@@ -9,8 +9,7 @@ from .consts import \
     BACKUP_LOG_FILE as _BACKUP_LOG_FILE, \
     DEFAULT_XLOG_METHOD as _DEFAULT_XLOG_METHOD
 
-from .exceptions import \
-    BackupException
+from .exceptions import BackupException
 
 from .utils import \
     default_username as _default_username, \
