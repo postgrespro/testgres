@@ -35,5 +35,8 @@ coverage run tests/test_simple.py
 # show coverage
 coverage report
 
+# attempt to fix codecov
+set +eux
+
 # send coverage stats to Codecov
 bash <(curl -s https://codecov.io/bash)
