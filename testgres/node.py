@@ -40,6 +40,7 @@ from .utils import \
     pg_version_ge as _pg_version_ge, \
     reserve_port as _reserve_port, \
     release_port as _release_port, \
+    default_username as _default_username, \
     execute_utility as _execute_utility, \
     explain_exception as _explain_exception
 
@@ -316,8 +317,13 @@ class PostgresNode(object):
         """
 
         try:
-            _params = ["status", "-D", self.data_dir]
-            _execute_utility("pg_ctl", _params, self.utils_log_name)
+            # yapf: disable
+            _params = [
+                get_bin_path("pg_ctl"),
+                "-D", self.data_dir,
+                "status"
+            ]
+            _execute_utility(_params, self.utils_log_name)
             return NodeStatus.Running
 
         except ExecUtilException as e:
@@ -346,12 +352,14 @@ class PostgresNode(object):
         Return contents of pg_control file.
         """
 
-        if _pg_version_ge('9.5'):
-            _params = ["-D", self.data_dir]
-        else:
-            _params = [self.data_dir]
+        # yapf: disable
+        _params = [
+            get_bin_path("pg_controldata"),
+            "-D" if _pg_version_ge('9.5') else '',
+            self.data_dir
+        ]
 
-        data = _execute_utility("pg_controldata", _params, self.utils_log_name)
+        data = _execute_utility(_params, self.utils_log_name)
 
         out_dict = {}
 
@@ -366,19 +374,23 @@ class PostgresNode(object):
         Start this node using pg_ctl.
 
         Args:
-            params: additional arguments for _execute_utility().
+            params: additional arguments for pg_ctl.
 
         Returns:
             This instance of PostgresNode.
         """
 
+        # yapf: disable
         _params = [
-            "start", "-D{}".format(self.data_dir), "-l{}".format(
-                self.pg_log_name), "-w"
+            get_bin_path("pg_ctl"),
+            "-D", self.data_dir,
+            "-l", self.pg_log_name,
+            "-w",  # wait
+            "start"
         ] + params
 
         try:
-            _execute_utility("pg_ctl", _params, self.utils_log_name)
+            _execute_utility(_params, self.utils_log_name)
         except ExecUtilException as e:
             msg = (
                 u"Cannot start node\n"
@@ -395,14 +407,21 @@ class PostgresNode(object):
         Stop this node using pg_ctl.
 
         Args:
-            params: additional arguments for _execute_utility().
+            params: additional arguments for pg_ctl.
 
         Returns:
             This instance of PostgresNode.
         """
 
-        _params = ["stop", "-D", self.data_dir, "-w"] + params
-        _execute_utility("pg_ctl", _params, self.utils_log_name)
+        # yapf: disable
+        _params = [
+            get_bin_path("pg_ctl"),
+            "-D", self.data_dir,
+            "-w",  # wait
+            "stop"
+        ] + params
+
+        _execute_utility(_params, self.utils_log_name)
 
         self._maybe_stop_logger()
 
@@ -413,19 +432,23 @@ class PostgresNode(object):
         Restart this node using pg_ctl.
 
         Args:
-            params: additional arguments for _execute_utility().
+            params: additional arguments for pg_ctl.
 
         Returns:
             This instance of PostgresNode.
         """
 
+        # yapf: disable
         _params = [
-            "restart", "-D{}".format(self.data_dir), "-l{}".format(
-                self.pg_log_name), "-w"
+            get_bin_path("pg_ctl"),
+            "-D", self.data_dir,
+            "-l", self.pg_log_name,
+            "-w",  # wait
+            "restart"
         ] + params
 
         try:
-            _execute_utility("pg_ctl", _params, self.utils_log_name)
+            _execute_utility(_params, self.utils_log_name)
         except ExecUtilException as e:
             msg = (
                 u"Cannot restart node\n"
@@ -441,23 +464,42 @@ class PostgresNode(object):
         """
         Reload config files using pg_ctl.
 
+        Args:
+            params: additional arguments for pg_ctl.
+
         Returns:
             This instance of PostgresNode.
         """
 
-        _params = ["reload", "-D", self.data_dir, "-w"] + params
-        _execute_utility("pg_ctl", _params, self.utils_log_name)
+        # yapf: disable
+        _params = [
+            get_bin_path("pg_ctl"),
+            "-D", self.data_dir,
+            "-w",  # wait
+            "reload"
+        ] + params
+
+        _execute_utility(_params, self.utils_log_name)
 
     def pg_ctl(self, params):
         """
         Invoke pg_ctl with params.
 
+        Args:
+            params: arguments for pg_ctl.
+
         Returns:
             Stdout + stderr of pg_ctl.
         """
 
-        _params = params + ["-D", self.data_dir, "-w"]
-        return _execute_utility("pg_ctl", _params, self.utils_log_name)
+        # yapf: disable
+        _params = [
+            get_bin_path("pg_ctl"),
+            "-D", self.data_dir,
+            "-w"  # wait
+        ] + params
+
+        return _execute_utility(_params, self.utils_log_name)
 
     def free_port(self):
         """
@@ -470,6 +512,9 @@ class PostgresNode(object):
     def cleanup(self, max_attempts=3):
         """
         Stop node if needed and remove its data directory.
+
+        Args:
+            max_attempts: how many times should we try to stop()?
 
         Returns:
             This instance of PostgresNode.
@@ -502,37 +547,51 @@ class PostgresNode(object):
 
         return self
 
-    def psql(self, dbname, query=None, filename=None, username=None,
+    def psql(self,
+             dbname,
+             query=None,
+             filename=None,
+             username=None,
              input=None):
         """
         Execute a query using psql.
 
         Args:
             dbname: database name to connect to.
-            query: query to be executed.
-            filename: file with a query.
             username: database user name.
+            filename: file with a query.
+            query: query to be executed.
+            input: raw input to be passed.
 
         Returns:
             A tuple of (code, stdout, stderr).
         """
 
-        psql = get_bin_path("psql")
+        # Set default username
+        username = username or _default_username()
+
+        # yapf: disable
         psql_params = [
-            psql, "-XAtq", "-h{}".format(self.host), "-p{}".format(self.port),
+            get_bin_path("psql"),
+            "-p", str(self.port),
+            "-h", self.host,
+            "-U", username,
+            "-X",  # no .psqlrc
+            "-A",  # unaligned output
+            "-t",  # print rows only
+            "-q",  # run quietly
             dbname
         ]
 
+        # select query source
         if query:
             psql_params.extend(("-c", query))
         elif filename:
             psql_params.extend(("-f", filename))
+        elif input:
+            pass
         else:
             raise QueryException('Query or filename must be provided')
-
-        # Specify user if needed
-        if username:
-            psql_params.extend(("-U", username))
 
         # start psql process
         process = subprocess.Popen(
@@ -551,8 +610,9 @@ class PostgresNode(object):
 
         Args:
             dbname: database name to connect to.
-            query: query to be executed.
             username: database user name.
+            query: query to be executed.
+            input: raw input to be passed.
 
         Returns:
             psql's output as str.
@@ -562,26 +622,38 @@ class PostgresNode(object):
         if ret:
             err = '' if not err else err.decode('utf-8')
             raise QueryException(err)
+
         return out
 
-    def dump(self, dbname, filename=None):
+    def dump(self, dbname, username=None, filename=None):
         """
-        Dump database using pg_dump.
+        Dump database into a file using pg_dump.
+        NOTE: the file is not removed automatically.
 
         Args:
             dbname: database name to connect to.
+            username: database user name.
             filename: output file.
 
         Returns:
-            Path to file containing dump.
+            Path to a file containing dump.
         """
 
+        # Set default arguments
+        username = username or _default_username()
         f, filename = filename or tempfile.mkstemp()
         os.close(f)
 
-        _params = ["-p{}".format(self.port), "-f{}".format(filename), dbname]
+        # yapf: disable
+        _params = [
+            get_bin_path("pg_dump"),
+            "-p", str(self.port),
+            "-f", filename,
+            "-U", username,
+            "-d", dbname
+        ]
 
-        _execute_utility("pg_dump", _params, self.utils_log_name)
+        _execute_utility(_params, self.utils_log_name)
 
         return filename
 
@@ -618,8 +690,8 @@ class PostgresNode(object):
             sleep_time: how much should we sleep after a failure?
             expected: what should be returned to break the cycle?
             commit: should (possible) changes be committed?
-            raise_programming_error: mute ProgrammingError?
-            raise_internal_error: mute InternalError?
+            raise_programming_error: enable ProgrammingError?
+            raise_internal_error: enable InternalError?
         """
 
         # sanity checks
@@ -760,10 +832,15 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        _params = ["-i", "-s{}".format(scale), "-p{}".format(self.port)
-                   ] + options + [dbname]
+        # yapf: disable
+        _params = [
+            get_bin_path("pgbench"),
+            "-p", str(self.port),
+            "-s", str(scale),
+            "-i",  # initialize
+        ] + options + [dbname]
 
-        _execute_utility("pgbench", _params, self.utils_log_name)
+        _execute_utility(_params, self.utils_log_name)
 
         return self
 
@@ -782,7 +859,7 @@ class PostgresNode(object):
         """
 
         pgbench = get_bin_path("pgbench")
-        params = [pgbench, "-p", "%i" % self.port] + options + [dbname]
+        params = [pgbench, "-p", str(self.port)] + options + [dbname]
         proc = subprocess.Popen(params, stdout=stdout, stderr=stderr)
 
         return proc
@@ -810,8 +887,8 @@ def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
 
     def call_initdb(_data_dir):
         try:
-            _params = [_data_dir, "-N"] + initdb_params
-            _execute_utility("initdb", _params, initdb_logfile)
+            _params = [get_bin_path("initdb"), "-D", _data_dir, "-N"]
+            _execute_utility(_params + initdb_params, initdb_logfile)
         except ExecUtilException as e:
             raise InitNodeException(_explain_exception(e))
 

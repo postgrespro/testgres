@@ -58,14 +58,12 @@ def explain_exception(e):
     return ''.join(lines)
 
 
-def execute_utility(util, args, logfile):
+def execute_utility(args, logfile):
     """
     Execute utility (pg_ctl, pg_dump etc).
-    NOTE: 'util' is transformed using get_bin_path().
 
     Args:
-        util: utility to be executed.
-        args: arguments for utility (list).
+        args: utility + arguments (list).
         logfile: path to file to store stdout and stderr.
 
     Returns:
@@ -74,7 +72,7 @@ def execute_utility(util, args, logfile):
 
     # run utility
     process = subprocess.Popen(
-        [get_bin_path(util)] + args,
+        args,  # util + params
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT)
 
@@ -86,7 +84,7 @@ def execute_utility(util, args, logfile):
     try:
         with io.open(logfile, 'a') as file_out:
             # write util's name and args
-            file_out.write(u' '.join([util] + args))
+            file_out.write(u' '.join(args))
 
             # write output
             if out:
@@ -102,7 +100,7 @@ def execute_utility(util, args, logfile):
     error_code = process.returncode
     if error_code:
         error_text = (u"{} failed with exit code {}\n"
-                      u"log:\n----\n{}\n").format(util, error_code, out)
+                      u"log:\n----\n{}\n").format(args[0], error_code, out)
 
         raise ExecUtilException(error_text, error_code)
 
@@ -119,64 +117,75 @@ def get_bin_path(filename):
     if os.path.isabs(filename):
         return filename
 
+    # try PG_CONFIG
+    pg_config = os.environ.get("PG_CONFIG")
+    if pg_config:
+        bindir = get_pg_config()["BINDIR"]
+        return os.path.join(bindir, filename)
+
     # try PG_BIN
     pg_bin = os.environ.get("PG_BIN")
     if pg_bin:
         return os.path.join(pg_bin, filename)
-
-    # try PG_CONFIG
-    pg_config = get_pg_config()
-    if pg_config and "BINDIR" in pg_config:
-        return os.path.join(pg_config["BINDIR"], filename)
 
     return filename
 
 
 def get_pg_config():
     """
-    Return output of pg_config.
+    Return output of pg_config (provided that it is installed).
     NOTE: this fuction caches the result by default (see TestgresConfig).
     """
 
     global _pg_config_data
 
+    def cache_pg_config_data(cmd):
+        global _pg_config_data
+
+        # execute pg_config and get the output
+        out = subprocess.check_output([cmd]).decode('utf-8')
+
+        data = {}
+        for line in out.splitlines():
+            if line and '=' in line:
+                key, _, value = line.partition('=')
+                data[key.strip()] = value.strip()
+
+        _pg_config_data.clear()
+
+        # cache data, if necessary
+        if TestgresConfig.cache_pg_config:
+            _pg_config_data = data
+
+        return data
+
     # return cached data, if allowed to
     if TestgresConfig.cache_pg_config and _pg_config_data:
         return _pg_config_data
 
-    # execute pg_config and get the output
-    pg_config_cmd = os.environ.get("PG_CONFIG") or "pg_config"
-    out = subprocess.check_output([pg_config_cmd]).decode('utf-8')
+    # try PG_CONFIG
+    pg_config = os.environ.get("PG_CONFIG")
+    if pg_config:
+        return cache_pg_config_data(pg_config)
 
-    data = {}
-    for line in out.splitlines():
-        if line and "=" in line:
-            key, value = line.split("=", 1)
-            data[key.strip()] = value.strip()
+    # try PG_BIN
+    pg_bin = os.environ.get("PG_BIN")
+    if pg_bin:
+        cmd = os.path.join(pg_bin, "pg_config")
+        return cache_pg_config_data(cmd)
 
-    if TestgresConfig.cache_pg_config:
-        # cache data
-        _pg_config_data = data
-    else:
-        # clear for clarity
-        _pg_config_data.clear()
-
-    return data
+    # try plain name
+    return cache_pg_config_data("pg_config")
 
 
 def get_pg_version():
     """
-    Return PostgreSQL version using PG_BIN or PG_CONFIG.
+    Return PostgreSQL version provided by postmaster.
     """
 
-    pg_bin = os.environ.get("PG_BIN")
-
-    if pg_bin:
-        # there might be no pg_config installed, try this first
-        raw_ver = execute_utility('psql', ['--version'], os.devnull)
-    else:
-        # ok, we have no other choice
-        raw_ver = get_pg_config()['VERSION']
+    # get raw version (e.g. postgres (PostgreSQL) 9.5.7)
+    _params = [get_bin_path('postgres'), '--version']
+    raw_ver = subprocess.check_output(_params).decode('utf-8')
 
     # cook version of PostgreSQL
     version = raw_ver.strip().split(' ')[-1] \

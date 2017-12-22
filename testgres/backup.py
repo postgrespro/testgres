@@ -12,6 +12,7 @@ from .consts import \
 from .exceptions import BackupException
 
 from .utils import \
+    get_bin_path, \
     default_username as _default_username, \
     execute_utility as _execute_utility, \
     explain_exception as _explain_exception
@@ -48,10 +49,11 @@ class NodeBackup(object):
 
         data_dir = os.path.join(self.base_dir, _DATA_DIR)
         _params = [
+            get_bin_path("pg_basebackup"),
             "-D{}".format(data_dir), "-p{}".format(node.port),
             "-U{}".format(username), "-X{}".format(xlog_method)
         ]
-        _execute_utility("pg_basebackup", _params, self.log_file)
+        _execute_utility(_params, self.log_file)
 
     def __enter__(self):
         return self

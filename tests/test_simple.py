@@ -2,8 +2,6 @@
 # coding: utf-8
 
 import os
-import re
-import six
 import subprocess
 import tempfile
 import testgres
@@ -351,7 +349,7 @@ class SimpleTest(unittest.TestCase):
             node.init().start()
             node.psql('postgres', 'create role test_user login')
             value = node.safe_psql('postgres', 'select 1', username='test_user')
-            self.assertEqual(value, six.b('1\n'))
+            self.assertEqual(value, b'1\n')
 
     def test_poll_query_until(self):
         with get_new_node('master') as node:
@@ -491,11 +489,20 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('node') as node:
             node.init().start()
 
-            pid1 = node.get_pid()
-            node.reload()
-            pid2 = node.get_pid()
+            cmd1 = "alter system set client_min_messages = DEBUG1"
+            cmd2 = "show client_min_messages"
 
-            self.assertEqual(pid1, pid2)
+            # change client_min_messages and save old value
+            cmm_old = node.execute(dbname='postgres', query=cmd2)
+            node.safe_psql(dbname='postgres', query=cmd1)
+
+            # reload config
+            node.reload()
+
+            # check new value
+            cmm_new = node.execute(dbname='postgres', query=cmd2)
+            self.assertEqual('debug1', cmm_new[0][0].lower())
+            self.assertNotEqual(cmm_old, cmm_new)
 
     def test_pg_ctl(self):
         with get_new_node('node') as node:
