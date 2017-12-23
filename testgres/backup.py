@@ -48,10 +48,14 @@ class NodeBackup(object):
         self._available = True
 
         data_dir = os.path.join(self.base_dir, _DATA_DIR)
+
+        # yapf: disable
         _params = [
             get_bin_path("pg_basebackup"),
-            "-D{}".format(data_dir), "-p{}".format(node.port),
-            "-U{}".format(username), "-X{}".format(xlog_method)
+            "-p", str(node.port),
+            "-U", username,
+            "-D", data_dir,
+            "-X", xlog_method
         ]
         _execute_utility(_params, self.log_file)
 

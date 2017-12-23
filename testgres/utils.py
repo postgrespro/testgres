@@ -10,7 +10,6 @@ from distutils.version import LooseVersion
 from .config import TestgresConfig
 from .exceptions import ExecUtilException
 
-
 # rows returned by PG_CONFIG
 _pg_config_data = {}
 
@@ -72,7 +71,7 @@ def execute_utility(args, logfile):
 
     # run utility
     process = subprocess.Popen(
-        args,  # util + params
+        args,    # util + params
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT)
 

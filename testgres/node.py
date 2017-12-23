@@ -352,12 +352,10 @@ class PostgresNode(object):
         Return contents of pg_control file.
         """
 
-        # yapf: disable
-        _params = [
-            get_bin_path("pg_controldata"),
-            "-D" if _pg_version_ge('9.5') else '',
-            self.data_dir
-        ]
+        # this one is tricky (blame PG 9.4)
+        _params = [get_bin_path("pg_controldata")]
+        _params += ["-D"] if _pg_version_ge('9.5') else []
+        _params += [self.data_dir]
 
         data = _execute_utility(_params, self.utils_log_name)
 

@@ -21,11 +21,34 @@ from testgres import \
     CatchUpException, \
     TimeoutException
 
-from testgres import TestgresConfig
-from testgres import get_new_node, get_pg_config, configure_testgres
+from testgres import \
+    TestgresConfig, \
+    configure_testgres
+
+from testgres import \
+    NodeStatus, \
+    IsolationLevel, \
+    get_new_node
+
+from testgres import \
+    get_bin_path, \
+    get_pg_config
+
 from testgres import bound_ports
-from testgres import NodeStatus
-from testgres import IsolationLevel
+
+
+def util_is_executable(util):
+    exe_file = get_bin_path(util)
+
+    # check if util exists
+    if os.path.exists(exe_file):
+        return True
+
+    # check if util is in PATH
+    for path in os.environ["PATH"].split(os.pathsep):
+        exe_file = os.path.join(path, util)
+        if os.path.exists(exe_file):
+            return True
 
 
 class SimpleTest(unittest.TestCase):
@@ -87,11 +110,18 @@ class SimpleTest(unittest.TestCase):
     def test_restart(self):
         with get_new_node('test') as node:
             node.init().start()
+
+            # restart, ok
             res = node.execute('postgres', 'select 1')
             self.assertEqual(res, [(1, )])
             node.restart()
             res = node.execute('postgres', 'select 2')
             self.assertEqual(res, [(2, )])
+
+            # restart, fail
+            with self.assertRaises(StartNodeException):
+                node.append_conf('pg_hba.conf', 'DUMMY')
+                node.restart()
 
     def test_psql(self):
         with get_new_node('test') as node:
@@ -409,9 +439,7 @@ class SimpleTest(unittest.TestCase):
 
             # check ProgrammingError, fail
             with self.assertRaises(testgres.ProgrammingError):
-                node.poll_query_until(
-                    dbname='postgres',
-                    query='dummy1')
+                node.poll_query_until(dbname='postgres', query='dummy1')
 
             # check ProgrammingError, ok
             with self.assertRaises(TimeoutException):
@@ -471,6 +499,8 @@ class SimpleTest(unittest.TestCase):
             master.restart()
             self.assertTrue(master._logger.is_alive())
 
+    @unittest.skipUnless(
+        util_is_executable("pgbench"), "pgbench may be missing")
     def test_pgbench(self):
         with get_new_node('node') as node:
             node.init().start().pgbench_init()
@@ -489,18 +519,17 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('node') as node:
             node.init().start()
 
-            cmd1 = "alter system set client_min_messages = DEBUG1"
-            cmd2 = "show client_min_messages"
+            cmd = "show client_min_messages"
 
             # change client_min_messages and save old value
-            cmm_old = node.execute(dbname='postgres', query=cmd2)
-            node.safe_psql(dbname='postgres', query=cmd1)
+            cmm_old = node.execute(dbname='postgres', query=cmd)
+            node.append_conf('postgresql.conf', 'client_min_messages = DEBUG1')
 
             # reload config
             node.reload()
 
             # check new value
-            cmm_new = node.execute(dbname='postgres', query=cmd2)
+            cmm_new = node.execute(dbname='postgres', query=cmd)
             self.assertEqual('debug1', cmm_new[0][0].lower())
             self.assertNotEqual(cmm_old, cmm_new)
 
