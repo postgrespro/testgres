@@ -1,6 +1,5 @@
 # coding: utf-8
 
-import atexit
 import io
 import os
 import shutil
@@ -9,6 +8,8 @@ import tempfile
 import time
 
 from enum import Enum
+
+from .cache import cached_initdb as _cached_initdb
 
 from .config import TestgresConfig
 
@@ -27,7 +28,6 @@ from .consts import \
 from .exceptions import \
     CatchUpException,   \
     ExecUtilException,  \
-    InitNodeException,  \
     QueryException,     \
     StartNodeException, \
     TimeoutException
@@ -875,47 +875,3 @@ class PostgresNode(object):
 
         return NodeConnection(
             parent_node=self, dbname=dbname, username=username)
-
-
-def _cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
-    """
-    Perform initdb or use cached node files.
-    """
-
-    def call_initdb(_data_dir):
-        try:
-            _params = [get_bin_path("initdb"), "-D", _data_dir, "-N"]
-            _execute_utility(_params + initdb_params, initdb_logfile)
-        except ExecUtilException as e:
-            raise InitNodeException(_explain_exception(e))
-
-    # Call initdb if we have custom params
-    if initdb_params or not TestgresConfig.cache_initdb:
-        call_initdb(data_dir)
-    # Else we can use cached dir
-    else:
-        # Set default temp dir for cached initdb
-        if TestgresConfig.cached_initdb_dir is None:
-
-            def rm_cached_data_dir(rm_dir):
-                shutil.rmtree(rm_dir, ignore_errors=True)
-
-            # Create default temp dir
-            TestgresConfig.cached_initdb_dir = tempfile.mkdtemp()
-
-            # Schedule cleanup
-            atexit.register(rm_cached_data_dir,
-                            TestgresConfig.cached_initdb_dir)
-
-        # Fetch cached initdb dir
-        cached_data_dir = TestgresConfig.cached_initdb_dir
-
-        # Initialize cached initdb
-        if not os.listdir(cached_data_dir):
-            call_initdb(cached_data_dir)
-
-        try:
-            # Copy cached initdb to current data dir
-            shutil.copytree(cached_data_dir, data_dir)
-        except Exception as e:
-            raise InitNodeException(_explain_exception(e))

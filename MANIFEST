@@ -4,6 +4,7 @@ setup.py
 testgres/__init__.py
 testgres/api.py
 testgres/backup.py
+testgres/cache.py
 testgres/config.py
 testgres/connection.py
 testgres/consts.py

@@ -13,7 +13,7 @@ else
 fi
 
 
-# check that pg_config exists
+echo check that pg_config exists
 command -v pg_config
 
 
