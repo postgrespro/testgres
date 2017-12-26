@@ -294,12 +294,12 @@ class SimpleTest(unittest.TestCase):
             with node.backup(xlog_method='fetch') as backup:
 
                 # exhaust backup by creating new node
-                with backup.spawn_primary('node1') as node1:
+                with backup.spawn_primary('node1') as node1:  # noqa
                     pass
 
                 # now let's try to create one more node
                 with self.assertRaises(BackupException):
-                    with backup.spawn_primary('node2') as node2:
+                    with backup.spawn_primary('node2') as node2:  # noqa
                         pass
 
     def test_backup_and_replication(self):
@@ -567,7 +567,6 @@ class SimpleTest(unittest.TestCase):
 
     def test_config(self):
         # set global if it wasn't set
-        pg_config = get_pg_config()
         configure_testgres(cache_initdb=True, cache_pg_config=True)
 
         # check same instances

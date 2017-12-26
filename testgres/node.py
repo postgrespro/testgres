@@ -36,7 +36,6 @@ from .logger import TestgresLogger
 
 from .utils import \
     get_bin_path, \
-    get_pg_version, \
     pg_version_ge as _pg_version_ge, \
     reserve_port as _reserve_port, \
     release_port as _release_port, \
@@ -159,7 +158,7 @@ class PostgresNode(object):
                 try:
                     with io.open(node_file, "r") as f:
                         return f.read().decode('utf-8')
-                except Exception as e:
+                except Exception:
                     pass
             return "### file not found ###\n"
 
@@ -389,7 +388,7 @@ class PostgresNode(object):
 
         try:
             _execute_utility(_params, self.utils_log_name)
-        except ExecUtilException as e:
+        except ExecUtilException:
             msg = (
                 u"Cannot start node\n"
                 u"{}\n"    # pg_ctl log
@@ -447,7 +446,7 @@ class PostgresNode(object):
 
         try:
             _execute_utility(_params, self.utils_log_name)
-        except ExecUtilException as e:
+        except ExecUtilException:
             msg = (
                 u"Cannot restart node\n"
                 u"{}\n"    # pg_ctl log
@@ -525,9 +524,9 @@ class PostgresNode(object):
             try:
                 self.stop()
                 break    # OK
-            except ExecUtilException as e:
+            except ExecUtilException:
                 pass    # one more time
-            except Exception as e:
+            except Exception:
                 break    # screw this
 
             attempts += 1
