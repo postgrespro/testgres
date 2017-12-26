@@ -53,6 +53,7 @@ class NodeBackup(object):
         _params = [
             get_bin_path("pg_basebackup"),
             "-p", str(node.port),
+            "-h", node.host,
             "-U", username,
             "-D", data_dir,
             "-X", xlog_method

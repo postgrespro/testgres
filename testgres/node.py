@@ -645,6 +645,7 @@ class PostgresNode(object):
         _params = [
             get_bin_path("pg_dump"),
             "-p", str(self.port),
+            "-h", self.host,
             "-f", filename,
             "-U", username,
             "-d", dbname
@@ -816,31 +817,6 @@ class PostgresNode(object):
         except Exception as e:
             raise CatchUpException(_explain_exception(e))
 
-    def pgbench_init(self, dbname='postgres', scale=1, options=[]):
-        """
-        Prepare database for pgbench (create tables etc).
-
-        Args:
-            dbname: database name to connect to.
-            scale: report this scale factor in output (int).
-            options: additional options for pgbench (list).
-
-        Returns:
-            This instance of PostgresNode.
-        """
-
-        # yapf: disable
-        _params = [
-            get_bin_path("pgbench"),
-            "-p", str(self.port),
-            "-s", str(scale),
-            "-i",  # initialize
-        ] + options + [dbname]
-
-        _execute_utility(_params, self.utils_log_name)
-
-        return self
-
     def pgbench(self, dbname='postgres', stdout=None, stderr=None, options=[]):
         """
         Spawn a pgbench process.
@@ -855,11 +831,38 @@ class PostgresNode(object):
             Process created by subprocess.Popen.
         """
 
-        pgbench = get_bin_path("pgbench")
-        params = [pgbench, "-p", str(self.port)] + options + [dbname]
-        proc = subprocess.Popen(params, stdout=stdout, stderr=stderr)
+        # yapf: disable
+        _params = [
+            get_bin_path("pgbench"),
+            "-p", str(self.port),
+            "-h", self.host,
+        ] + options + [dbname]
+
+        proc = subprocess.Popen(_params, stdout=stdout, stderr=stderr)
 
         return proc
+
+    def pgbench_run(self, dbname='postgres', options=[]):
+        """
+        Run pgbench with some options.
+        This event is logged (see self.utils_log_name).
+
+        Args:
+            dbname: database name to connect to.
+            options: additional options for pgbench (list).
+
+        Returns:
+            Stdout produced by pgbench.
+        """
+
+        # yapf: disable
+        _params = [
+            get_bin_path("pgbench"),
+            "-p", str(self.port),
+            "-h", self.host,
+        ] + options + [dbname]
+
+        return _execute_utility(_params, self.utils_log_name)
 
     def connect(self, dbname='postgres', username=None):
         """

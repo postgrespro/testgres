@@ -503,8 +503,12 @@ class SimpleTest(unittest.TestCase):
         util_is_executable("pgbench"), "pgbench may be missing")
     def test_pgbench(self):
         with get_new_node('node') as node:
-            node.init().start().pgbench_init()
+            node.init().start()
 
+            # initialize pgbench
+            node.pgbench_run(options=['-i'])
+
+            # run TPC-B benchmark
             proc = node.pgbench(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,

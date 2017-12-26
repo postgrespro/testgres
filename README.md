@@ -139,9 +139,14 @@ with testgres.get_new_node('master') as master:
 
 ```python
 with testgres.get_new_node('master') as master:
+    # start new node
     master.init().start()
-    p = master.pg_bench_init(scale=10).pgbench(options=['-T', '60'])
-    p.wait()
+
+    # initialize database for TPC-B
+    master.pgbench_run(options=['-i'])
+
+    # run benchmark for 20 seconds and show results
+    print(master.pgbench_run(options=['-T', '20']))
 ```
 
 ## Authors
