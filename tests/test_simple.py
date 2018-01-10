@@ -590,6 +590,17 @@ class SimpleTest(unittest.TestCase):
         # restore setting
         configure_testgres(cache_pg_config=True)
 
+    def test_unix_sockets(self):
+        with get_new_node('node').init(unix_sockets=False) as node:
+            node.start()
+
+            node.execute('postgres', 'select 1')
+            node.safe_psql('postgres', 'select 1')
+
+            r = node.replicate('r').start()
+            r.execute('postgres', 'select 1')
+            r.safe_psql('postgres', 'select 1')
+
     def test_isolation_levels(self):
         with get_new_node('node').init().start() as node:
             with node.connect() as con:

@@ -112,13 +112,20 @@ class PostgresNode(object):
     def pg_log_name(self):
         return os.path.join(self.data_dir, _PG_LOG_FILE)
 
-    @property
-    def connstr(self):
-        return "port={}".format(self.port)
+    def _create_recovery_conf(self, username, master):
+        # yapf: disable
+        conninfo = (
+            u"user={} "
+            u"port={} "
+            u"host={} "
+            u"application_name={}"
+        ).format(username, master.port, master.host, master.name)
 
-    def _create_recovery_conf(self, root_node):
-        line = ("primary_conninfo='{} application_name={}'\n"
-                "standby_mode=on\n").format(root_node.connstr, self.name)
+        # yapf: disable
+        line = (
+            "primary_conninfo='{}'\n"
+            "standby_mode=on\n"
+        ).format(conninfo)
 
         self.append_conf("recovery.conf", line)
 
@@ -175,13 +182,18 @@ class PostgresNode(object):
 
         return error_text
 
-    def init(self, allow_streaming=False, fsync=False, initdb_params=[]):
+    def init(self,
+             fsync=False,
+             unix_sockets=True,
+             allow_streaming=False,
+             initdb_params=[]):
         """
         Perform initdb for this node.
 
         Args:
-            allow_streaming: should this node add a hba entry for replication?
             fsync: should this node use fsync to keep data safe?
+            unix_sockets: should we enable UNIX sockets?
+            allow_streaming: should this node add a hba entry for replication?
             initdb_params: parameters for initdb (list).
 
         Returns:
@@ -196,22 +208,25 @@ class PostgresNode(object):
         _cached_initdb(self.data_dir, initdb_log, initdb_params)
 
         # initialize default config files
-        self.default_conf(allow_streaming=allow_streaming, fsync=fsync)
+        self.default_conf(fsync=fsync,
+                          unix_sockets=unix_sockets,
+                          allow_streaming=allow_streaming)
 
         return self
 
     def default_conf(self,
-                     allow_streaming=False,
                      fsync=False,
+                     unix_sockets=True,
+                     allow_streaming=False,
                      log_statement='all'):
         """
         Apply default settings to this node.
 
         Args:
-            allow_streaming: should this node add a hba entry for replication?
             fsync: should this node use fsync to keep data safe?
-            log_statement: one of ('all', 'off', 'mod', 'ddl'), look at
-                PostgreSQL docs for more information
+            unix_sockets: should we enable UNIX sockets?
+            allow_streaming: should this node add a hba entry for replication?
+            log_statement: one of ('all', 'off', 'mod', 'ddl').
 
         Returns:
             This instance of PostgresNode.
@@ -258,6 +273,9 @@ class PostgresNode(object):
 
         # overwrite postgresql.conf file
         with io.open(postgres_conf, "w") as conf:
+            # remove old lines
+            conf.truncate()
+
             if not fsync:
                 conf.write(u"fsync = off\n")
 
@@ -286,6 +304,10 @@ class PostgresNode(object):
                            u"wal_level = {}\n".format(max_wal_senders,
                                                       wal_keep_segments,
                                                       wal_level))
+
+            # disable UNIX sockets if asked to
+            if not unix_sockets:
+                conf.write(u"unix_socket_directories = ''\n")
 
         return self
 
@@ -784,7 +806,7 @@ class PostgresNode(object):
         """
 
         backup = self.backup(username=username, xlog_method=xlog_method)
-        return backup.spawn_replica(name, use_logging=use_logging)
+        return backup.spawn_replica(name=name, use_logging=use_logging)
 
     def catchup(self, dbname='postgres', username=None):
         """

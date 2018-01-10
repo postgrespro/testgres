@@ -32,6 +32,15 @@ class NodeBackup(object):
                  base_dir=None,
                  username=None,
                  xlog_method=_DEFAULT_XLOG_METHOD):
+        """
+        Create a new backup.
+
+        Args:
+            node: PostgresNode we're going to backup.
+            base_dir: where should we store it?
+            username: database user name.
+            xlog_method: none | fetch | stream (see docs)
+        """
 
         if not node.status():
             raise BackupException('Node must be running')
@@ -43,6 +52,7 @@ class NodeBackup(object):
         # public
         self.original_node = node
         self.base_dir = base_dir
+        self.username = username
 
         # private
         self._available = True
@@ -148,7 +158,8 @@ class NodeBackup(object):
         """
 
         node = self.spawn_primary(name, destroy, use_logging=use_logging)
-        node._create_recovery_conf(self.original_node)
+        node._create_recovery_conf(username=self.username,
+                                   master=self.original_node)
 
         return node
 
