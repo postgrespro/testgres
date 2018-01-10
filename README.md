@@ -48,13 +48,10 @@ testgres supports [python logging](https://docs.python.org/3.6/library/logging.h
 which means that you can aggregate logs from several nodes into one file:
 
 ```python
-import io
 import logging
 
 # write everything to /tmp/testgres.log
-logfile = io.open('/tmp/testgres.log', 'w')
-logger = logging.getLogger('testgres')
-logger.FileHandler(logfile)
+logging.basicConfig(filename='/tmp/testgres.log')
 
 # create two different nodes with logging
 node1 = testgres.get_new_node('node1', use_logging=True).init().start()
@@ -71,8 +68,6 @@ node2.execute('postgres', 'select 2')
 Here is an example of what you can do with `testgres`:
 
 ```python
-import testgres
-
 with testgres.get_new_node('test') as node:
     node.init()  # run initdb
     node.start() # start PostgreSQL
