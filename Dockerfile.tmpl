@@ -18,4 +18,4 @@ WORKDIR /pg/testgres
 RUN chown -R postgres:postgres /pg
 
 USER postgres
-ENTRYPOINT PYTHON=${PYTHON} /run.sh
+ENTRYPOINT PYTHON_VERSION=${PYTHON_VERSION} /run.sh

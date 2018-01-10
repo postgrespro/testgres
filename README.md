@@ -39,20 +39,31 @@ python my_tests.py
 
 ### Logging
 
-By default, `cleanup()` removes all temporary files (DB files, logs etc) that were created by testgres' API methods. If you'd like to keep logs, execute `configure_testgres(node_cleanup_full=False)` before running any tests.
+By default, `cleanup()` removes all temporary files (DB files, logs etc) that were created by testgres' API methods.
+If you'd like to keep logs, execute `configure_testgres(node_cleanup_full=False)` before running any tests.
 
-> Note: context managers (aka `with`) call `cleanup()` automatically.
+> Note: context managers (aka `with`) call `stop()` and `cleanup()` automatically.
 
-Nodes support python logging system, so if you have configured logging
-in your tests, you can use it to redirect postgres logs to yours.
-
-To do that, just use `use_logging` argument:
+testgres supports [python logging](https://docs.python.org/3.6/library/logging.html),
+which means that you can aggregate logs from several nodes into one file:
 
 ```python
-node = testgres.get_new_node('master', use_logging=True)
-```
+import io
+import logging
 
-You can find working configuration example for logging in `tests/test_simple.py`.
+# write everything to /tmp/testgres.log
+logfile = io.open('/tmp/testgres.log', 'w')
+logger = logging.getLogger('testgres')
+logger.FileHandler(logfile)
+
+# create two different nodes with logging
+node1 = testgres.get_new_node('node1', use_logging=True).init().start()
+node2 = testgres.get_new_node('node2', use_logging=True).init().start()
+
+# execute a few queries
+node1.execute('postgres', 'select 1')
+node2.execute('postgres', 'select 2')
+```
 
 
 ### Examples
@@ -81,13 +92,16 @@ or
 with testgres.get_new_node('master', '/path/to/DB') as node:
 ```
 
-where `master` is a node's name, not a DB's name. Name matters if you're testing something like replication. Function `get_new_node()` only creates directory structure in specified directory (or somewhere in '/tmp' if we did not specify base directory) for cluster. After that, we have to initialize the PostgreSQL cluster:
+where `master` is a node's name, not a DB's name. Name matters if you're testing something like replication.
+Function `get_new_node()` only creates directory structure in specified directory (or somewhere in '/tmp' if
+we did not specify base directory) for cluster. After that, we have to initialize the PostgreSQL cluster:
 
 ```python
 node.init()
 ```
 
-This function runs `initdb` command and adds some basic configuration to `postgresql.conf` and `pg_hba.conf` files. Function `init()` accepts optional parameter `allows_streaming` which configures cluster for streaming replication (default is `False`).
+This function runs `initdb` command and adds some basic configuration to `postgresql.conf` and `pg_hba.conf` files.
+Function `init()` accepts optional parameter `allows_streaming` which configures cluster for streaming replication (default is `False`).
 Now we are ready to start:
 
 ```python
@@ -126,12 +140,15 @@ It's quite easy to create a backup and start a new replica:
 with testgres.get_new_node('master') as master:
     master.init().start()
     with master.backup() as backup:
+        # create and start a new replica
         replica = backup.spawn_replica('replica').start()
-        replica.catchup()  # catch up with master
+
+        # catch up with master node
+        replica.catchup()
+
+        # execute a dummy query
         print(replica.execute('postgres', 'select 1'))
 ```
-
-> Note: you could take a look at [`pg_pathman`](https://github.com/postgrespro/pg_pathman) to get an idea of `testgres`' capabilities.
 
 ### Benchmarks
 
@@ -139,15 +156,16 @@ with testgres.get_new_node('master') as master:
 
 ```python
 with testgres.get_new_node('master') as master:
-    # start new node
+    # start a new node
     master.init().start()
 
-    # initialize database for TPC-B
+    # initialize default database for TPC-B
     master.pgbench_run(options=['-i'])
 
     # run benchmark for 20 seconds and show results
     print(master.pgbench_run(options=['-T', '20']))
 ```
+
 
 ## Authors
 

@@ -876,5 +876,7 @@ class PostgresNode(object):
             An instance of NodeConnection.
         """
 
-        return NodeConnection(
-            parent_node=self, dbname=dbname, username=username)
+        return NodeConnection(parent_node=self,
+                              host=self.host,
+                              dbname=dbname,
+                              username=username)

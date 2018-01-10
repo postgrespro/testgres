@@ -4,18 +4,15 @@
 
 set -eux
 
-if [ "$PYTHON" == "python2" ]; then
-	VIRTUALENV="virtualenv --python=/usr/bin/python2"
-	PIP=pip2
-else
-	VIRTUALENV="virtualenv --python=/usr/bin/python3"
-	PIP=pip3
-fi
 
+# choose python version
+echo python version is $PYTHON_VERSION
+VIRTUALENV="virtualenv --python=/usr/bin/python$PYTHON_VERSION"
+PIP="pip$PYTHON_VERSION"
 
-echo check that pg_config exists
+# fail early
+echo check that pg_config is in PATH
 command -v pg_config
-
 
 # prepare environment
 VENV_PATH=/tmp/testgres_venv
