@@ -47,6 +47,15 @@ def default_username():
     return pwd.getpwuid(os.getuid())[0]
 
 
+def generate_app_name():
+    """
+    Generate a new application name for node.
+    """
+
+    import uuid
+    return ''.join(['testgres-', str(uuid.uuid4())])
+
+
 def execute_utility(args, logfile):
     """
     Execute utility (pg_ctl, pg_dump etc).

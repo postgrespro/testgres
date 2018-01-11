@@ -41,6 +41,7 @@ from .utils import \
     reserve_port as _reserve_port, \
     release_port as _release_port, \
     default_username as _default_username, \
+    generate_app_name as _generate_app_name, \
     execute_utility as _execute_utility
 
 
@@ -60,18 +61,23 @@ class NodeStatus(Enum):
 
 
 class PostgresNode(object):
-    def __init__(self,
-                 name,
-                 port=None,
-                 base_dir=None,
-                 use_logging=False,
-                 master=None):
+    def __init__(self, name=None, port=None, base_dir=None, use_logging=False):
+        """
+        Create a new node manually.
+
+        Args:
+            name: node's application name.
+            port: port to accept connections.
+            base_dir: path to node's data directory.
+            use_logging: enable python logging.
+        """
+
         global bound_ports
 
         # public
-        self.master = master
-        self.name = name
+        self.master = None
         self.host = '127.0.0.1'
+        self.name = name or _generate_app_name()
         self.port = port or _reserve_port()
         self.base_dir = base_dir
 
@@ -112,7 +118,14 @@ class PostgresNode(object):
     def pg_log_name(self):
         return os.path.join(self.logs_dir, _PG_LOG_FILE)
 
-    def _create_recovery_conf(self, username, master):
+    def _assign_master(self, master):
+        # now this node has a master
+        self.master = master
+
+    def _create_recovery_conf(self, username):
+        # fetch master of this node
+        master = self.master
+
         # yapf: disable
         conninfo = (
             u"application_name={} "
@@ -785,7 +798,7 @@ class PostgresNode(object):
         return NodeBackup(node=self, username=username, xlog_method=xlog_method)
 
     def replicate(self,
-                  name,
+                  name=None,
                   username=None,
                   xlog_method=_DEFAULT_XLOG_METHOD,
                   use_logging=False):
@@ -793,14 +806,17 @@ class PostgresNode(object):
         Create a binary replica of this node.
 
         Args:
-            name: replica's name.
+            name: replica's application name.
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
             use_logging: enable python logging.
         """
 
+        # transform backup into a replica
         backup = self.backup(username=username, xlog_method=xlog_method)
-        return backup.spawn_replica(name=name, use_logging=use_logging)
+        return backup.spawn_replica(name=name,
+                                    destroy=True,
+                                    use_logging=use_logging)
 
     def catchup(self, dbname='postgres', username=None):
         """

@@ -602,6 +602,21 @@ class SimpleTest(unittest.TestCase):
             r.execute('postgres', 'select 1')
             r.safe_psql('postgres', 'select 1')
 
+    def test_auto_name(self):
+        with get_new_node().init(allow_streaming=True).start() as m:
+            with m.replicate().start() as r:
+
+                # check that nodes are running
+                self.assertTrue(m.status())
+                self.assertTrue(r.status())
+
+                # check their names
+                self.assertIsNotNone(m.name)
+                self.assertIsNotNone(r.name)
+                self.assertNotEqual(m.name, r.name)
+                self.assertTrue('testgres' in m.name)
+                self.assertTrue('testgres' in r.name)
+
     def test_isolation_levels(self):
         with get_new_node('node').init().start() as node:
             with node.connect() as con:

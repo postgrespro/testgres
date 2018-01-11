@@ -114,12 +114,12 @@ class NodeBackup(object):
         # Return path to new node
         return dest_base_dir
 
-    def spawn_primary(self, name, destroy=True, use_logging=False):
+    def spawn_primary(self, name=None, destroy=True, use_logging=False):
         """
         Create a primary node from a backup.
 
         Args:
-            name: name for a new node.
+            name: primary's application name.
             destroy: should we convert this backup into a node?
             use_logging: enable python logging.
 
@@ -127,15 +127,14 @@ class NodeBackup(object):
             New instance of PostgresNode.
         """
 
+        # Prepare a data directory for this node
         base_dir = self._prepare_dir(destroy)
 
         # Build a new PostgresNode
         from .node import PostgresNode
-        node = PostgresNode(
-            name=name,
-            base_dir=base_dir,
-            master=self.original_node,
-            use_logging=use_logging)
+        node = PostgresNode(name=name,
+                            base_dir=base_dir,
+                            use_logging=use_logging)
 
         # New nodes should always remove dir tree
         node._should_rm_dirs = True
@@ -145,12 +144,12 @@ class NodeBackup(object):
 
         return node
 
-    def spawn_replica(self, name, destroy=True, use_logging=False):
+    def spawn_replica(self, name=None, destroy=True, use_logging=False):
         """
         Create a replica of the original node from a backup.
 
         Args:
-            name: name for a new node.
+            name: replica's application name.
             destroy: should we convert this backup into a node?
             use_logging: enable python logging.
 
@@ -158,9 +157,14 @@ class NodeBackup(object):
             New instance of PostgresNode.
         """
 
-        node = self.spawn_primary(name, destroy, use_logging=use_logging)
-        node._create_recovery_conf(username=self.username,
-                                   master=self.original_node)
+        # Build a new PostgresNode
+        node = self.spawn_primary(name=name,
+                                  destroy=destroy,
+                                  use_logging=use_logging)
+
+        # Assign it a master and a recovery file (private magic)
+        node._assign_master(self.original_node)
+        node._create_recovery_conf(username=self.username)
 
         return node
 

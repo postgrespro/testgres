@@ -54,8 +54,8 @@ import logging
 logging.basicConfig(filename='/tmp/testgres.log')
 
 # create two different nodes with logging
-node1 = testgres.get_new_node('node1', use_logging=True).init().start()
-node2 = testgres.get_new_node('node2', use_logging=True).init().start()
+node1 = testgres.get_new_node(use_logging=True).init().start()
+node2 = testgres.get_new_node(use_logging=True).init().start()
 
 # execute a few queries
 node1.execute('postgres', 'select 1')
@@ -87,7 +87,7 @@ or
 with testgres.get_new_node('master', '/path/to/DB') as node:
 ```
 
-where `master` is a node's name, not a DB's name. Name matters if you're testing something like replication.
+where `master` is a node's application name. Name matters if you're testing something like replication.
 Function `get_new_node()` only creates directory structure in specified directory (or somewhere in '/tmp' if
 we did not specify base directory) for cluster. After that, we have to initialize the PostgreSQL cluster:
 
