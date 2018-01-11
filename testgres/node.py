@@ -115,11 +115,18 @@ class PostgresNode(object):
     def _create_recovery_conf(self, username, master):
         # yapf: disable
         conninfo = (
-            u"user={} "
+            u"application_name={} "
             u"port={} "
-            u"host={} "
-            u"application_name={}"
-        ).format(username, master.port, master.host, master.name)
+            u"user={} "
+        ).format(master.name, master.port, username)
+
+        # host is tricky
+        try:
+            import ipaddress
+            ipaddress.ip_address(master.host)
+            conninfo += u"hostaddr={}".format(master.host)
+        except ValueError:
+            conninfo += u"host={}".format(master.host)
 
         # yapf: disable
         line = (
@@ -147,7 +154,7 @@ class PostgresNode(object):
         if self._logger:
             self._logger.stop()
 
-    def _format_verbose_error(self):
+    def _format_verbose_error(self, message=None):
         # list of important files
         files = [
             os.path.join(self.data_dir, "postgresql.conf"),
@@ -157,6 +164,11 @@ class PostgresNode(object):
         ]
 
         error_text = ""
+
+        # append message if asked to
+        if message:
+            error_text += message
+            error_text += '\n' * 2
 
         for f in files:
             # skip missing files
@@ -205,7 +217,7 @@ class PostgresNode(object):
     def default_conf(self,
                      fsync=False,
                      unix_sockets=True,
-                     allow_streaming=False,
+                     allow_streaming=True,
                      log_statement='all'):
         """
         Apply default settings to this node.
@@ -284,8 +296,8 @@ class PostgresNode(object):
                     wal_level = "hot_standby"
 
                 # yapf: disable
-                max_wal_senders = 5
-                wal_keep_segments = 20
+                max_wal_senders = 10    # default in PG 10
+                wal_keep_segments = 20  # for convenience
                 conf.write(u"hot_standby = on\n"
                            u"max_wal_senders = {}\n"
                            u"wal_keep_segments = {}\n"
@@ -399,10 +411,7 @@ class PostgresNode(object):
         try:
             _execute_utility(_params, self.utils_log_name)
         except ExecUtilException as e:
-            msg = (
-                u"Cannot start node\n"
-                u"{}\n"    # pg_ctl log
-            ).format(self._format_verbose_error())
+            msg = self._format_verbose_error('Cannot start node')
             raise_from(StartNodeException(msg), e)
 
         self._maybe_start_logger()
@@ -457,10 +466,7 @@ class PostgresNode(object):
         try:
             _execute_utility(_params, self.utils_log_name)
         except ExecUtilException as e:
-            msg = (
-                u"Cannot restart node\n"
-                u"{}\n"    # pg_ctl log
-            ).format(self._format_verbose_error())
+            msg = self._format_verbose_error('Cannot restart node')
             raise_from(StartNodeException(msg), e)
 
         self._maybe_start_logger()

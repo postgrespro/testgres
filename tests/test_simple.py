@@ -294,12 +294,12 @@ class SimpleTest(unittest.TestCase):
             with node.backup(xlog_method='fetch') as backup:
 
                 # exhaust backup by creating new node
-                with backup.spawn_primary('node1') as node1:  # noqa
+                with backup.spawn_primary('node1') as node1:    # noqa
                     pass
 
                 # now let's try to create one more node
                 with self.assertRaises(BackupException):
-                    with backup.spawn_primary('node2') as node2:  # noqa
+                    with backup.spawn_primary('node2') as node2:    # noqa
                         pass
 
     def test_backup_and_replication(self):
@@ -591,7 +591,8 @@ class SimpleTest(unittest.TestCase):
         configure_testgres(cache_pg_config=True)
 
     def test_unix_sockets(self):
-        with get_new_node('node').init(unix_sockets=False) as node:
+        with get_new_node('node') as node:
+            node.init(unix_sockets=False, allow_streaming=True)
             node.start()
 
             node.execute('postgres', 'select 1')

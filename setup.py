@@ -12,6 +12,10 @@ install_requires = ["pg8000", "port-for", "six"]
 if sys.version_info < (3, 4):
     install_requires.append("enum34")
 
+# Add compatibility ipaddress module
+if sys.version_info < (3, 3):
+    install_requires.append("ipaddress")
+
 setup(
     name='testgres',
     packages=['testgres'],
