@@ -4,6 +4,8 @@ import os
 import shutil
 import tempfile
 
+from six import raise_from
+
 from .consts import \
     DATA_DIR as _DATA_DIR, \
     BACKUP_LOG_FILE as _BACKUP_LOG_FILE, \
@@ -14,8 +16,7 @@ from .exceptions import BackupException
 from .utils import \
     get_bin_path, \
     default_username as _default_username, \
-    execute_utility as _execute_utility, \
-    explain_exception as _explain_exception
+    execute_utility as _execute_utility
 
 
 class NodeBackup(object):
@@ -103,7 +104,7 @@ class NodeBackup(object):
                 # Copy backup to new data dir
                 shutil.copytree(data1, data2)
             except Exception as e:
-                raise BackupException(_explain_exception(e))
+                raise_from(BackupException('Failed to copy files'), e)
         else:
             dest_base_dir = self.base_dir
 

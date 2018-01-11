@@ -5,6 +5,8 @@ import os
 import shutil
 import tempfile
 
+from six import raise_from
+
 from .config import TestgresConfig
 
 from .exceptions import \
@@ -13,8 +15,7 @@ from .exceptions import \
 
 from .utils import \
     get_bin_path, \
-    execute_utility as _execute_utility, \
-    explain_exception as _explain_exception
+    execute_utility as _execute_utility
 
 
 def cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
@@ -27,7 +28,7 @@ def cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
             _execute_utility(_params + initdb_params, initdb_logfile)
         except ExecUtilException as e:
-            raise InitNodeException(_explain_exception(e))
+            raise_from(InitNodeException("Failed to run initdb"), e)
 
     def rm_cached_data_dir(cached_data_dir):
         shutil.rmtree(cached_data_dir, ignore_errors=True)
@@ -57,4 +58,4 @@ def cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
             # Copy cached initdb to current data dir
             shutil.copytree(cached_data_dir, data_dir)
         except Exception as e:
-            raise InitNodeException(_explain_exception(e))
+            raise_from(InitNodeException("Failed to copy files"), e)

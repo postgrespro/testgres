@@ -47,16 +47,6 @@ def default_username():
     return pwd.getpwuid(os.getuid())[0]
 
 
-def explain_exception(e):
-    """
-    Use this function instead of str(e).
-    """
-
-    import traceback    # used only here
-    lines = traceback.format_exception_only(type(e), e)
-    return ''.join(lines)
-
-
 def execute_utility(args, logfile):
     """
     Execute utility (pg_ctl, pg_dump etc).

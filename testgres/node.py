@@ -8,6 +8,7 @@ import tempfile
 import time
 
 from enum import Enum
+from six import raise_from
 
 from .cache import cached_initdb as _cached_initdb
 
@@ -40,8 +41,7 @@ from .utils import \
     reserve_port as _reserve_port, \
     release_port as _release_port, \
     default_username as _default_username, \
-    execute_utility as _execute_utility, \
-    explain_exception as _explain_exception
+    execute_utility as _execute_utility
 
 
 class NodeStatus(Enum):
@@ -110,7 +110,7 @@ class PostgresNode(object):
 
     @property
     def pg_log_name(self):
-        return os.path.join(self.data_dir, _PG_LOG_FILE)
+        return os.path.join(self.logs_dir, _PG_LOG_FILE)
 
     def _create_recovery_conf(self, username, master):
         # yapf: disable
@@ -148,37 +148,25 @@ class PostgresNode(object):
             self._logger.stop()
 
     def _format_verbose_error(self):
-        # choose log_filename
-        log_filename = self.pg_log_name
+        # list of important files
+        files = [
+            os.path.join(self.data_dir, "postgresql.conf"),
+            os.path.join(self.data_dir, "recovery.conf"),
+            os.path.join(self.data_dir, "pg_hba.conf"),
+            self.pg_log_name  # main log file
+        ]
 
-        # choose conf_filename
-        conf_filename = os.path.join(self.data_dir, "postgresql.conf")
+        error_text = ""
 
-        # choose hba_filename
-        hba_filename = os.path.join(self.data_dir, "pg_hba.conf")
+        for f in files:
+            # skip missing files
+            if not os.path.exists(f):
+                continue
 
-        # choose recovery_filename
-        recovery_filename = os.path.join(self.data_dir, "recovery.conf")
-
-        def print_node_file(node_file):
-            if os.path.exists(node_file):
-                try:
-                    with io.open(node_file, "r") as f:
-                        return f.read().decode('utf-8')
-                except Exception:
-                    pass
-            return "### file not found ###\n"
-
-        # yapf: disable
-        error_text = (
-            u"{}:\n----\n{}\n"    # log file, e.g. postgresql.log
-            u"{}:\n----\n{}\n"    # postgresql.conf
-            u"{}:\n----\n{}\n"    # pg_hba.conf
-            u"{}:\n----\n{}\n"    # recovery.conf
-        ).format(log_filename, print_node_file(log_filename),
-                 conf_filename, print_node_file(conf_filename),
-                 hba_filename, print_node_file(hba_filename),
-                 recovery_filename, print_node_file(recovery_filename))
+            # append contents
+            with io.open(f, "r") as _f:
+                lines = _f.read()
+                error_text += u"{}:\n----\n{}\n".format(f, lines)
 
         return error_text
 
@@ -410,12 +398,12 @@ class PostgresNode(object):
 
         try:
             _execute_utility(_params, self.utils_log_name)
-        except ExecUtilException:
+        except ExecUtilException as e:
             msg = (
                 u"Cannot start node\n"
                 u"{}\n"    # pg_ctl log
             ).format(self._format_verbose_error())
-            raise StartNodeException(msg)
+            raise_from(StartNodeException(msg), e)
 
         self._maybe_start_logger()
 
@@ -468,12 +456,12 @@ class PostgresNode(object):
 
         try:
             _execute_utility(_params, self.utils_log_name)
-        except ExecUtilException:
+        except ExecUtilException as e:
             msg = (
                 u"Cannot restart node\n"
                 u"{}\n"    # pg_ctl log
             ).format(self._format_verbose_error())
-            raise StartNodeException(msg)
+            raise_from(StartNodeException(msg), e)
 
         self._maybe_start_logger()
 
@@ -837,7 +825,7 @@ class PostgresNode(object):
                 query=wait_lsn.format(lsn),
                 max_attempts=0)    # infinite
         except Exception as e:
-            raise CatchUpException(_explain_exception(e))
+            raise_from(CatchUpException('Failed to catch up'), e)
 
     def pgbench(self, dbname='postgres', stdout=None, stderr=None, options=[]):
         """
