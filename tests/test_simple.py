@@ -598,9 +598,9 @@ class SimpleTest(unittest.TestCase):
             node.execute('postgres', 'select 1')
             node.safe_psql('postgres', 'select 1')
 
-            r = node.replicate('r').start()
-            r.execute('postgres', 'select 1')
-            r.safe_psql('postgres', 'select 1')
+            with node.replicate('r').start() as r:
+                r.execute('postgres', 'select 1')
+                r.safe_psql('postgres', 'select 1')
 
     def test_auto_name(self):
         with get_new_node().init(allow_streaming=True).start() as m:
@@ -616,6 +616,29 @@ class SimpleTest(unittest.TestCase):
                 self.assertNotEqual(m.name, r.name)
                 self.assertTrue('testgres' in m.name)
                 self.assertTrue('testgres' in r.name)
+
+    def test_file_tail(self):
+        from testgres.utils import file_tail
+
+        s1 = "the quick brown fox jumped over that lazy dog\n"
+        s2 = "abc\n"
+        s3 = "def\n"
+
+        with tempfile.NamedTemporaryFile(mode='r+', delete=True) as f:
+            for i in range(1, 5000):
+                f.write(s1)
+            f.write(s2)
+            f.write(s3)
+
+            f.seek(0)
+            lines = file_tail(f, 3)
+            self.assertEqual(lines[0], s1)
+            self.assertEqual(lines[1], s2)
+            self.assertEqual(lines[2], s3)
+
+            f.seek(0)
+            lines = file_tail(f, 1)
+            self.assertEqual(lines[0], s3)
 
     def test_isolation_levels(self):
         with get_new_node('node').init().start() as node:
