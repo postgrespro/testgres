@@ -1,5 +1,7 @@
 # coding: utf-8
 
+from __future__ import division
+
 import io
 import os
 import port_for
@@ -203,3 +205,28 @@ def pg_version_ge(version):
     min_ver = LooseVersion(version)
 
     return cur_ver >= min_ver
+
+
+def file_tail(f, num_lines):
+    """
+    Get last N lines of a file.
+    """
+
+    assert(num_lines > 0)
+
+    bufsize = 8192
+    buffers = 1
+
+    end_pos = f.seek(0, os.SEEK_END)
+
+    while True:
+        offset = max(0, end_pos - bufsize * buffers)
+        pos = f.seek(offset, os.SEEK_SET)
+
+        lines = f.readlines()
+        cur_lines = len(lines)
+
+        if cur_lines > num_lines or pos == 0:
+            return lines[-num_lines:]
+
+        buffers = int(buffers * max(2, num_lines / max(cur_lines, 1)))

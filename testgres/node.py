@@ -37,6 +37,7 @@ from .logger import TestgresLogger
 
 from .utils import \
     get_bin_path, \
+    file_tail as _file_tail, \
     pg_version_ge as _pg_version_ge, \
     reserve_port as _reserve_port, \
     release_port as _release_port, \
@@ -168,12 +169,12 @@ class PostgresNode(object):
             self._logger.stop()
 
     def _format_verbose_error(self, message=None):
-        # list of important files
+        # list of important files + N of last lines
         files = [
-            os.path.join(self.data_dir, "postgresql.conf"),
-            os.path.join(self.data_dir, "recovery.conf"),
-            os.path.join(self.data_dir, "pg_hba.conf"),
-            self.pg_log_name  # main log file
+            (os.path.join(self.data_dir, "postgresql.conf"), 0),
+            (os.path.join(self.data_dir, "recovery.conf"), 0),
+            (os.path.join(self.data_dir, "pg_hba.conf"), 0),
+            (self.pg_log_name, TestgresConfig.error_log_lines)
         ]
 
         error_text = ""
@@ -183,14 +184,20 @@ class PostgresNode(object):
             error_text += message
             error_text += '\n' * 2
 
-        for f in files:
+        for f, num_lines in files:
             # skip missing files
             if not os.path.exists(f):
                 continue
 
-            # append contents
-            with io.open(f, "r") as _f:
-                lines = _f.read()
+            with io.open(f, "rb") as _f:
+                if num_lines > 0:
+                    # take last N lines of file
+                    lines = b''.join(_file_tail(_f, num_lines)).decode('utf-8')
+                else:
+                    # read whole file
+                    lines = _f.read().decode('utf-8')
+
+                # append contents
                 error_text += u"{}:\n----\n{}\n".format(f, lines)
 
         return error_text
