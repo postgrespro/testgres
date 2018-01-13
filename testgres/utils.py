@@ -217,11 +217,13 @@ def file_tail(f, num_lines):
     bufsize = 8192
     buffers = 1
 
-    end_pos = f.seek(0, os.SEEK_END)
+    f.seek(0, os.SEEK_END)
+    end_pos = f.tell()
 
     while True:
         offset = max(0, end_pos - bufsize * buffers)
-        pos = f.seek(offset, os.SEEK_SET)
+        f.seek(offset, os.SEEK_SET)
+        pos = f.tell()
 
         lines = f.readlines()
         cur_lines = len(lines)
