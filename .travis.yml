@@ -6,7 +6,7 @@ services:
     - docker
 
 install:
-    - sed -e 's/${PYTHON_VERSION}/'${PYTHON_VERSION}/g -e 's/${PG_VERSION}/'${PG_VERSION}/g Dockerfile.tmpl > Dockerfile
+    - ./mk_dockerfile.sh
     - docker-compose build
 
 script:
