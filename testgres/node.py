@@ -3,6 +3,7 @@
 import io
 import os
 import shutil
+import six
 import subprocess
 import tempfile
 import time
@@ -856,12 +857,18 @@ class PostgresNode(object):
         except Exception as e:
             raise_from(CatchUpException('Failed to catch up'), e)
 
-    def pgbench(self, dbname='postgres', stdout=None, stderr=None, options=[]):
+    def pgbench(self,
+                dbname='postgres',
+                username=None,
+                stdout=None,
+                stderr=None,
+                options=[]):
         """
         Spawn a pgbench process.
 
         Args:
             dbname: database name to connect to.
+            username: database user name.
             stdout: stdout file to be used by Popen.
             stderr: stderr file to be used by Popen.
             options: additional options for pgbench (list).
@@ -870,36 +877,85 @@ class PostgresNode(object):
             Process created by subprocess.Popen.
         """
 
+        # Set default arguments
+        username = username or _default_username()
+
         # yapf: disable
         _params = [
             get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
-        ] + options + [dbname]
+            "-U", username,
+        ] + options
+
+        # should be the last one
+        _params.append(dbname)
 
         proc = subprocess.Popen(_params, stdout=stdout, stderr=stderr)
 
         return proc
 
-    def pgbench_run(self, dbname='postgres', options=[]):
+    def pgbench_init(self, **kwargs):
+        """
+        Small wrapper for pgbench_run().
+        Sets initialize=True.
+
+        Returns:
+            This instance of PostgresNode.
+        """
+
+        self.pgbench_run(initialize=True, **kwargs)
+
+        return self
+
+    def pgbench_run(self,
+                    dbname='postgres',
+                    username=None,
+                    options=[],
+                    **kwargs):
         """
         Run pgbench with some options.
         This event is logged (see self.utils_log_name).
 
         Args:
             dbname: database name to connect to.
+            username: database user name.
             options: additional options for pgbench (list).
+
+            **kwargs: named options for pgbench.
+                Examples:
+                    pgbench_run(initialize=True, scale=2)
+                    pgbench_run(time=10)
+                Run pgbench --help to learn more.
 
         Returns:
             Stdout produced by pgbench.
         """
+
+        # Set default arguments
+        username = username or _default_username()
 
         # yapf: disable
         _params = [
             get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
-        ] + options + [dbname]
+            "-U", username,
+        ] + options
+
+        for key, value in six.iteritems(kwargs):
+            # rename keys for pgbench
+            key = key.replace('_', '-')
+
+            # append option
+            if not isinstance(value, bool):
+                _params.append('--{}={}'.format(key, value))
+            else:
+                assert (value is True)  # just in case
+                _params.append('--{}'.format(key))
+
+        # should be the last one
+        _params.append(dbname)
 
         return _execute_utility(_params, self.utils_log_name)
 

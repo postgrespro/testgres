@@ -505,14 +505,16 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('node') as node:
             node.init().start()
 
-            # initialize pgbench
-            node.pgbench_run(options=['-i'])
+            # initialize pgbench DB and run benchmarks
+            node.pgbench_init(scale=2,
+                              foreign_keys=True,
+                              options=['-q']).pgbench_run(time=2)
 
             # run TPC-B benchmark
             proc = node.pgbench(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                options=['-T5'])
+                options=['-T3'])
 
             out, _ = proc.communicate()
             out = out.decode('utf-8')

@@ -154,11 +154,9 @@ with testgres.get_new_node('master') as master:
     # start a new node
     master.init().start()
 
-    # initialize default database for TPC-B
-    master.pgbench_run(options=['-i'])
-
-    # run benchmark for 20 seconds and show results
-    print(master.pgbench_run(options=['-T', '20']))
+    # initialize default DB and run bench for 10 seconds
+    res = master.pgbench_init(scale=2).pgbench_run(time=10)
+    print(res)
 ```
 
 
