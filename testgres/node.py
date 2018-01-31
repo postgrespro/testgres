@@ -152,8 +152,11 @@ class PostgresNode(object):
         self.append_conf("recovery.conf", line)
 
     def _prepare_dirs(self):
-        if not self.base_dir or not os.path.exists(self.base_dir):
+        if not self.base_dir:
             self.base_dir = tempfile.mkdtemp()
+
+        if not os.path.exists(self.base_dir):
+            os.makedirs(self.base_dir)
 
         if not os.path.exists(self.logs_dir):
             os.makedirs(self.logs_dir)
