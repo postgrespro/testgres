@@ -74,20 +74,18 @@ class PostgresNode(object):
             use_logging: enable python logging.
         """
 
-        global bound_ports
-
         # public
-        self.master = None
         self.host = '127.0.0.1'
         self.name = name or _generate_app_name()
         self.port = port or _reserve_port()
         self.base_dir = base_dir
 
         # private
-        self._should_free_port = port is None
         self._should_rm_dirs = base_dir is None
+        self._should_free_port = port is None
         self._use_logging = use_logging
         self._logger = None
+        self._master = None
 
         # create directories if needed
         self._prepare_dirs()
@@ -96,13 +94,15 @@ class PostgresNode(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        global bound_ports
-
         # stop node if necessary
         self.cleanup()
 
         # free port if necessary
         self.free_port()
+
+    @property
+    def master(self):
+        return self._master
 
     @property
     def data_dir(self):
@@ -122,11 +122,12 @@ class PostgresNode(object):
 
     def _assign_master(self, master):
         # now this node has a master
-        self.master = master
+        self._master = master
 
     def _create_recovery_conf(self, username):
         # fetch master of this node
         master = self.master
+        assert (master is not None)
 
         # yapf: disable
         conninfo = (
@@ -834,7 +835,8 @@ class PostgresNode(object):
         Wait until async replica catches up with its master.
         """
 
-        master = self.master
+        if not self.master:
+            raise CatchUpException("Node doesn't have a master")
 
         if _pg_version_ge('10'):
             poll_lsn = "select pg_current_wal_lsn()::text"
@@ -843,13 +845,11 @@ class PostgresNode(object):
             poll_lsn = "select pg_current_xlog_location()::text"
             wait_lsn = "select pg_last_xlog_replay_location() >= '{}'::pg_lsn"
 
-        if not master:
-            raise CatchUpException("Master node is not specified")
-
         try:
             # fetch latest LSN
-            lsn = master.execute(
-                dbname=dbname, username=username, query=poll_lsn)[0][0]
+            lsn = self.master.execute(dbname=dbname,
+                                      username=username,
+                                      query=poll_lsn)[0][0]
 
             # wait until this LSN reaches replica
             self.poll_query_until(

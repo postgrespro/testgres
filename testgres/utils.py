@@ -212,7 +212,7 @@ def file_tail(f, num_lines):
     Get last N lines of a file.
     """
 
-    assert(num_lines > 0)
+    assert (num_lines > 0)
 
     bufsize = 8192
     buffers = 1
