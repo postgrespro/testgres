@@ -7,17 +7,17 @@ import tempfile
 from six import raise_from
 
 from .consts import \
-    DATA_DIR as _DATA_DIR, \
-    PG_CONF_FILE as _PG_CONF_FILE, \
-    BACKUP_LOG_FILE as _BACKUP_LOG_FILE, \
-    DEFAULT_XLOG_METHOD as _DEFAULT_XLOG_METHOD
+    DATA_DIR, \
+    PG_CONF_FILE, \
+    BACKUP_LOG_FILE, \
+    DEFAULT_XLOG_METHOD
 
 from .exceptions import BackupException
 
 from .utils import \
     get_bin_path, \
-    default_username as _default_username, \
-    execute_utility as _execute_utility
+    default_username, \
+    execute_utility
 
 
 class NodeBackup(object):
@@ -27,13 +27,13 @@ class NodeBackup(object):
 
     @property
     def log_file(self):
-        return os.path.join(self.base_dir, _BACKUP_LOG_FILE)
+        return os.path.join(self.base_dir, BACKUP_LOG_FILE)
 
     def __init__(self,
                  node,
                  base_dir=None,
                  username=None,
-                 xlog_method=_DEFAULT_XLOG_METHOD):
+                 xlog_method=DEFAULT_XLOG_METHOD):
         """
         Create a new backup.
 
@@ -48,7 +48,7 @@ class NodeBackup(object):
             raise BackupException('Node must be running')
 
         # Set default arguments
-        username = username or _default_username()
+        username = username or default_username()
         base_dir = base_dir or tempfile.mkdtemp()
 
         # public
@@ -59,7 +59,7 @@ class NodeBackup(object):
         # private
         self._available = True
 
-        data_dir = os.path.join(self.base_dir, _DATA_DIR)
+        data_dir = os.path.join(self.base_dir, DATA_DIR)
 
         # yapf: disable
         _params = [
@@ -70,7 +70,7 @@ class NodeBackup(object):
             "-D", data_dir,
             "-X", xlog_method
         ]
-        _execute_utility(_params, self.log_file)
+        execute_utility(_params, self.log_file)
 
     def __enter__(self):
         return self
@@ -98,8 +98,8 @@ class NodeBackup(object):
         if available:
             dest_base_dir = tempfile.mkdtemp()
 
-            data1 = os.path.join(self.base_dir, _DATA_DIR)
-            data2 = os.path.join(dest_base_dir, _DATA_DIR)
+            data1 = os.path.join(self.base_dir, DATA_DIR)
+            data2 = os.path.join(dest_base_dir, DATA_DIR)
 
             try:
                 # Copy backup to new data dir
@@ -140,8 +140,8 @@ class NodeBackup(object):
         # New nodes should always remove dir tree
         node._should_rm_dirs = True
 
-        node.append_conf(_PG_CONF_FILE, "\n")
-        node.append_conf(_PG_CONF_FILE, "port = {}".format(node.port))
+        node.append_conf(PG_CONF_FILE, "\n")
+        node.append_conf(PG_CONF_FILE, "port = {}".format(node.port))
 
         return node
 

@@ -14,8 +14,9 @@ from enum import Enum
 from .exceptions import QueryException
 
 from .utils import \
-    default_dbname as _default_dbname, \
-    default_username as _default_username
+    default_dbname, \
+    default_username
+
 
 # export these exceptions
 InternalError = pglib.InternalError
@@ -37,9 +38,9 @@ class NodeConnection(object):
 
     def __init__(self, node, dbname=None, username=None, password=None):
 
-        # Use default user if not specified
-        dbname = dbname or _default_dbname()
-        username = username or _default_username()
+        # Set default arguments
+        dbname = dbname or default_dbname()
+        username = username or default_username()
 
         self._node = node
 

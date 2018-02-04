@@ -11,7 +11,7 @@ import time
 from enum import Enum
 from six import raise_from
 
-from .cache import cached_initdb as _cached_initdb
+from .cache import cached_initdb
 
 from .config import TestgresConfig
 
@@ -21,14 +21,14 @@ from .connection import \
     ProgrammingError
 
 from .consts import \
-    DATA_DIR as _DATA_DIR, \
-    LOGS_DIR as _LOGS_DIR, \
-    PG_CONF_FILE as _PG_CONF_FILE, \
-    HBA_CONF_FILE as _HBA_CONF_FILE, \
-    RECOVERY_CONF_FILE as _RECOVERY_CONF_FILE, \
-    PG_LOG_FILE as _PG_LOG_FILE, \
-    UTILS_LOG_FILE as _UTILS_LOG_FILE, \
-    DEFAULT_XLOG_METHOD as _DEFAULT_XLOG_METHOD
+    DATA_DIR, \
+    LOGS_DIR, \
+    PG_CONF_FILE, \
+    HBA_CONF_FILE, \
+    RECOVERY_CONF_FILE, \
+    PG_LOG_FILE, \
+    UTILS_LOG_FILE, \
+    DEFAULT_XLOG_METHOD
 
 from .exceptions import \
     CatchUpException,   \
@@ -41,14 +41,14 @@ from .logger import TestgresLogger
 
 from .utils import \
     get_bin_path, \
-    file_tail as _file_tail, \
-    pg_version_ge as _pg_version_ge, \
-    reserve_port as _reserve_port, \
-    release_port as _release_port, \
-    default_dbname as _default_dbname, \
-    default_username as _default_username, \
-    generate_app_name as _generate_app_name, \
-    execute_utility as _execute_utility, \
+    file_tail, \
+    pg_version_ge, \
+    reserve_port, \
+    release_port, \
+    default_dbname, \
+    default_username, \
+    generate_app_name, \
+    execute_utility, \
     method_decorator, \
     positional_args_hack
 
@@ -82,8 +82,8 @@ class PostgresNode(object):
 
         # public
         self.host = '127.0.0.1'
-        self.name = name or _generate_app_name()
-        self.port = port or _reserve_port()
+        self.name = name or generate_app_name()
+        self.port = port or reserve_port()
         self.base_dir = base_dir
 
         # private
@@ -112,19 +112,19 @@ class PostgresNode(object):
 
     @property
     def data_dir(self):
-        return os.path.join(self.base_dir, _DATA_DIR)
+        return os.path.join(self.base_dir, DATA_DIR)
 
     @property
     def logs_dir(self):
-        return os.path.join(self.base_dir, _LOGS_DIR)
+        return os.path.join(self.base_dir, LOGS_DIR)
 
     @property
     def utils_log_name(self):
-        return os.path.join(self.logs_dir, _UTILS_LOG_FILE)
+        return os.path.join(self.logs_dir, UTILS_LOG_FILE)
 
     @property
     def pg_log_name(self):
-        return os.path.join(self.logs_dir, _PG_LOG_FILE)
+        return os.path.join(self.logs_dir, PG_LOG_FILE)
 
     def _assign_master(self, master):
         """NOTE: this is a private method!"""
@@ -160,7 +160,7 @@ class PostgresNode(object):
             "standby_mode=on\n"
         ).format(conninfo)
 
-        self.append_conf(_RECOVERY_CONF_FILE, line)
+        self.append_conf(RECOVERY_CONF_FILE, line)
 
     def _prepare_dirs(self):
         """NOTE: this is a private method!"""
@@ -194,9 +194,9 @@ class PostgresNode(object):
 
         # list of important files + N of last lines
         files = [
-            (os.path.join(self.data_dir, _PG_CONF_FILE), 0),
-            (os.path.join(self.data_dir, _HBA_CONF_FILE), 0),
-            (os.path.join(self.data_dir, _RECOVERY_CONF_FILE), 0),
+            (os.path.join(self.data_dir, PG_CONF_FILE), 0),
+            (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
+            (os.path.join(self.data_dir, RECOVERY_CONF_FILE), 0),
             (self.pg_log_name, TestgresConfig.error_log_lines)
         ]
 
@@ -215,7 +215,7 @@ class PostgresNode(object):
             with io.open(f, "rb") as _f:
                 if num_lines > 0:
                     # take last N lines of file
-                    lines = b''.join(_file_tail(_f, num_lines)).decode('utf-8')
+                    lines = b''.join(file_tail(_f, num_lines)).decode('utf-8')
                 else:
                     # read whole file
                     lines = _f.read().decode('utf-8')
@@ -248,7 +248,7 @@ class PostgresNode(object):
 
         # initialize this PostgreSQL node
         initdb_log = os.path.join(self.logs_dir, "initdb.log")
-        _cached_initdb(self.data_dir, initdb_log, initdb_params)
+        cached_initdb(self.data_dir, initdb_log, initdb_params)
 
         # initialize default config files
         self.default_conf(fsync=fsync,
@@ -275,8 +275,8 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        postgres_conf = os.path.join(self.data_dir, _PG_CONF_FILE)
-        hba_conf = os.path.join(self.data_dir, _HBA_CONF_FILE)
+        postgres_conf = os.path.join(self.data_dir, PG_CONF_FILE)
+        hba_conf = os.path.join(self.data_dir, HBA_CONF_FILE)
 
         # filter lines in hba file
         with io.open(hba_conf, "r+") as conf:
@@ -333,7 +333,7 @@ class PostgresNode(object):
             if allow_streaming:
 
                 # select a proper wal_level for PostgreSQL
-                if _pg_version_ge('9.6'):
+                if pg_version_ge('9.6'):
                     wal_level = "replica"
                 else:
                     wal_level = "hot_standby"
@@ -387,7 +387,7 @@ class PostgresNode(object):
                 "-D", self.data_dir,
                 "status"
             ]
-            _execute_utility(_params, self.utils_log_name)
+            execute_utility(_params, self.utils_log_name)
             return NodeStatus.Running
 
         except ExecUtilException as e:
@@ -418,10 +418,10 @@ class PostgresNode(object):
 
         # this one is tricky (blame PG 9.4)
         _params = [get_bin_path("pg_controldata")]
-        _params += ["-D"] if _pg_version_ge('9.5') else []
+        _params += ["-D"] if pg_version_ge('9.5') else []
         _params += [self.data_dir]
 
-        data = _execute_utility(_params, self.utils_log_name)
+        data = execute_utility(_params, self.utils_log_name)
 
         out_dict = {}
 
@@ -452,7 +452,7 @@ class PostgresNode(object):
         ] + params
 
         try:
-            _execute_utility(_params, self.utils_log_name)
+            execute_utility(_params, self.utils_log_name)
         except ExecUtilException as e:
             msg = self._format_verbose_error('Cannot start node')
             raise_from(StartNodeException(msg), e)
@@ -480,7 +480,7 @@ class PostgresNode(object):
             "stop"
         ] + params
 
-        _execute_utility(_params, self.utils_log_name)
+        execute_utility(_params, self.utils_log_name)
 
         self._maybe_stop_logger()
 
@@ -507,7 +507,7 @@ class PostgresNode(object):
         ] + params
 
         try:
-            _execute_utility(_params, self.utils_log_name)
+            execute_utility(_params, self.utils_log_name)
         except ExecUtilException as e:
             msg = self._format_verbose_error('Cannot restart node')
             raise_from(StartNodeException(msg), e)
@@ -535,7 +535,7 @@ class PostgresNode(object):
             "reload"
         ] + params
 
-        _execute_utility(_params, self.utils_log_name)
+        execute_utility(_params, self.utils_log_name)
 
     def pg_ctl(self, params):
         """
@@ -555,7 +555,7 @@ class PostgresNode(object):
             "-w"  # wait
         ] + params
 
-        return _execute_utility(_params, self.utils_log_name)
+        return execute_utility(_params, self.utils_log_name)
 
     def free_port(self):
         """
@@ -563,7 +563,7 @@ class PostgresNode(object):
         """
 
         if self._should_free_port:
-            _release_port(self.port)
+            release_port(self.port)
 
     def cleanup(self, max_attempts=3):
         """
@@ -625,8 +625,8 @@ class PostgresNode(object):
         """
 
         # Set default arguments
-        dbname = dbname or _default_dbname()
-        username = username or _default_username()
+        dbname = dbname or default_dbname()
+        username = username or default_username()
 
         # yapf: disable
         psql_params = [
@@ -708,8 +708,8 @@ class PostgresNode(object):
             return fname
 
         # Set default arguments
-        dbname = dbname or _default_dbname()
-        username = username or _default_username()
+        dbname = dbname or default_dbname()
+        username = username or default_username()
         filename = filename or tmpfile()
 
         # yapf: disable
@@ -722,7 +722,7 @@ class PostgresNode(object):
             "-d", dbname
         ]
 
-        _execute_utility(_params, self.utils_log_name)
+        execute_utility(_params, self.utils_log_name)
 
         return filename
 
@@ -754,8 +754,8 @@ class PostgresNode(object):
         Query should return single column.
 
         Args:
-            dbname: database name to connect to.
             query: query to be executed.
+            dbname: database name to connect to.
             username: database user name.
             max_attempts: how many times should we try? 0 == infinite
             sleep_time: how much should we sleep after a failure?
@@ -838,7 +838,7 @@ class PostgresNode(object):
 
             return res
 
-    def backup(self, username=None, xlog_method=_DEFAULT_XLOG_METHOD):
+    def backup(self, username=None, xlog_method=DEFAULT_XLOG_METHOD):
         """
         Perform pg_basebackup.
 
@@ -858,7 +858,7 @@ class PostgresNode(object):
     def replicate(self,
                   name=None,
                   username=None,
-                  xlog_method=_DEFAULT_XLOG_METHOD,
+                  xlog_method=DEFAULT_XLOG_METHOD,
                   use_logging=False):
         """
         Create a binary replica of this node.
@@ -885,7 +885,7 @@ class PostgresNode(object):
         if not self.master:
             raise CatchUpException("Node doesn't have a master")
 
-        if _pg_version_ge('10'):
+        if pg_version_ge('10'):
             poll_lsn = "select pg_current_wal_lsn()::text"
             wait_lsn = "select pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
         else:
@@ -928,8 +928,8 @@ class PostgresNode(object):
         """
 
         # Set default arguments
-        dbname = dbname or _default_dbname()
-        username = username or _default_username()
+        dbname = dbname or default_dbname()
+        username = username or default_username()
 
         # yapf: disable
         _params = [
@@ -984,8 +984,8 @@ class PostgresNode(object):
         """
 
         # Set default arguments
-        dbname = dbname or _default_dbname()
-        username = username or _default_username()
+        dbname = dbname or default_dbname()
+        username = username or default_username()
 
         # yapf: disable
         _params = [
@@ -1009,7 +1009,7 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        return _execute_utility(_params, self.utils_log_name)
+        return execute_utility(_params, self.utils_log_name)
 
     def connect(self, dbname=None, username=None, password=None):
         """
