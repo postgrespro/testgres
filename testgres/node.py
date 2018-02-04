@@ -583,8 +583,8 @@ class PostgresNode(object):
     def psql(self,
              dbname,
              query=None,
-             filename=None,
              username=None,
+             filename=None,
              input=None):
         """
         Execute a query using psql.
@@ -658,7 +658,7 @@ class PostgresNode(object):
 
         return out
 
-    def dump(self, dbname, username=None, filename=None):
+    def dump(self, dbname, username=None, filename=None, formate=None):
         """
         Dump database into a file using pg_dump.
         NOTE: the file is not removed automatically.
@@ -667,6 +667,7 @@ class PostgresNode(object):
             dbname: database name to connect to.
             username: database user name.
             filename: output file.
+            formate: format argument p/c/d/t
 
         Returns:
             Path to a file containing dump.
@@ -674,6 +675,7 @@ class PostgresNode(object):
 
         # Set default arguments
         username = username or _default_username()
+        formate = formate or "p"
         f, filename = filename or tempfile.mkstemp()
         os.close(f)
 
@@ -684,7 +686,8 @@ class PostgresNode(object):
             "-h", self.host,
             "-f", filename,
             "-U", username,
-            "-d", dbname
+            "-d", dbname,
+            "-F", formate
         ]
 
         _execute_utility(_params, self.utils_log_name)
@@ -697,10 +700,11 @@ class PostgresNode(object):
 
         Args:
             dbname: database name to connect to.
+            username: database user name.
             filename: database dump taken by pg_dump.
         """
 
-        self.psql(dbname=dbname, filename=filename, username=username)
+        self.psql(dbname=dbname, username=username, filename=filename)
 
     def poll_query_until(self,
                          dbname,
