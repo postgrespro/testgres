@@ -584,9 +584,9 @@ class PostgresNode(object):
                 self.stop()
                 break    # OK
             except ExecUtilException:
-                pass    # one more time
+                pass     # one more time
             except Exception:
-                break    # screw this
+                print('cannot stop node {}'.format(self.name))
 
             attempts += 1
 

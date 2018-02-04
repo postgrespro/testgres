@@ -214,9 +214,13 @@ class SimpleTest(unittest.TestCase):
             _sum = node.safe_psql('select sum(w) from horns')
             self.assertEqual(_sum, b'6\n')
 
+            # check psql's default args, fails
+            with self.assertRaises(QueryException):
+                node.psql()
+
             node.stop()
 
-            # check psql on stopped node
+            # check psql on stopped node, fails
             with self.assertRaises(QueryException):
                 node.safe_psql('select 1')
 
