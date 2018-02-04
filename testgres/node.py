@@ -23,6 +23,9 @@ from .connection import \
 from .consts import \
     DATA_DIR as _DATA_DIR, \
     LOGS_DIR as _LOGS_DIR, \
+    PG_CONF_FILE as _PG_CONF_FILE, \
+    HBA_CONF_FILE as _HBA_CONF_FILE, \
+    RECOVERY_CONF_FILE as _RECOVERY_CONF_FILE, \
     PG_LOG_FILE as _PG_LOG_FILE, \
     UTILS_LOG_FILE as _UTILS_LOG_FILE, \
     DEFAULT_XLOG_METHOD as _DEFAULT_XLOG_METHOD
@@ -42,9 +45,12 @@ from .utils import \
     pg_version_ge as _pg_version_ge, \
     reserve_port as _reserve_port, \
     release_port as _release_port, \
+    default_dbname as _default_dbname, \
     default_username as _default_username, \
     generate_app_name as _generate_app_name, \
-    execute_utility as _execute_utility
+    execute_utility as _execute_utility, \
+    method_decorator, \
+    positional_args_hack
 
 
 class NodeStatus(Enum):
@@ -63,7 +69,11 @@ class NodeStatus(Enum):
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, port=None, base_dir=None, use_logging=False):
+    def __init__(self,
+                 name=None,
+                 port=None,
+                 base_dir=None,
+                 use_logging=False):
         """
         Create a new node manually.
 
@@ -121,13 +131,17 @@ class PostgresNode(object):
         return os.path.join(self.logs_dir, _PG_LOG_FILE)
 
     def _assign_master(self, master):
+        """NOTE: this is a private method!"""
+
         # now this node has a master
         self._master = master
 
     def _create_recovery_conf(self, username):
+        """NOTE: this is a private method!"""
+
         # fetch master of this node
         master = self.master
-        assert (master is not None)
+        assert master is not None
 
         # yapf: disable
         conninfo = (
@@ -150,9 +164,11 @@ class PostgresNode(object):
             "standby_mode=on\n"
         ).format(conninfo)
 
-        self.append_conf("recovery.conf", line)
+        self.append_conf(_RECOVERY_CONF_FILE, line)
 
     def _prepare_dirs(self):
+        """NOTE: this is a private method!"""
+
         if not self.base_dir:
             self.base_dir = tempfile.mkdtemp()
 
@@ -163,6 +179,8 @@ class PostgresNode(object):
             os.makedirs(self.logs_dir)
 
     def _maybe_start_logger(self):
+        """NOTE: this is a private method!"""
+
         if self._use_logging:
             # spawn new logger if it doesn't exist or stopped
             if not self._logger or not self._logger.is_alive():
@@ -170,15 +188,19 @@ class PostgresNode(object):
                 self._logger.start()
 
     def _maybe_stop_logger(self):
+        """NOTE: this is a private method!"""
+
         if self._logger:
             self._logger.stop()
 
     def _format_verbose_error(self, message=None):
+        """NOTE: this is a private method!"""
+
         # list of important files + N of last lines
         files = [
-            (os.path.join(self.data_dir, "postgresql.conf"), 0),
-            (os.path.join(self.data_dir, "recovery.conf"), 0),
-            (os.path.join(self.data_dir, "pg_hba.conf"), 0),
+            (os.path.join(self.data_dir, _PG_CONF_FILE), 0),
+            (os.path.join(self.data_dir, _HBA_CONF_FILE), 0),
+            (os.path.join(self.data_dir, _RECOVERY_CONF_FILE), 0),
             (self.pg_log_name, TestgresConfig.error_log_lines)
         ]
 
@@ -257,8 +279,8 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        postgres_conf = os.path.join(self.data_dir, "postgresql.conf")
-        hba_conf = os.path.join(self.data_dir, "pg_hba.conf")
+        postgres_conf = os.path.join(self.data_dir, _PG_CONF_FILE)
+        hba_conf = os.path.join(self.data_dir, _HBA_CONF_FILE)
 
         # filter lines in hba file
         with io.open(hba_conf, "r+") as conf:
@@ -296,7 +318,7 @@ class PostgresNode(object):
                     if line not in lines:
                         conf.write(line)
 
-        # overwrite postgresql.conf file
+        # overwrite config file
         with io.open(postgres_conf, "w") as conf:
             # remove old lines
             conf.truncate()
@@ -585,27 +607,30 @@ class PostgresNode(object):
 
         return self
 
+    @method_decorator(positional_args_hack(['query'], ['dbname', 'query']))
     def psql(self,
-             dbname,
+             *,
              query=None,
              filename=None,
+             dbname=None,
              username=None,
              input=None):
         """
         Execute a query using psql.
 
         Args:
+            query: query to be executed.
+            filename: file with a query.
             dbname: database name to connect to.
             username: database user name.
-            filename: file with a query.
-            query: query to be executed.
             input: raw input to be passed.
 
         Returns:
             A tuple of (code, stdout, stderr).
         """
 
-        # Set default username
+        # Set default arguments
+        dbname = dbname or _default_dbname()
         username = username or _default_username()
 
         # yapf: disable
@@ -626,8 +651,6 @@ class PostgresNode(object):
             psql_params.extend(("-c", query))
         elif filename:
             psql_params.extend(("-f", filename))
-        elif input:
-            pass
         else:
             raise QueryException('Query or filename must be provided')
 
@@ -642,45 +665,58 @@ class PostgresNode(object):
         out, err = process.communicate(input=input)
         return process.returncode, out, err
 
-    def safe_psql(self, dbname, query, username=None, input=None):
+    @method_decorator(positional_args_hack(['dbname', 'query']))
+    def safe_psql(self,
+                  query,
+                  *,
+                  dbname=None,
+                  username=None,
+                  input=None):
         """
         Execute a query using psql.
 
         Args:
+            query: query to be executed.
             dbname: database name to connect to.
             username: database user name.
-            query: query to be executed.
             input: raw input to be passed.
 
         Returns:
             psql's output as str.
         """
 
-        ret, out, err = self.psql(dbname, query, username=username, input=input)
+        ret, out, err = self.psql(query=query,
+                                  dbname=dbname,
+                                  username=username,
+                                  input=input)
         if ret:
-            err = '' if not err else err.decode('utf-8')
-            raise QueryException(err)
+            raise QueryException((err or b'').decode('utf-8'))
 
         return out
 
-    def dump(self, dbname, username=None, filename=None):
+    def dump(self, filename=None, dbname=None, username=None):
         """
         Dump database into a file using pg_dump.
         NOTE: the file is not removed automatically.
 
         Args:
+            filename: database dump taken by pg_dump.
             dbname: database name to connect to.
             username: database user name.
-            filename: output file.
 
         Returns:
             Path to a file containing dump.
         """
 
+        def tmpfile():
+            fd, fname = tempfile.mkstemp()
+            os.close(fd)
+            return fname
+
         # Set default arguments
+        dbname = dbname or _default_dbname()
         username = username or _default_username()
-        f, filename = filename or tempfile.mkstemp()
-        os.close(f)
+        filename = filename or tmpfile()
 
         # yapf: disable
         _params = [
@@ -696,20 +732,23 @@ class PostgresNode(object):
 
         return filename
 
-    def restore(self, dbname, filename, username=None):
+    def restore(self, filename, dbname=None, username=None):
         """
         Restore database from pg_dump's file.
 
         Args:
-            dbname: database name to connect to.
             filename: database dump taken by pg_dump.
+            dbname: database name to connect to.
+            username: database user name.
         """
 
-        self.psql(dbname=dbname, filename=filename, username=username)
+        self.psql(filename=filename, dbname=dbname, username=username)
 
+    @method_decorator(positional_args_hack(['dbname', 'query']))
     def poll_query_until(self,
-                         dbname,
                          query,
+                         *,
+                         dbname=None,
                          username=None,
                          max_attempts=0,
                          sleep_time=1,
@@ -734,8 +773,8 @@ class PostgresNode(object):
         """
 
         # sanity checks
-        assert (max_attempts >= 0)
-        assert (sleep_time > 0)
+        assert max_attempts >= 0
+        assert sleep_time > 0
 
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
@@ -774,24 +813,37 @@ class PostgresNode(object):
 
         raise TimeoutException('Query timeout')
 
-    def execute(self, dbname, query, username=None, commit=True):
+    @method_decorator(positional_args_hack(['dbname', 'query']))
+    def execute(self,
+                query,
+                *,
+                dbname=None,
+                username=None,
+                password=None,
+                commit=True):
         """
         Execute a query and return all rows as list.
 
         Args:
-            dbname: database name to connect to.
             query: query to be executed.
+            dbname: database name to connect to.
             username: database user name.
+            password: user's password.
             commit: should we commit this query?
 
         Returns:
             A list of tuples representing rows.
         """
 
-        with self.connect(dbname, username) as node_con:
+        with self.connect(dbname=dbname,
+                          username=username,
+                          password=password) as node_con:
+
             res = node_con.execute(query)
+
             if commit:
                 node_con.commit()
+
             return res
 
     def backup(self, username=None, xlog_method=_DEFAULT_XLOG_METHOD):
@@ -807,7 +859,9 @@ class PostgresNode(object):
         """
 
         from .backup import NodeBackup
-        return NodeBackup(node=self, username=username, xlog_method=xlog_method)
+        return NodeBackup(node=self,
+                          username=username,
+                          xlog_method=xlog_method)
 
     def replicate(self,
                   name=None,
@@ -824,13 +878,14 @@ class PostgresNode(object):
             use_logging: enable python logging.
         """
 
-        # transform backup into a replica
         backup = self.backup(username=username, xlog_method=xlog_method)
+
+        # transform backup into a replica
         return backup.spawn_replica(name=name,
                                     destroy=True,
                                     use_logging=use_logging)
 
-    def catchup(self, dbname='postgres', username=None):
+    def catchup(self, dbname=None, username=None):
         """
         Wait until async replica catches up with its master.
         """
@@ -847,21 +902,21 @@ class PostgresNode(object):
 
         try:
             # fetch latest LSN
-            lsn = self.master.execute(dbname=dbname,
-                                      username=username,
-                                      query=poll_lsn)[0][0]
+            lsn = self.master.execute(query=poll_lsn,
+                                      dbname=dbname,
+                                      username=username)[0][0]
 
             # wait until this LSN reaches replica
             self.poll_query_until(
+                query=wait_lsn.format(lsn),
                 dbname=dbname,
                 username=username,
-                query=wait_lsn.format(lsn),
                 max_attempts=0)    # infinite
         except Exception as e:
             raise_from(CatchUpException('Failed to catch up'), e)
 
     def pgbench(self,
-                dbname='postgres',
+                dbname=None,
                 username=None,
                 stdout=None,
                 stderr=None,
@@ -881,6 +936,7 @@ class PostgresNode(object):
         """
 
         # Set default arguments
+        dbname = dbname or _default_dbname()
         username = username or _default_username()
 
         # yapf: disable
@@ -912,7 +968,7 @@ class PostgresNode(object):
         return self
 
     def pgbench_run(self,
-                    dbname='postgres',
+                    dbname=None,
                     username=None,
                     options=[],
                     **kwargs):
@@ -936,6 +992,7 @@ class PostgresNode(object):
         """
 
         # Set default arguments
+        dbname = dbname or _default_dbname()
         username = username or _default_username()
 
         # yapf: disable
@@ -954,7 +1011,7 @@ class PostgresNode(object):
             if not isinstance(value, bool):
                 _params.append('--{}={}'.format(key, value))
             else:
-                assert (value is True)  # just in case
+                assert value is True  # just in case
                 _params.append('--{}'.format(key))
 
         # should be the last one
@@ -962,19 +1019,20 @@ class PostgresNode(object):
 
         return _execute_utility(_params, self.utils_log_name)
 
-    def connect(self, dbname='postgres', username=None):
+    def connect(self, dbname=None, username=None, password=None):
         """
         Connect to a database.
 
         Args:
             dbname: database name to connect to.
             username: database user name.
+            password: user's password.
 
         Returns:
             An instance of NodeConnection.
         """
 
-        return NodeConnection(parent_node=self,
-                              host=self.host,
+        return NodeConnection(node=self,
                               dbname=dbname,
-                              username=username)
+                              username=username,
+                              password=password)

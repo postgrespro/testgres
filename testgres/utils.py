@@ -2,9 +2,11 @@
 
 from __future__ import division
 
+import functools
 import io
 import os
 import port_for
+import six
 import subprocess
 
 from distutils.version import LooseVersion
@@ -40,13 +42,21 @@ def release_port(port):
     bound_ports.remove(port)
 
 
-def default_username():
+def default_dbname():
     """
-    Return current user.
+    Return default DB name.
     """
 
-    import pwd    # used only here
-    return pwd.getpwuid(os.getuid())[0]
+    return 'postgres'
+
+
+def default_username():
+    """
+    Return default username (current user).
+    """
+
+    import getpass
+    return getpass.getuser()
 
 
 def generate_app_name():
@@ -212,7 +222,7 @@ def file_tail(f, num_lines):
     Get last N lines of a file.
     """
 
-    assert (num_lines > 0)
+    assert num_lines > 0
 
     bufsize = 8192
     buffers = 1
@@ -232,3 +242,75 @@ def file_tail(f, num_lines):
             return lines[-num_lines:]
 
         buffers = int(buffers * max(2, num_lines / max(cur_lines, 1)))
+
+
+def positional_args_hack(*special_cases):
+    """
+    Convert positional args described by
+    'special_cases' into named args.
+
+    Example:
+        @positional_args_hack([['dbname', 'query']])
+        def some_api_func(...)
+
+    This is useful for compatibility.
+    """
+
+    cases = dict()
+
+    for case in special_cases:
+        k = len(case)
+        assert k not in six.iterkeys(cases), 'len must be unique'
+        cases[k] = case
+
+    def decorator(function):
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            k = len(args)
+
+            if k in six.iterkeys(cases):
+                case = cases[k]
+
+                for i in range(0, k):
+                    arg_name = case[i]
+                    arg_val = args[i]
+
+                    # transform into named
+                    kwargs[arg_name] = arg_val
+
+                # get rid of them
+                args = []
+
+            return function(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def method_decorator(decorator):
+    """
+    Convert a function decorator into a method decorator.
+    """
+
+    def _dec(func):
+        def _wrapper(self, *args, **kwargs):
+            @decorator
+            def bound_func(*args2, **kwargs2):
+                return func.__get__(self, type(self))(*args2, **kwargs2)
+
+            # 'bound_func' is a closure and can see 'self'
+            return bound_func(*args, **kwargs)
+
+        # preserve docs
+        functools.update_wrapper(_wrapper, func)
+
+        return _wrapper
+
+    # preserve docs
+    functools.update_wrapper(_dec, decorator)
+
+    # change name for easier debugging
+    _dec.__name__ = 'method_decorator({})'.format(decorator.__name__)
+
+    return _dec

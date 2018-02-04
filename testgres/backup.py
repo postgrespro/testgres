@@ -8,6 +8,7 @@ from six import raise_from
 
 from .consts import \
     DATA_DIR as _DATA_DIR, \
+    PG_CONF_FILE as _PG_CONF_FILE, \
     BACKUP_LOG_FILE as _BACKUP_LOG_FILE, \
     DEFAULT_XLOG_METHOD as _DEFAULT_XLOG_METHOD
 
@@ -139,8 +140,8 @@ class NodeBackup(object):
         # New nodes should always remove dir tree
         node._should_rm_dirs = True
 
-        node.append_conf("postgresql.conf", "\n")
-        node.append_conf("postgresql.conf", "port = {}".format(node.port))
+        node.append_conf(_PG_CONF_FILE, "\n")
+        node.append_conf(_PG_CONF_FILE, "port = {}".format(node.port))
 
         return node
 

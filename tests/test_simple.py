@@ -124,32 +124,32 @@ class SimpleTest(unittest.TestCase):
                 node.restart()
 
     def test_psql(self):
-        with get_new_node('test') as node:
+        with get_new_node() as node:
             node.init().start()
 
-            # check default params
-            with self.assertRaises(QueryException):
-                node.psql('postgres')
+            # check returned values (1 arg)
+            res = node.psql('select 1')
+            self.assertEqual(res, (0, b'1\n', b''))
 
-            # check returned values
-            res = node.psql('postgres', 'select 1')
-            self.assertEqual(res[0], 0)
-            self.assertEqual(res[1], b'1\n')
-            self.assertEqual(res[2], b'')
+            # check returned values (2 args)
+            res = node.psql('postgres', 'select 2')
+            self.assertEqual(res, (0, b'2\n', b''))
 
-            # check returned values
-            res = node.safe_psql('postgres', 'select 1')
-            self.assertEqual(res, b'1\n')
+            # check returned values (1 arg)
+            res = node.safe_psql('select 3')
+            self.assertEqual(res, b'3\n')
+
+            # check returned values (2 args)
+            res = node.safe_psql('postgres', 'select 4')
+            self.assertEqual(res, b'4\n')
 
             # check feeding input
-            node.safe_psql('postgres', 'create table horns (w int)')
+            node.safe_psql('create table horns (w int)')
             node.safe_psql(
-                'postgres',
                 'copy horns from stdin (format csv)',
                 input=b"1\n2\n3\n\.\n")
-            sum = node.safe_psql('postgres', 'select sum(w) from horns')
-            self.assertEqual(sum, b'6\n')
-            node.safe_psql('postgres', 'drop table horns')
+            _sum = node.safe_psql('select sum(w) from horns')
+            self.assertEqual(_sum, b'6\n')
 
             node.stop()
 
@@ -351,24 +351,23 @@ class SimpleTest(unittest.TestCase):
                 node.catchup()
 
     def test_dump(self):
-        with get_new_node('node1') as node1:
-            node1.init().start()
+        query_create = 'create table test as select generate_series(1, 2) as val'
+        query_select = 'select * from test order by val asc'
 
-            with node1.connect('postgres') as con:
-                con.begin()
-                con.execute('create table test (val int)')
-                con.execute('insert into test values (1), (2)')
-                con.commit()
+        with get_new_node().init().start() as node1:
+
+            node1.execute('postgres', query_create)
 
             # take a new dump
-            dump = node1.dump('postgres')
+            dump = node1.dump()
             self.assertTrue(os.path.isfile(dump))
 
-            with get_new_node('node2') as node2:
-                node2.init().start().restore('postgres', dump)
+            with get_new_node().init().start() as node2:
 
-                res = node2.execute('postgres',
-                                    'select * from test order by val asc')
+                # restore dump
+                node2.restore(filename=dump)
+
+                res = node2.execute('postgres', query_select)
                 self.assertListEqual(res, [(1, ), (2, )])
 
             # finally, remove dump
@@ -378,7 +377,7 @@ class SimpleTest(unittest.TestCase):
         with get_new_node('master') as node:
             node.init().start()
             node.psql('postgres', 'create role test_user login')
-            value = node.safe_psql('postgres', 'select 1', username='test_user')
+            value = node.safe_psql('select 1', username='test_user')
             self.assertEqual(value, b'1\n')
 
     def test_poll_query_until(self):
@@ -388,67 +387,61 @@ class SimpleTest(unittest.TestCase):
             get_time = 'select extract(epoch from now())'
             check_time = 'select extract(epoch from now()) - {} >= 5'
 
-            start_time = node.execute('postgres', get_time)[0][0]
-            node.poll_query_until(
-                dbname='postgres', query=check_time.format(start_time))
-            end_time = node.execute('postgres', get_time)[0][0]
+            start_time = node.execute(get_time)[0][0]
+            node.poll_query_until(query=check_time.format(start_time))
+            end_time = node.execute(get_time)[0][0]
 
             self.assertTrue(end_time - start_time >= 5)
 
             # check 0 rows
             with self.assertRaises(QueryException):
                 node.poll_query_until(
-                    dbname='postgres',
                     query='select * from pg_class where true = false')
 
             # check 0 columns
             with self.assertRaises(QueryException):
-                node.poll_query_until(
-                    dbname='postgres', query='select from pg_class limit 1')
+                node.poll_query_until(query='select from pg_class limit 1')
 
             # check None, fail
             with self.assertRaises(QueryException):
-                node.poll_query_until(
-                    dbname='postgres', query='create table abc (val int)')
+                node.poll_query_until(query='create table abc (val int)')
 
             # check None, ok
-            node.poll_query_until(
-                dbname='postgres', query='create table def()',
-                expected=None)    # returns nothing
+            node.poll_query_until(query='create table def()',
+                                  expected=None)  # returns nothing
 
             # check arbitrary expected value, fail
             with self.assertRaises(TimeoutException):
                 node.poll_query_until(
-                    dbname='postgres',
                     query='select 3',
                     expected=1,
                     max_attempts=3,
                     sleep_time=0.01)
 
             # check arbitrary expected value, ok
-            node.poll_query_until(
-                dbname='postgres', query='select 2', expected=2)
+            node.poll_query_until(query='select 2', expected=2)
 
             # check timeout
             with self.assertRaises(TimeoutException):
                 node.poll_query_until(
-                    dbname='postgres',
                     query='select 1 > 2',
                     max_attempts=3,
                     sleep_time=0.01)
 
             # check ProgrammingError, fail
             with self.assertRaises(testgres.ProgrammingError):
-                node.poll_query_until(dbname='postgres', query='dummy1')
+                node.poll_query_until(query='dummy1')
 
             # check ProgrammingError, ok
             with self.assertRaises(TimeoutException):
                 node.poll_query_until(
-                    dbname='postgres',
                     query='dummy2',
                     max_attempts=3,
                     sleep_time=0.01,
                     raise_programming_error=False)
+
+            # check 1 arg, ok
+            node.poll_query_until('select true')
 
     def test_logging(self):
         logfile = tempfile.NamedTemporaryFile('w', delete=True)
@@ -482,7 +475,7 @@ class SimpleTest(unittest.TestCase):
 
             # execute a dummy query a few times
             for i in range(20):
-                master.execute('postgres', 'select 1')
+                master.execute('select 1')
                 time.sleep(0.01)
 
             # let logging worker do the job
