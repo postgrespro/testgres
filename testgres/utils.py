@@ -250,7 +250,7 @@ def positional_args_hack(*special_cases):
     'special_cases' into named args.
 
     Example:
-        @positional_args_hack([['dbname', 'query']])
+        @positional_args_hack(['abc'], ['def', 'abc'])
         def some_api_func(...)
 
     This is useful for compatibility.

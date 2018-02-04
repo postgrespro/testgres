@@ -69,11 +69,7 @@ class NodeStatus(Enum):
 
 
 class PostgresNode(object):
-    def __init__(self,
-                 name=None,
-                 port=None,
-                 base_dir=None,
-                 use_logging=False):
+    def __init__(self, name=None, port=None, base_dir=None, use_logging=False):
         """
         Create a new node manually.
 
@@ -609,7 +605,6 @@ class PostgresNode(object):
 
     @method_decorator(positional_args_hack(['query'], ['dbname', 'query']))
     def psql(self,
-             *,
              query=None,
              filename=None,
              dbname=None,
@@ -668,7 +663,6 @@ class PostgresNode(object):
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def safe_psql(self,
                   query,
-                  *,
                   dbname=None,
                   username=None,
                   input=None):
@@ -747,7 +741,6 @@ class PostgresNode(object):
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def poll_query_until(self,
                          query,
-                         *,
                          dbname=None,
                          username=None,
                          max_attempts=0,
@@ -816,7 +809,6 @@ class PostgresNode(object):
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def execute(self,
                 query,
-                *,
                 dbname=None,
                 username=None,
                 password=None,

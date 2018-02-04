@@ -17,7 +17,6 @@ from .utils import \
     default_dbname as _default_dbname, \
     default_username as _default_username
 
-
 # export these exceptions
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
@@ -36,11 +35,7 @@ class NodeConnection(object):
     Transaction wrapper returned by Node
     """
 
-    def __init__(self,
-                 node,
-                 dbname=None,
-                 username=None,
-                 password=None):
+    def __init__(self, node, dbname=None, username=None, password=None):
 
         # Use default user if not specified
         dbname = dbname or _default_dbname()
