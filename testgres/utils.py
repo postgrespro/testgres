@@ -23,10 +23,9 @@ bound_ports = set()
 
 def reserve_port():
     """
-    Generate a new port and add it to '_bound_ports'.
+    Generate a new port and add it to 'bound_ports'.
     """
 
-    global bound_ports
     port = port_for.select_random(exclude_ports=bound_ports)
     bound_ports.add(port)
 
@@ -38,7 +37,6 @@ def release_port(port):
     Free port provided by reserve_port().
     """
 
-    global bound_ports
     bound_ports.remove(port)
 
 
@@ -65,7 +63,7 @@ def generate_app_name():
     """
 
     import uuid
-    return ''.join(['testgres-', str(uuid.uuid4())])
+    return 'testgres-{}'.format(str(uuid.uuid4()))
 
 
 def execute_utility(args, logfile):
@@ -147,11 +145,7 @@ def get_pg_config():
     NOTE: this fuction caches the result by default (see TestgresConfig).
     """
 
-    global _pg_config_data
-
     def cache_pg_config_data(cmd):
-        global _pg_config_data
-
         # execute pg_config and get the output
         out = subprocess.check_output([cmd]).decode('utf-8')
 
@@ -161,16 +155,19 @@ def get_pg_config():
                 key, _, value = line.partition('=')
                 data[key.strip()] = value.strip()
 
-        _pg_config_data.clear()
-
-        # cache data, if necessary
-        if TestgresConfig.cache_pg_config:
-            _pg_config_data = data
+        # cache data
+        global _pg_config_data
+        _pg_config_data = data
 
         return data
 
-    # return cached data, if allowed to
-    if TestgresConfig.cache_pg_config and _pg_config_data:
+    # drop cache if asked to
+    if not TestgresConfig.cache_pg_config:
+        global _pg_config_data
+        _pg_config_data = {}
+
+    # return cached data
+    if _pg_config_data:
         return _pg_config_data
 
     # try PG_CONFIG

@@ -228,7 +228,7 @@ class PostgresNode(object):
     def init(self,
              fsync=False,
              unix_sockets=True,
-             allow_streaming=False,
+             allow_streaming=True,
              initdb_params=[]):
         """
         Perform initdb for this node.
@@ -401,7 +401,7 @@ class PostgresNode(object):
 
     def get_pid(self):
         """
-        Return postmaster's pid if node is running, else 0.
+        Return postmaster's PID if node is running, else 0.
         """
 
         if self.status():
@@ -603,7 +603,7 @@ class PostgresNode(object):
 
         return self
 
-    @method_decorator(positional_args_hack(['query'], ['dbname', 'query']))
+    @method_decorator(positional_args_hack(['dbname', 'query']))
     def psql(self,
              query=None,
              filename=None,

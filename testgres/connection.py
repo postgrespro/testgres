@@ -17,7 +17,6 @@ from .utils import \
     default_dbname, \
     default_username
 
-
 # export these exceptions
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError

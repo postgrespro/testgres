@@ -38,16 +38,20 @@ from testgres import bound_ports
 
 
 def util_is_executable(util):
-    exe_file = get_bin_path(util)
+    def good_properties(f):
+        return (
+            os.path.exists(f) and
+            os.path.isfile(f) and
+            os.access(f, os.X_OK)
+        )
 
-    # check if util exists
-    if os.path.exists(exe_file):
+    # try to resolve it
+    if good_properties(get_bin_path(util)):
         return True
 
     # check if util is in PATH
     for path in os.environ["PATH"].split(os.pathsep):
-        exe_file = os.path.join(path, util)
-        if os.path.exists(exe_file):
+        if good_properties(os.path.join(path, util)):
             return True
 
 
@@ -519,18 +523,27 @@ class SimpleTest(unittest.TestCase):
 
             self.assertTrue('tps' in out)
 
-    def test_config(self):
+    def test_pg_config(self):
         # set global if it wasn't set
-        configure_testgres(cache_initdb=True, cache_pg_config=True)
+        configure_testgres(cache_pg_config=True)
 
         # check same instances
         a = get_pg_config()
         b = get_pg_config()
         self.assertEqual(id(a), id(b))
 
+        # save right before config change
+        c1 = get_pg_config()
+
         # modify setting
         configure_testgres(cache_pg_config=False)
         self.assertFalse(TestgresConfig.cache_pg_config)
+
+        # save right after config change
+        c2 = get_pg_config()
+
+        # check different instances after config change
+        self.assertNotEqual(id(c1), id(c2))
 
         # check different instances
         a = get_pg_config()
