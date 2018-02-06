@@ -27,7 +27,10 @@ class IsolationLevel(Enum):
     Transaction isolation level for NodeConnection
     """
 
-    ReadUncommitted, ReadCommitted, RepeatableRead, Serializable = range(4)
+    ReadUncommitted = 'read uncommitted'
+    ReadCommitted = 'read committed'
+    RepeatableRead = 'repeatable read'
+    Serializable = 'serializable'
 
 
 class NodeConnection(object):
@@ -71,39 +74,21 @@ class NodeConnection(object):
         self.close()
 
     def begin(self, isolation_level=IsolationLevel.ReadCommitted):
-        # yapf: disable
-        levels = [
-            'read uncommitted',
-            'read committed',
-            'repeatable read',
-            'serializable'
-        ]
-
-        # Check if level is an IsolationLevel
-        if (isinstance(isolation_level, IsolationLevel)):
-
-            # Get index of isolation level
-            level_idx = isolation_level.value
-            assert level_idx in range(4)
-
-            # Replace isolation level with its name
-            isolation_level = levels[level_idx]
-
-        else:
+        # Check if level isn't an IsolationLevel
+        if not isinstance(isolation_level, IsolationLevel):
             # Get name of isolation level
             level_str = str(isolation_level).lower()
 
             # Validate level string
-            if level_str not in levels:
+            try:
+                isolation_level = IsolationLevel(level_str)
+            except ValueError:
                 error = 'Invalid isolation level "{}"'
                 raise QueryException(error.format(level_str))
 
-            # Replace isolation level with its name
-            isolation_level = level_str
-
         # Set isolation level
         cmd = 'SET TRANSACTION ISOLATION LEVEL {}'
-        self.cursor.execute(cmd.format(isolation_level))
+        self.cursor.execute(cmd.format(isolation_level.value))
 
         return self
 

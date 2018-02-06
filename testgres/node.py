@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import time
 
-from enum import Enum
+from enum import IntEnum
 from six import raise_from
 
 from .cache import cached_initdb
@@ -53,7 +53,7 @@ from .utils import \
     positional_args_hack
 
 
-class NodeStatus(Enum):
+class NodeStatus(IntEnum):
     """
     Status of a PostgresNode
     """
@@ -62,7 +62,7 @@ class NodeStatus(Enum):
 
     # for Python 3.x
     def __bool__(self):
-        return self.value == NodeStatus.Running.value
+        return self == NodeStatus.Running
 
     # for Python 2.x
     __nonzero__ = __bool__
