@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import os
+import shutil
 import subprocess
 import tempfile
 import testgres
@@ -60,7 +61,6 @@ class SimpleTest(unittest.TestCase):
         with get_new_node() as node:
             # enable page checksums
             node.init(initdb_params=['-k']).start()
-            node.safe_psql('select 1')
 
         with get_new_node() as node:
             node.init(
@@ -79,27 +79,36 @@ class SimpleTest(unittest.TestCase):
 
     def test_double_init(self):
         with get_new_node().init() as node:
-
             # can't initialize node more than once
             with self.assertRaises(InitNodeException):
                 node.init()
 
     def test_init_after_cleanup(self):
         with get_new_node() as node:
-            node.init().start()
-            node.status()
-            node.safe_psql('select 1')
-
+            node.init().start().execute('select 1')
             node.cleanup()
+            node.init().start().execute('select 1')
 
-            node.init().start()
-            node.status()
-            node.safe_psql('select 1')
+    def test_node_exit(self):
+        base_dir = None
+
+        with self.assertRaises(QueryException):
+            with get_new_node().init() as node:
+                base_dir = node.base_dir
+                node.safe_psql('select 1')
+
+        # we should save the DB for "debugging"
+        self.assertTrue(os.path.exists(base_dir))
+        shutil.rmtree(base_dir, ignore_errors=True)
+
+        with get_new_node().init() as node:
+            base_dir = node.base_dir
+
+        # should have been removed by default
+        self.assertFalse(os.path.exists(base_dir))
 
     def test_double_start(self):
-        with get_new_node() as node:
-            node.init().start()
-
+        with get_new_node().init().start() as node:
             # can't start node more than once
             with self.assertRaises(StartNodeException):
                 node.start()
@@ -150,38 +159,33 @@ class SimpleTest(unittest.TestCase):
             self.assertTrue('PID' in status)
 
     def test_status(self):
-        # check NodeStatus cast to bool
         self.assertTrue(NodeStatus.Running)
-
-        # check NodeStatus cast to bool
         self.assertFalse(NodeStatus.Stopped)
-
-        # check NodeStatus cast to bool
         self.assertFalse(NodeStatus.Uninitialized)
 
         # check statuses after each operation
         with get_new_node() as node:
-            self.assertEqual(node.get_pid(), 0)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
 
             node.init()
 
-            self.assertEqual(node.get_pid(), 0)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Stopped)
 
             node.start()
 
-            self.assertTrue(node.get_pid() > 0)
+            self.assertNotEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Running)
 
             node.stop()
 
-            self.assertEqual(node.get_pid(), 0)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Stopped)
 
             node.cleanup()
 
-            self.assertEqual(node.get_pid(), 0)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
 
     def test_psql(self):
@@ -283,8 +287,7 @@ class SimpleTest(unittest.TestCase):
             master.psql('create table test as select generate_series(1, 4) i')
 
             with master.backup(xlog_method='stream') as backup:
-                with backup.spawn_primary() as slave:
-                    slave.start()
+                with backup.spawn_primary().start() as slave:
                     res = slave.execute('select * from test order by i asc')
                     self.assertListEqual(res, [(1, ), (2, ), (3, ), (4, )])
 
@@ -310,36 +313,12 @@ class SimpleTest(unittest.TestCase):
             with node.backup(xlog_method='fetch') as backup:
 
                 # exhaust backup by creating new node
-                with backup.spawn_primary() as node1:    # noqa
+                with backup.spawn_primary():
                     pass
 
                 # now let's try to create one more node
                 with self.assertRaises(BackupException):
-                    with backup.spawn_primary() as node2:    # noqa
-                        pass
-
-    def test_backup_and_replication(self):
-        with get_new_node() as node:
-            node.init(allow_streaming=True).start()
-
-            node.psql('create table abc(a int, b int)')
-            node.psql('insert into abc values (1, 2)')
-
-            backup = node.backup()
-
-            with backup.spawn_replica().start() as replica:
-                res = replica.execute('select * from abc')
-                self.assertListEqual(res, [(1, 2)])
-
-                # Insert into master node
-                node.psql('insert into abc values (3, 4)')
-
-                # Wait until data syncronizes
-                replica.catchup()
-
-                # Check that this record was exported to replica
-                res = replica.execute('select * from abc')
-                self.assertListEqual(res, [(1, 2), (3, 4)])
+                    backup.spawn_primary()
 
     def test_replicate(self):
         with get_new_node() as node:
@@ -574,8 +553,6 @@ class SimpleTest(unittest.TestCase):
                 self.assertTrue(r.status())
 
                 # check their names
-                self.assertIsNotNone(m.name)
-                self.assertIsNotNone(r.name)
                 self.assertNotEqual(m.name, r.name)
                 self.assertTrue('testgres' in m.name)
                 self.assertTrue('testgres' in r.name)
@@ -588,7 +565,9 @@ class SimpleTest(unittest.TestCase):
         s3 = "def\n"
 
         with tempfile.NamedTemporaryFile(mode='r+', delete=True) as f:
-            for i in range(1, 5000):
+            sz = 0
+            while sz < 3 * 8192:
+                sz += len(s1)
                 f.write(s1)
             f.write(s2)
             f.write(s3)
