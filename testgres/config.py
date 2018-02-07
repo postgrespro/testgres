@@ -7,17 +7,27 @@ class TestgresConfig:
 
     Attributes:
         cache_initdb:       shall we use cached initdb instance?
-        cache_pg_config:    shall we cache pg_config results?
         cached_initdb_dir:  shall we create a temp dir for cached initdb?
-        node_cleanup_full:  shall we remove EVERYTHING (including logs)?
+
+        cache_pg_config:    shall we cache pg_config results?
+
         error_log_lines:    N of log lines to be included into exception (0=inf).
+
+        node_cleanup_full:  shall we remove EVERYTHING (including logs)?
+        node_cleanup_on_good_exit:  remove base_dir on nominal __exit__().
+        node_cleanup_on_bad_exit:   remove base_dir on __exit__() via exception.
     """
 
     cache_initdb = True
-    cache_pg_config = True
     cached_initdb_dir = None
-    node_cleanup_full = True
+
+    cache_pg_config = True
+
     error_log_lines = 20
+
+    node_cleanup_full = True
+    node_cleanup_on_good_exit = True
+    node_cleanup_on_bad_exit = False
 
 
 def configure_testgres(**options):

@@ -40,6 +40,7 @@ from .exceptions import \
 from .logger import TestgresLogger
 
 from .utils import \
+    eprint, \
     get_bin_path, \
     file_tail, \
     pg_version_ge, \
@@ -80,14 +81,18 @@ class PostgresNode(object):
             use_logging: enable python logging.
         """
 
-        # public
+        # basic
         self.host = '127.0.0.1'
         self.name = name or generate_app_name()
         self.port = port or reserve_port()
         self.base_dir = base_dir
 
+        # defaults for __exit__()
+        self.cleanup_on_good_exit = TestgresConfig.node_cleanup_on_good_exit
+        self.cleanup_on_bad_exit = TestgresConfig.node_cleanup_on_bad_exit
+        self.shutdown_max_attempts = 3
+
         # private
-        self._should_rm_dirs = base_dir is None
         self._should_free_port = port is None
         self._use_logging = use_logging
         self._logger = None
@@ -100,11 +105,22 @@ class PostgresNode(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        # stop node if necessary
-        self.cleanup()
-
-        # free port if necessary
         self.free_port()
+
+        got_exception = value is not None
+        c1 = self.cleanup_on_good_exit and not got_exception
+        c2 = self.cleanup_on_bad_exit and got_exception
+
+        attempts = self.shutdown_max_attempts
+
+        if c1 or c2:
+            self.cleanup(attempts)
+        else:
+            self._try_shutdown(attempts)
+
+    @property
+    def pid(self):
+        return self.get_pid()
 
     @property
     def master(self):
@@ -125,6 +141,22 @@ class PostgresNode(object):
     @property
     def pg_log_name(self):
         return os.path.join(self.logs_dir, PG_LOG_FILE)
+
+    def _try_shutdown(self, max_attempts):
+        attempts = 0
+
+        # try stopping server N times
+        while attempts < max_attempts:
+            try:
+                self.stop()
+                break    # OK
+            except ExecUtilException:
+                pass     # one more time
+            except Exception:
+                # TODO: probably kill stray instance
+                eprint('cannot stop node {}'.format(self.name))
+
+            attempts += 1
 
     def _assign_master(self, master):
         """NOTE: this is a private method!"""
@@ -163,8 +195,6 @@ class PostgresNode(object):
         self.append_conf(RECOVERY_CONF_FILE, line)
 
     def _prepare_dirs(self):
-        """NOTE: this is a private method!"""
-
         if not self.base_dir:
             self.base_dir = tempfile.mkdtemp()
 
@@ -175,23 +205,17 @@ class PostgresNode(object):
             os.makedirs(self.logs_dir)
 
     def _maybe_start_logger(self):
-        """NOTE: this is a private method!"""
-
         if self._use_logging:
-            # spawn new logger if it doesn't exist or stopped
+            # spawn new logger if it doesn't exist or is stopped
             if not self._logger or not self._logger.is_alive():
                 self._logger = TestgresLogger(self.name, self.pg_log_name)
                 self._logger.start()
 
     def _maybe_stop_logger(self):
-        """NOTE: this is a private method!"""
-
         if self._logger:
             self._logger.stop()
 
     def _format_verbose_error(self, message=None):
-        """NOTE: this is a private method!"""
-
         # list of important files + N of last lines
         files = [
             (os.path.join(self.data_dir, PG_CONF_FILE), 0),
@@ -560,6 +584,7 @@ class PostgresNode(object):
     def free_port(self):
         """
         Reclaim port owned by this node.
+        NOTE: does not free auto selected ports.
         """
 
         if self._should_free_port:
@@ -567,7 +592,8 @@ class PostgresNode(object):
 
     def cleanup(self, max_attempts=3):
         """
-        Stop node if needed and remove its data directory.
+        Stop node if needed and remove its data/logs directory.
+        NOTE: take a look at TestgresConfig.node_cleanup_full.
 
         Args:
             max_attempts: how many times should we try to stop()?
@@ -576,30 +602,15 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        attempts = 0
+        self._try_shutdown(max_attempts)
 
-        # try stopping server
-        while attempts < max_attempts:
-            try:
-                self.stop()
-                break    # OK
-            except ExecUtilException:
-                pass     # one more time
-            except Exception:
-                print('cannot stop node {}'.format(self.name))
+        # choose directory to be removed
+        if TestgresConfig.node_cleanup_full:
+            rm_dir = self.base_dir    # everything
+        else:
+            rm_dir = self.data_dir    # just data, save logs
 
-            attempts += 1
-
-        # remove directory tree if necessary
-        if self._should_rm_dirs:
-
-            # choose directory to be removed
-            if TestgresConfig.node_cleanup_full:
-                rm_dir = self.base_dir    # everything
-            else:
-                rm_dir = self.data_dir    # just data, save logs
-
-            shutil.rmtree(rm_dir, ignore_errors=True)
+        shutil.rmtree(rm_dir, ignore_errors=True)
 
         return self
 
@@ -750,8 +761,8 @@ class PostgresNode(object):
                          raise_programming_error=True,
                          raise_internal_error=True):
         """
-        Run a query once a second until it returs 'expected'.
-        Query should return single column.
+        Run a query once per second until it returns 'expected'.
+        Query should return a single value (1 row, 1 column).
 
         Args:
             query: query to be executed.

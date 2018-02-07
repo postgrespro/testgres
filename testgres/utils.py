@@ -1,6 +1,7 @@
 # coding: utf-8
 
 from __future__ import division
+from __future__ import print_function
 
 import functools
 import io
@@ -8,6 +9,7 @@ import os
 import port_for
 import six
 import subprocess
+import sys
 
 from distutils.version import LooseVersion
 
@@ -311,3 +313,7 @@ def method_decorator(decorator):
     _dec.__name__ = 'method_decorator({})'.format(decorator.__name__)
 
     return _dec
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
