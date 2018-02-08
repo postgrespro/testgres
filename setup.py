@@ -17,14 +17,15 @@ if sys.version_info < (3, 3):
     install_requires.append("ipaddress")
 
 setup(
+    version='1.5.0',
     name='testgres',
     packages=['testgres'],
-    version='1.5.0',
     description='Testing utility for PostgreSQL and its extensions',
+    url='https://github.com/postgrespro/testgres',
     license='PostgreSQL',
     author='Ildar Musin',
     author_email='zildermann@gmail.com',
-    url='https://github.com/postgrespro/testgres',
-    keywords=['testing', 'postgresql'],
+    keywords=['test', 'testing', 'postgresql'],
+    install_requires=install_requires,
     classifiers=[],
-    install_requires=install_requires)
+)
