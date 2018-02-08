@@ -136,10 +136,31 @@ with testgres.get_new_node('master') as master:
     print(res)
 ```
 
+### Custom configuration
+
+It's often useful to extend default configuration provided by `testgres`.
+
+`testgres` have `default_conf` function that helps to control some basic
+options. The `append_conf` function can be used to add custom
+lines to configuration lines:
+
+```python
+ext_conf = "shared_preload_libraries = 'postgres_fdw'\n"
+
+with testgres.get_new_node('master') as master:
+	master.default_conf(fsync=True,
+						unix_sockets=False,
+						allow_streaming=True,
+						log_statement='all')
+	master.append_conf('postgresql.conf', ext_conf)
+```
+
+Note that `default_conf` is called by `init` function and the latter overwrites
+the configuration file. That means `init` should be called before `append_conf`.
 
 ## Authors
 
-[Ildar Musin](https://github.com/zilder) <i.musin(at)postgrespro.ru> Postgres Professional Ltd., Russia     
-[Dmitry Ivanov](https://github.com/funbringer) <d.ivanov(at)postgrespro.ru> Postgres Professional Ltd., Russia   
-[Ildus Kurbangaliev](https://github.com/ildus) <i.kurbangaliev(at)postgrespro.ru> Postgres Professional Ltd., Russia     
+[Ildar Musin](https://github.com/zilder) <i.musin(at)postgrespro.ru> Postgres Professional Ltd., Russia
+[Dmitry Ivanov](https://github.com/funbringer) <d.ivanov(at)postgrespro.ru> Postgres Professional Ltd., Russia
+[Ildus Kurbangaliev](https://github.com/ildus) <i.kurbangaliev(at)postgrespro.ru> Postgres Professional Ltd., Russia
 [Yury Zhuravlev](https://github.com/stalkerg) <stalkerg(at)gmail.com>
