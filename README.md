@@ -149,9 +149,9 @@ ext_conf = "shared_preload_libraries = 'postgres_fdw'\n"
 
 with testgres.get_new_node('master') as master:
 	master.default_conf(fsync=True,
-						unix_sockets=False,
-						allow_streaming=True,
-						log_statement='all')
+			    unix_sockets=False,
+			    allow_streaming=True,
+			    log_statement='all')
 	master.append_conf('postgresql.conf', ext_conf)
 ```
 
