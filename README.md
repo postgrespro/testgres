@@ -37,6 +37,44 @@ python my_tests.py
 ```
 
 
+### Examples
+
+Here is an example of what you can do with `testgres`:
+
+```python
+# create a node with random name, port, etc
+with testgres.get_new_node() as node:
+
+    # run inidb
+    node.init()
+
+    # start PostgreSQL
+    node.start()
+
+    # execute a query in a default DB
+    print(node.execute('select 1'))
+
+# ... node stops and its files are about to be removed
+```
+
+There are four API methods for runnig queries:
+
+| Command | Description |
+|----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| `node.psql(query, ...)` | Runs query via `psql` command and returns tuple `(error code, stdout, stderr)`. |
+| `node.safe_psql(query, ...)` | Same as `psql()` except that it returns only `stdout`. If an error occures during the execution, an exception will be thrown. |
+| `node.execute(query, ...)` | Connects to PostgreSQL using `psycopg2` or `pg8000` (depends on which one is installed in your system) and returns two-dimensional array with data. |
+| `node.connect(dbname, ...)` | Returns connection wrapper (`NodeConnection`) capable of running several queries within a single transaction. |
+
+The last one is the most powerful: you can use `begin(isolation_level)`, `commit()` and `rollback()`:
+```python
+with node.connect() as con:
+    con.begin('serializable')
+    print(con.execute('select %s', 1))
+    con.rollback()
+```
+
+
 ### Logging
 
 By default, `cleanup()` removes all temporary files (DB files, logs etc) that were created by testgres' API methods.
@@ -58,72 +96,8 @@ node1 = testgres.get_new_node(use_logging=True).init().start()
 node2 = testgres.get_new_node(use_logging=True).init().start()
 
 # execute a few queries
-node1.execute('postgres', 'select 1')
-node2.execute('postgres', 'select 2')
-```
-
-
-### Examples
-
-Here is an example of what you can do with `testgres`:
-
-```python
-with testgres.get_new_node('test') as node:
-    node.init()  # run initdb
-    node.start() # start PostgreSQL
-    print(node.execute('postgres', 'select 1'))
-    node.stop()  # stop PostgreSQL
-```
-
-Let's walk through the code. First, you create a new node using:
-
-```python
-with testgres.get_new_node('master') as node:
-```
-
-or
-
-```python
-with testgres.get_new_node('master', '/path/to/DB') as node:
-```
-
-where `master` is a node's application name. Name matters if you're testing something like replication.
-Function `get_new_node()` only creates directory structure in specified directory (or somewhere in '/tmp' if
-we did not specify base directory) for cluster. After that, we have to initialize the PostgreSQL cluster:
-
-```python
-node.init()
-```
-
-This function runs `initdb` command and adds some basic configuration to `postgresql.conf` and `pg_hba.conf` files.
-Function `init()` accepts optional parameter `allows_streaming` which configures cluster for streaming replication (default is `False`).
-Now we are ready to start:
-
-```python
-node.start()
-```
-
-Finally, our temporary cluster is able to process queries. There are four ways to run them:
-
-| Command | Description |
-|----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| `node.psql(dbname, query)` | Runs query via `psql` command and returns tuple `(error code, stdout, stderr)`. |
-| `node.safe_psql(dbname, query)` | Same as `psql()` except that it returns only `stdout`. If an error occures during the execution, an exception will be thrown. |
-| `node.execute(dbname, query)` | Connects to PostgreSQL using `psycopg2` or `pg8000` (depends on which one is installed in your system) and returns two-dimensional array with data. |
-| `node.connect(dbname, username)` | Returns connection wrapper (`NodeConnection`) capable of running several queries within a single transaction. |
-
-The last one is the most powerful: you can use `begin(isolation_level)`, `commit()` and `rollback()`:
-```python
-with node.connect() as con:
-    con.begin('serializable')
-    print(con.execute('select %s', 1))
-    con.rollback()
-```
-
-To stop the server, run:
-
-```python
-node.stop()
+node1.execute('select 1')
+node2.execute('select 2')
 ```
 
 
@@ -134,7 +108,10 @@ It's quite easy to create a backup and start a new replica:
 ```python
 with testgres.get_new_node('master') as master:
     master.init().start()
+
+    # create a backup
     with master.backup() as backup:
+
         # create and start a new replica
         replica = backup.spawn_replica('replica').start()
 
@@ -147,7 +124,7 @@ with testgres.get_new_node('master') as master:
 
 ### Benchmarks
 
-`testgres` also can help you to make benchmarks using `pgbench` from postgres installation:
+`testgres` is also capable of running benchmarks using `pgbench`:
 
 ```python
 with testgres.get_new_node('master') as master:
