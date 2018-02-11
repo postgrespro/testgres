@@ -136,27 +136,34 @@ with testgres.get_new_node('master') as master:
     print(res)
 ```
 
+
 ### Custom configuration
 
 It's often useful to extend default configuration provided by `testgres`.
 
-`testgres` have `default_conf` function that helps to control some basic
-options. The `append_conf` function can be used to add custom
+`testgres` has `default_conf()` function that helps control some basic
+options. The `append_conf()` function can be used to add custom
 lines to configuration lines:
 
 ```python
-ext_conf = "shared_preload_libraries = 'postgres_fdw'\n"
+ext_conf = "shared_preload_libraries = 'postgres_fdw'"
 
-with testgres.get_new_node('master') as master:
+# initialize a new node
+with testgres.get_new_node().init() as master:
+
+    # ... do something ...
+	
+    # reset main config file
 	master.default_conf(fsync=True,
-			    unix_sockets=False,
-			    allow_streaming=True,
-			    log_statement='all')
+                        allow_streaming=True)
+
+    # add a new config line
 	master.append_conf('postgresql.conf', ext_conf)
 ```
 
-Note that `default_conf` is called by `init` function and the latter overwrites
-the configuration file. That means `init` should be called before `append_conf`.
+Note that `default_conf()` is called by `init()` function; both of them overwrite
+the configuration file, which means that they should be called before `append_conf()`.
+
 
 ## Authors
 
