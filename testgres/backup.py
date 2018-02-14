@@ -5,12 +5,12 @@ import shutil
 import tempfile
 
 from six import raise_from
+from enum import Enum
 
 from .consts import \
     DATA_DIR, \
     PG_CONF_FILE, \
-    BACKUP_LOG_FILE, \
-    DEFAULT_XLOG_METHOD
+    BACKUP_LOG_FILE
 
 from .exceptions import BackupException
 
@@ -18,6 +18,16 @@ from .utils import \
     get_bin_path, \
     default_username, \
     execute_utility
+
+
+class XLogMethod(Enum):
+    """
+    Available WAL methods for NodeBackup
+    """
+
+    none = 'none'
+    fetch = 'fetch'
+    stream = 'stream'
 
 
 class NodeBackup(object):
@@ -33,7 +43,7 @@ class NodeBackup(object):
                  node,
                  base_dir=None,
                  username=None,
-                 xlog_method=DEFAULT_XLOG_METHOD):
+                 xlog_method=XLogMethod.fetch):
         """
         Create a new backup.
 
@@ -46,6 +56,13 @@ class NodeBackup(object):
 
         if not node.status():
             raise BackupException('Node must be running')
+
+        # Check arguments
+        if not isinstance(xlog_method, XLogMethod):
+            try:
+                xlog_method = XLogMethod(xlog_method)
+            except ValueError:
+                raise BackupException('Invalid xlog_method "{}"'.format(xlog_method))
 
         # Set default arguments
         username = username or default_username()
@@ -68,7 +85,7 @@ class NodeBackup(object):
             "-h", node.host,
             "-U", username,
             "-D", data_dir,
-            "-X", xlog_method
+            "-X", xlog_method.value
         ]
         execute_utility(_params, self.log_file)
 

@@ -27,8 +27,7 @@ from .consts import \
     HBA_CONF_FILE, \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
-    UTILS_LOG_FILE, \
-    DEFAULT_XLOG_METHOD
+    UTILS_LOG_FILE
 
 from .exceptions import \
     CatchUpException,   \
@@ -51,6 +50,10 @@ from .utils import \
     execute_utility, \
     method_decorator, \
     positional_args_hack
+
+from .backup import \
+    XLogMethod,     \
+    NodeBackup
 
 
 class NodeStatus(IntEnum):
@@ -838,7 +841,7 @@ class PostgresNode(object):
 
             return res
 
-    def backup(self, username=None, xlog_method=DEFAULT_XLOG_METHOD):
+    def backup(self, username=None, xlog_method=XLogMethod.fetch):
         """
         Perform pg_basebackup.
 
@@ -850,7 +853,6 @@ class PostgresNode(object):
             A smart object of type NodeBackup.
         """
 
-        from .backup import NodeBackup
         return NodeBackup(node=self,
                           username=username,
                           xlog_method=xlog_method)
@@ -858,7 +860,7 @@ class PostgresNode(object):
     def replicate(self,
                   name=None,
                   username=None,
-                  xlog_method=DEFAULT_XLOG_METHOD,
+                  xlog_method=XLogMethod.fetch,
                   use_logging=False):
         """
         Create a binary replica of this node.
