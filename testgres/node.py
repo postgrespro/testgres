@@ -24,6 +24,7 @@ from .consts import \
     DATA_DIR, \
     LOGS_DIR, \
     PG_CONF_FILE, \
+    PG_AUTO_CONF_FILE, \
     HBA_CONF_FILE, \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
@@ -215,21 +216,17 @@ class PostgresNode(object):
         if self._logger:
             self._logger.stop()
 
-    def _format_verbose_error(self, message=None):
-        # list of important files + N of last lines
+    def _collect_special_files(self):
+        result = {}
+
+        # list of important files + last N lines
         files = [
             (os.path.join(self.data_dir, PG_CONF_FILE), 0),
-            (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
+            (os.path.join(self.data_dir, PG_AUTO_CONF_FILE), 0),
             (os.path.join(self.data_dir, RECOVERY_CONF_FILE), 0),
+            (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
             (self.pg_log_name, TestgresConfig.error_log_lines)
         ]
-
-        error_text = ""
-
-        # append message if asked to
-        if message:
-            error_text += message
-            error_text += '\n' * 2
 
         for f, num_lines in files:
             # skip missing files
@@ -244,10 +241,10 @@ class PostgresNode(object):
                     # read whole file
                     lines = _f.read().decode('utf-8')
 
-                # append contents
-                error_text += u"{}:\n----\n{}\n".format(f, lines)
+                # fill dict
+                result[f] = lines
 
-        return error_text
+        return result
 
     def init(self,
              fsync=False,
@@ -429,7 +426,8 @@ class PostgresNode(object):
         """
 
         if self.status():
-            with io.open(os.path.join(self.data_dir, 'postmaster.pid')) as f:
+            pid_file = os.path.join(self.data_dir, 'postmaster.pid')
+            with io.open(pid_file) as f:
                 return int(f.readline())
 
         # for clarity
@@ -478,8 +476,9 @@ class PostgresNode(object):
         try:
             execute_utility(_params, self.utils_log_name)
         except ExecUtilException as e:
-            msg = self._format_verbose_error('Cannot start node')
-            raise_from(StartNodeException(msg), e)
+            msg = 'Cannot start node'
+            files = self._collect_special_files()
+            raise_from(StartNodeException(msg, files), e)
 
         self._maybe_start_logger()
 
@@ -533,8 +532,9 @@ class PostgresNode(object):
         try:
             execute_utility(_params, self.utils_log_name)
         except ExecUtilException as e:
-            msg = self._format_verbose_error('Cannot restart node')
-            raise_from(StartNodeException(msg), e)
+            msg = 'Cannot restart node'
+            files = self._collect_special_files()
+            raise_from(StartNodeException(msg, files), e)
 
         self._maybe_start_logger()
 
@@ -695,7 +695,7 @@ class PostgresNode(object):
                                   username=username,
                                   input=input)
         if ret:
-            raise QueryException((err or b'').decode('utf-8'))
+            raise QueryException((err or b'').decode('utf-8'), query)
 
         return out
 
@@ -793,13 +793,13 @@ class PostgresNode(object):
                     return    # done
 
                 if res is None:
-                    raise QueryException('Query returned None')
+                    raise QueryException('Query returned None', query)
 
                 if len(res) == 0:
-                    raise QueryException('Query returned 0 rows')
+                    raise QueryException('Query returned 0 rows', query)
 
                 if len(res[0]) == 0:
-                    raise QueryException('Query returned 0 columns')
+                    raise QueryException('Query returned 0 columns', query)
 
                 if res[0][0] == expected:
                     return    # done
@@ -916,7 +916,7 @@ class PostgresNode(object):
                 username=username,
                 max_attempts=0)    # infinite
         except Exception as e:
-            raise_from(CatchUpException('Failed to catch up'), e)
+            raise_from(CatchUpException("Failed to catch up", poll_lsn), e)
 
     def pgbench(self,
                 dbname=None,
