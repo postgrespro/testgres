@@ -3,7 +3,9 @@
 
 # testgres (async version)
 
-PostgreSQL testing utility. Python 3.5+ are supported.
+PostgreSQL testing utility. Only Python 3.5+ are supported. If you need older
+version of python or don't want to use async functions use original testgres
+from [https://github.com/postgrespro/testgres](https://github.com/postgrespro/testgres)
 
 
 ## Usage
