@@ -217,7 +217,7 @@ class PostgresNode(object):
             self._logger.stop()
 
     def _collect_special_files(self):
-        result = {}
+        result = []
 
         # list of important files + last N lines
         files = [
@@ -241,8 +241,8 @@ class PostgresNode(object):
                     # read whole file
                     lines = _f.read().decode('utf-8')
 
-                # fill dict
-                result[f] = lines
+                # fill list
+                result.append((f, lines))
 
         return result
 

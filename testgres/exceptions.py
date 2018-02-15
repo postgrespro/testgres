@@ -3,13 +3,11 @@
 import six
 
 
-@six.python_2_unicode_compatible
 class TestgresException(Exception):
-    def __str__(self):
-        s = super(TestgresException, self).__str__()
-        return six.text_type(s)
+    pass
 
 
+@six.python_2_unicode_compatible
 class ExecUtilException(TestgresException):
     def __init__(self,
                  message=None,
@@ -30,17 +28,18 @@ class ExecUtilException(TestgresException):
             msg.append(self.message)
 
         if self.command:
-            msg.append('Command: {}'.format(self.command))
+            msg.append(u'Command: {}'.format(self.command))
 
         if self.exit_code:
-            msg.append('Exit code: {}'.format(self.exit_code))
+            msg.append(u'Exit code: {}'.format(self.exit_code))
 
         if self.out:
-            msg.append('----\n{}'.format(self.out))
+            msg.append(u'----\n{}'.format(self.out))
 
         return six.text_type('\n').join(msg)
 
 
+@six.python_2_unicode_compatible
 class QueryException(TestgresException):
     def __init__(self, message=None, query=None):
         super(QueryException, self).__init__(message)
@@ -55,7 +54,7 @@ class QueryException(TestgresException):
             msg.append(self.message)
 
         if self.query:
-            msg.append('Query: {}'.format(self.query))
+            msg.append(u'Query: {}'.format(self.query))
 
         return six.text_type('\n').join(msg)
 
@@ -68,6 +67,7 @@ class CatchUpException(QueryException):
     pass
 
 
+@six.python_2_unicode_compatible
 class StartNodeException(TestgresException):
     def __init__(self, message=None, files=None):
         super(StartNodeException, self).__init__(message)
@@ -81,8 +81,8 @@ class StartNodeException(TestgresException):
         if self.message:
             msg.append(self.message)
 
-        for key, value in six.iteritems(self.files or {}):
-            msg.append('{}\n----\n{}\n'.format(key, value))
+        for f, lines in self.files or []:
+            msg.append(u'{}\n----\n{}\n'.format(f, lines))
 
         return six.text_type('\n').join(msg)
 

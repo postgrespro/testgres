@@ -100,7 +100,7 @@ def execute_utility(args, logfile):
 
             if out:
                 # comment-out lines
-                lines = ('# ' + l for l in out.splitlines())
+                lines = ('# ' + l for l in out.splitlines(True))
                 file_out.write(u'\n')
                 file_out.writelines(lines)
 
@@ -110,7 +110,7 @@ def execute_utility(args, logfile):
 
     exit_code = process.returncode
     if exit_code:
-        message = 'Failed to execute utility'
+        message = 'Utility exited with non-zero code'
         raise ExecUtilException(message=message,
                                 command=command,
                                 exit_code=exit_code,
