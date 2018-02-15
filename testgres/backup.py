@@ -115,14 +115,13 @@ class NodeBackup(object):
         # Return path to new node
         return dest_base_dir
 
-    def spawn_primary(self, name=None, destroy=True, use_logging=False):
+    def spawn_primary(self, name=None, destroy=True):
         """
         Create a primary node from a backup.
 
         Args:
             name: primary's application name.
             destroy: should we convert this backup into a node?
-            use_logging: enable python logging.
 
         Returns:
             New instance of PostgresNode.
@@ -134,8 +133,7 @@ class NodeBackup(object):
         # Build a new PostgresNode
         from .node import PostgresNode
         node = PostgresNode(name=name,
-                            base_dir=base_dir,
-                            use_logging=use_logging)
+                            base_dir=base_dir)
 
         # New nodes should always remove dir tree
         node._should_rm_dirs = True
@@ -145,14 +143,13 @@ class NodeBackup(object):
 
         return node
 
-    def spawn_replica(self, name=None, destroy=True, use_logging=False):
+    def spawn_replica(self, name=None, destroy=True):
         """
         Create a replica of the original node from a backup.
 
         Args:
             name: replica's application name.
             destroy: should we convert this backup into a node?
-            use_logging: enable python logging.
 
         Returns:
             New instance of PostgresNode.
@@ -160,8 +157,7 @@ class NodeBackup(object):
 
         # Build a new PostgresNode
         node = self.spawn_primary(name=name,
-                                  destroy=destroy,
-                                  use_logging=use_logging)
+                                  destroy=destroy)
 
         # Assign it a master and a recovery file (private magic)
         node._assign_master(self.original_node)

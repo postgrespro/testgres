@@ -458,9 +458,10 @@ class SimpleTest(unittest.TestCase):
         }
 
         logging.config.dictConfig(log_conf)
+        configure_testgres(use_python_logging=True)
 
         node_name = 'master'
-        with get_new_node(name=node_name, use_logging=True) as master:
+        with get_new_node(name=node_name) as master:
             master.init().start()
 
             # execute a dummy query a few times
@@ -481,6 +482,8 @@ class SimpleTest(unittest.TestCase):
             master.start()
             master.restart()
             self.assertTrue(master._logger.is_alive())
+
+        configure_testgres(use_python_logging=False)
 
     @unittest.skipUnless(
         util_is_executable("pgbench"), "pgbench may be missing")

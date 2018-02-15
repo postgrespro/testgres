@@ -82,7 +82,7 @@ If you'd like to keep logs, execute `configure_testgres(node_cleanup_full=False)
 
 > Note: context managers (aka `with`) call `stop()` and `cleanup()` automatically.
 
-testgres supports [python logging](https://docs.python.org/3.6/library/logging.html),
+`testgres` supports [python logging](https://docs.python.org/3.6/library/logging.html),
 which means that you can aggregate logs from several nodes into one file:
 
 ```python
@@ -91,14 +91,21 @@ import logging
 # write everything to /tmp/testgres.log
 logging.basicConfig(filename='/tmp/testgres.log')
 
-# create two different nodes with logging
-node1 = testgres.get_new_node(use_logging=True).init().start()
-node2 = testgres.get_new_node(use_logging=True).init().start()
+# enable logging, and create two different nodes
+testgres.configure_testgres(enable_python_logging=True)
+node1 = testgres.get_new_node().init().start()
+node2 = testgres.get_new_node().init().start()
 
 # execute a few queries
 node1.execute('select 1')
 node2.execute('select 2')
+
+# disable logging
+testgres.configure_testgres(enable_python_logging=False)
 ```
+
+Look at `tests/test_simple.py` file for a complete example of the logging
+configuration.
 
 
 ### Backup & replication
