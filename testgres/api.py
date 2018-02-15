@@ -36,17 +36,16 @@ Copyright (c) 2016, Postgres Professional
 from .node import PostgresNode
 
 
-def get_new_node(name=None, base_dir=None, use_logging=False):
+def get_new_node(name=None, base_dir=None):
     """
     Create a new node (select port automatically).
 
     Args:
         name: node's application name.
         base_dir: path to node's data directory.
-        use_logging: enable python logging.
 
     Returns:
         An instance of PostgresNode.
     """
 
-    return PostgresNode(name=name, base_dir=base_dir, use_logging=use_logging)
+    return PostgresNode(name=name, base_dir=base_dir)

@@ -11,6 +11,7 @@ class TestgresConfig:
 
         cache_pg_config:    shall we cache pg_config results?
 
+        use_python_logging: use python logging configuration for all nodes.
         error_log_lines:    N of log lines to be included into exception (0=inf).
 
         node_cleanup_full:  shall we remove EVERYTHING (including logs)?
@@ -23,6 +24,7 @@ class TestgresConfig:
 
     cache_pg_config = True
 
+    use_python_logging = False
     error_log_lines = 20
 
     node_cleanup_full = True

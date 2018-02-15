@@ -70,7 +70,7 @@ class NodeStatus(Enum):
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, port=None, base_dir=None, use_logging=False):
+    def __init__(self, name=None, port=None, base_dir=None):
         """
         Create a new node manually.
 
@@ -78,7 +78,6 @@ class PostgresNode(object):
             name: node's application name.
             port: port to accept connections.
             base_dir: path to node's data directory.
-            use_logging: enable python logging.
         """
 
         # basic
@@ -94,7 +93,6 @@ class PostgresNode(object):
 
         # private
         self._should_free_port = port is None
-        self._use_logging = use_logging
         self._logger = None
         self._master = None
 
@@ -205,7 +203,7 @@ class PostgresNode(object):
             os.makedirs(self.logs_dir)
 
     def _maybe_start_logger(self):
-        if self._use_logging:
+        if TestgresConfig.use_python_logging:
             # spawn new logger if it doesn't exist or is stopped
             if not self._logger or not self._logger.is_alive():
                 self._logger = TestgresLogger(self.name, self.pg_log_name)
@@ -869,8 +867,7 @@ class PostgresNode(object):
     def replicate(self,
                   name=None,
                   username=None,
-                  xlog_method=DEFAULT_XLOG_METHOD,
-                  use_logging=False):
+                  xlog_method=DEFAULT_XLOG_METHOD):
         """
         Create a binary replica of this node.
 
@@ -878,15 +875,12 @@ class PostgresNode(object):
             name: replica's application name.
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
-            use_logging: enable python logging.
         """
 
         backup = self.backup(username=username, xlog_method=xlog_method)
 
         # transform backup into a replica
-        return backup.spawn_replica(name=name,
-                                    destroy=True,
-                                    use_logging=use_logging)
+        return backup.spawn_replica(name=name, destroy=True)
 
     def catchup(self, dbname=None, username=None):
         """
