@@ -90,29 +90,31 @@ def execute_utility(args, logfile):
     out, _ = process.communicate()
     out = '' if not out else out.decode('utf-8')
 
+    # format command
+    command = u' '.join(args)
+
     # write new log entry if possible
     try:
         with io.open(logfile, 'a') as file_out:
-            # write util's name and args
-            file_out.write(u' '.join(args))
+            file_out.write(command)
 
-            # write output
             if out:
+                # comment-out lines
+                lines = ('# ' + l for l in out.splitlines(True))
                 file_out.write(u'\n')
-                file_out.write(out)
+                file_out.writelines(lines)
 
-            # finally, a separator
             file_out.write(u'\n')
     except IOError:
         pass
 
-    # format exception, if needed
-    error_code = process.returncode
-    if error_code:
-        error_text = (u"{} failed with exit code {}\n"
-                      u"log:\n----\n{}\n").format(args[0], error_code, out)
-
-        raise ExecUtilException(error_text, error_code)
+    exit_code = process.returncode
+    if exit_code:
+        message = 'Utility exited with non-zero code'
+        raise ExecUtilException(message=message,
+                                command=command,
+                                exit_code=exit_code,
+                                out=out)
 
     return out
 
