@@ -2,7 +2,6 @@
 # coding: utf-8
 
 import os
-import re
 import six
 import subprocess
 import tempfile
@@ -180,12 +179,12 @@ class SimpleTest(unittest.TestCase):
             with node.backup(xlog_method='fetch') as backup:
 
                 # exhaust backup by creating new node
-                with backup.spawn_primary('node1') as node1:
+                with backup.spawn_primary('node1'):
                     pass
 
                 # now let's try to create one more node
                 with self.assertRaises(BackupException):
-                    with backup.spawn_primary('node2') as node2:
+                    with backup.spawn_primary('node2'):
                         pass
 
     def test_users(self):
@@ -253,7 +252,6 @@ class SimpleTest(unittest.TestCase):
 
     def test_configure(self):
         # set global if it wasn't set
-        pg_config = get_pg_config()
         configure_testgres(cache_initdb=True, cache_pg_config=True)
 
         # check that is the same instance

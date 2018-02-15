@@ -853,7 +853,7 @@ class PostgresNode(object):
 
         return self
 
-    def psql(self, dbname, query=None, filename=None, username=None):
+    def psql(self, query, filename=None, username=None, dbname='postgres'):
         """
         Execute a query using psql.
 
@@ -896,7 +896,7 @@ class PostgresNode(object):
         out, err = process.communicate()
         return process.returncode, out, err
 
-    def safe_psql(self, dbname, query, username=None):
+    def safe_psql(self, query, username=None, dbname='postgres'):
         """
         Execute a query using psql.
 
@@ -909,7 +909,7 @@ class PostgresNode(object):
             psql's output as str.
         """
 
-        ret, out, err = self.psql(dbname, query, username=username)
+        ret, out, err = self.psql(query, username=username, dbname=dbname)
         if ret:
             err = '' if not err else err.decode('utf-8')
             raise QueryException(err)
