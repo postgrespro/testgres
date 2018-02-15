@@ -102,10 +102,10 @@ node2.execute('select 2')
 
 # disable logging
 testgres.configure_testgres(enable_python_logging=False)
+```
 
 Look at `tests/test_simple.py` file for a complete example of the logging
 configuration.
-```
 
 
 ### Backup & replication
