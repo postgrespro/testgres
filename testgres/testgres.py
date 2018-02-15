@@ -85,6 +85,9 @@ class TestgresConfig:
     # shall we remove EVERYTHING (including logs)?
     node_cleanup_full = True
 
+    # use python logging
+    use_python_logging = False
+
 
 class TestgresException(Exception):
     """
@@ -369,14 +372,13 @@ class NodeBackup(object):
 
         return base_dir
 
-    def spawn_primary(self, name, destroy=True, use_logging=False):
+    def spawn_primary(self, name, destroy=True):
         """
         Create a primary node from a backup.
 
         Args:
             name: name for a new node.
             destroy: should we convert this backup into a node?
-            use_logging: enable python logging.
 
         Returns:
             New instance of PostgresNode.
@@ -387,8 +389,7 @@ class NodeBackup(object):
         # Build a new PostgresNode
         node = PostgresNode(name=name,
                             base_dir=base_dir,
-                            master=self.original_node,
-                            use_logging=use_logging)
+                            master=self.original_node)
 
         # New nodes should always remove dir tree
         node.should_rm_dirs = True
@@ -398,20 +399,19 @@ class NodeBackup(object):
 
         return node
 
-    def spawn_replica(self, name, destroy=True, use_logging=False):
+    def spawn_replica(self, name, destroy=True):
         """
         Create a replica of the original node from a backup.
 
         Args:
             name: name for a new node.
             destroy: should we convert this backup into a node?
-            use_logging: enable python logging.
 
         Returns:
             New instance of PostgresNode.
         """
 
-        node = self.spawn_primary(name, destroy, use_logging=use_logging)
+        node = self.spawn_primary(name, destroy)
         node._create_recovery_conf(self.original_node)
 
         return node
@@ -442,7 +442,6 @@ class PostgresNode(object):
                  name,
                  port=None,
                  base_dir=None,
-                 use_logging=False,
                  master=None):
         global bound_ports
 
@@ -453,7 +452,6 @@ class PostgresNode(object):
         self.base_dir = base_dir
         self.should_free_port = port is None
         self.should_rm_dirs = base_dir is None
-        self.use_logging = use_logging
         self.logger = None
 
         # create directories if needed
@@ -699,7 +697,7 @@ class PostgresNode(object):
         """
 
         # choose log_filename
-        if self.use_logging:
+        if TestgresConfig.use_python_logging:
             tmpfile = tempfile.NamedTemporaryFile('w', dir=self.logs_dir, delete=False)
             log_filename = tmpfile.name
 
@@ -1070,8 +1068,7 @@ class PostgresNode(object):
                           xlog_method=xlog_method)
 
     def replicate(self, name, username=None,
-                  xlog_method=DEFAULT_XLOG_METHOD,
-                  use_logging=False):
+                  xlog_method=DEFAULT_XLOG_METHOD):
         """
         Create a binary replica of this node.
 
@@ -1079,11 +1076,10 @@ class PostgresNode(object):
             name: replica's name.
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
-            use_logging: enable python logging.
         """
 
         backup = self.backup(username=username, xlog_method=xlog_method)
-        return backup.spawn_replica(name, use_logging=use_logging)
+        return backup.spawn_replica(name)
 
     async def catchup(self, username=None):
         """
@@ -1374,20 +1370,19 @@ def get_pg_config():
     return data
 
 
-def get_new_node(name, base_dir=None, use_logging=False):
+def get_new_node(name, base_dir=None):
     """
     Create a new node (select port automatically).
 
     Args:
         name: node's name.
         base_dir: path to node's data directory.
-        use_logging: should we use custom logger?
 
     Returns:
         An instance of PostgresNode.
     """
 
-    return PostgresNode(name=name, base_dir=base_dir, use_logging=use_logging)
+    return PostgresNode(name=name, base_dir=base_dir)
 
 
 def configure_testgres(**options):

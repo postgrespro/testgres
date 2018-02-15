@@ -437,8 +437,9 @@ class AsyncTest(asynctest.TestCase):
         }
 
         logging.config.dictConfig(log_conf)
+        configure_testgres(use_python_logging=True)
 
-        with get_new_node('master', use_logging=True) as master:
+        with get_new_node('master') as master:
             master.init().start()
 
             # execute a dummy query a few times
@@ -453,6 +454,8 @@ class AsyncTest(asynctest.TestCase):
             with open(logfile.name, 'r') as log:
                 lines = log.readlines()
                 self.assertTrue(any('select' in s for s in lines))
+
+        configure_testgres(use_python_logging=False)
 
     async def test_poll_query_until(self):
         with get_new_node('master') as node:
