@@ -620,6 +620,11 @@ class SimpleTest(unittest.TestCase):
         # check that port has been freed successfully
         self.assertEqual(len(bound_ports), 0)
 
+    def test_exceptions(self):
+        str(StartNodeException('msg', [('file', 'lines')]))
+        str(ExecUtilException('msg', 'cmd', 1, 'out'))
+        str(QueryException('msg', 'query'))
+
     def test_version_management(self):
         a = LooseVersion('10.0')
         b = LooseVersion('10')
