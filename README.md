@@ -161,11 +161,11 @@ with testgres.get_new_node().init() as master:
     # ... do something ...
 	
     # reset main config file
-	master.default_conf(fsync=True,
+    master.default_conf(fsync=True,
                         allow_streaming=True)
 
     # add a new config line
-	master.append_conf('postgresql.conf', ext_conf)
+    master.append_conf('postgresql.conf', ext_conf)
 ```
 
 Note that `default_conf()` is called by `init()` function; both of them overwrite
