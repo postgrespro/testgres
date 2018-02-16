@@ -175,7 +175,7 @@ class PostgresNode(object):
             u"application_name={} "
             u"port={} "
             u"user={} "
-        ).format(master.name, master.port, username)
+        ).format(self.name, master.port, username)
 
         # host is tricky
         try:
