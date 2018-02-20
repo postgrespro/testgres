@@ -23,7 +23,10 @@ from testgres import \
     TimeoutException
 
 from testgres import \
-    scoped_config
+    TestgresConfig, \
+    configure_testgres, \
+    scoped_config, \
+    pop_config
 
 from testgres import \
     NodeStatus, \
@@ -528,6 +531,29 @@ class SimpleTest(unittest.TestCase):
             a = get_pg_config()
             b = get_pg_config()
             self.assertNotEqual(id(a), id(b))
+
+    def test_config_stack(self):
+        # no such option
+        with self.assertRaises(TypeError):
+            configure_testgres(dummy=True)
+
+        # we have only 1 config in stack
+        with self.assertRaises(IndexError):
+            pop_config()
+
+        d0 = TestgresConfig.cached_initdb_dir
+        d1 = 'dummy_abc'
+        d2 = 'dummy_def'
+
+        with scoped_config(cached_initdb_dir=d1) as c1:
+            self.assertEqual(c1.cached_initdb_dir, d1)
+
+            with scoped_config(cached_initdb_dir=d2) as c2:
+                self.assertEqual(c2.cached_initdb_dir, d2)
+
+            self.assertEqual(c1.cached_initdb_dir, d1)
+
+        self.assertEqual(TestgresConfig.cached_initdb_dir, d0)
 
     def test_unix_sockets(self):
         with get_new_node() as node:
