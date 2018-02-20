@@ -13,7 +13,7 @@ import sys
 
 from distutils.version import LooseVersion
 
-from .config import TestgresConfig
+from .config import testgres_config
 from .exceptions import ExecUtilException
 
 # rows returned by PG_CONFIG
@@ -68,7 +68,7 @@ def generate_app_name():
     return 'testgres-{}'.format(str(uuid.uuid4()))
 
 
-def execute_utility(args, logfile):
+def execute_utility(args, logfile=None):
     """
     Execute utility (pg_ctl, pg_dump etc).
 
@@ -94,27 +94,26 @@ def execute_utility(args, logfile):
     command = u' '.join(args)
 
     # write new log entry if possible
-    try:
-        with io.open(logfile, 'a') as file_out:
-            file_out.write(command)
+    if logfile:
+        try:
+            with io.open(logfile, 'a') as file_out:
+                file_out.write(command)
 
-            if out:
-                # comment-out lines
-                lines = ('# ' + l for l in out.splitlines(True))
+                if out:
+                    # comment-out lines
+                    lines = ('# ' + l for l in out.splitlines(True))
+                    file_out.write(u'\n')
+                    file_out.writelines(lines)
+
                 file_out.write(u'\n')
-                file_out.writelines(lines)
-
-            file_out.write(u'\n')
-    except IOError:
-        pass
+        except IOError:
+            pass
 
     exit_code = process.returncode
     if exit_code:
         message = 'Utility exited with non-zero code'
-        raise ExecUtilException(message=message,
-                                command=command,
-                                exit_code=exit_code,
-                                out=out)
+        raise ExecUtilException(
+            message=message, command=command, exit_code=exit_code, out=out)
 
     return out
 
@@ -146,7 +145,7 @@ def get_bin_path(filename):
 def get_pg_config():
     """
     Return output of pg_config (provided that it is installed).
-    NOTE: this fuction caches the result by default (see TestgresConfig).
+    NOTE: this fuction caches the result by default (see GlobalConfig).
     """
 
     def cache_pg_config_data(cmd):
@@ -166,7 +165,7 @@ def get_pg_config():
         return data
 
     # drop cache if asked to
-    if not TestgresConfig.cache_pg_config:
+    if not testgres_config.cache_pg_config:
         global _pg_config_data
         _pg_config_data = {}
 

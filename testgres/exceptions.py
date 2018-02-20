@@ -9,11 +9,7 @@ class TestgresException(Exception):
 
 @six.python_2_unicode_compatible
 class ExecUtilException(TestgresException):
-    def __init__(self,
-                 message=None,
-                 command=None,
-                 exit_code=0,
-                 out=None):
+    def __init__(self, message=None, command=None, exit_code=0, out=None):
         super(ExecUtilException, self).__init__(message)
 
         self.message = message
