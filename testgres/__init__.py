@@ -1,6 +1,12 @@
 from .api import get_new_node
 from .backup import NodeBackup
-from .config import TestgresConfig, configure_testgres
+
+from .config import \
+    TestgresConfig, \
+    configure_testgres, \
+    scoped_config, \
+    push_config, \
+    pop_config
 
 from .connection import \
     IsolationLevel, \

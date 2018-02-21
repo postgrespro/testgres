@@ -13,7 +13,7 @@ from six import raise_from
 
 from .cache import cached_initdb
 
-from .config import TestgresConfig
+from .config import testgres_config
 
 from .connection import \
     NodeConnection, \
@@ -88,8 +88,8 @@ class PostgresNode(object):
         self.base_dir = base_dir
 
         # defaults for __exit__()
-        self.cleanup_on_good_exit = TestgresConfig.node_cleanup_on_good_exit
-        self.cleanup_on_bad_exit = TestgresConfig.node_cleanup_on_bad_exit
+        self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
+        self.cleanup_on_bad_exit = testgres_config.node_cleanup_on_bad_exit
         self.shutdown_max_attempts = 3
 
         # private
@@ -150,7 +150,7 @@ class PostgresNode(object):
                 self.stop()
                 break    # OK
             except ExecUtilException:
-                pass     # one more time
+                pass    # one more time
             except Exception:
                 # TODO: probably kill stray instance
                 eprint('cannot stop node {}'.format(self.name))
@@ -204,7 +204,7 @@ class PostgresNode(object):
             os.makedirs(self.logs_dir)
 
     def _maybe_start_logger(self):
-        if TestgresConfig.use_python_logging:
+        if testgres_config.use_python_logging:
             # spawn new logger if it doesn't exist or is stopped
             if not self._logger or not self._logger.is_alive():
                 self._logger = TestgresLogger(self.name, self.pg_log_name)
@@ -223,7 +223,7 @@ class PostgresNode(object):
             (os.path.join(self.data_dir, PG_AUTO_CONF_FILE), 0),
             (os.path.join(self.data_dir, RECOVERY_CONF_FILE), 0),
             (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
-            (self.pg_log_name, TestgresConfig.error_log_lines)
+            (self.pg_log_name, testgres_config.error_log_lines)
         ]
 
         for f, num_lines in files:
@@ -248,7 +248,7 @@ class PostgresNode(object):
              fsync=False,
              unix_sockets=True,
              allow_streaming=True,
-             initdb_params=[]):
+             initdb_params=None):
         """
         Perform initdb for this node.
 
@@ -266,8 +266,9 @@ class PostgresNode(object):
         self._prepare_dirs()
 
         # initialize this PostgreSQL node
-        initdb_log = os.path.join(self.logs_dir, "initdb.log")
-        cached_initdb(self.data_dir, initdb_log, initdb_params)
+        cached_initdb(data_dir=self.data_dir,
+                      logfile=self.utils_log_name,
+                      params=initdb_params)
 
         # initialize default config files
         self.default_conf(fsync=fsync,
@@ -603,7 +604,7 @@ class PostgresNode(object):
         self._try_shutdown(max_attempts)
 
         # choose directory to be removed
-        if TestgresConfig.node_cleanup_full:
+        if testgres_config.node_cleanup_full:
             rm_dir = self.base_dir    # everything
         else:
             rm_dir = self.data_dir    # just data, save logs

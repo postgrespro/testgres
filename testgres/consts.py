@@ -4,6 +4,7 @@
 DATA_DIR = "data"
 LOGS_DIR = "logs"
 
+# names for config files
 RECOVERY_CONF_FILE = "recovery.conf"
 PG_AUTO_CONF_FILE = "postgresql.auto.conf"
 PG_CONF_FILE = "postgresql.conf"

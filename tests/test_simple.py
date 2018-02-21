@@ -24,7 +24,9 @@ from testgres import \
 
 from testgres import \
     TestgresConfig, \
-    configure_testgres
+    configure_testgres, \
+    scoped_config, \
+    pop_config
 
 from testgres import \
     NodeStatus, \
@@ -458,32 +460,31 @@ class SimpleTest(unittest.TestCase):
         }
 
         logging.config.dictConfig(log_conf)
-        configure_testgres(use_python_logging=True)
 
-        node_name = 'master'
-        with get_new_node(name=node_name) as master:
-            master.init().start()
+        with scoped_config(use_python_logging=True):
+            node_name = 'master'
 
-            # execute a dummy query a few times
-            for i in range(20):
-                master.execute('select 1')
-                time.sleep(0.01)
+            with get_new_node(name=node_name) as master:
+                master.init().start()
 
-            # let logging worker do the job
-            time.sleep(0.1)
+                # execute a dummy query a few times
+                for i in range(20):
+                    master.execute('select 1')
+                    time.sleep(0.01)
 
-            # check that master's port is found
-            with open(logfile.name, 'r') as log:
-                lines = log.readlines()
-                self.assertTrue(any(node_name in s for s in lines))
+                # let logging worker do the job
+                time.sleep(0.1)
 
-            # test logger after stop/start/restart
-            master.stop()
-            master.start()
-            master.restart()
-            self.assertTrue(master._logger.is_alive())
+                # check that master's port is found
+                with open(logfile.name, 'r') as log:
+                    lines = log.readlines()
+                    self.assertTrue(any(node_name in s for s in lines))
 
-        configure_testgres(use_python_logging=False)
+                # test logger after stop/start/restart
+                master.stop()
+                master.start()
+                master.restart()
+                self.assertTrue(master._logger.is_alive())
 
     @unittest.skipUnless(
         util_is_executable("pgbench"), "pgbench may be missing")
@@ -506,9 +507,6 @@ class SimpleTest(unittest.TestCase):
             self.assertTrue('tps' in out)
 
     def test_pg_config(self):
-        # set global if it wasn't set
-        configure_testgres(cache_pg_config=True)
-
         # check same instances
         a = get_pg_config()
         b = get_pg_config()
@@ -517,23 +515,54 @@ class SimpleTest(unittest.TestCase):
         # save right before config change
         c1 = get_pg_config()
 
-        # modify setting
-        configure_testgres(cache_pg_config=False)
-        self.assertFalse(TestgresConfig.cache_pg_config)
+        # modify setting for this scope
+        with scoped_config(cache_pg_config=False) as config:
 
-        # save right after config change
-        c2 = get_pg_config()
+            # sanity check for value
+            self.assertFalse(config.cache_pg_config)
 
-        # check different instances after config change
-        self.assertNotEqual(id(c1), id(c2))
+            # save right after config change
+            c2 = get_pg_config()
 
-        # check different instances
-        a = get_pg_config()
-        b = get_pg_config()
-        self.assertNotEqual(id(a), id(b))
+            # check different instances after config change
+            self.assertNotEqual(id(c1), id(c2))
 
-        # restore setting
-        configure_testgres(cache_pg_config=True)
+            # check different instances
+            a = get_pg_config()
+            b = get_pg_config()
+            self.assertNotEqual(id(a), id(b))
+
+    def test_config_stack(self):
+        # no such option
+        with self.assertRaises(TypeError):
+            configure_testgres(dummy=True)
+
+        # we have only 1 config in stack
+        with self.assertRaises(IndexError):
+            pop_config()
+
+        d0 = TestgresConfig.cached_initdb_dir
+        d1 = 'dummy_abc'
+        d2 = 'dummy_def'
+
+        with scoped_config(cached_initdb_dir=d1) as c1:
+            self.assertEqual(c1.cached_initdb_dir, d1)
+
+            with scoped_config(cached_initdb_dir=d2) as c2:
+
+                stack_size = len(testgres.config.config_stack)
+
+                # try to break a stack
+                with self.assertRaises(TypeError):
+                    with scoped_config(dummy=True):
+                        pass
+
+                self.assertEqual(c2.cached_initdb_dir, d2)
+                self.assertEqual(len(testgres.config.config_stack), stack_size)
+
+            self.assertEqual(c1.cached_initdb_dir, d1)
+
+        self.assertEqual(TestgresConfig.cached_initdb_dir, d0)
 
     def test_unix_sockets(self):
         with get_new_node() as node:
