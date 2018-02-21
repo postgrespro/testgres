@@ -38,15 +38,15 @@ from testgres import \
     get_pg_config
 
 from testgres import bound_ports
+from testgres.utils import pg_version_ge
 
 
 def util_is_executable(util):
     def good_properties(f):
-        return (
-            os.path.exists(f) and
-            os.path.isfile(f) and
-            os.access(f, os.X_OK)
-        )
+        # yapf: disable
+        return (os.path.exists(f) and
+                os.path.isfile(f) and
+                os.access(f, os.X_OK))
 
     # try to resolve it
     if good_properties(get_bin_path(util)):
@@ -90,6 +90,27 @@ class SimpleTest(unittest.TestCase):
             node.init().start().execute('select 1')
             node.cleanup()
             node.init().start().execute('select 1')
+
+    @unittest.skipUnless(pg_version_ge('9.6'), 'query works on 9.6+')
+    def test_init_unique_system_id(self):
+        with scoped_config(
+                cache_initdb=True, cached_initdb_unique=True) as config:
+
+            self.assertTrue(config.cache_initdb)
+            self.assertTrue(config.cached_initdb_unique)
+
+            # spawn two nodes; ids must be different
+            with get_new_node().init().start() as node1, \
+                    get_new_node().init().start() as node2:
+
+                # this function exists in PostgreSQL 9.6+
+                query = 'select system_identifier from pg_control_system()'
+
+                id1 = node1.execute(query)[0]
+                id2 = node2.execute(query)[0]
+
+                # ids must increase
+                self.assertGreater(id2, id1)
 
     def test_node_exit(self):
         base_dir = None
@@ -486,8 +507,7 @@ class SimpleTest(unittest.TestCase):
                 master.restart()
                 self.assertTrue(master._logger.is_alive())
 
-    @unittest.skipUnless(
-        util_is_executable("pgbench"), "pgbench may be missing")
+    @unittest.skipUnless(util_is_executable('pgbench'), 'might be missing')
     def test_pgbench(self):
         with get_new_node().init().start() as node:
 

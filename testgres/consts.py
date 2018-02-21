@@ -4,6 +4,9 @@
 DATA_DIR = "data"
 LOGS_DIR = "logs"
 
+# path to control file
+XLOG_CONTROL_FILE = "global/pg_control"
+
 # names for config files
 RECOVERY_CONF_FILE = "recovery.conf"
 PG_AUTO_CONF_FILE = "postgresql.auto.conf"

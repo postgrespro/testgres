@@ -68,6 +68,27 @@ def generate_app_name():
     return 'testgres-{}'.format(str(uuid.uuid4()))
 
 
+def generate_system_id():
+    """
+    Generate a new 64-bit unique system identifier for node.
+    """
+
+    import datetime
+    import struct
+
+    date = datetime.datetime.now()
+    secs = int(date.timestamp())
+    usecs = date.microsecond
+
+    system_id = 0
+    system_id |= (secs << 32)
+    system_id |= (usecs << 12)
+    system_id |= (os.getpid() & 0xFFF)
+
+    # pack ULL in native byte order
+    return struct.pack('=Q', system_id)
+
+
 def execute_utility(args, logfile=None):
     """
     Execute utility (pg_ctl, pg_dump etc).
