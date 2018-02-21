@@ -76,9 +76,11 @@ def generate_system_id():
     import datetime
     import struct
 
-    date = datetime.datetime.now()
-    secs = int(date.timestamp())
-    usecs = date.microsecond
+    date1 = datetime.datetime.utcfromtimestamp(0)
+    date2 = datetime.datetime.utcnow()
+
+    secs = int((date2 - date1).total_seconds())
+    usecs = date2.microsecond
 
     system_id = 0
     system_id |= (secs << 32)

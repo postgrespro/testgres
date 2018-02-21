@@ -41,7 +41,7 @@ from testgres import bound_ports
 from testgres.utils import pg_version_ge
 
 
-def util_is_executable(util):
+def util_exists(util):
     def good_properties(f):
         # yapf: disable
         return (os.path.exists(f) and
@@ -91,6 +91,7 @@ class SimpleTest(unittest.TestCase):
             node.cleanup()
             node.init().start().execute('select 1')
 
+    @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
     @unittest.skipUnless(pg_version_ge('9.6'), 'query works on 9.6+')
     def test_init_unique_system_id(self):
         with scoped_config(
@@ -507,7 +508,7 @@ class SimpleTest(unittest.TestCase):
                 master.restart()
                 self.assertTrue(master._logger.is_alive())
 
-    @unittest.skipUnless(util_is_executable('pgbench'), 'might be missing')
+    @unittest.skipUnless(util_exists('pgbench'), 'might be missing')
     def test_pgbench(self):
         with get_new_node().init().start() as node:
 

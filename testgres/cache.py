@@ -59,5 +59,10 @@ def cached_initdb(data_dir, logfile=None, params=None):
                 # XXX: build new WAL segment with our system id
                 _params = [get_bin_path("pg_resetwal"), "-D", data_dir, "-f"]
                 execute_utility(_params, logfile)
+
+        except ExecUtilException as e:
+            msg = "Failed to reset WAL for system id"
+            raise_from(InitNodeException(msg), e)
+
         except Exception as e:
             raise_from(InitNodeException("Failed to spawn a node"), e)
