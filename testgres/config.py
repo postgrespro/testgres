@@ -98,7 +98,7 @@ testgres_config = GlobalConfig()
 TestgresConfig = testgres_config
 
 # stack of GlobalConfigs
-config_stack = [testgres_config]
+config_stack = []
 
 
 def rm_cached_initdb_dirs():
@@ -123,7 +123,7 @@ def pop_config():
     Set previous GlobalConfig options from stack.
     """
 
-    if len(config_stack) <= 1:
+    if len(config_stack) == 0:
         raise IndexError('Reached initial config')
 
     # restore popped config
@@ -141,9 +141,10 @@ def scoped_config(**options):
         ...         print(node.execute('select 1'))
     """
 
-    # set a new config with options
-    config = push_config(**options)
     try:
+        # set a new config with options
+        config = push_config(**options)
+
         # return it
         yield config
     finally:

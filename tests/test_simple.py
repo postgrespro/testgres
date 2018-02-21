@@ -549,7 +549,16 @@ class SimpleTest(unittest.TestCase):
             self.assertEqual(c1.cached_initdb_dir, d1)
 
             with scoped_config(cached_initdb_dir=d2) as c2:
+
+                stack_size = len(testgres.config.config_stack)
+
+                # try to break a stack
+                with self.assertRaises(TypeError):
+                    with scoped_config(dummy=True):
+                        pass
+
                 self.assertEqual(c2.cached_initdb_dir, d2)
+                self.assertEqual(len(testgres.config.config_stack), stack_size)
 
             self.assertEqual(c1.cached_initdb_dir, d1)
 
