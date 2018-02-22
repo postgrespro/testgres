@@ -23,6 +23,7 @@ from .connection import \
 from .consts import \
     DATA_DIR, \
     LOGS_DIR, \
+    TMP_NODE, \
     PG_CONF_FILE, \
     PG_AUTO_CONF_FILE, \
     HBA_CONF_FILE, \
@@ -106,7 +107,9 @@ class PostgresNode(object):
     def __exit__(self, type, value, traceback):
         self.free_port()
 
-        got_exception = value is not None
+        # NOTE: ctrl+C does not count!
+        got_exception = type is not None and type != KeyboardInterrupt
+
         c1 = self.cleanup_on_good_exit and not got_exception
         c2 = self.cleanup_on_bad_exit and got_exception
 
@@ -152,8 +155,9 @@ class PostgresNode(object):
             except ExecUtilException:
                 pass    # one more time
             except Exception:
-                # TODO: probably kill stray instance
+                # TODO: probably should kill stray instance
                 eprint('cannot stop node {}'.format(self.name))
+                break
 
             attempts += 1
 
@@ -195,7 +199,7 @@ class PostgresNode(object):
 
     def _prepare_dirs(self):
         if not self.base_dir:
-            self.base_dir = tempfile.mkdtemp()
+            self.base_dir = tempfile.mkdtemp(prefix=TMP_NODE)
 
         if not os.path.exists(self.base_dir):
             os.makedirs(self.base_dir)

@@ -7,6 +7,8 @@ import tempfile
 
 from contextlib import contextmanager
 
+from .consts import TMP_CACHE
+
 
 class GlobalConfig(object):
     """
@@ -101,6 +103,7 @@ TestgresConfig = testgres_config
 config_stack = []
 
 
+@atexit.register
 def rm_cached_initdb_dirs():
     for d in cached_initdb_dirs:
         shutil.rmtree(d, ignore_errors=True)
@@ -161,8 +164,5 @@ def configure_testgres(**options):
     testgres_config.update(options)
 
 
-# NOTE: to be executed at exit()
-atexit.register(rm_cached_initdb_dirs)
-
 # NOTE: assign initial cached dir for initdb
-testgres_config.cached_initdb_dir = tempfile.mkdtemp()
+testgres_config.cached_initdb_dir = tempfile.mkdtemp(prefix=TMP_CACHE)

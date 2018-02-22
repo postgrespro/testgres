@@ -4,6 +4,11 @@
 DATA_DIR = "data"
 LOGS_DIR = "logs"
 
+# prefixes for temp dirs
+TMP_NODE = 'tgsn_'
+TMP_CACHE = 'tgsc_'
+TMP_BACKUP = 'tgsb_'
+
 # names for config files
 RECOVERY_CONF_FILE = "recovery.conf"
 PG_AUTO_CONF_FILE = "postgresql.auto.conf"

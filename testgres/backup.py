@@ -8,6 +8,8 @@ from six import raise_from
 
 from .consts import \
     DATA_DIR, \
+    TMP_NODE, \
+    TMP_BACKUP, \
     PG_CONF_FILE, \
     BACKUP_LOG_FILE, \
     DEFAULT_XLOG_METHOD
@@ -49,7 +51,7 @@ class NodeBackup(object):
 
         # Set default arguments
         username = username or default_username()
-        base_dir = base_dir or tempfile.mkdtemp()
+        base_dir = base_dir or tempfile.mkdtemp(prefix=TMP_BACKUP)
 
         # public
         self.original_node = node
@@ -96,7 +98,7 @@ class NodeBackup(object):
         available = not destroy
 
         if available:
-            dest_base_dir = tempfile.mkdtemp()
+            dest_base_dir = tempfile.mkdtemp(prefix=TMP_NODE)
 
             data1 = os.path.join(self.base_dir, DATA_DIR)
             data2 = os.path.join(dest_base_dir, DATA_DIR)
