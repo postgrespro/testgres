@@ -6,6 +6,7 @@ LOGS_DIR = "logs"
 
 # prefixes for temp dirs
 TMP_NODE = 'tgsn_'
+TMP_DUMP = 'tgsd_'
 TMP_CACHE = 'tgsc_'
 TMP_BACKUP = 'tgsb_'
 

@@ -24,6 +24,7 @@ from .consts import \
     DATA_DIR, \
     LOGS_DIR, \
     TMP_NODE, \
+    TMP_DUMP, \
     PG_CONF_FILE, \
     PG_AUTO_CONF_FILE, \
     HBA_CONF_FILE, \
@@ -717,7 +718,7 @@ class PostgresNode(object):
         """
 
         def tmpfile():
-            fd, fname = tempfile.mkstemp()
+            fd, fname = tempfile.mkstemp(prefix=TMP_DUMP)
             os.close(fd)
             return fname
 
