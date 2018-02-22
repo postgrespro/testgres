@@ -17,6 +17,7 @@ class GlobalConfig(object):
     Attributes:
         cache_initdb:           shall we use cached initdb instance?
         cached_initdb_dir:      shall we create a temp dir for cached initdb?
+        cached_initdb_unique:   shall we assign new node a unique system id?
 
         cache_pg_config:        shall we cache pg_config results?
 
@@ -32,6 +33,7 @@ class GlobalConfig(object):
 
     cache_initdb = True
     _cached_initdb_dir = None
+    cached_initdb_unique = False
 
     cache_pg_config = True
 

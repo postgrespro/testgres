@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import io
 import os
 import shutil
 
@@ -7,13 +8,16 @@ from six import raise_from
 
 from .config import testgres_config
 
+from .consts import XLOG_CONTROL_FILE
+
 from .exceptions import \
     InitNodeException, \
     ExecUtilException
 
 from .utils import \
     get_bin_path, \
-    execute_utility
+    execute_utility, \
+    generate_system_id
 
 
 def cached_initdb(data_dir, logfile=None, params=None):
@@ -42,5 +46,23 @@ def cached_initdb(data_dir, logfile=None, params=None):
         try:
             # Copy cached initdb to current data dir
             shutil.copytree(cached_data_dir, data_dir)
+
+            # Assign this node a unique system id if asked to
+            if testgres_config.cached_initdb_unique:
+                # XXX: write new unique system id to control file
+                # Some users might rely upon unique system ids, but
+                # our initdb caching mechanism breaks this contract.
+                pg_control = os.path.join(data_dir, XLOG_CONTROL_FILE)
+                with io.open(pg_control, "r+b") as f:
+                    f.write(generate_system_id())    # overwrite id
+
+                # XXX: build new WAL segment with our system id
+                _params = [get_bin_path("pg_resetwal"), "-D", data_dir, "-f"]
+                execute_utility(_params, logfile)
+
+        except ExecUtilException as e:
+            msg = "Failed to reset WAL for system id"
+            raise_from(InitNodeException(msg), e)
+
         except Exception as e:
             raise_from(InitNodeException("Failed to spawn a node"), e)
