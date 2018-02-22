@@ -94,8 +94,16 @@ class SimpleTest(unittest.TestCase):
     @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
     @unittest.skipUnless(pg_version_ge('9.6'), 'query works on 9.6+')
     def test_init_unique_system_id(self):
-        with scoped_config(
-                cache_initdb=True, cached_initdb_unique=True) as config:
+        # this function exists in PostgreSQL 9.6+
+        query = 'select system_identifier from pg_control_system()'
+
+        with scoped_config(cache_initdb=False):
+            with get_new_node().init().start() as node0:
+                id0 = node0.execute(query)[0]
+
+        # yapf: disable
+        with scoped_config(cache_initdb=True,
+                           cached_initdb_unique=True) as config:
 
             self.assertTrue(config.cache_initdb)
             self.assertTrue(config.cached_initdb_unique)
@@ -104,13 +112,11 @@ class SimpleTest(unittest.TestCase):
             with get_new_node().init().start() as node1, \
                     get_new_node().init().start() as node2:
 
-                # this function exists in PostgreSQL 9.6+
-                query = 'select system_identifier from pg_control_system()'
-
                 id1 = node1.execute(query)[0]
                 id2 = node2.execute(query)[0]
 
                 # ids must increase
+                self.assertGreater(id1, id0)
                 self.assertGreater(id2, id1)
 
     def test_node_exit(self):
