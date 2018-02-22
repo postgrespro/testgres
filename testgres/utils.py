@@ -82,6 +82,7 @@ def generate_system_id():
     secs = int((date2 - date1).total_seconds())
     usecs = date2.microsecond
 
+    # see pg_resetwal.c : GuessControlValues()
     system_id = 0
     system_id |= (secs << 32)
     system_id |= (usecs << 12)
