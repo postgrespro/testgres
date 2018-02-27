@@ -5,11 +5,11 @@ import os
 import shutil
 import six
 import subprocess
-import tempfile
 import time
 
 from enum import Enum
 from six import raise_from
+from tempfile import mkstemp, mkdtemp
 
 from .cache import cached_initdb
 
@@ -200,7 +200,8 @@ class PostgresNode(object):
 
     def _prepare_dirs(self):
         if not self.base_dir:
-            self.base_dir = tempfile.mkdtemp(prefix=TMP_NODE)
+            self.base_dir = mkdtemp(prefix=TMP_NODE,
+                                    dir=testgres_config.temp_dir)
 
         if not os.path.exists(self.base_dir):
             os.makedirs(self.base_dir)
@@ -718,7 +719,7 @@ class PostgresNode(object):
         """
 
         def tmpfile():
-            fd, fname = tempfile.mkstemp(prefix=TMP_DUMP)
+            fd, fname = mkstemp(prefix=TMP_DUMP, dir=testgres_config.temp_dir)
             os.close(fd)
             return fname
 

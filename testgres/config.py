@@ -3,9 +3,9 @@
 import atexit
 import copy
 import shutil
-import tempfile
 
 from contextlib import contextmanager
+from tempfile import mkdtemp
 
 from .consts import TMP_CACHE
 
@@ -20,6 +20,8 @@ class GlobalConfig(object):
         cached_initdb_unique:   shall we assign new node a unique system id?
 
         cache_pg_config:        shall we cache pg_config results?
+
+        temp_dir:               base temp dir for nodes with default 'base_dir'.
 
         use_python_logging:     use python logging configuration for all nodes.
         error_log_lines:        N of log lines to be shown in exception (0=inf).
@@ -36,6 +38,8 @@ class GlobalConfig(object):
     cached_initdb_unique = False
 
     cache_pg_config = True
+
+    temp_dir = None
 
     use_python_logging = False
     error_log_lines = 20
@@ -166,5 +170,7 @@ def configure_testgres(**options):
     testgres_config.update(options)
 
 
+# yapf: disable
 # NOTE: assign initial cached dir for initdb
-testgres_config.cached_initdb_dir = tempfile.mkdtemp(prefix=TMP_CACHE)
+testgres_config.cached_initdb_dir = mkdtemp(prefix=TMP_CACHE,
+                                            dir=testgres_config.temp_dir)
