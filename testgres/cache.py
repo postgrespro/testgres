@@ -10,14 +10,15 @@ from .config import testgres_config
 
 from .consts import XLOG_CONTROL_FILE
 
+from .defaults import generate_system_id
+
 from .exceptions import \
     InitNodeException, \
     ExecUtilException
 
 from .utils import \
     get_bin_path, \
-    execute_utility, \
-    generate_system_id
+    execute_utility
 
 
 def cached_initdb(data_dir, logfile=None, params=None):

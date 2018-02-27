@@ -3,11 +3,9 @@
 from __future__ import division
 from __future__ import print_function
 
-import functools
 import io
 import os
 import port_for
-import six
 import subprocess
 import sys
 
@@ -15,6 +13,7 @@ from distutils.version import LooseVersion
 
 from .config import testgres_config
 from .exceptions import ExecUtilException
+
 
 # rows returned by PG_CONFIG
 _pg_config_data = {}
@@ -40,56 +39,6 @@ def release_port(port):
     """
 
     bound_ports.remove(port)
-
-
-def default_dbname():
-    """
-    Return default DB name.
-    """
-
-    return 'postgres'
-
-
-def default_username():
-    """
-    Return default username (current user).
-    """
-
-    import getpass
-    return getpass.getuser()
-
-
-def generate_app_name():
-    """
-    Generate a new application name for node.
-    """
-
-    import uuid
-    return 'testgres-{}'.format(str(uuid.uuid4()))
-
-
-def generate_system_id():
-    """
-    Generate a new 64-bit unique system identifier for node.
-    """
-
-    import datetime
-    import struct
-
-    date1 = datetime.datetime.utcfromtimestamp(0)
-    date2 = datetime.datetime.utcnow()
-
-    secs = int((date2 - date1).total_seconds())
-    usecs = date2.microsecond
-
-    # see pg_resetwal.c : GuessControlValues()
-    system_id = 0
-    system_id |= (secs << 32)
-    system_id |= (usecs << 12)
-    system_id |= (os.getpid() & 0xFFF)
-
-    # pack ULL in native byte order
-    return struct.pack('=Q', system_id)
 
 
 def execute_utility(args, logfile=None):
@@ -266,78 +215,6 @@ def file_tail(f, num_lines):
             return lines[-num_lines:]
 
         buffers = int(buffers * max(2, num_lines / max(cur_lines, 1)))
-
-
-def positional_args_hack(*special_cases):
-    """
-    Convert positional args described by
-    'special_cases' into named args.
-
-    Example:
-        @positional_args_hack(['abc'], ['def', 'abc'])
-        def some_api_func(...)
-
-    This is useful for compatibility.
-    """
-
-    cases = dict()
-
-    for case in special_cases:
-        k = len(case)
-        assert k not in six.iterkeys(cases), 'len must be unique'
-        cases[k] = case
-
-    def decorator(function):
-        @functools.wraps(function)
-        def wrapper(*args, **kwargs):
-            k = len(args)
-
-            if k in six.iterkeys(cases):
-                case = cases[k]
-
-                for i in range(0, k):
-                    arg_name = case[i]
-                    arg_val = args[i]
-
-                    # transform into named
-                    kwargs[arg_name] = arg_val
-
-                # get rid of them
-                args = []
-
-            return function(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def method_decorator(decorator):
-    """
-    Convert a function decorator into a method decorator.
-    """
-
-    def _dec(func):
-        def _wrapper(self, *args, **kwargs):
-            @decorator
-            def bound_func(*args2, **kwargs2):
-                return func.__get__(self, type(self))(*args2, **kwargs2)
-
-            # 'bound_func' is a closure and can see 'self'
-            return bound_func(*args, **kwargs)
-
-        # preserve docs
-        functools.update_wrapper(_wrapper, func)
-
-        return _wrapper
-
-    # preserve docs
-    functools.update_wrapper(_dec, decorator)
-
-    # change name for easier debugging
-    _dec.__name__ = 'method_decorator({})'.format(decorator.__name__)
-
-    return _dec
 
 
 def eprint(*args, **kwargs):

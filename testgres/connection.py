@@ -9,13 +9,14 @@ except ImportError:
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
+from .defaults import \
+    default_dbname, \
+    default_username
+
 from enum import Enum
 
 from .exceptions import QueryException
 
-from .utils import \
-    default_dbname, \
-    default_username
 
 # export these exceptions
 InternalError = pglib.InternalError

@@ -16,11 +16,12 @@ from .consts import \
     BACKUP_LOG_FILE, \
     DEFAULT_XLOG_METHOD
 
+from .defaults import default_username
+
 from .exceptions import BackupException
 
 from .utils import \
     get_bin_path, \
-    default_username, \
     execute_utility
 
 

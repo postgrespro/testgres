@@ -33,6 +33,15 @@ from .consts import \
     UTILS_LOG_FILE, \
     DEFAULT_XLOG_METHOD
 
+from .decorators import \
+    method_decorator, \
+    positional_args_hack
+
+from .defaults import \
+    default_dbname, \
+    default_username, \
+    generate_app_name
+
 from .exceptions import \
     CatchUpException,   \
     ExecUtilException,  \
@@ -49,12 +58,7 @@ from .utils import \
     pg_version_ge, \
     reserve_port, \
     release_port, \
-    default_dbname, \
-    default_username, \
-    generate_app_name, \
-    execute_utility, \
-    method_decorator, \
-    positional_args_hack
+    execute_utility
 
 
 class NodeStatus(Enum):
