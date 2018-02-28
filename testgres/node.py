@@ -112,7 +112,7 @@ class PostgresNode(object):
     def __exit__(self, type, value, traceback):
         self.free_port()
 
-        # NOTE: ctrl+C does not count!
+        # NOTE: Ctrl+C does not count!
         got_exception = type is not None and type != KeyboardInterrupt
 
         c1 = self.cleanup_on_good_exit and not got_exception
@@ -681,16 +681,13 @@ class PostgresNode(object):
         return process.returncode, out, err
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
-    def safe_psql(self,
-                  query,
-                  dbname=None,
-                  username=None,
-                  input=None):
+    def safe_psql(self, query=None, **kwargs):
         """
         Execute a query using psql.
 
         Args:
             query: query to be executed.
+            filename: file with a query.
             dbname: database name to connect to.
             username: database user name.
             input: raw input to be passed.
@@ -699,10 +696,7 @@ class PostgresNode(object):
             psql's output as str.
         """
 
-        ret, out, err = self.psql(query=query,
-                                  dbname=dbname,
-                                  username=username,
-                                  input=input)
+        ret, out, err = self.psql(query=query, **kwargs)
         if ret:
             raise QueryException((err or b'').decode('utf-8'), query)
 
@@ -858,27 +852,23 @@ class PostgresNode(object):
 
             return res
 
-    def backup(self, username=None, xlog_method=DEFAULT_XLOG_METHOD):
+    def backup(self, **kwargs):
         """
         Perform pg_basebackup.
 
         Args:
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
+            base_dir: the base directory for data files and logs
 
         Returns:
             A smart object of type NodeBackup.
         """
 
         from .backup import NodeBackup
-        return NodeBackup(node=self,
-                          username=username,
-                          xlog_method=xlog_method)
+        return NodeBackup(node=self, **kwargs)
 
-    def replicate(self,
-                  name=None,
-                  username=None,
-                  xlog_method=DEFAULT_XLOG_METHOD):
+    def replicate(self, name=None, **kwargs):
         """
         Create a binary replica of this node.
 
@@ -886,9 +876,10 @@ class PostgresNode(object):
             name: replica's application name.
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
+            base_dir: the base directory for data files and logs
         """
 
-        backup = self.backup(username=username, xlog_method=xlog_method)
+        backup = self.backup(**kwargs)
 
         # transform backup into a replica
         return backup.spawn_replica(name=name, destroy=True)
