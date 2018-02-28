@@ -254,19 +254,15 @@ class PostgresNode(object):
 
         return result
 
-    def init(self,
-             fsync=False,
-             unix_sockets=True,
-             allow_streaming=True,
-             initdb_params=None):
+    def init(self, initdb_params=None, **kwargs):
         """
         Perform initdb for this node.
 
         Args:
+            initdb_params: parameters for initdb (list).
             fsync: should this node use fsync to keep data safe?
             unix_sockets: should we enable UNIX sockets?
             allow_streaming: should this node add a hba entry for replication?
-            initdb_params: parameters for initdb (list).
 
         Returns:
             This instance of PostgresNode.
@@ -281,9 +277,7 @@ class PostgresNode(object):
                       params=initdb_params)
 
         # initialize default config files
-        self.default_conf(fsync=fsync,
-                          unix_sockets=unix_sockets,
-                          allow_streaming=allow_streaming)
+        self.default_conf(**kwargs)
 
         return self
 
