@@ -30,8 +30,7 @@ from .consts import \
     HBA_CONF_FILE, \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
-    UTILS_LOG_FILE, \
-    DEFAULT_XLOG_METHOD
+    UTILS_LOG_FILE
 
 from .decorators import \
     method_decorator, \
