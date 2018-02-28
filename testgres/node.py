@@ -384,21 +384,22 @@ class PostgresNode(object):
 
         return self
 
-    def append_conf(self, filename, string):
+    @method_decorator(positional_args_hack(['filename', 'line']))
+    def append_conf(self, line, filename=PG_CONF_FILE):
         """
-        Append line to a config file (i.e. postgresql.conf).
+        Append line to a config file.
 
         Args:
-            filename: name of the config file.
-            string: string to be appended to config.
+            line: string to be appended to config.
+            filename: config file (postgresql.conf by default).
 
         Returns:
             This instance of PostgresNode.
         """
 
         config_name = os.path.join(self.data_dir, filename)
-        with io.open(config_name, "a") as conf:
-            conf.write(u"".join([string, '\n']))
+        with io.open(config_name, 'a') as conf:
+            conf.write(u''.join([line, '\n']))
 
         return self
 
