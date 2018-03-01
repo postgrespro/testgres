@@ -17,7 +17,6 @@ from enum import Enum
 
 from .exceptions import QueryException
 
-
 # export these exceptions
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError

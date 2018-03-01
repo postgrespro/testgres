@@ -9,6 +9,7 @@ TMP_NODE = 'tgsn_'
 TMP_DUMP = 'tgsd_'
 TMP_CACHE = 'tgsc_'
 TMP_BACKUP = 'tgsb_'
+TMP_DEFAULT = 'tgs_'
 
 # path to control file
 XLOG_CONTROL_FILE = "global/pg_control"

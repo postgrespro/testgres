@@ -2,14 +2,13 @@
 
 import io
 import os
-import shutil
 import six
 import subprocess
 import time
 
 from enum import Enum
+from shutil import rmtree
 from six import raise_from
-from tempfile import mkstemp, mkdtemp
 
 from .cache import cached_initdb
 
@@ -49,6 +48,11 @@ from .exceptions import \
     TimeoutException
 
 from .logger import TestgresLogger
+
+from .temp import \
+    mk_temp_dir, \
+    mk_temp_file, \
+    forget_temp_obj
 
 from .utils import \
     eprint, \
@@ -203,8 +207,7 @@ class PostgresNode(object):
 
     def _prepare_dirs(self):
         if not self.base_dir:
-            self.base_dir = mkdtemp(prefix=TMP_NODE,
-                                    dir=testgres_config.temp_dir)
+            self.base_dir = mk_temp_dir(TMP_NODE)
 
         if not os.path.exists(self.base_dir):
             os.makedirs(self.base_dir)
@@ -613,7 +616,8 @@ class PostgresNode(object):
         else:
             rm_dir = self.data_dir    # just data, save logs
 
-        shutil.rmtree(rm_dir, ignore_errors=True)
+        rmtree(rm_dir, ignore_errors=True)
+        forget_temp_obj(self.base_dir)  # unregister topmost dir!
 
         return self
 
@@ -710,15 +714,10 @@ class PostgresNode(object):
             Path to a file containing dump.
         """
 
-        def tmpfile():
-            fd, fname = mkstemp(prefix=TMP_DUMP, dir=testgres_config.temp_dir)
-            os.close(fd)
-            return fname
-
         # Set default arguments
         dbname = dbname or default_dbname()
         username = username or default_username()
-        filename = filename or tmpfile()
+        filename = filename or mk_temp_file(TMP_DUMP, delete=False)
 
         # yapf: disable
         _params = [
