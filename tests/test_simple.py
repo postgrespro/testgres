@@ -11,6 +11,7 @@ import unittest
 
 import logging.config
 
+from contextlib import contextmanager
 from distutils.version import LooseVersion
 
 from testgres import \
@@ -56,6 +57,15 @@ def util_exists(util):
     for path in os.environ["PATH"].split(os.pathsep):
         if good_properties(os.path.join(path, util)):
             return True
+
+
+@contextmanager
+def removing(f):
+    try:
+        yield f
+    finally:
+        if os.path.isfile(f):
+            os.remove(f)
 
 
 class SimpleTest(unittest.TestCase):
@@ -382,19 +392,14 @@ class SimpleTest(unittest.TestCase):
             node1.execute(query_create)
 
             # take a new dump
-            dump = node1.dump()
-            self.assertTrue(os.path.isfile(dump))
+            with removing(node1.dump()) as dump:
+                with get_new_node().init().start() as node2:
+                    # restore dump
+                    self.assertTrue(os.path.isfile(dump))
+                    node2.restore(filename=dump)
 
-            with get_new_node().init().start() as node2:
-
-                # restore dump
-                node2.restore(filename=dump)
-
-                res = node2.execute(query_select)
-                self.assertListEqual(res, [(1, ), (2, )])
-
-            # finally, remove dump
-            os.remove(dump)
+                    res = node2.execute(query_select)
+                    self.assertListEqual(res, [(1, ), (2, )])
 
     def test_users(self):
         with get_new_node().init().start() as node:

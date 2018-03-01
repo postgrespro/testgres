@@ -38,7 +38,7 @@ def release_port(port):
     Free port provided by reserve_port().
     """
 
-    bound_ports.remove(port)
+    bound_ports.discard(port)
 
 
 def execute_utility(args, logfile=None):
