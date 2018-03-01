@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import io
 import os
-import shutil
 import subprocess
 import tempfile
 import testgres
@@ -11,7 +11,9 @@ import unittest
 
 import logging.config
 
+from contextlib import contextmanager
 from distutils.version import LooseVersion
+from shutil import rmtree
 
 from testgres import \
     InitNodeException, \
@@ -56,6 +58,15 @@ def util_exists(util):
     for path in os.environ["PATH"].split(os.pathsep):
         if good_properties(os.path.join(path, util)):
             return True
+
+
+@contextmanager
+def removing(f):
+    try:
+        yield f
+    finally:
+        if os.path.isfile(f):
+            os.remove(f)
 
 
 class SimpleTest(unittest.TestCase):
@@ -129,7 +140,7 @@ class SimpleTest(unittest.TestCase):
 
         # we should save the DB for "debugging"
         self.assertTrue(os.path.exists(base_dir))
-        shutil.rmtree(base_dir, ignore_errors=True)
+        rmtree(base_dir, ignore_errors=True)
 
         with get_new_node().init() as node:
             base_dir = node.base_dir
@@ -382,19 +393,15 @@ class SimpleTest(unittest.TestCase):
             node1.execute(query_create)
 
             # take a new dump
-            dump = node1.dump()
-            self.assertTrue(os.path.isfile(dump))
+            with removing(node1.dump()) as dump:
+                with get_new_node().init().start() as node2:
 
-            with get_new_node().init().start() as node2:
+                    # restore dump
+                    self.assertTrue(os.path.isfile(dump))
+                    node2.restore(filename=dump)
 
-                # restore dump
-                node2.restore(filename=dump)
-
-                res = node2.execute(query_select)
-                self.assertListEqual(res, [(1, ), (2, )])
-
-            # finally, remove dump
-            os.remove(dump)
+                    res = node2.execute(query_select)
+                    self.assertListEqual(res, [(1, ), (2, )])
 
     def test_users(self):
         with get_new_node().init().start() as node:
@@ -464,14 +471,14 @@ class SimpleTest(unittest.TestCase):
             node.poll_query_until('select true')
 
     def test_logging(self):
-        logfile = tempfile.NamedTemporaryFile('w', delete=True)
+        logfile = testgres.temp.mk_temp_file()
 
         log_conf = {
             'version': 1,
             'handlers': {
                 'file': {
                     'class': 'logging.FileHandler',
-                    'filename': logfile.name,
+                    'filename': logfile,
                     'formatter': 'base_format',
                     'level': logging.DEBUG,
                 },
@@ -504,7 +511,7 @@ class SimpleTest(unittest.TestCase):
                 time.sleep(0.1)
 
                 # check that master's port is found
-                with open(logfile.name, 'r') as log:
+                with io.open(logfile, 'r') as log:
                     lines = log.readlines()
                     self.assertTrue(any(node_name in s for s in lines))
 
