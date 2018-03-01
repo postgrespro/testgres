@@ -360,6 +360,13 @@ class SimpleTest(unittest.TestCase):
                 with self.assertRaises(BackupException):
                     backup.spawn_primary()
 
+    def test_backup_wrong_xlog_method(self):
+        with get_new_node() as node:
+            node.init(allow_streaming=True).start()
+
+            with self.assertRaises(BackupException, msg='Invalid xlog_method "wrong"'):
+                node.backup(xlog_method='wrong')
+
     def test_replicate(self):
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
