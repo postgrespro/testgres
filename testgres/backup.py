@@ -1,23 +1,27 @@
 # coding: utf-8
 
 import os
-import shutil
-import tempfile
 
+from shutil import rmtree, copytree
 from six import raise_from
+from tempfile import mkdtemp
+
 from .enums import XLogMethod
 
 from .consts import \
     DATA_DIR, \
+    TMP_NODE, \
+    TMP_BACKUP, \
     PG_CONF_FILE, \
     BACKUP_LOG_FILE, \
     DEFAULT_XLOG_METHOD
+
+from .defaults import default_username
 
 from .exceptions import BackupException
 
 from .utils import \
     get_bin_path, \
-    default_username, \
     execute_utility
 
 
@@ -57,7 +61,7 @@ class NodeBackup(object):
 
         # Set default arguments
         username = username or default_username()
-        base_dir = base_dir or tempfile.mkdtemp()
+        base_dir = base_dir or mkdtemp(prefix=TMP_BACKUP)
 
         # public
         self.original_node = node
@@ -104,14 +108,14 @@ class NodeBackup(object):
         available = not destroy
 
         if available:
-            dest_base_dir = tempfile.mkdtemp()
+            dest_base_dir = mkdtemp(prefix=TMP_NODE)
 
             data1 = os.path.join(self.base_dir, DATA_DIR)
             data2 = os.path.join(dest_base_dir, DATA_DIR)
 
             try:
                 # Copy backup to new data dir
-                shutil.copytree(data1, data2)
+                copytree(data1, data2)
             except Exception as e:
                 raise_from(BackupException('Failed to copy files'), e)
         else:
@@ -123,14 +127,13 @@ class NodeBackup(object):
         # Return path to new node
         return dest_base_dir
 
-    def spawn_primary(self, name=None, destroy=True, use_logging=False):
+    def spawn_primary(self, name=None, destroy=True):
         """
         Create a primary node from a backup.
 
         Args:
             name: primary's application name.
             destroy: should we convert this backup into a node?
-            use_logging: enable python logging.
 
         Returns:
             New instance of PostgresNode.
@@ -141,9 +144,7 @@ class NodeBackup(object):
 
         # Build a new PostgresNode
         from .node import PostgresNode
-        node = PostgresNode(name=name,
-                            base_dir=base_dir,
-                            use_logging=use_logging)
+        node = PostgresNode(name=name, base_dir=base_dir)
 
         # New nodes should always remove dir tree
         node._should_rm_dirs = True
@@ -153,23 +154,20 @@ class NodeBackup(object):
 
         return node
 
-    def spawn_replica(self, name=None, destroy=True, use_logging=False):
+    def spawn_replica(self, name=None, destroy=True):
         """
         Create a replica of the original node from a backup.
 
         Args:
             name: replica's application name.
             destroy: should we convert this backup into a node?
-            use_logging: enable python logging.
 
         Returns:
             New instance of PostgresNode.
         """
 
         # Build a new PostgresNode
-        node = self.spawn_primary(name=name,
-                                  destroy=destroy,
-                                  use_logging=use_logging)
+        node = self.spawn_primary(name=name, destroy=destroy)
 
         # Assign it a master and a recovery file (private magic)
         node._assign_master(self.original_node)
@@ -179,5 +177,5 @@ class NodeBackup(object):
 
     def cleanup(self):
         if self._available:
-            shutil.rmtree(self.base_dir, ignore_errors=True)
+            rmtree(self.base_dir, ignore_errors=True)
             self._available = False

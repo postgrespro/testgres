@@ -2,19 +2,19 @@
 
 import io
 import os
-import shutil
 import six
 import subprocess
-import tempfile
 import time
 
+from shutil import rmtree
 from six import raise_from
+from tempfile import mkstemp, mkdtemp
 
 from .enums import NodeStatus
 
 from .cache import cached_initdb
 
-from .config import TestgresConfig
+from .config import testgres_config
 
 from .connection import \
     NodeConnection, \
@@ -24,12 +24,23 @@ from .connection import \
 from .consts import \
     DATA_DIR, \
     LOGS_DIR, \
+    TMP_NODE, \
+    TMP_DUMP, \
     PG_CONF_FILE, \
+    PG_AUTO_CONF_FILE, \
     HBA_CONF_FILE, \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
-    UTILS_LOG_FILE, \
-    DEFAULT_XLOG_METHOD
+    UTILS_LOG_FILE
+
+from .decorators import \
+    method_decorator, \
+    positional_args_hack
+
+from .defaults import \
+    default_dbname, \
+    default_username, \
+    generate_app_name
 
 from .exceptions import \
     CatchUpException,   \
@@ -41,23 +52,19 @@ from .exceptions import \
 from .logger import TestgresLogger
 
 from .utils import \
+    eprint, \
     get_bin_path, \
     file_tail, \
     pg_version_ge, \
     reserve_port, \
     release_port, \
-    default_dbname, \
-    default_username, \
-    generate_app_name, \
-    execute_utility, \
-    method_decorator, \
-    positional_args_hack
+    execute_utility
 
 from .backup import NodeBackup
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, port=None, base_dir=None, use_logging=False):
+    def __init__(self, name=None, port=None, base_dir=None):
         """
         Create a new node manually.
 
@@ -65,19 +72,21 @@ class PostgresNode(object):
             name: node's application name.
             port: port to accept connections.
             base_dir: path to node's data directory.
-            use_logging: enable python logging.
         """
 
-        # public
+        # basic
         self.host = '127.0.0.1'
         self.name = name or generate_app_name()
         self.port = port or reserve_port()
         self.base_dir = base_dir
 
+        # defaults for __exit__()
+        self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
+        self.cleanup_on_bad_exit = testgres_config.node_cleanup_on_bad_exit
+        self.shutdown_max_attempts = 3
+
         # private
-        self._should_rm_dirs = base_dir is None
         self._should_free_port = port is None
-        self._use_logging = use_logging
         self._logger = None
         self._master = None
 
@@ -88,11 +97,24 @@ class PostgresNode(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        # stop node if necessary
-        self.cleanup()
-
-        # free port if necessary
         self.free_port()
+
+        # NOTE: Ctrl+C does not count!
+        got_exception = type is not None and type != KeyboardInterrupt
+
+        c1 = self.cleanup_on_good_exit and not got_exception
+        c2 = self.cleanup_on_bad_exit and got_exception
+
+        attempts = self.shutdown_max_attempts
+
+        if c1 or c2:
+            self.cleanup(attempts)
+        else:
+            self._try_shutdown(attempts)
+
+    @property
+    def pid(self):
+        return self.get_pid()
 
     @property
     def master(self):
@@ -114,6 +136,23 @@ class PostgresNode(object):
     def pg_log_name(self):
         return os.path.join(self.logs_dir, PG_LOG_FILE)
 
+    def _try_shutdown(self, max_attempts):
+        attempts = 0
+
+        # try stopping server N times
+        while attempts < max_attempts:
+            try:
+                self.stop()
+                break    # OK
+            except ExecUtilException:
+                pass    # one more time
+            except Exception:
+                # TODO: probably should kill stray instance
+                eprint('cannot stop node {}'.format(self.name))
+                break
+
+            attempts += 1
+
     def _assign_master(self, master):
         """NOTE: this is a private method!"""
 
@@ -132,7 +171,7 @@ class PostgresNode(object):
             u"application_name={} "
             u"port={} "
             u"user={} "
-        ).format(master.name, master.port, username)
+        ).format(self.name, master.port, username)
 
         # host is tricky
         try:
@@ -151,10 +190,8 @@ class PostgresNode(object):
         self.append_conf(RECOVERY_CONF_FILE, line)
 
     def _prepare_dirs(self):
-        """NOTE: this is a private method!"""
-
         if not self.base_dir:
-            self.base_dir = tempfile.mkdtemp()
+            self.base_dir = mkdtemp(prefix=TMP_NODE)
 
         if not os.path.exists(self.base_dir):
             os.makedirs(self.base_dir)
@@ -163,37 +200,27 @@ class PostgresNode(object):
             os.makedirs(self.logs_dir)
 
     def _maybe_start_logger(self):
-        """NOTE: this is a private method!"""
-
-        if self._use_logging:
-            # spawn new logger if it doesn't exist or stopped
+        if testgres_config.use_python_logging:
+            # spawn new logger if it doesn't exist or is stopped
             if not self._logger or not self._logger.is_alive():
                 self._logger = TestgresLogger(self.name, self.pg_log_name)
                 self._logger.start()
 
     def _maybe_stop_logger(self):
-        """NOTE: this is a private method!"""
-
         if self._logger:
             self._logger.stop()
 
-    def _format_verbose_error(self, message=None):
-        """NOTE: this is a private method!"""
+    def _collect_special_files(self):
+        result = []
 
-        # list of important files + N of last lines
+        # list of important files + last N lines
         files = [
             (os.path.join(self.data_dir, PG_CONF_FILE), 0),
-            (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
+            (os.path.join(self.data_dir, PG_AUTO_CONF_FILE), 0),
             (os.path.join(self.data_dir, RECOVERY_CONF_FILE), 0),
-            (self.pg_log_name, TestgresConfig.error_log_lines)
+            (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
+            (self.pg_log_name, testgres_config.error_log_lines)
         ]
-
-        error_text = ""
-
-        # append message if asked to
-        if message:
-            error_text += message
-            error_text += '\n' * 2
 
         for f, num_lines in files:
             # skip missing files
@@ -208,24 +235,20 @@ class PostgresNode(object):
                     # read whole file
                     lines = _f.read().decode('utf-8')
 
-                # append contents
-                error_text += u"{}:\n----\n{}\n".format(f, lines)
+                # fill list
+                result.append((f, lines))
 
-        return error_text
+        return result
 
-    def init(self,
-             fsync=False,
-             unix_sockets=True,
-             allow_streaming=True,
-             initdb_params=[]):
+    def init(self, initdb_params=None, **kwargs):
         """
         Perform initdb for this node.
 
         Args:
+            initdb_params: parameters for initdb (list).
             fsync: should this node use fsync to keep data safe?
             unix_sockets: should we enable UNIX sockets?
             allow_streaming: should this node add a hba entry for replication?
-            initdb_params: parameters for initdb (list).
 
         Returns:
             This instance of PostgresNode.
@@ -235,13 +258,12 @@ class PostgresNode(object):
         self._prepare_dirs()
 
         # initialize this PostgreSQL node
-        initdb_log = os.path.join(self.logs_dir, "initdb.log")
-        cached_initdb(self.data_dir, initdb_log, initdb_params)
+        cached_initdb(data_dir=self.data_dir,
+                      logfile=self.utils_log_name,
+                      params=initdb_params)
 
         # initialize default config files
-        self.default_conf(fsync=fsync,
-                          unix_sockets=unix_sockets,
-                          allow_streaming=allow_streaming)
+        self.default_conf(**kwargs)
 
         return self
 
@@ -342,21 +364,22 @@ class PostgresNode(object):
 
         return self
 
-    def append_conf(self, filename, string):
+    @method_decorator(positional_args_hack(['filename', 'line']))
+    def append_conf(self, line, filename=PG_CONF_FILE):
         """
-        Append line to a config file (i.e. postgresql.conf).
+        Append line to a config file.
 
         Args:
-            filename: name of the config file.
-            string: string to be appended to config.
+            line: string to be appended to config.
+            filename: config file (postgresql.conf by default).
 
         Returns:
             This instance of PostgresNode.
         """
 
         config_name = os.path.join(self.data_dir, filename)
-        with io.open(config_name, "a") as conf:
-            conf.write(u"".join([string, '\n']))
+        with io.open(config_name, 'a') as conf:
+            conf.write(u''.join([line, '\n']))
 
         return self
 
@@ -393,7 +416,8 @@ class PostgresNode(object):
         """
 
         if self.status():
-            with io.open(os.path.join(self.data_dir, 'postmaster.pid')) as f:
+            pid_file = os.path.join(self.data_dir, 'postmaster.pid')
+            with io.open(pid_file) as f:
                 return int(f.readline())
 
         # for clarity
@@ -442,8 +466,9 @@ class PostgresNode(object):
         try:
             execute_utility(_params, self.utils_log_name)
         except ExecUtilException as e:
-            msg = self._format_verbose_error('Cannot start node')
-            raise_from(StartNodeException(msg), e)
+            msg = 'Cannot start node'
+            files = self._collect_special_files()
+            raise_from(StartNodeException(msg, files), e)
 
         self._maybe_start_logger()
 
@@ -497,8 +522,9 @@ class PostgresNode(object):
         try:
             execute_utility(_params, self.utils_log_name)
         except ExecUtilException as e:
-            msg = self._format_verbose_error('Cannot restart node')
-            raise_from(StartNodeException(msg), e)
+            msg = 'Cannot restart node'
+            files = self._collect_special_files()
+            raise_from(StartNodeException(msg, files), e)
 
         self._maybe_start_logger()
 
@@ -548,6 +574,7 @@ class PostgresNode(object):
     def free_port(self):
         """
         Reclaim port owned by this node.
+        NOTE: does not free auto selected ports.
         """
 
         if self._should_free_port:
@@ -555,7 +582,8 @@ class PostgresNode(object):
 
     def cleanup(self, max_attempts=3):
         """
-        Stop node if needed and remove its data directory.
+        Stop node if needed and remove its data/logs directory.
+        NOTE: take a look at TestgresConfig.node_cleanup_full.
 
         Args:
             max_attempts: how many times should we try to stop()?
@@ -564,30 +592,15 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        attempts = 0
+        self._try_shutdown(max_attempts)
 
-        # try stopping server
-        while attempts < max_attempts:
-            try:
-                self.stop()
-                break    # OK
-            except ExecUtilException:
-                pass     # one more time
-            except Exception:
-                print('cannot stop node {}'.format(self.name))
+        # choose directory to be removed
+        if testgres_config.node_cleanup_full:
+            rm_dir = self.base_dir    # everything
+        else:
+            rm_dir = self.data_dir    # just data, save logs
 
-            attempts += 1
-
-        # remove directory tree if necessary
-        if self._should_rm_dirs:
-
-            # choose directory to be removed
-            if TestgresConfig.node_cleanup_full:
-                rm_dir = self.base_dir    # everything
-            else:
-                rm_dir = self.data_dir    # just data, save logs
-
-            shutil.rmtree(rm_dir, ignore_errors=True)
+        rmtree(rm_dir, ignore_errors=True)
 
         return self
 
@@ -649,16 +662,13 @@ class PostgresNode(object):
         return process.returncode, out, err
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
-    def safe_psql(self,
-                  query,
-                  dbname=None,
-                  username=None,
-                  input=None):
+    def safe_psql(self, query=None, **kwargs):
         """
         Execute a query using psql.
 
         Args:
             query: query to be executed.
+            filename: file with a query.
             dbname: database name to connect to.
             username: database user name.
             input: raw input to be passed.
@@ -667,12 +677,9 @@ class PostgresNode(object):
             psql's output as str.
         """
 
-        ret, out, err = self.psql(query=query,
-                                  dbname=dbname,
-                                  username=username,
-                                  input=input)
+        ret, out, err = self.psql(query=query, **kwargs)
         if ret:
-            raise QueryException((err or b'').decode('utf-8'))
+            raise QueryException((err or b'').decode('utf-8'), query)
 
         return out
 
@@ -691,7 +698,7 @@ class PostgresNode(object):
         """
 
         def tmpfile():
-            fd, fname = tempfile.mkstemp()
+            fd, fname = mkstemp(prefix=TMP_DUMP)
             os.close(fd)
             return fname
 
@@ -738,8 +745,8 @@ class PostgresNode(object):
                          raise_programming_error=True,
                          raise_internal_error=True):
         """
-        Run a query once a second until it returs 'expected'.
-        Query should return single column.
+        Run a query once per second until it returns 'expected'.
+        Query should return a single value (1 row, 1 column).
 
         Args:
             query: query to be executed.
@@ -770,13 +777,13 @@ class PostgresNode(object):
                     return    # done
 
                 if res is None:
-                    raise QueryException('Query returned None')
+                    raise QueryException('Query returned None', query)
 
                 if len(res) == 0:
-                    raise QueryException('Query returned 0 rows')
+                    raise QueryException('Query returned 0 rows', query)
 
                 if len(res[0]) == 0:
-                    raise QueryException('Query returned 0 columns')
+                    raise QueryException('Query returned 0 columns', query)
 
                 if res[0][0] == expected:
                     return    # done
@@ -826,27 +833,22 @@ class PostgresNode(object):
 
             return res
 
-    def backup(self, username=None, xlog_method=DEFAULT_XLOG_METHOD):
+    def backup(self, **kwargs):
         """
         Perform pg_basebackup.
 
         Args:
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
+            base_dir: the base directory for data files and logs
 
         Returns:
             A smart object of type NodeBackup.
         """
 
-        return NodeBackup(node=self,
-                          username=username,
-                          xlog_method=xlog_method)
+        return NodeBackup(node=self, **kwargs)
 
-    def replicate(self,
-                  name=None,
-                  username=None,
-                  xlog_method=DEFAULT_XLOG_METHOD,
-                  use_logging=False):
+    def replicate(self, name=None, **kwargs):
         """
         Create a binary replica of this node.
 
@@ -854,15 +856,13 @@ class PostgresNode(object):
             name: replica's application name.
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
-            use_logging: enable python logging.
+            base_dir: the base directory for data files and logs
         """
 
-        backup = self.backup(username=username, xlog_method=xlog_method)
+        backup = self.backup(**kwargs)
 
         # transform backup into a replica
-        return backup.spawn_replica(name=name,
-                                    destroy=True,
-                                    use_logging=use_logging)
+        return backup.spawn_replica(name=name, destroy=True)
 
     def catchup(self, dbname=None, username=None):
         """
@@ -892,7 +892,7 @@ class PostgresNode(object):
                 username=username,
                 max_attempts=0)    # infinite
         except Exception as e:
-            raise_from(CatchUpException('Failed to catch up'), e)
+            raise_from(CatchUpException("Failed to catch up", poll_lsn), e)
 
     def pgbench(self,
                 dbname=None,

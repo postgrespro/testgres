@@ -1,18 +1,19 @@
 # coding: utf-8
 
 from __future__ import division
+from __future__ import print_function
 
-import functools
 import io
 import os
 import port_for
-import six
 import subprocess
+import sys
 
 from distutils.version import LooseVersion
 
-from .config import TestgresConfig
+from .config import testgres_config
 from .exceptions import ExecUtilException
+
 
 # rows returned by PG_CONFIG
 _pg_config_data = {}
@@ -37,36 +38,10 @@ def release_port(port):
     Free port provided by reserve_port().
     """
 
-    bound_ports.remove(port)
+    bound_ports.discard(port)
 
 
-def default_dbname():
-    """
-    Return default DB name.
-    """
-
-    return 'postgres'
-
-
-def default_username():
-    """
-    Return default username (current user).
-    """
-
-    import getpass
-    return getpass.getuser()
-
-
-def generate_app_name():
-    """
-    Generate a new application name for node.
-    """
-
-    import uuid
-    return 'testgres-{}'.format(str(uuid.uuid4()))
-
-
-def execute_utility(args, logfile):
+def execute_utility(args, logfile=None):
     """
     Execute utility (pg_ctl, pg_dump etc).
 
@@ -88,29 +63,30 @@ def execute_utility(args, logfile):
     out, _ = process.communicate()
     out = '' if not out else out.decode('utf-8')
 
+    # format command
+    command = u' '.join(args)
+
     # write new log entry if possible
-    try:
-        with io.open(logfile, 'a') as file_out:
-            # write util's name and args
-            file_out.write(u' '.join(args))
+    if logfile:
+        try:
+            with io.open(logfile, 'a') as file_out:
+                file_out.write(command)
 
-            # write output
-            if out:
+                if out:
+                    # comment-out lines
+                    lines = ('# ' + l for l in out.splitlines(True))
+                    file_out.write(u'\n')
+                    file_out.writelines(lines)
+
                 file_out.write(u'\n')
-                file_out.write(out)
+        except IOError:
+            pass
 
-            # finally, a separator
-            file_out.write(u'\n')
-    except IOError:
-        pass
-
-    # format exception, if needed
-    error_code = process.returncode
-    if error_code:
-        error_text = (u"{} failed with exit code {}\n"
-                      u"log:\n----\n{}\n").format(args[0], error_code, out)
-
-        raise ExecUtilException(error_text, error_code)
+    exit_code = process.returncode
+    if exit_code:
+        message = 'Utility exited with non-zero code'
+        raise ExecUtilException(
+            message=message, command=command, exit_code=exit_code, out=out)
 
     return out
 
@@ -142,7 +118,7 @@ def get_bin_path(filename):
 def get_pg_config():
     """
     Return output of pg_config (provided that it is installed).
-    NOTE: this fuction caches the result by default (see TestgresConfig).
+    NOTE: this fuction caches the result by default (see GlobalConfig).
     """
 
     def cache_pg_config_data(cmd):
@@ -162,7 +138,7 @@ def get_pg_config():
         return data
 
     # drop cache if asked to
-    if not TestgresConfig.cache_pg_config:
+    if not testgres_config.cache_pg_config:
         global _pg_config_data
         _pg_config_data = {}
 
@@ -241,73 +217,5 @@ def file_tail(f, num_lines):
         buffers = int(buffers * max(2, num_lines / max(cur_lines, 1)))
 
 
-def positional_args_hack(*special_cases):
-    """
-    Convert positional args described by
-    'special_cases' into named args.
-
-    Example:
-        @positional_args_hack(['abc'], ['def', 'abc'])
-        def some_api_func(...)
-
-    This is useful for compatibility.
-    """
-
-    cases = dict()
-
-    for case in special_cases:
-        k = len(case)
-        assert k not in six.iterkeys(cases), 'len must be unique'
-        cases[k] = case
-
-    def decorator(function):
-        @functools.wraps(function)
-        def wrapper(*args, **kwargs):
-            k = len(args)
-
-            if k in six.iterkeys(cases):
-                case = cases[k]
-
-                for i in range(0, k):
-                    arg_name = case[i]
-                    arg_val = args[i]
-
-                    # transform into named
-                    kwargs[arg_name] = arg_val
-
-                # get rid of them
-                args = []
-
-            return function(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def method_decorator(decorator):
-    """
-    Convert a function decorator into a method decorator.
-    """
-
-    def _dec(func):
-        def _wrapper(self, *args, **kwargs):
-            @decorator
-            def bound_func(*args2, **kwargs2):
-                return func.__get__(self, type(self))(*args2, **kwargs2)
-
-            # 'bound_func' is a closure and can see 'self'
-            return bound_func(*args, **kwargs)
-
-        # preserve docs
-        functools.update_wrapper(_wrapper, func)
-
-        return _wrapper
-
-    # preserve docs
-    functools.update_wrapper(_dec, decorator)
-
-    # change name for easier debugging
-    _dec.__name__ = 'method_decorator({})'.format(decorator.__name__)
-
-    return _dec
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)

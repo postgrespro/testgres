@@ -11,11 +11,12 @@ except ImportError:
 
 from .enums import IsolationLevel
 
-from .exceptions import QueryException
-
-from .utils import \
+from .defaults import \
     default_dbname, \
     default_username
+
+from .exceptions import QueryException
+
 
 # export these exceptions
 InternalError = pglib.InternalError
