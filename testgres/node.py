@@ -616,9 +616,9 @@ class PostgresNode(object):
             rm_dir = self.base_dir    # everything
         else:
             rm_dir = self.data_dir    # just data, save logs
+            forget_temp_obj(self.base_dir)    # preserve files!
 
         rmtree(rm_dir, ignore_errors=True)
-        forget_temp_obj(self.base_dir)  # unregister topmost dir!
 
         return self
 

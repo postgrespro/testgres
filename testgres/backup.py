@@ -17,7 +17,7 @@ from .defaults import default_username
 
 from .exceptions import BackupException
 
-from .temp import mk_temp_dir, forget_temp_obj
+from .temp import mk_temp_dir
 
 from .utils import \
     get_bin_path, \
@@ -171,5 +171,4 @@ class NodeBackup(object):
     def cleanup(self):
         if self._available:
             rmtree(self.base_dir, ignore_errors=True)
-            forget_temp_obj(self.base_dir)  # small optimization
             self._available = False
