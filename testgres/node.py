@@ -2,12 +2,12 @@
 
 import io
 import os
-import shutil
 import six
 import subprocess
 import time
 
 from enum import Enum
+from shutil import rmtree
 from six import raise_from
 from tempfile import mkstemp, mkdtemp
 
@@ -203,8 +203,7 @@ class PostgresNode(object):
 
     def _prepare_dirs(self):
         if not self.base_dir:
-            self.base_dir = mkdtemp(prefix=TMP_NODE,
-                                    dir=testgres_config.temp_dir)
+            self.base_dir = mkdtemp(prefix=TMP_NODE)
 
         if not os.path.exists(self.base_dir):
             os.makedirs(self.base_dir)
@@ -613,7 +612,7 @@ class PostgresNode(object):
         else:
             rm_dir = self.data_dir    # just data, save logs
 
-        shutil.rmtree(rm_dir, ignore_errors=True)
+        rmtree(rm_dir, ignore_errors=True)
 
         return self
 
@@ -711,7 +710,7 @@ class PostgresNode(object):
         """
 
         def tmpfile():
-            fd, fname = mkstemp(prefix=TMP_DUMP, dir=testgres_config.temp_dir)
+            fd, fname = mkstemp(prefix=TMP_DUMP)
             os.close(fd)
             return fname
 

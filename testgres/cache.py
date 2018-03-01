@@ -2,8 +2,8 @@
 
 import io
 import os
-import shutil
 
+from shutil import copytree
 from six import raise_from
 
 from .config import testgres_config
@@ -46,7 +46,7 @@ def cached_initdb(data_dir, logfile=None, params=None):
 
         try:
             # Copy cached initdb to current data dir
-            shutil.copytree(cached_data_dir, data_dir)
+            copytree(cached_data_dir, data_dir)
 
             # Assign this node a unique system id if asked to
             if testgres_config.cached_initdb_unique:

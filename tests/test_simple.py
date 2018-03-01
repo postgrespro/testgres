@@ -2,7 +2,6 @@
 # coding: utf-8
 
 import os
-import shutil
 import subprocess
 import tempfile
 import testgres
@@ -13,6 +12,7 @@ import logging.config
 
 from contextlib import contextmanager
 from distutils.version import LooseVersion
+from shutil import rmtree
 
 from testgres import \
     InitNodeException, \
@@ -139,7 +139,7 @@ class SimpleTest(unittest.TestCase):
 
         # we should save the DB for "debugging"
         self.assertTrue(os.path.exists(base_dir))
-        shutil.rmtree(base_dir, ignore_errors=True)
+        rmtree(base_dir, ignore_errors=True)
 
         with get_new_node().init() as node:
             base_dir = node.base_dir

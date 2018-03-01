@@ -2,9 +2,10 @@
 
 import atexit
 import copy
-import shutil
+import tempfile
 
 from contextlib import contextmanager
+from shutil import rmtree
 from tempfile import mkdtemp
 
 from .consts import TMP_CACHE
@@ -39,8 +40,6 @@ class GlobalConfig(object):
 
     cache_pg_config = True
 
-    temp_dir = None
-
     use_python_logging = False
     error_log_lines = 20
 
@@ -58,6 +57,14 @@ class GlobalConfig(object):
 
         if value:
             cached_initdb_dirs.add(value)
+
+    @property
+    def temp_dir(self):
+        return tempfile.tempdir
+
+    @temp_dir.setter
+    def temp_dir(self, value):
+        tempfile.tempdir = value
 
     def __init__(self, **options):
         self.update(options)
@@ -110,9 +117,9 @@ config_stack = []
 
 
 @atexit.register
-def rm_cached_initdb_dirs():
+def _rm_cached_initdb_dirs():
     for d in cached_initdb_dirs:
-        shutil.rmtree(d, ignore_errors=True)
+        rmtree(d, ignore_errors=True)
 
 
 def push_config(**options):
@@ -170,7 +177,5 @@ def configure_testgres(**options):
     testgres_config.update(options)
 
 
-# yapf: disable
 # NOTE: assign initial cached dir for initdb
-testgres_config.cached_initdb_dir = mkdtemp(prefix=TMP_CACHE,
-                                            dir=testgres_config.temp_dir)
+testgres_config.cached_initdb_dir = mkdtemp(prefix=TMP_CACHE)

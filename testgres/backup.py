@@ -1,12 +1,10 @@
 # coding: utf-8
 
 import os
-import shutil
 
+from shutil import rmtree, copytree
 from six import raise_from
 from tempfile import mkdtemp
-
-from .config import testgres_config
 
 from .consts import \
     DATA_DIR, \
@@ -55,8 +53,7 @@ class NodeBackup(object):
         # yapf: disable
         # Set default arguments
         username = username or default_username()
-        base_dir = base_dir or mkdtemp(prefix=TMP_BACKUP,
-                                       dir=testgres_config.temp_dir)
+        base_dir = base_dir or mkdtemp(prefix=TMP_BACKUP)
 
         # public
         self.original_node = node
@@ -103,15 +100,14 @@ class NodeBackup(object):
         available = not destroy
 
         if available:
-            dest_base_dir = mkdtemp(prefix=TMP_NODE,
-                                    dir=testgres_config.temp_dir)
+            dest_base_dir = mkdtemp(prefix=TMP_NODE)
 
             data1 = os.path.join(self.base_dir, DATA_DIR)
             data2 = os.path.join(dest_base_dir, DATA_DIR)
 
             try:
                 # Copy backup to new data dir
-                shutil.copytree(data1, data2)
+                copytree(data1, data2)
             except Exception as e:
                 raise_from(BackupException('Failed to copy files'), e)
         else:
@@ -140,8 +136,7 @@ class NodeBackup(object):
 
         # Build a new PostgresNode
         from .node import PostgresNode
-        node = PostgresNode(name=name,
-                            base_dir=base_dir)
+        node = PostgresNode(name=name, base_dir=base_dir)
 
         # New nodes should always remove dir tree
         node._should_rm_dirs = True
@@ -164,8 +159,7 @@ class NodeBackup(object):
         """
 
         # Build a new PostgresNode
-        node = self.spawn_primary(name=name,
-                                  destroy=destroy)
+        node = self.spawn_primary(name=name, destroy=destroy)
 
         # Assign it a master and a recovery file (private magic)
         node._assign_master(self.original_node)
@@ -175,5 +169,5 @@ class NodeBackup(object):
 
     def cleanup(self):
         if self._available:
-            shutil.rmtree(self.base_dir, ignore_errors=True)
+            rmtree(self.base_dir, ignore_errors=True)
             self._available = False
