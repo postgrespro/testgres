@@ -5,12 +5,13 @@ import shutil
 import tempfile
 
 from six import raise_from
-from enum import Enum
+from .enums import XLogMethod
 
 from .consts import \
     DATA_DIR, \
     PG_CONF_FILE, \
-    BACKUP_LOG_FILE
+    BACKUP_LOG_FILE, \
+    DEFAULT_XLOG_METHOD
 
 from .exceptions import BackupException
 
@@ -18,16 +19,6 @@ from .utils import \
     get_bin_path, \
     default_username, \
     execute_utility
-
-
-class XLogMethod(Enum):
-    """
-    Available WAL methods for NodeBackup
-    """
-
-    none = 'none'
-    fetch = 'fetch'
-    stream = 'stream'
 
 
 class NodeBackup(object):
@@ -43,7 +34,7 @@ class NodeBackup(object):
                  node,
                  base_dir=None,
                  username=None,
-                 xlog_method=XLogMethod.fetch):
+                 xlog_method=DEFAULT_XLOG_METHOD):
         """
         Create a new backup.
 

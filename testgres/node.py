@@ -8,8 +8,9 @@ import subprocess
 import tempfile
 import time
 
-from enum import IntEnum
 from six import raise_from
+
+from .enums import NodeStatus
 
 from .cache import cached_initdb
 
@@ -27,7 +28,8 @@ from .consts import \
     HBA_CONF_FILE, \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
-    UTILS_LOG_FILE
+    UTILS_LOG_FILE, \
+    DEFAULT_XLOG_METHOD
 
 from .exceptions import \
     CatchUpException,   \
@@ -51,24 +53,7 @@ from .utils import \
     method_decorator, \
     positional_args_hack
 
-from .backup import \
-    XLogMethod,     \
-    NodeBackup
-
-
-class NodeStatus(IntEnum):
-    """
-    Status of a PostgresNode
-    """
-
-    Running, Stopped, Uninitialized = range(3)
-
-    # for Python 3.x
-    def __bool__(self):
-        return self == NodeStatus.Running
-
-    # for Python 2.x
-    __nonzero__ = __bool__
+from .backup import NodeBackup
 
 
 class PostgresNode(object):
@@ -841,7 +826,7 @@ class PostgresNode(object):
 
             return res
 
-    def backup(self, username=None, xlog_method=XLogMethod.fetch):
+    def backup(self, username=None, xlog_method=DEFAULT_XLOG_METHOD):
         """
         Perform pg_basebackup.
 
@@ -860,7 +845,7 @@ class PostgresNode(object):
     def replicate(self,
                   name=None,
                   username=None,
-                  xlog_method=XLogMethod.fetch,
+                  xlog_method=DEFAULT_XLOG_METHOD,
                   use_logging=False):
         """
         Create a binary replica of this node.

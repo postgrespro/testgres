@@ -1,5 +1,7 @@
 # coding: utf-8
 
+from .enums import XLogMethod
+
 # names for dirs in base_dir
 DATA_DIR = "data"
 LOGS_DIR = "logs"
@@ -12,3 +14,6 @@ HBA_CONF_FILE = "pg_hba.conf"
 PG_LOG_FILE = "postgresql.log"
 UTILS_LOG_FILE = "utils.log"
 BACKUP_LOG_FILE = "backup.log"
+
+# default argument value
+DEFAULT_XLOG_METHOD = XLogMethod.fetch

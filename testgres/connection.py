@@ -9,7 +9,7 @@ except ImportError:
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
-from enum import Enum
+from .enums import IsolationLevel
 
 from .exceptions import QueryException
 
@@ -20,17 +20,6 @@ from .utils import \
 # export these exceptions
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
-
-
-class IsolationLevel(Enum):
-    """
-    Transaction isolation level for NodeConnection
-    """
-
-    ReadUncommitted = 'read uncommitted'
-    ReadCommitted = 'read committed'
-    RepeatableRead = 'repeatable read'
-    Serializable = 'serializable'
 
 
 class NodeConnection(object):
