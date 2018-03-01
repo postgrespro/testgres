@@ -171,5 +171,5 @@ class NodeBackup(object):
     def cleanup(self):
         if self._available:
             rmtree(self.base_dir, ignore_errors=True)
-            forget_temp_obj(self.base_dir)
+            forget_temp_obj(self.base_dir)  # small optimization
             self._available = False

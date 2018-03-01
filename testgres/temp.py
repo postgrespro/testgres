@@ -59,6 +59,9 @@ def mk_temp_dir(prefix=TMP_DEFAULT, delete=True):
 @atexit.register
 def _rm_temp():
     for f in temp_files:
+        if not os.path.exists(f):
+            continue
+
         if os.path.isdir(f):
             rmtree(f, ignore_errors=True)
         if os.path.isfile(f):

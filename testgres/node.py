@@ -126,6 +126,7 @@ class PostgresNode(object):
         if c1 or c2:
             self.cleanup(attempts)
         else:
+            forget_temp_obj(self.base_dir)    # preserve files!
             self._try_shutdown(attempts)
 
     @property
