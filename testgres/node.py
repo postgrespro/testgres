@@ -6,10 +6,11 @@ import six
 import subprocess
 import time
 
-from enum import Enum
 from shutil import rmtree
 from six import raise_from
 from tempfile import mkstemp, mkdtemp
+
+from .enums import NodeStatus
 
 from .cache import cached_initdb
 
@@ -59,20 +60,7 @@ from .utils import \
     release_port, \
     execute_utility
 
-
-class NodeStatus(Enum):
-    """
-    Status of a PostgresNode
-    """
-
-    Running, Stopped, Uninitialized = range(3)
-
-    # for Python 3.x
-    def __bool__(self):
-        return self.value == NodeStatus.Running.value
-
-    # for Python 2.x
-    __nonzero__ = __bool__
+from .backup import NodeBackup
 
 
 class PostgresNode(object):
@@ -858,7 +846,6 @@ class PostgresNode(object):
             A smart object of type NodeBackup.
         """
 
-        from .backup import NodeBackup
         return NodeBackup(node=self, **kwargs)
 
     def replicate(self, name=None, **kwargs):

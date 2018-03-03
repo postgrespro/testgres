@@ -6,6 +6,8 @@ from shutil import rmtree, copytree
 from six import raise_from
 from tempfile import mkdtemp
 
+from .enums import XLogMethod
+
 from .consts import \
     DATA_DIR, \
     TMP_NODE, \
@@ -50,7 +52,13 @@ class NodeBackup(object):
         if not node.status():
             raise BackupException('Node must be running')
 
-        # yapf: disable
+        # Check arguments
+        if not isinstance(xlog_method, XLogMethod):
+            try:
+                xlog_method = XLogMethod(xlog_method)
+            except ValueError:
+                raise BackupException('Invalid xlog_method "{}"'.format(xlog_method))
+
         # Set default arguments
         username = username or default_username()
         base_dir = base_dir or mkdtemp(prefix=TMP_BACKUP)
@@ -72,7 +80,7 @@ class NodeBackup(object):
             "-h", node.host,
             "-U", username,
             "-D", data_dir,
-            "-X", xlog_method
+            "-X", xlog_method.value
         ]
         execute_utility(_params, self.log_file)
 
