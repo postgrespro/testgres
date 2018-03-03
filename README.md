@@ -159,7 +159,7 @@ ext_conf = "shared_preload_libraries = 'postgres_fdw'"
 with testgres.get_new_node().init() as master:
 
     # ... do something ...
-
+	
     # reset main config file
     master.default_conf(fsync=True,
                         allow_streaming=True)
@@ -174,7 +174,7 @@ the configuration file, which means that they should be called before `append_co
 
 ## Authors
 
-[Ildar Musin](https://github.com/zilder) <i.musin(at)postgrespro.ru> Postgres Professional Ltd., Russia
-[Dmitry Ivanov](https://github.com/funbringer) <d.ivanov(at)postgrespro.ru> Postgres Professional Ltd., Russia
-[Ildus Kurbangaliev](https://github.com/ildus) <i.kurbangaliev(at)postgrespro.ru> Postgres Professional Ltd., Russia
-[Yury Zhuravlev](https://github.com/stalkerg) <stalkerg(at)gmail.com>
+[Ildar Musin](https://github.com/zilder) <i.musin(at)postgrespro.ru> Postgres Professional Ltd., Russia  
+[Dmitry Ivanov](https://github.com/funbringer) <d.ivanov(at)postgrespro.ru> Postgres Professional Ltd., Russia  
+[Ildus Kurbangaliev](https://github.com/ildus) <i.kurbangaliev(at)postgrespro.ru> Postgres Professional Ltd., Russia  
+[Yury Zhuravlev](https://github.com/stalkerg) <stalkerg(at)gmail.com>  
