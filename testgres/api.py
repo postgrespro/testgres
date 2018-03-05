@@ -33,19 +33,11 @@ typical flow may look like:
 Copyright (c) 2016, Postgres Professional
 """
 
+from functools import wraps
+
 from .node import PostgresNode
 
 
-def get_new_node(name=None, base_dir=None):
-    """
-    Create a new node (select port automatically).
-
-    Args:
-        name: node's application name.
-        base_dir: path to node's data directory.
-
-    Returns:
-        An instance of PostgresNode.
-    """
-
-    return PostgresNode(name=name, base_dir=base_dir)
+@wraps(PostgresNode.__init__)
+def get_new_node(**kwargs):
+    return PostgresNode(**kwargs)

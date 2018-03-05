@@ -31,7 +31,8 @@ from .consts import \
     HBA_CONF_FILE, \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
-    UTILS_LOG_FILE
+    UTILS_LOG_FILE, \
+    PG_PID_FILE
 
 from .decorators import \
     method_decorator, \
@@ -66,7 +67,7 @@ from .backup import NodeBackup
 class PostgresNode(object):
     def __init__(self, name=None, port=None, base_dir=None):
         """
-        Create a new node manually.
+        Create a new node.
 
         Args:
             name: node's application name.
@@ -74,24 +75,25 @@ class PostgresNode(object):
             base_dir: path to node's data directory.
         """
 
+        # private
+        self._should_free_port = port is None
+        self._base_dir = base_dir
+        self._logger = None
+        self._master = None
+
         # basic
         self.host = '127.0.0.1'
         self.name = name or generate_app_name()
         self.port = port or reserve_port()
-        self.base_dir = base_dir
 
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
         self.cleanup_on_bad_exit = testgres_config.node_cleanup_on_bad_exit
         self.shutdown_max_attempts = 3
 
-        # private
-        self._should_free_port = port is None
-        self._logger = None
-        self._master = None
-
-        # create directories if needed
-        self._prepare_dirs()
+        # NOTE: for compatibility
+        self.utils_log_name = self.utils_log_file
+        self.pg_log_name = self.pg_log_file
 
     def __enter__(self):
         return self
@@ -121,19 +123,37 @@ class PostgresNode(object):
         return self._master
 
     @property
-    def data_dir(self):
-        return os.path.join(self.base_dir, DATA_DIR)
+    def base_dir(self):
+        if not self._base_dir:
+            self._base_dir = mkdtemp(prefix=TMP_NODE)
+
+        # NOTE: it's safe to create a new dir
+        if not os.path.exists(self._base_dir):
+            os.makedirs(self._base_dir)
+
+        return self._base_dir
 
     @property
     def logs_dir(self):
-        return os.path.join(self.base_dir, LOGS_DIR)
+        path = os.path.join(self.base_dir, LOGS_DIR)
+
+        # NOTE: it's safe to create a new dir
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        return path
 
     @property
-    def utils_log_name(self):
+    def data_dir(self):
+        # NOTE: we can't run initdb without user's args
+        return os.path.join(self.base_dir, DATA_DIR)
+
+    @property
+    def utils_log_file(self):
         return os.path.join(self.logs_dir, UTILS_LOG_FILE)
 
     @property
-    def pg_log_name(self):
+    def pg_log_file(self):
         return os.path.join(self.logs_dir, PG_LOG_FILE)
 
     def _try_shutdown(self, max_attempts):
@@ -189,21 +209,11 @@ class PostgresNode(object):
 
         self.append_conf(RECOVERY_CONF_FILE, line)
 
-    def _prepare_dirs(self):
-        if not self.base_dir:
-            self.base_dir = mkdtemp(prefix=TMP_NODE)
-
-        if not os.path.exists(self.base_dir):
-            os.makedirs(self.base_dir)
-
-        if not os.path.exists(self.logs_dir):
-            os.makedirs(self.logs_dir)
-
     def _maybe_start_logger(self):
         if testgres_config.use_python_logging:
             # spawn new logger if it doesn't exist or is stopped
             if not self._logger or not self._logger.is_alive():
-                self._logger = TestgresLogger(self.name, self.pg_log_name)
+                self._logger = TestgresLogger(self.name, self.pg_log_file)
                 self._logger.start()
 
     def _maybe_stop_logger(self):
@@ -219,7 +229,7 @@ class PostgresNode(object):
             (os.path.join(self.data_dir, PG_AUTO_CONF_FILE), 0),
             (os.path.join(self.data_dir, RECOVERY_CONF_FILE), 0),
             (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
-            (self.pg_log_name, testgres_config.error_log_lines)
+            (self.pg_log_file, testgres_config.error_log_lines)
         ]
 
         for f, num_lines in files:
@@ -254,12 +264,9 @@ class PostgresNode(object):
             This instance of PostgresNode.
         """
 
-        # create directories if needed
-        self._prepare_dirs()
-
         # initialize this PostgreSQL node
         cached_initdb(data_dir=self.data_dir,
-                      logfile=self.utils_log_name,
+                      logfile=self.utils_log_file,
                       params=initdb_params)
 
         # initialize default config files
@@ -398,7 +405,7 @@ class PostgresNode(object):
                 "-D", self.data_dir,
                 "status"
             ]
-            execute_utility(_params, self.utils_log_name)
+            execute_utility(_params, self.utils_log_file)
             return NodeStatus.Running
 
         except ExecUtilException as e:
@@ -416,7 +423,7 @@ class PostgresNode(object):
         """
 
         if self.status():
-            pid_file = os.path.join(self.data_dir, 'postmaster.pid')
+            pid_file = os.path.join(self.data_dir, PG_PID_FILE)
             with io.open(pid_file) as f:
                 return int(f.readline())
 
@@ -433,7 +440,7 @@ class PostgresNode(object):
         _params += ["-D"] if pg_version_ge('9.5') else []
         _params += [self.data_dir]
 
-        data = execute_utility(_params, self.utils_log_name)
+        data = execute_utility(_params, self.utils_log_file)
 
         out_dict = {}
 
@@ -458,13 +465,13 @@ class PostgresNode(object):
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
-            "-l", self.pg_log_name,
+            "-l", self.pg_log_file,
             "-w",  # wait
             "start"
         ] + params
 
         try:
-            execute_utility(_params, self.utils_log_name)
+            execute_utility(_params, self.utils_log_file)
         except ExecUtilException as e:
             msg = 'Cannot start node'
             files = self._collect_special_files()
@@ -493,7 +500,7 @@ class PostgresNode(object):
             "stop"
         ] + params
 
-        execute_utility(_params, self.utils_log_name)
+        execute_utility(_params, self.utils_log_file)
 
         self._maybe_stop_logger()
 
@@ -514,13 +521,13 @@ class PostgresNode(object):
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
-            "-l", self.pg_log_name,
+            "-l", self.pg_log_file,
             "-w",  # wait
             "restart"
         ] + params
 
         try:
-            execute_utility(_params, self.utils_log_name)
+            execute_utility(_params, self.utils_log_file)
         except ExecUtilException as e:
             msg = 'Cannot restart node'
             files = self._collect_special_files()
@@ -549,7 +556,7 @@ class PostgresNode(object):
             "reload"
         ] + params
 
-        execute_utility(_params, self.utils_log_name)
+        execute_utility(_params, self.utils_log_file)
 
     def pg_ctl(self, params):
         """
@@ -569,7 +576,7 @@ class PostgresNode(object):
             "-w"  # wait
         ] + params
 
-        return execute_utility(_params, self.utils_log_name)
+        return execute_utility(_params, self.utils_log_file)
 
     def free_port(self):
         """
@@ -578,6 +585,7 @@ class PostgresNode(object):
         """
 
         if self._should_free_port:
+            self._should_free_port = False
             release_port(self.port)
 
     def cleanup(self, max_attempts=3):
@@ -717,7 +725,7 @@ class PostgresNode(object):
             "-d", dbname
         ]
 
-        execute_utility(_params, self.utils_log_name)
+        execute_utility(_params, self.utils_log_file)
 
         return filename
 
@@ -953,7 +961,7 @@ class PostgresNode(object):
                     **kwargs):
         """
         Run pgbench with some options.
-        This event is logged (see self.utils_log_name).
+        This event is logged (see self.utils_log_file).
 
         Args:
             dbname: database name to connect to.
@@ -996,7 +1004,7 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        return execute_utility(_params, self.utils_log_name)
+        return execute_utility(_params, self.utils_log_file)
 
     def connect(self, dbname=None, username=None, password=None):
         """
