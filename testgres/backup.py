@@ -13,8 +13,7 @@ from .consts import \
     TMP_NODE, \
     TMP_BACKUP, \
     PG_CONF_FILE, \
-    BACKUP_LOG_FILE, \
-    DEFAULT_XLOG_METHOD
+    BACKUP_LOG_FILE
 
 from .defaults import default_username
 
@@ -38,7 +37,7 @@ class NodeBackup(object):
                  node,
                  base_dir=None,
                  username=None,
-                 xlog_method=DEFAULT_XLOG_METHOD):
+                 xlog_method=XLogMethod.fetch):
         """
         Create a new backup.
 
