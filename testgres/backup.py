@@ -56,7 +56,8 @@ class NodeBackup(object):
             try:
                 xlog_method = XLogMethod(xlog_method)
             except ValueError:
-                raise BackupException('Invalid xlog_method "{}"'.format(xlog_method))
+                raise BackupException(
+                    'Invalid xlog_method "{}"'.format(xlog_method))
 
         # Set default arguments
         username = username or default_username()

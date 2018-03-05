@@ -17,7 +17,6 @@ from .defaults import \
 
 from .exceptions import QueryException
 
-
 # export these exceptions
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
