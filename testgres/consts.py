@@ -17,6 +17,7 @@ XLOG_CONTROL_FILE = "global/pg_control"
 RECOVERY_CONF_FILE = "recovery.conf"
 PG_AUTO_CONF_FILE = "postgresql.auto.conf"
 PG_CONF_FILE = "postgresql.conf"
+PG_PID_FILE = 'postmaster.pid'
 HBA_CONF_FILE = "pg_hba.conf"
 
 # names for log files
