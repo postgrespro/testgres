@@ -127,7 +127,7 @@ class PostgresNode(object):
         if not self._base_dir:
             self._base_dir = mkdtemp(prefix=TMP_NODE)
 
-        # NOTE :it's safe to create a new dir
+        # NOTE: it's safe to create a new dir
         if not os.path.exists(self._base_dir):
             os.makedirs(self._base_dir)
 
