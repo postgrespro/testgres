@@ -39,5 +39,6 @@ from .node import PostgresNode
 
 
 @wraps(PostgresNode.__init__)
-def get_new_node(**kwargs):
-    return PostgresNode(**kwargs)
+def get_new_node(name=None, base_dir=None, **kwargs):
+    # NOTE: leave explicit 'name' and 'base_dir' for compatibility
+    return PostgresNode(name=name, base_dir=base_dir, **kwargs)
