@@ -458,6 +458,21 @@ class PostgresNode(object):
     def get_auxiliary_pids(self):
         ''' Returns dict with pids of auxiliary processes '''
 
+        alternative_names = {
+            ProcessType.LogicalReplicationLauncher: [
+                'postgres: bgworker: logical replication launcher'
+            ],
+            ProcessType.BackgroundWriter: [
+                'postgres: writer',
+            ],
+            ProcessType.WalWriter: [
+                'postgres: wal writer',
+            ],
+            ProcessType.WalReceiver: [
+                'postgres: wal receiver',
+            ],
+        }
+
         children = self.get_child_processes()
         if children is None:
             return None
@@ -467,11 +482,20 @@ class PostgresNode(object):
             line = child.cmdline()[0]
             for ptype in ProcessType:
                 if ptype == ProcessType.WalSender \
-                        and line.startswith(ptype.value):
+                        and (line.startswith(ptype.value) or
+                             line.startswith('postgres: wal sender')):
                     result.setdefault(ptype, [])
                     result[ptype].append(child.pid)
+                    break
                 elif line.startswith(ptype.value):
                     result[ptype] = child.pid
+                    break
+                elif ptype in alternative_names:
+                    names = alternative_names[ptype]
+                    for name in names:
+                        if line.startswith(name):
+                            result[ptype] = child.pid
+                            break
 
         return result
 
