@@ -40,6 +40,7 @@ from testgres import \
 
 from testgres import bound_ports
 from testgres.utils import pg_version_ge
+from testgres.enums import ProcessType
 
 
 def util_exists(util):
@@ -709,20 +710,20 @@ class SimpleTest(unittest.TestCase):
             psutil = None
 
         master_processes = (
-            'checkpointer',
-            'bgwriter',
-            'walwriter',
-            'autovacuum_launcher',
-            'stats',
-            'logical_replication_launcher',
-            'walsenders',
+            ProcessType.Checkpointer,
+            ProcessType.BackgroundWriter,
+            ProcessType.WalWriter,
+            ProcessType.AutovacuumLauncher,
+            ProcessType.StatsCollector,
+            ProcessType.LogicalReplicationLauncher,
+            ProcessType.WalSender,
         )
         repl_processes = (
-            'startup',
-            'checkpointer',
-            'bgwriter',
-            'stats',
-            'walreceiver',
+            ProcessType.Startup,
+            ProcessType.Checkpointer,
+            ProcessType.BackgroundWriter,
+            ProcessType.StatsCollector,
+            ProcessType.WalReceiver,
         )
 
         with get_new_node('master') as master:
@@ -730,7 +731,7 @@ class SimpleTest(unittest.TestCase):
 
             self.assertIsNotNone(master.pid)
             with master.connect() as con:
-                self.assertTrue(con.backend_pid > 0)
+                self.assertTrue(con.pid > 0)
 
             with master.backup() as backup:
                 with backup.spawn_replica('repl', True) as repl:
@@ -740,14 +741,16 @@ class SimpleTest(unittest.TestCase):
                         self.assertIsNone(repl.auxiliary_pids)
                     else:
                         master_pids = master.auxiliary_pids
-                        for name in master_processes:
-                            self.assertTrue(name in master_pids)
-                        self.assertTrue(len(master_pids['walsenders']) == 1)
+                        for ptype in master_processes:
+                            self.assertIn(ptype, master_pids)
+                        self.assertTrue(len(master_pids[ProcessType.WalSender]) == 1)
 
                         repl_pids = repl.auxiliary_pids
-                        for name in repl_processes:
-                            self.assertTrue(name in repl_pids)
-                        self.assertTrue(repl.get_walsender_pid() == master_pids['walsenders'][0])
+                        for ptype in repl_processes:
+                            self.assertIn(ptype, repl_pids)
+
+                        sender_pid = master_pids[ProcessType.WalSender][0]
+                        self.assertTrue(repl.get_walsender_pid() == sender_pid)
 
 
 if __name__ == '__main__':

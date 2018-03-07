@@ -35,3 +35,18 @@ class NodeStatus(IntEnum):
 
     # for Python 2.x
     __nonzero__ = __bool__
+
+
+class ProcessType(Enum):
+    """
+    Types of postgres processes
+    """
+    Checkpointer = 'postgres: checkpointer'
+    BackgroundWriter = 'postgres: background writer'
+    WalWriter = 'postgres: walwriter'
+    AutovacuumLauncher = 'postgres: autovacuum launcher'
+    StatsCollector = 'postgres: stats collector'
+    LogicalReplicationLauncher = 'postgres: logical replication launcher'
+    WalReceiver = 'postgres: walreceiver'
+    WalSender = 'postgres: walsender'
+    Startup = 'postgres: startup'

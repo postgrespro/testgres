@@ -16,7 +16,7 @@ from shutil import rmtree
 from six import raise_from
 from tempfile import mkstemp, mkdtemp
 
-from .enums import NodeStatus
+from .enums import NodeStatus, ProcessType
 
 from .cache import cached_initdb
 
@@ -465,25 +465,13 @@ class PostgresNode(object):
         result = {}
         for child in children:
             line = child.cmdline()[0]
-            if line.startswith('postgres: checkpointer'):
-                result['checkpointer'] = child.pid
-            elif line.startswith('postgres: background writer'):
-                result['bgwriter'] = child.pid
-            elif line.startswith('postgres: walwriter'):
-                result['walwriter'] = child.pid
-            elif line.startswith('postgres: autovacuum launcher'):
-                result['autovacuum_launcher'] = child.pid
-            elif line.startswith('postgres: stats collector'):
-                result['stats'] = child.pid
-            elif line.startswith('postgres: logical replication launcher'):
-                result['logical_replication_launcher'] = child.pid
-            elif line.startswith('postgres: walreceiver'):
-                result['walreceiver'] = child.pid
-            elif line.startswith('postgres: walsender'):
-                result.setdefault('walsenders', [])
-                result['walsenders'].append(child.pid)
-            elif line.startswith('postgres: startup'):
-                result['startup'] = child.pid
+            for ptype in ProcessType:
+                if ptype == ProcessType.WalSender \
+                        and line.startswith(ptype.value):
+                    result.setdefault(ptype, [])
+                    result[ptype].append(child.pid)
+                elif line.startswith(ptype.value):
+                    result[ptype] = child.pid
 
         return result
 
