@@ -205,27 +205,27 @@ class SimpleTest(unittest.TestCase):
 
         # check statuses after each operation
         with get_new_node() as node:
-            self.assertEqual(node.pid, 0)
+            self.assertIsNone(node.pid)
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
 
             node.init()
 
-            self.assertEqual(node.pid, 0)
+            self.assertIsNone(node.pid)
             self.assertEqual(node.status(), NodeStatus.Stopped)
 
             node.start()
 
-            self.assertNotEqual(node.pid, 0)
+            self.assertIsNotNone(node.pid)
             self.assertEqual(node.status(), NodeStatus.Running)
 
             node.stop()
 
-            self.assertEqual(node.pid, 0)
+            self.assertIsNone(node.pid)
             self.assertEqual(node.status(), NodeStatus.Stopped)
 
             node.cleanup()
 
-            self.assertEqual(node.pid, 0)
+            self.assertIsNone(node.pid)
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
 
     def test_psql(self):
@@ -701,6 +701,53 @@ class SimpleTest(unittest.TestCase):
         self.assertTrue(a > b)
         self.assertTrue(b > c)
         self.assertTrue(a > c)
+
+    def test_pids(self):
+        try:
+            import psutil
+        except ImportError:
+            psutil = None
+
+        master_processes = (
+            'checkpointer',
+            'bgwriter',
+            'walwriter',
+            'autovacuum_launcher',
+            'stats',
+            'logical_replication_launcher',
+            'walsenders',
+        )
+        repl_processes = (
+            'startup',
+            'checkpointer',
+            'bgwriter',
+            'stats',
+            'walreceiver',
+        )
+
+        with get_new_node('master') as master:
+            master.init().start()
+
+            self.assertIsNotNone(master.pid)
+            with master.connect() as con:
+                self.assertTrue(con.backend_pid > 0)
+
+            with master.backup() as backup:
+                with backup.spawn_replica('repl', True) as repl:
+                    repl.start()
+                    if psutil is None:
+                        self.assertIsNone(master.auxiliary_pids)
+                        self.assertIsNone(repl.auxiliary_pids)
+                    else:
+                        master_pids = master.auxiliary_pids
+                        for name in master_processes:
+                            self.assertTrue(name in master_pids)
+                        self.assertTrue(len(master_pids['walsenders']) == 1)
+
+                        repl_pids = repl.auxiliary_pids
+                        for name in repl_processes:
+                            self.assertTrue(name in repl_pids)
+                        self.assertTrue(repl.get_walsender_pid() == master_pids['walsenders'][0])
 
 
 if __name__ == '__main__':

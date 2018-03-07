@@ -5,6 +5,12 @@ import os
 import six
 import subprocess
 import time
+import warnings
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 from shutil import rmtree
 from six import raise_from
@@ -48,7 +54,8 @@ from .exceptions import \
     ExecUtilException,  \
     QueryException,     \
     StartNodeException, \
-    TimeoutException
+    TimeoutException,   \
+    TestgresException
 
 from .logger import TestgresLogger
 
@@ -116,7 +123,11 @@ class PostgresNode(object):
 
     @property
     def pid(self):
-        return self.get_pid()
+        return self.get_main_pid()
+
+    @property
+    def auxiliary_pids(self):
+        return self.get_auxiliary_pids()
 
     @property
     def master(self):
@@ -417,7 +428,7 @@ class PostgresNode(object):
             elif e.exit_code == 4:
                 return NodeStatus.Uninitialized
 
-    def get_pid(self):
+    def get_main_pid(self):
         """
         Return postmaster's PID if node is running, else 0.
         """
@@ -428,7 +439,73 @@ class PostgresNode(object):
                 return int(f.readline())
 
         # for clarity
-        return 0
+        return None
+
+    def get_child_processes(self):
+        ''' Returns child processes for this node '''
+
+        if psutil is None:
+            warnings.warn("psutil module is not installed")
+            return None
+
+        try:
+            postmaster = psutil.Process(self.pid)
+        except psutil.NoSuchProcess:
+            return None
+
+        return postmaster.children(recursive=True)
+
+    def get_auxiliary_pids(self):
+        ''' Returns dict with pids of auxiliary processes '''
+
+        children = self.get_child_processes()
+        if children is None:
+            return None
+
+        result = {}
+        for child in children:
+            line = child.cmdline()[0]
+            if line.startswith('postgres: checkpointer'):
+                result['checkpointer'] = child.pid
+            elif line.startswith('postgres: background writer'):
+                result['bgwriter'] = child.pid
+            elif line.startswith('postgres: walwriter'):
+                result['walwriter'] = child.pid
+            elif line.startswith('postgres: autovacuum launcher'):
+                result['autovacuum_launcher'] = child.pid
+            elif line.startswith('postgres: stats collector'):
+                result['stats'] = child.pid
+            elif line.startswith('postgres: logical replication launcher'):
+                result['logical_replication_launcher'] = child.pid
+            elif line.startswith('postgres: walreceiver'):
+                result['walreceiver'] = child.pid
+            elif line.startswith('postgres: walsender'):
+                result.setdefault('walsenders', [])
+                result['walsenders'].append(child.pid)
+            elif line.startswith('postgres: startup'):
+                result['startup'] = child.pid
+
+        return result
+
+    def get_walsender_pid(self):
+        ''' Returns pid of according walsender for replica '''
+
+        if not self._master:
+            raise TestgresException("This node is not a replica")
+
+        children = self._master.get_child_processes()
+        if children is None:
+            return None
+
+        sql = 'select application_name, client_port from pg_stat_replication'
+        for name, client_port in self._master.execute(sql):
+            if name == self.name:
+                for child in children:
+                    line = child.cmdline()[0]
+                    if line.startswith('postgres: walsender') and str(client_port) in line:
+                        return child.pid
+
+        return None
 
     def get_control_data(self):
         """
