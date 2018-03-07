@@ -205,27 +205,27 @@ class SimpleTest(unittest.TestCase):
 
         # check statuses after each operation
         with get_new_node() as node:
-            self.assertIsNone(node.pid)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
 
             node.init()
 
-            self.assertIsNone(node.pid)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Stopped)
 
             node.start()
 
-            self.assertIsNotNone(node.pid)
+            self.assertNotEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Running)
 
             node.stop()
 
-            self.assertIsNone(node.pid)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Stopped)
 
             node.cleanup()
 
-            self.assertIsNone(node.pid)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
 
     def test_psql(self):

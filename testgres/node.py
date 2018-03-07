@@ -439,7 +439,7 @@ class PostgresNode(object):
                 return int(f.readline())
 
         # for clarity
-        return None
+        return 0
 
     def get_child_processes(self):
         ''' Returns child processes for this node '''
