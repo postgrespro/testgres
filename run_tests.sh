@@ -48,7 +48,7 @@ unset PG_BIN
 
 
 # run tests (PG_CONFIG), also without psutil
-$PIP uninstall psutil
+$PIP uninstall -y psutil
 export PG_CONFIG=$(which pg_config)
 time coverage run -a tests/test_simple.py
 unset PG_CONFIG
