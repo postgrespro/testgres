@@ -5,7 +5,6 @@ import os
 import six
 import subprocess
 import time
-import warnings
 
 try:
     import psutil
