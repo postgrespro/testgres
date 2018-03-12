@@ -21,7 +21,8 @@ from testgres import \
     BackupException, \
     QueryException, \
     CatchUpException, \
-    TimeoutException
+    TimeoutException, \
+    TestgresException
 
 from testgres import \
     TestgresConfig, \
@@ -739,8 +740,10 @@ class SimpleTest(unittest.TestCase):
                 with backup.spawn_replica('repl', True) as repl:
                     repl.start()
                     if psutil is None:
-                        self.assertIsNone(master.auxiliary_pids)
-                        self.assertIsNone(repl.auxiliary_pids)
+                        with self.assertRaises(TestgresException):
+                            master.auxiliary_pids
+                        with self.assertRaises(TestgresException):
+                            self.assertIsNone(repl.auxiliary_pids)
                     else:
                         master_pids = master.auxiliary_pids
                         for ptype in master_processes:

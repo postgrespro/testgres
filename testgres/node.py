@@ -445,8 +445,7 @@ class PostgresNode(object):
         ''' Returns child processes for this node '''
 
         if psutil is None:
-            warnings.warn("psutil module is not installed")
-            return None
+            raise TestgresException("psutil module is not installed")
 
         try:
             postmaster = psutil.Process(self.pid)
