@@ -709,15 +709,17 @@ class SimpleTest(unittest.TestCase):
         except ImportError:
             psutil = None
 
-        master_processes = (
+        master_processes = [
             ProcessType.Checkpointer,
             ProcessType.BackgroundWriter,
             ProcessType.WalWriter,
             ProcessType.AutovacuumLauncher,
             ProcessType.StatsCollector,
-            ProcessType.LogicalReplicationLauncher,
             ProcessType.WalSender,
-        )
+        ]
+        if pg_version_ge('10'):
+            master_processes.append(ProcessType.LogicalReplicationLauncher)
+
         repl_processes = (
             ProcessType.Startup,
             ProcessType.Checkpointer,

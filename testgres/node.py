@@ -479,7 +479,7 @@ class PostgresNode(object):
 
         result = {}
         for child in children:
-            line = child.cmdline()[0]
+            line = ' '.join(child.cmdline())
             for ptype in ProcessType:
                 if ptype == ProcessType.WalSender \
                         and (line.startswith(ptype.value) or
@@ -513,8 +513,10 @@ class PostgresNode(object):
         for name, client_port in self._master.execute(sql):
             if name == self.name:
                 for child in children:
-                    line = child.cmdline()[0]
-                    if line.startswith('postgres: walsender') and str(client_port) in line:
+                    line = ' '.join(child.cmdline())
+                    if (line.startswith(ProcessType.WalSender.value) or
+                        line.startswith('postgres: wal sender')) and \
+                            str(client_port) in line:
                         return child.pid
 
         return None
