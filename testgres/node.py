@@ -209,7 +209,7 @@ class PostgresNode(object):
         ).format(conninfo)
 
         if slot_name:
-            line += "primary_slot_name={}\n".format()
+            line += "primary_slot_name={}\n".format(slot_name)
 
         self.append_conf(RECOVERY_CONF_FILE, line)
 
@@ -872,7 +872,9 @@ class PostgresNode(object):
             dbname: database name
             username: database user name
         """
-        query = "select pg_create_physical_replication_slot('{}')".format(slot_name)
+        query = (
+            "select pg_create_physical_replication_slot('{}')"
+        ).format(slot_name)
 
         self.execute(query=query,
                      dbname=dbname or default_dbname(),

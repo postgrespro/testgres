@@ -171,7 +171,7 @@ class NodeBackup(object):
 
         # Assign it a master and a recovery file (private magic)
         node._assign_master(self.original_node)
-        node._create_recovery_conf(username=self.username)
+        node._create_recovery_conf(username=self.username, slot_name=slot_name)
 
         return node
 
