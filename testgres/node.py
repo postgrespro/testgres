@@ -32,7 +32,8 @@ from .consts import \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
     UTILS_LOG_FILE, \
-    PG_PID_FILE
+    PG_PID_FILE, \
+    REPLICATION_SLOTS
 
 from .decorators import \
     method_decorator, \
@@ -208,7 +209,7 @@ class PostgresNode(object):
         ).format(conninfo)
 
         if slot_name:
-            line += "primary_slot_name={}".format()
+            line += "primary_slot_name={}\n".format()
 
         self.append_conf(RECOVERY_CONF_FILE, line)
 
@@ -343,11 +344,14 @@ class PostgresNode(object):
                 conf.write(u"fsync = off\n")
 
             # yapf: disable
-            conf.write(u"log_statement = {}\n"
-                       u"listen_addresses = '{}'\n"
-                       u"port = {}\n".format(log_statement,
-                                             self.host,
-                                             self.port))
+            conf.write(
+                u"log_statement = {}\n"
+                u"listen_addresses = '{}'\n"
+                u"port = {}\n"
+                u"max_replication_slots = {}\n".format(log_statement,
+                                                       self.host,
+                                                       self.port,
+                                                       REPLICATION_SLOTS))
 
             # replication-related settings
             if allow_streaming:
