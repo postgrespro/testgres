@@ -2,17 +2,11 @@
 
 import io
 import os
-import six
 import subprocess
 import time
 
-try:
-    import psutil
-except ImportError:
-    psutil = None
-
 from shutil import rmtree
-from six import raise_from
+from six import raise_from, iteritems
 from tempfile import mkstemp, mkdtemp
 
 from .enums import NodeStatus, ProcessType
@@ -70,6 +64,28 @@ from .utils import \
 from .backup import NodeBackup
 
 
+class ProcessProxy(object):
+    """
+    Wrapper for psutil.Process
+
+    Attributes:
+        process: wrapped psutill.Process object
+        ptype: instance of ProcessType
+    """
+
+    def __init__(self, process):
+        self.process = process
+        self.ptype = ProcessType.from_process(process)
+
+    def __getattr__(self, name):
+        return getattr(self.process, name)
+
+    def __str__(self):
+        pid = self.process.pid
+        cmdline = ' '.join(self.process.cmdline()).strip()
+        return '{} [{}]'.format(cmdline, pid)
+
+
 class PostgresNode(object):
     def __init__(self, name=None, port=None, base_dir=None):
         """
@@ -122,11 +138,88 @@ class PostgresNode(object):
 
     @property
     def pid(self):
-        return self.get_main_pid()
+        """
+        Return postmaster's PID if node is running, else 0.
+        """
+
+        if self.status():
+            pid_file = os.path.join(self.data_dir, PG_PID_FILE)
+            with io.open(pid_file) as f:
+                return int(f.readline())
+
+        # for clarity
+        return 0
 
     @property
     def auxiliary_pids(self):
-        return self.get_auxiliary_pids()
+        """
+        Returns a dict of { ProcessType : PID }.
+        """
+
+        result = {}
+
+        for process in self.auxiliary_processes:
+            if process.ptype not in result:
+                result[process.ptype] = []
+
+            result[process.ptype].append(process.pid)
+
+        return result
+
+    @property
+    def auxiliary_processes(self):
+        """
+        Returns a list of auxiliary processes.
+        Each process is represented by ProcessProxy object.
+        """
+
+        def is_aux(process):
+            return process.ptype != ProcessType.Unknown
+
+        return list(filter(is_aux, self.child_processes))
+
+    @property
+    def child_processes(self):
+        """
+        Returns a list of all child processes.
+        Each process is represented by ProcessProxy object.
+        """
+
+        try:
+            import psutil
+        except ImportError:
+            raise TestgresException("psutil module is not installed")
+
+        # get a list of postmaster's children
+        children = psutil.Process(self.pid).children()
+
+        return [ProcessProxy(p) for p in children]
+
+    @property
+    def source_walsender(self):
+        """
+        Returns master's walsender feeding this replica.
+        """
+
+        sql = """
+            select pid
+            from pg_catalog.pg_stat_replication
+            where application_name = $1
+        """
+
+        if not self.master:
+            raise TestgresException("Node doesn't have a master")
+
+        # master should be on the same host
+        assert self.master.host == self.host
+
+        with self.master.connect() as con:
+            for row in con.execute(sql, self.name):
+                for child in self.master.auxiliary_processes:
+                    if child.pid == int(row[0]):
+                        return child
+
+        raise QueryException("Master doesn't send WAL to {}", self.name)
 
     @property
     def master(self):
@@ -426,98 +519,6 @@ class PostgresNode(object):
             # Node has no file dir
             elif e.exit_code == 4:
                 return NodeStatus.Uninitialized
-
-    def get_main_pid(self):
-        """
-        Return postmaster's PID if node is running, else 0.
-        """
-
-        if self.status():
-            pid_file = os.path.join(self.data_dir, PG_PID_FILE)
-            with io.open(pid_file) as f:
-                return int(f.readline())
-
-        # for clarity
-        return 0
-
-    def get_child_processes(self):
-        ''' Returns child processes for this node '''
-
-        if psutil is None:
-            raise TestgresException("psutil module is not installed")
-
-        try:
-            postmaster = psutil.Process(self.pid)
-        except psutil.NoSuchProcess:
-            return None
-
-        return postmaster.children(recursive=True)
-
-    def get_auxiliary_pids(self):
-        ''' Returns dict with pids of auxiliary processes '''
-
-        alternative_names = {
-            ProcessType.LogicalReplicationLauncher: [
-                'postgres: bgworker: logical replication launcher'
-            ],
-            ProcessType.BackgroundWriter: [
-                'postgres: writer',
-            ],
-            ProcessType.WalWriter: [
-                'postgres: wal writer',
-            ],
-            ProcessType.WalReceiver: [
-                'postgres: wal receiver',
-            ],
-        }
-
-        children = self.get_child_processes()
-        if children is None:
-            return None
-
-        result = {}
-        for child in children:
-            line = ' '.join(child.cmdline())
-            for ptype in ProcessType:
-                if ptype == ProcessType.WalSender \
-                        and (line.startswith(ptype.value) or
-                             line.startswith('postgres: wal sender')):
-                    result.setdefault(ptype, [])
-                    result[ptype].append(child.pid)
-                    break
-                elif line.startswith(ptype.value):
-                    result[ptype] = child.pid
-                    break
-                elif ptype in alternative_names:
-                    names = alternative_names[ptype]
-                    for name in names:
-                        if line.startswith(name):
-                            result[ptype] = child.pid
-                            break
-
-        return result
-
-    def get_walsender_pid(self):
-        ''' Returns pid of according walsender for replica '''
-
-        if not self._master:
-            raise TestgresException("This node is not a replica")
-
-        children = self._master.get_child_processes()
-        if children is None:
-            return None
-
-        sql = 'select application_name, client_port from pg_stat_replication'
-        for name, client_port in self._master.execute(sql):
-            if name == self.name:
-                for child in children:
-                    line = ' '.join(child.cmdline())
-                    if (line.startswith(ProcessType.WalSender.value) or
-                        line.startswith('postgres: wal sender')) and \
-                            str(client_port) in line:
-                        return child.pid
-
-        return None
 
     def get_control_data(self):
         """
@@ -1079,7 +1080,7 @@ class PostgresNode(object):
             "-U", username,
         ] + options
 
-        for key, value in six.iteritems(kwargs):
+        for key, value in iteritems(kwargs):
             # rename keys for pgbench
             key = key.replace('_', '-')
 

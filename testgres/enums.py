@@ -1,4 +1,5 @@
 from enum import Enum, IntEnum
+from six import iteritems
 
 
 class XLogMethod(Enum):
@@ -39,14 +40,48 @@ class NodeStatus(IntEnum):
 
 class ProcessType(Enum):
     """
-    Types of postgres processes
+    Types of processes
     """
-    Checkpointer = 'postgres: checkpointer'
-    BackgroundWriter = 'postgres: background writer'
-    WalWriter = 'postgres: walwriter'
-    AutovacuumLauncher = 'postgres: autovacuum launcher'
-    StatsCollector = 'postgres: stats collector'
-    LogicalReplicationLauncher = 'postgres: logical replication launcher'
-    WalReceiver = 'postgres: walreceiver'
-    WalSender = 'postgres: walsender'
-    Startup = 'postgres: startup'
+
+    AutovacuumLauncher = 'autovacuum launcher'
+    BackgroundWriter = 'background writer'
+    Checkpointer = 'checkpointer'
+    LogicalReplicationLauncher = 'logical replication launcher'
+    Startup = 'startup'
+    StatsCollector = 'stats collector'
+    WalReceiver = 'wal receiver'
+    WalSender = 'wal sender'
+    WalWriter = 'wal writer'
+
+    # special value
+    Unknown = 'unknown'
+
+    @staticmethod
+    def from_process(process):
+        # legacy names for older releases of PG
+        alternative_names = {
+            ProcessType.LogicalReplicationLauncher: [
+                'logical replication worker'
+            ],
+            ProcessType.BackgroundWriter: [
+                'writer'
+            ],
+        }
+
+        # we deliberately cut special words and spaces
+        cmdline = ''.join(process.cmdline()) \
+                    .replace('postgres:', '', 1) \
+                    .replace('bgworker:', '', 1) \
+                    .replace(' ', '')
+
+        for ptype in ProcessType:
+            if cmdline.startswith(ptype.value.replace(' ', '')):
+                return ptype
+
+        for ptype, names in iteritems(alternative_names):
+            for name in names:
+                if cmdline.startswith(name.replace(' ', '')):
+                    return ptype
+
+        # default
+        return ProcessType.Unknown

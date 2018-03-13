@@ -34,7 +34,6 @@ class NodeConnection(object):
         username = username or default_username()
 
         self._node = node
-        self._pid = 0
 
         self._connection = pglib.connect(
             database=dbname,
@@ -55,9 +54,7 @@ class NodeConnection(object):
 
     @property
     def pid(self):
-        if not self._pid:
-            self._pid = self.execute("select pg_backend_pid();")[0][0]
-        return self._pid
+        return self.execute("select pg_backend_pid()")[0][0]
 
     @property
     def cursor(self):

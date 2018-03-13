@@ -61,6 +61,14 @@ def util_exists(util):
             return True
 
 
+def module_exists(module):
+    try:
+        __import__(module)
+        return True
+    except ImportError:
+        return False
+
+
 @contextmanager
 def removing(f):
     try:
@@ -704,58 +712,55 @@ class SimpleTest(unittest.TestCase):
         self.assertTrue(b > c)
         self.assertTrue(a > c)
 
-    def test_pids(self):
-        try:
-            import psutil
-        except ImportError:
-            psutil = None
-
+    @unittest.skipUnless(module_exists('psutil'), 'might be missing')
+    def test_child_pids(self):
         master_processes = [
-            ProcessType.Checkpointer,
-            ProcessType.BackgroundWriter,
-            ProcessType.WalWriter,
             ProcessType.AutovacuumLauncher,
+            ProcessType.BackgroundWriter,
+            ProcessType.Checkpointer,
             ProcessType.StatsCollector,
             ProcessType.WalSender,
+            ProcessType.WalWriter,
         ]
+
         if pg_version_ge('10'):
             master_processes.append(ProcessType.LogicalReplicationLauncher)
 
-        repl_processes = (
+        repl_processes = [
             ProcessType.Startup,
-            ProcessType.Checkpointer,
-            ProcessType.BackgroundWriter,
-            ProcessType.StatsCollector,
             ProcessType.WalReceiver,
-        )
+        ]
 
-        with get_new_node('master') as master:
-            master.init().start()
+        with get_new_node().init().start() as master:
 
-            self.assertIsNotNone(master.pid)
-            with master.connect() as con:
-                self.assertTrue(con.pid > 0)
+            # master node doesn't have a source walsender!
+            with self.assertRaises(TestgresException):
+                master.source_walsender
 
-            with master.backup() as backup:
-                with backup.spawn_replica('repl', True) as repl:
-                    repl.start()
-                    if psutil is None:
-                        with self.assertRaises(TestgresException):
-                            master.auxiliary_pids
-                        with self.assertRaises(TestgresException):
-                            self.assertIsNone(repl.auxiliary_pids)
-                    else:
-                        master_pids = master.auxiliary_pids
-                        for ptype in master_processes:
-                            self.assertIn(ptype, master_pids)
-                        self.assertTrue(len(master_pids[ProcessType.WalSender]) == 1)
+            with master.replicate().start() as replica:
 
-                        repl_pids = repl.auxiliary_pids
-                        for ptype in repl_processes:
-                            self.assertIn(ptype, repl_pids)
+                # test __str__ method
+                str(master.child_processes[0])
 
-                        sender_pid = master_pids[ProcessType.WalSender][0]
-                        self.assertTrue(repl.get_walsender_pid() == sender_pid)
+                master_pids = master.auxiliary_pids
+                for ptype in master_processes:
+                    self.assertIn(ptype, master_pids)
+
+                replica_pids = replica.auxiliary_pids
+                for ptype in repl_processes:
+                    self.assertIn(ptype, replica_pids)
+
+                # there should be exactly 1 source walsender for replica
+                self.assertEqual(len(master_pids[ProcessType.WalSender]), 1)
+                pid1 = master_pids[ProcessType.WalSender][0]
+                pid2 = replica.source_walsender.pid
+                self.assertEqual(pid1, pid2)
+
+                replica.stop()
+
+                # there should be no walsender after we've stopped replica
+                with self.assertRaises(QueryException):
+                    replica.source_walsender
 
 
 if __name__ == '__main__':
