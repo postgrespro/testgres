@@ -154,7 +154,7 @@ class NodeBackup(object):
 
         return node
 
-    def spawn_replica(self, name=None, destroy=True):
+    def spawn_replica(self, name=None, destroy=True, slot_name=None):
         """
         Create a replica of the original node from a backup.
 

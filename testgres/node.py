@@ -179,7 +179,7 @@ class PostgresNode(object):
         # now this node has a master
         self._master = master
 
-    def _create_recovery_conf(self, username):
+    def _create_recovery_conf(self, username, slot_name=None):
         """NOTE: this is a private method!"""
 
         # fetch master of this node
@@ -206,6 +206,9 @@ class PostgresNode(object):
             "primary_conninfo='{}'\n"
             "standby_mode=on\n"
         ).format(conninfo)
+
+        if slot_name:
+            line += "primary_slot_name={}".format()
 
         self.append_conf(RECOVERY_CONF_FILE, line)
 
@@ -856,7 +859,22 @@ class PostgresNode(object):
 
         return NodeBackup(node=self, **kwargs)
 
-    def replicate(self, name=None, **kwargs):
+    def create_replication_slot(self, slot_name, dbname=None, username=None):
+        """
+        Create a physical replication slot.
+
+        Args:
+            slot_name: slot name
+            dbname: database name
+            username: database user name
+        """
+        query = "select pg_create_physical_replication_slot('{}')".format(slot_name)
+
+        self.execute(query=query,
+                     dbname=dbname or default_dbname(),
+                     username=username or default_username())
+
+    def replicate(self, name=None, slot_name=None, **kwargs):
         """
         Create a binary replica of this node.
 
@@ -870,7 +888,9 @@ class PostgresNode(object):
         backup = self.backup(**kwargs)
 
         # transform backup into a replica
-        return backup.spawn_replica(name=name, destroy=True)
+        return backup.spawn_replica(name=name,
+                                    destroy=True,
+                                    slot_name=slot_name)
 
     def catchup(self, dbname=None, username=None):
         """
