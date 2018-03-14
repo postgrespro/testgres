@@ -21,7 +21,8 @@ from testgres import \
     BackupException, \
     QueryException, \
     CatchUpException, \
-    TimeoutException
+    TimeoutException, \
+    TestgresException
 
 from testgres import \
     TestgresConfig, \
@@ -40,6 +41,7 @@ from testgres import \
 
 from testgres import bound_ports
 from testgres.utils import pg_version_ge
+from testgres.enums import ProcessType
 
 
 def util_exists(util):
@@ -57,6 +59,14 @@ def util_exists(util):
     for path in os.environ["PATH"].split(os.pathsep):
         if good_properties(os.path.join(path, util)):
             return True
+
+
+def module_exists(module):
+    try:
+        __import__(module)
+        return True
+    except ImportError:
+        return False
 
 
 @contextmanager
@@ -701,6 +711,56 @@ class SimpleTest(unittest.TestCase):
         self.assertTrue(a > b)
         self.assertTrue(b > c)
         self.assertTrue(a > c)
+
+    @unittest.skipUnless(module_exists('psutil'), 'might be missing')
+    def test_child_pids(self):
+        master_processes = [
+            ProcessType.AutovacuumLauncher,
+            ProcessType.BackgroundWriter,
+            ProcessType.Checkpointer,
+            ProcessType.StatsCollector,
+            ProcessType.WalSender,
+            ProcessType.WalWriter,
+        ]
+
+        if pg_version_ge('10'):
+            master_processes.append(ProcessType.LogicalReplicationLauncher)
+
+        repl_processes = [
+            ProcessType.Startup,
+            ProcessType.WalReceiver,
+        ]
+
+        with get_new_node().init().start() as master:
+
+            # master node doesn't have a source walsender!
+            with self.assertRaises(TestgresException):
+                master.source_walsender
+
+            with master.replicate().start() as replica:
+
+                # test __str__ method
+                str(master.child_processes[0])
+
+                master_pids = master.auxiliary_pids
+                for ptype in master_processes:
+                    self.assertIn(ptype, master_pids)
+
+                replica_pids = replica.auxiliary_pids
+                for ptype in repl_processes:
+                    self.assertIn(ptype, replica_pids)
+
+                # there should be exactly 1 source walsender for replica
+                self.assertEqual(len(master_pids[ProcessType.WalSender]), 1)
+                pid1 = master_pids[ProcessType.WalSender][0]
+                pid2 = replica.source_walsender.pid
+                self.assertEqual(pid1, pid2)
+
+                replica.stop()
+
+                # there should be no walsender after we've stopped replica
+                with self.assertRaises(QueryException):
+                    replica.source_walsender
 
 
 if __name__ == '__main__':

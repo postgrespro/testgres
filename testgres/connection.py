@@ -53,6 +53,10 @@ class NodeConnection(object):
         return self._connection
 
     @property
+    def pid(self):
+        return self.execute("select pg_backend_pid()")[0][0]
+
+    @property
     def cursor(self):
         return self._cursor
 
