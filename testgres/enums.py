@@ -58,6 +58,7 @@ class ProcessType(Enum):
 
     @staticmethod
     def from_process(process):
+        # yapf: disable
         # legacy names for older releases of PG
         alternative_names = {
             ProcessType.LogicalReplicationLauncher: [
