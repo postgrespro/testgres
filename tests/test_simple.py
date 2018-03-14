@@ -20,7 +20,6 @@ from testgres import \
     ExecUtilException, \
     BackupException, \
     QueryException, \
-    CatchUpException, \
     TimeoutException, \
     TestgresException
 
@@ -397,7 +396,7 @@ class SimpleTest(unittest.TestCase):
             node.init(allow_streaming=True).start()
 
             # node has no master, can't catch up
-            with self.assertRaises(CatchUpException):
+            with self.assertRaises(TestgresException):
                 node.catchup()
 
     def test_dump(self):
@@ -759,7 +758,7 @@ class SimpleTest(unittest.TestCase):
                 replica.stop()
 
                 # there should be no walsender after we've stopped replica
-                with self.assertRaises(QueryException):
+                with self.assertRaises(TestgresException):
                     replica.source_walsender
 
 

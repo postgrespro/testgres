@@ -80,10 +80,8 @@ class ProcessProxy(object):
     def __getattr__(self, name):
         return getattr(self.process, name)
 
-    def __str__(self):
-        pid = self.process.pid
-        cmdline = ' '.join(self.process.cmdline()).strip()
-        return '{} [{}]'.format(cmdline, pid)
+    def __repr__(self):
+        return '{} : {}'.format(str(self.ptype), repr(self.process))
 
 
 class PostgresNode(object):
@@ -219,7 +217,8 @@ class PostgresNode(object):
                     if child.pid == int(row[0]):
                         return child
 
-        raise QueryException("Master doesn't send WAL to {}", self.name)
+        msg = "Master doesn't send WAL to {}".format(self.name)
+        raise TestgresException(msg)
 
     @property
     def master(self):
@@ -968,7 +967,7 @@ class PostgresNode(object):
         """
 
         if not self.master:
-            raise CatchUpException("Node doesn't have a master")
+            raise TestgresException("Node doesn't have a master")
 
         if pg_version_ge('10'):
             poll_lsn = "select pg_current_wal_lsn()::text"
