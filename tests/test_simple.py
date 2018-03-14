@@ -736,6 +736,9 @@ class SimpleTest(unittest.TestCase):
             with self.assertRaises(TestgresException):
                 master.source_walsender
 
+            with master.connect() as con:
+                self.assertGreater(con.pid, 0)
+
             with master.replicate().start() as replica:
 
                 # test __str__ method
