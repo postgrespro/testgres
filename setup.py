@@ -6,7 +6,7 @@ except ImportError:
     from distutils.core import setup
 
 # Basic dependencies
-install_requires = ["pg8000", "port-for>=0.4", "six>=1.9.0"]
+install_requires = ["pg8000", "port-for>=0.4", "six>=1.9.0", "psutil"]
 
 # Add compatibility enum class
 if sys.version_info < (3, 4):

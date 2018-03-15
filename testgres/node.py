@@ -2,6 +2,7 @@
 
 import io
 import os
+import psutil
 import subprocess
 import time
 
@@ -182,11 +183,6 @@ class PostgresNode(object):
         Returns a list of all child processes.
         Each process is represented by ProcessProxy object.
         """
-
-        try:
-            import psutil
-        except ImportError:
-            raise TestgresException("psutil module is not installed")
 
         # get a list of postmaster's children
         children = psutil.Process(self.pid).children()

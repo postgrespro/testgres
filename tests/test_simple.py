@@ -60,14 +60,6 @@ def util_exists(util):
             return True
 
 
-def module_exists(module):
-    try:
-        __import__(module)
-        return True
-    except ImportError:
-        return False
-
-
 @contextmanager
 def removing(f):
     try:
@@ -711,7 +703,6 @@ class SimpleTest(unittest.TestCase):
         self.assertTrue(b > c)
         self.assertTrue(a > c)
 
-    @unittest.skipUnless(module_exists('psutil'), 'might be missing')
     def test_child_pids(self):
         master_processes = [
             ProcessType.AutovacuumLauncher,
