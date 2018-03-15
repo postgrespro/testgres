@@ -17,7 +17,7 @@ if sys.version_info < (3, 3):
     install_requires.append("ipaddress")
 
 setup(
-    version='1.5.0',
+    version='1.6.0',
     name='testgres',
     packages=['testgres'],
     description='Testing utility for PostgreSQL and its extensions',
