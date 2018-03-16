@@ -48,9 +48,12 @@ from .exceptions import \
     ExecUtilException,  \
     QueryException,     \
     StartNodeException, \
-    TimeoutException
+    TimeoutException,   \
+    InitNodeException
 
 from .logger import TestgresLogger
+
+from .pubsub import Publication, Subscription
 
 from .utils import \
     eprint, \
@@ -278,6 +281,7 @@ class PostgresNode(object):
                      fsync=False,
                      unix_sockets=True,
                      allow_streaming=True,
+                     allow_logical=False,
                      log_statement='all'):
         """
         Apply default settings to this node.
@@ -286,6 +290,7 @@ class PostgresNode(object):
             fsync: should this node use fsync to keep data safe?
             unix_sockets: should we enable UNIX sockets?
             allow_streaming: should this node add a hba entry for replication?
+            allow_logical: can this node be used as a logical replication publisher?
             log_statement: one of ('all', 'off', 'mod', 'ddl').
 
         Returns:
@@ -364,6 +369,12 @@ class PostgresNode(object):
                            u"wal_level = {}\n".format(max_wal_senders,
                                                       wal_keep_segments,
                                                       wal_level))
+
+            if allow_logical:
+                if not pg_version_ge('10'):
+                    raise InitNodeException("Logical replication is only "
+                                            "available for Postgres 10 and newer")
+                conf.write(u"wal_level = logical\n")
 
             # disable UNIX sockets if asked to
             if not unix_sockets:
@@ -751,7 +762,8 @@ class PostgresNode(object):
                          expected=True,
                          commit=True,
                          raise_programming_error=True,
-                         raise_internal_error=True):
+                         raise_internal_error=True,
+                         zero_rows_is_ok=False):
         """
         Run a query once per second until it returns 'expected'.
         Query should return a single value (1 row, 1 column).
@@ -788,7 +800,12 @@ class PostgresNode(object):
                     raise QueryException('Query returned None', query)
 
                 if len(res) == 0:
-                    raise QueryException('Query returned 0 rows', query)
+                    if zero_rows_is_ok:
+                        time.sleep(sleep_time)
+                        attempts += 1
+                        continue
+                    else:
+                        raise QueryException('Query returned 0 rows', query)
 
                 if len(res[0]) == 0:
                     raise QueryException('Query returned 0 columns', query)
@@ -901,6 +918,41 @@ class PostgresNode(object):
                 max_attempts=0)    # infinite
         except Exception as e:
             raise_from(CatchUpException("Failed to catch up", poll_lsn), e)
+
+    def publish(self,
+                pubname,
+                tables=None,
+                dbname=None,
+                username=None):
+        """
+        Create publication for logical replication
+
+        Args:
+            pubname: publication name
+            tables: tables names list
+            dbname: database name where objects or interest are located
+            username: replication username
+        """
+        return Publication(pubname, self, tables, dbname, username)
+
+    def subscribe(self,
+                  publication,
+                  subname,
+                  dbname=None,
+                  username=None,
+                  **kwargs):
+        """
+        Create subscription for logical replication
+
+        Args:
+            subname: subscription name
+            publication: publication object obtained from publish()
+
+        """
+        return Subscription(subname, self, publication,
+                            dbname=dbname,
+                            username=username,
+                            **kwargs)
 
     def pgbench(self,
                 dbname=None,

@@ -382,6 +382,72 @@ class SimpleTest(unittest.TestCase):
                 res = node.execute('select * from test')
                 self.assertListEqual(res, [])
 
+    def test_logical_replication(self):
+        with get_new_node() as node1, get_new_node() as node2:
+            node1.init(allow_logical=True)
+            node1.start()
+            node2.init().start()
+
+            create_table = 'create table test (a int, b int)'
+            node1.safe_psql(create_table)
+            node2.safe_psql(create_table)
+
+            # create publication / create subscription
+            pub = node1.publish('mypub')
+            sub = node2.subscribe(pub, 'mysub')
+
+            node1.safe_psql('insert into test values (1, 1), (2, 2)')
+
+            # wait until changes apply on subscriber and check them
+            sub.catchup()
+            res = node2.execute('select * from test')
+            self.assertListEqual(res, [(1, 1), (2, 2)])
+
+            # disable and put some new data
+            sub.disable()
+            node1.safe_psql('insert into test values (3, 3)')
+
+            # enable and ensure that data successfully transfered
+            sub.enable()
+            sub.catchup()
+            res = node2.execute('select * from test')
+            self.assertListEqual(res, [(1, 1), (2, 2), (3, 3)])
+
+            # Add new tables. Since we added "all tables" to publication
+            # (default behaviour of publish() method) we don't need
+            # to explicitely perform pub.add_table()
+            create_table = 'create table test2 (c char)'
+            node1.safe_psql(create_table)
+            node2.safe_psql(create_table)
+            sub.refresh()
+
+            # put new data
+            node1.safe_psql('insert into test2 values (\'a\'), (\'b\')')
+            sub.catchup()
+            res = node2.execute('select * from test2')
+            self.assertListEqual(res, [('a',), ('b',)])
+
+            # drop subscription
+            sub.close()
+            pub.close()
+
+            # create new publication and subscription for specific table
+            # (ommitting copying data as it's already done)
+            pub = node1.publish('newpub', tables=['test'])
+            sub = node2.subscribe(pub, 'newsub', copy_data=False)
+
+            node1.safe_psql('insert into test values (4, 4)')
+            sub.catchup()
+            res = node2.execute('select * from test')
+            self.assertListEqual(res, [(1, 1), (2, 2), (3, 3), (4, 4)])
+
+            # explicitely add table
+            pub.add_tables(['test2'])
+            node1.safe_psql('insert into test2 values (\'c\')')
+            sub.catchup()
+            res = node2.execute('select * from test2')
+            self.assertListEqual(res, [('a',), ('b',)])
+
     def test_incorrect_catchup(self):
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
