@@ -1,6 +1,6 @@
 # coding: utf-8
 
-from six import raise_from
+from six import raise_from, iteritems
 
 from .defaults import default_dbname, default_username
 from .exceptions import CatchUpException
@@ -92,7 +92,7 @@ class Subscription(object):
 
         # additional parameters
         if kwargs:
-            params = ','.join('{}={}'.format(k, v) for k, v in kwargs.iteritems())
+            params = ','.join('{}={}'.format(k, v) for k, v in iteritems(kwargs))
             query += " with ({})".format(params)
 
         node.safe_psql(query, dbname=dbname, username=username)
