@@ -382,6 +382,7 @@ class SimpleTest(unittest.TestCase):
                 res = node.execute('select * from test')
                 self.assertListEqual(res, [])
 
+    @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_replication(self):
         with get_new_node() as node1, get_new_node() as node2:
             node1.init(allow_logical=True)
