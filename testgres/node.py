@@ -2,15 +2,15 @@
 
 import io
 import os
-import six
+import psutil
 import subprocess
 import time
 
 from shutil import rmtree
-from six import raise_from
+from six import raise_from, iteritems
 from tempfile import mkstemp, mkdtemp
 
-from .enums import NodeStatus
+from .enums import NodeStatus, ProcessType
 
 from .cache import cached_initdb
 
@@ -49,7 +49,8 @@ from .exceptions import \
     QueryException,     \
     StartNodeException, \
     TimeoutException,   \
-    InitNodeException
+    InitNodeException,  \
+    TestgresException
 
 from .logger import TestgresLogger
 
@@ -65,6 +66,26 @@ from .utils import \
     execute_utility
 
 from .backup import NodeBackup
+
+
+class ProcessProxy(object):
+    """
+    Wrapper for psutil.Process
+
+    Attributes:
+        process: wrapped psutill.Process object
+        ptype: instance of ProcessType
+    """
+
+    def __init__(self, process):
+        self.process = process
+        self.ptype = ProcessType.from_process(process)
+
+    def __getattr__(self, name):
+        return getattr(self.process, name)
+
+    def __repr__(self):
+        return '{} : {}'.format(str(self.ptype), repr(self.process))
 
 
 class PostgresNode(object):
@@ -119,7 +140,84 @@ class PostgresNode(object):
 
     @property
     def pid(self):
-        return self.get_pid()
+        """
+        Return postmaster's PID if node is running, else 0.
+        """
+
+        if self.status():
+            pid_file = os.path.join(self.data_dir, PG_PID_FILE)
+            with io.open(pid_file) as f:
+                return int(f.readline())
+
+        # for clarity
+        return 0
+
+    @property
+    def auxiliary_pids(self):
+        """
+        Returns a dict of { ProcessType : PID }.
+        """
+
+        result = {}
+
+        for process in self.auxiliary_processes:
+            if process.ptype not in result:
+                result[process.ptype] = []
+
+            result[process.ptype].append(process.pid)
+
+        return result
+
+    @property
+    def auxiliary_processes(self):
+        """
+        Returns a list of auxiliary processes.
+        Each process is represented by ProcessProxy object.
+        """
+
+        def is_aux(process):
+            return process.ptype != ProcessType.Unknown
+
+        return list(filter(is_aux, self.child_processes))
+
+    @property
+    def child_processes(self):
+        """
+        Returns a list of all child processes.
+        Each process is represented by ProcessProxy object.
+        """
+
+        # get a list of postmaster's children
+        children = psutil.Process(self.pid).children()
+
+        return [ProcessProxy(p) for p in children]
+
+    @property
+    def source_walsender(self):
+        """
+        Returns master's walsender feeding this replica.
+        """
+
+        sql = """
+            select pid
+            from pg_catalog.pg_stat_replication
+            where application_name = $1
+        """
+
+        if not self.master:
+            raise TestgresException("Node doesn't have a master")
+
+        # master should be on the same host
+        assert self.master.host == self.host
+
+        with self.master.connect() as con:
+            for row in con.execute(sql, self.name):
+                for child in self.master.auxiliary_processes:
+                    if child.pid == int(row[0]):
+                        return child
+
+        msg = "Master doesn't send WAL to {}".format(self.name)
+        raise TestgresException(msg)
 
     @property
     def master(self):
@@ -427,19 +525,6 @@ class PostgresNode(object):
             # Node has no file dir
             elif e.exit_code == 4:
                 return NodeStatus.Uninitialized
-
-    def get_pid(self):
-        """
-        Return postmaster's PID if node is running, else 0.
-        """
-
-        if self.status():
-            pid_file = os.path.join(self.data_dir, PG_PID_FILE)
-            with io.open(pid_file) as f:
-                return int(f.readline())
-
-        # for clarity
-        return 0
 
     def get_control_data(self):
         """
@@ -895,7 +980,7 @@ class PostgresNode(object):
         """
 
         if not self.master:
-            raise CatchUpException("Node doesn't have a master")
+            raise TestgresException("Node doesn't have a master")
 
         if pg_version_ge('10'):
             poll_lsn = "select pg_current_wal_lsn()::text"
@@ -1042,7 +1127,7 @@ class PostgresNode(object):
             "-U", username,
         ] + options
 
-        for key, value in six.iteritems(kwargs):
+        for key, value in iteritems(kwargs):
             # rename keys for pgbench
             key = key.replace('_', '-')
 
