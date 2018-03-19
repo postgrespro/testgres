@@ -69,7 +69,7 @@ def removing(f):
             os.remove(f)
 
 
-class SimpleTest(unittest.TestCase):
+class TestgresTests(unittest.TestCase):
     def test_custom_init(self):
         with get_new_node() as node:
             # enable page checksums
@@ -757,4 +757,21 @@ class SimpleTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    if os.environ.get('ALT_CONFIG'):
+        suite = unittest.TestSuite()
+
+        # Small subset of tests for alternative configs (PG_BIN or PG_CONFIG)
+        suite.addTest(TestgresTests('test_pg_config'))
+        suite.addTest(TestgresTests('test_pg_ctl'))
+        suite.addTest(TestgresTests('test_psql'))
+        suite.addTest(TestgresTests('test_replicate'))
+
+        print('Running tests for alternative config:')
+        for t in suite:
+            print(t)
+        print()
+
+        runner = unittest.TextTestRunner()
+        runner.run(suite)
+    else:
+        unittest.main()

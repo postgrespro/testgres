@@ -42,15 +42,17 @@ time coverage run -a tests/test_simple.py
 
 
 # run tests (PG_BIN)
-export PG_BIN=$(dirname $(which pg_config))
-time coverage run -a tests/test_simple.py
-unset PG_BIN
+time \
+	PG_BIN=$(dirname $(which pg_config)) \
+	ALT_CONFIG=1 \
+	coverage run -a tests/test_simple.py
 
 
 # run tests (PG_CONFIG)
-export PG_CONFIG=$(which pg_config)
-time coverage run -a tests/test_simple.py
-unset PG_CONFIG
+time \
+	PG_CONFIG=$(which pg_config) \
+	ALT_CONFIG=1 \
+	coverage run -a tests/test_simple.py
 
 
 # show coverage
