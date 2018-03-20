@@ -254,6 +254,21 @@ class PostgresNode(object):
 
         return result
 
+    def _create_replication_slot(self, slot_name, dbname=None, username=None):
+        """
+        Create a physical replication slot.
+
+        Args:
+            slot_name: slot name
+            dbname: database name
+            username: database user name
+        """
+        query = (
+            "select pg_create_physical_replication_slot('{}')"
+        ).format(slot_name)
+
+        self.execute(query=query, dbname=dbname, username=username)
+
     def init(self, initdb_params=None, **kwargs):
         """
         Perform initdb for this node.
@@ -344,14 +359,11 @@ class PostgresNode(object):
                 conf.write(u"fsync = off\n")
 
             # yapf: disable
-            conf.write(
-                u"log_statement = {}\n"
-                u"listen_addresses = '{}'\n"
-                u"port = {}\n"
-                u"max_replication_slots = {}\n".format(log_statement,
-                                                       self.host,
-                                                       self.port,
-                                                       REPLICATION_SLOTS))
+            conf.write(u"log_statement = {}\n"
+                       u"listen_addresses = '{}'\n"
+                       u"port = {}\n".format(log_statement,
+                                             self.host,
+                                             self.port))
 
             # replication-related settings
             if allow_streaming:
@@ -367,8 +379,10 @@ class PostgresNode(object):
                 wal_keep_segments = 20  # for convenience
                 conf.write(u"hot_standby = on\n"
                            u"max_wal_senders = {}\n"
+                           u"max_replication_slots = {}\n"
                            u"wal_keep_segments = {}\n"
                            u"wal_level = {}\n".format(max_wal_senders,
+                                                      REPLICATION_SLOTS,
                                                       wal_keep_segments,
                                                       wal_level))
 
@@ -863,23 +877,6 @@ class PostgresNode(object):
 
         return NodeBackup(node=self, **kwargs)
 
-    def create_replication_slot(self, slot_name, dbname=None, username=None):
-        """
-        Create a physical replication slot.
-
-        Args:
-            slot_name: slot name
-            dbname: database name
-            username: database user name
-        """
-        query = (
-            "select pg_create_physical_replication_slot('{}')"
-        ).format(slot_name)
-
-        self.execute(query=query,
-                     dbname=dbname or default_dbname(),
-                     username=username or default_username())
-
     def replicate(self, name=None, slot_name=None, **kwargs):
         """
         Create a binary replica of this node.
@@ -890,6 +887,9 @@ class PostgresNode(object):
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
             base_dir: the base directory for data files and logs
         """
+
+        if slot_name:
+            self._create_replication_slot(slot_name, **kwargs)
 
         backup = self.backup(**kwargs)
 

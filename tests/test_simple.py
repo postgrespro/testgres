@@ -387,7 +387,6 @@ class SimpleTest(unittest.TestCase):
 
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
-            node.create_replication_slot('slot1')
             node.execute(query_create)
 
             with node.replicate(slot_name='slot1').start() as replica:
