@@ -32,7 +32,8 @@ from .consts import \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
     UTILS_LOG_FILE, \
-    PG_PID_FILE
+    PG_PID_FILE, \
+    REPLICATION_SLOTS
 
 from .decorators import \
     method_decorator, \
@@ -277,7 +278,7 @@ class PostgresNode(object):
         # now this node has a master
         self._master = master
 
-    def _create_recovery_conf(self, username):
+    def _create_recovery_conf(self, username, slot_name=None):
         """NOTE: this is a private method!"""
 
         # fetch master of this node
@@ -304,6 +305,9 @@ class PostgresNode(object):
             "primary_conninfo='{}'\n"
             "standby_mode=on\n"
         ).format(conninfo)
+
+        if slot_name:
+            line += "primary_slot_name={}\n".format(slot_name)
 
         self.append_conf(RECOVERY_CONF_FILE, line)
 
@@ -347,6 +351,28 @@ class PostgresNode(object):
                 result.append((f, lines))
 
         return result
+
+    def _create_replication_slot(self, slot_name, dbname=None, username=None):
+        """
+        Create a physical replication slot.
+
+        Args:
+            slot_name: slot name
+            dbname: database name
+            username: database user name
+        """
+        rs = self.execute("select exists (select * from pg_replication_slots "
+                          "where slot_name = '{}')".format(slot_name),
+                          dbname=dbname, username=username)
+
+        if rs[0][0]:
+            raise TestgresException("Slot '{}' already exists".format(slot_name))
+
+        query = (
+            "select pg_create_physical_replication_slot('{}')"
+        ).format(slot_name)
+
+        self.execute(query=query, dbname=dbname, username=username)
 
     def init(self, initdb_params=None, **kwargs):
         """
@@ -458,8 +484,10 @@ class PostgresNode(object):
                 wal_keep_segments = 20  # for convenience
                 conf.write(u"hot_standby = on\n"
                            u"max_wal_senders = {}\n"
+                           u"max_replication_slots = {}\n"
                            u"wal_keep_segments = {}\n"
                            u"wal_level = {}\n".format(max_wal_senders,
+                                                      REPLICATION_SLOTS,
                                                       wal_keep_segments,
                                                       wal_level))
 
@@ -941,7 +969,7 @@ class PostgresNode(object):
 
         return NodeBackup(node=self, **kwargs)
 
-    def replicate(self, name=None, **kwargs):
+    def replicate(self, name=None, slot_name=None, **kwargs):
         """
         Create a binary replica of this node.
 
@@ -952,10 +980,15 @@ class PostgresNode(object):
             base_dir: the base directory for data files and logs
         """
 
+        if slot_name:
+            self._create_replication_slot(slot_name, **kwargs)
+
         backup = self.backup(**kwargs)
 
         # transform backup into a replica
-        return backup.spawn_replica(name=name, destroy=True)
+        return backup.spawn_replica(name=name,
+                                    destroy=True,
+                                    slot_name=slot_name)
 
     def catchup(self, dbname=None, username=None):
         """

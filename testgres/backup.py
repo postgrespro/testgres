@@ -154,7 +154,7 @@ class NodeBackup(object):
 
         return node
 
-    def spawn_replica(self, name=None, destroy=True):
+    def spawn_replica(self, name=None, destroy=True, slot_name=None):
         """
         Create a replica of the original node from a backup.
 
@@ -171,7 +171,7 @@ class NodeBackup(object):
 
         # Assign it a master and a recovery file (private magic)
         node._assign_master(self.original_node)
-        node._create_recovery_conf(username=self.username)
+        node._create_recovery_conf(username=self.username, slot_name=slot_name)
 
         return node
 
