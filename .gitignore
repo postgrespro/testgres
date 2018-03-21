@@ -5,7 +5,6 @@
 dist/
 build/
 docs/build/
-docs/source/_*
 
 env/
 venv/
