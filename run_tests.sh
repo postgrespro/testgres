@@ -22,7 +22,7 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 source $VENV_PATH/bin/activate
 
 # install utilities
-$PIP install coverage flake8 psutil
+$PIP install coverage flake8 psutil Sphinx sphinxcontrib-napoleon
 
 # install testgres' dependencies
 export PYTHONPATH=$(pwd)
@@ -58,6 +58,10 @@ time \
 # show coverage
 coverage report
 
+# build documentation
+cd docs
+make html
+cd ..
 
 # attempt to fix codecov
 set +eux
