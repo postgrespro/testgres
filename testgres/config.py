@@ -152,9 +152,11 @@ def scoped_config(**options):
     Temporarily set custom GlobalConfig options for this context.
 
     Example:
+        >>> from .api import get_new_node
         >>> with scoped_config(cache_initdb=False):
         ...     with get_new_node().init().start() as node:
         ...         print(node.execute('select 1'))
+        [(1,)]
     """
 
     try:
