@@ -2,7 +2,7 @@
 Testgres documentation
 ======================
 
-Testgres is a PostgreSQL testing utility
+Testgres is a PostgreSQL testing framework.
 
 Installation
 ============

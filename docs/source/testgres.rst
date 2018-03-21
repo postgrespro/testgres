@@ -1,107 +1,104 @@
 testgres package
 ================
 
-Submodules
-----------
-
-testgres.api module
--------------------
+testgres.api
+------------
 
 .. automodule:: testgres.api
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.backup module
-----------------------
+testgres.backup
+---------------
 
 .. automodule:: testgres.backup
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.cache module
----------------------
+testgres.cache
+--------------
 
 .. automodule:: testgres.cache
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.config module
-----------------------
+testgres.config
+---------------
 
 .. automodule:: testgres.config
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.connection module
---------------------------
+testgres.connection
+-------------------
 
 .. automodule:: testgres.connection
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.consts module
-----------------------
+testgres.consts
+---------------
 
 .. automodule:: testgres.consts
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.decorators module
---------------------------
+testgres.decorators
+-------------------
 
 .. automodule:: testgres.decorators
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.defaults module
-------------------------
+testgres.defaults
+-----------------
 
 .. automodule:: testgres.defaults
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.enums module
----------------------
+testgres.enums
+--------------
 
 .. automodule:: testgres.enums
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.exceptions module
---------------------------
+testgres.exceptions
+-------------------
 
 .. automodule:: testgres.exceptions
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.logger module
-----------------------
+testgres.logger
+---------------
 
 .. automodule:: testgres.logger
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.node module
---------------------
+testgres.node
+-------------
 
 .. automodule:: testgres.node
     :members:
     :undoc-members:
     :show-inheritance:
 
-testgres.utils module
----------------------
+testgres.utils
+--------------
 
 .. automodule:: testgres.utils
     :members:
