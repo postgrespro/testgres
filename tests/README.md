@@ -21,7 +21,7 @@ export PG_BIN=/path/to/pg/bin
 
 ```bash
 # Set path to PostgreSQL and python version
-export PATH=$PATH:/path/to/pg/bin
+export PATH=/path/to/pg/bin:$PATH
 export PYTHON_VERSION=3  # or 2
 
 # Run tests

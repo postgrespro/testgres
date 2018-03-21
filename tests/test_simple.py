@@ -20,7 +20,6 @@ from testgres import \
     ExecUtilException, \
     BackupException, \
     QueryException, \
-    CatchUpException, \
     TimeoutException, \
     TestgresException
 
@@ -41,6 +40,7 @@ from testgres import \
 
 from testgres import bound_ports
 from testgres.utils import pg_version_ge
+from testgres.enums import ProcessType
 
 
 def util_exists(util):
@@ -69,7 +69,7 @@ def removing(f):
             os.remove(f)
 
 
-class SimpleTest(unittest.TestCase):
+class TestgresTests(unittest.TestCase):
     def test_custom_init(self):
         with get_new_node() as node:
             # enable page checksums
@@ -403,7 +403,7 @@ class SimpleTest(unittest.TestCase):
             node.init(allow_streaming=True).start()
 
             # node has no master, can't catch up
-            with self.assertRaises(CatchUpException):
+            with self.assertRaises(TestgresException):
                 node.catchup()
 
     def test_dump(self):
@@ -718,6 +718,75 @@ class SimpleTest(unittest.TestCase):
         self.assertTrue(b > c)
         self.assertTrue(a > c)
 
+    def test_child_pids(self):
+        master_processes = [
+            ProcessType.AutovacuumLauncher,
+            ProcessType.BackgroundWriter,
+            ProcessType.Checkpointer,
+            ProcessType.StatsCollector,
+            ProcessType.WalSender,
+            ProcessType.WalWriter,
+        ]
+
+        if pg_version_ge('10'):
+            master_processes.append(ProcessType.LogicalReplicationLauncher)
+
+        repl_processes = [
+            ProcessType.Startup,
+            ProcessType.WalReceiver,
+        ]
+
+        with get_new_node().init().start() as master:
+
+            # master node doesn't have a source walsender!
+            with self.assertRaises(TestgresException):
+                master.source_walsender
+
+            with master.connect() as con:
+                self.assertGreater(con.pid, 0)
+
+            with master.replicate().start() as replica:
+
+                # test __str__ method
+                str(master.child_processes[0])
+
+                master_pids = master.auxiliary_pids
+                for ptype in master_processes:
+                    self.assertIn(ptype, master_pids)
+
+                replica_pids = replica.auxiliary_pids
+                for ptype in repl_processes:
+                    self.assertIn(ptype, replica_pids)
+
+                # there should be exactly 1 source walsender for replica
+                self.assertEqual(len(master_pids[ProcessType.WalSender]), 1)
+                pid1 = master_pids[ProcessType.WalSender][0]
+                pid2 = replica.source_walsender.pid
+                self.assertEqual(pid1, pid2)
+
+                replica.stop()
+
+                # there should be no walsender after we've stopped replica
+                with self.assertRaises(TestgresException):
+                    replica.source_walsender
+
 
 if __name__ == '__main__':
-    unittest.main()
+    if os.environ.get('ALT_CONFIG'):
+        suite = unittest.TestSuite()
+
+        # Small subset of tests for alternative configs (PG_BIN or PG_CONFIG)
+        suite.addTest(TestgresTests('test_pg_config'))
+        suite.addTest(TestgresTests('test_pg_ctl'))
+        suite.addTest(TestgresTests('test_psql'))
+        suite.addTest(TestgresTests('test_replicate'))
+
+        print('Running tests for alternative config:')
+        for t in suite:
+            print(t)
+        print()
+
+        runner = unittest.TextTestRunner()
+        runner.run(suite)
+    else:
+        unittest.main()
