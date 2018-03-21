@@ -49,7 +49,8 @@ from .exceptions import \
     ExecUtilException,  \
     QueryException,     \
     StartNodeException, \
-    TimeoutException
+    TimeoutException,   \
+    TestgresException
 
 from .logger import TestgresLogger
 
@@ -263,6 +264,13 @@ class PostgresNode(object):
             dbname: database name
             username: database user name
         """
+        rs = self.execute("select exists (select * from pg_replication_slots "
+                          "where slot_name = '{}')".format(slot_name),
+                          dbname=dbname, username=username)
+
+        if rs[0][0]:
+            raise TestgresException("Slot '{}' already exists".format(slot_name))
+
         query = (
             "select pg_create_physical_replication_slot('{}')"
         ).format(slot_name)

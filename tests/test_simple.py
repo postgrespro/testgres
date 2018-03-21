@@ -21,7 +21,8 @@ from testgres import \
     BackupException, \
     QueryException, \
     CatchUpException, \
-    TimeoutException
+    TimeoutException, \
+    TestgresException
 
 from testgres import \
     TestgresConfig, \
@@ -392,6 +393,10 @@ class SimpleTest(unittest.TestCase):
             with node.replicate(slot_name='slot1').start() as replica:
                 res = replica.execute('select * from test')
                 self.assertListEqual(res, [(1, ), (2, )])
+
+                # cannot create new slot with the same name
+                with self.assertRaises(TestgresException):
+                    node._create_replication_slot('slot1')
 
     def test_incorrect_catchup(self):
         with get_new_node() as node:
