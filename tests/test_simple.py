@@ -423,7 +423,7 @@ class TestgresTests(unittest.TestCase):
 
             # Add new tables. Since we added "all tables" to publication
             # (default behaviour of publish() method) we don't need
-            # to explicitely perform pub.add_table()
+            # to explicitely perform pub.add_tables()
             create_table = 'create table test2 (c char)'
             node1.safe_psql(create_table)
             node2.safe_psql(create_table)
@@ -450,6 +450,8 @@ class TestgresTests(unittest.TestCase):
             self.assertListEqual(res, [(1, 1), (2, 2), (3, 3), (4, 4)])
 
             # explicitely add table
+            with self.assertRaises(ValueError):
+                pub.add_tables([])  # fail
             pub.add_tables(['test2'])
             node1.safe_psql('insert into test2 values (\'c\')')
             sub.catchup()

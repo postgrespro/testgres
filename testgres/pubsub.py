@@ -27,16 +27,16 @@ class Publication(object):
         # create publication in database
         t = "table " + ", ".join(tables) if tables else "all tables"
         query = "create publication {} for {}"
-        node.safe_psql(query.format(name, t),
-                       dbname=dbname,
-                       username=username)
+        node.safe_psql(query.format(name, t), dbname=dbname, username=username)
 
     def drop(self, dbname=None, username=None):
         """
         Drop publication
         """
-        self.node.safe_psql("drop publication {}".format(self.name),
-                            dbname=dbname, username=username)
+        self.node.safe_psql(
+            "drop publication {}".format(self.name),
+            dbname=dbname,
+            username=username)
 
     def add_tables(self, tables, dbname=None, username=None):
         """
@@ -49,9 +49,10 @@ class Publication(object):
             raise ValueError("Tables list is empty")
 
         query = "alter publication {} add table {}"
-        self.node.safe_psql(query.format(self.name, ", ".join(tables)),
-                            dbname=dbname or self.dbname,
-                            username=username or self.username)
+        self.node.safe_psql(
+            query.format(self.name, ", ".join(tables)),
+            dbname=dbname or self.dbname,
+            username=username or self.username)
 
 
 class Subscription(object):
@@ -87,8 +88,8 @@ class Subscription(object):
         }
 
         query = (
-            "create subscription {} connection '{}' publication {}"
-        ).format(name, options_string(**conninfo), self.pub.name)
+            "create subscription {} connection '{}' publication {}").format(
+                name, options_string(**conninfo), self.pub.name)
 
         # additional parameters
         if kwargs:
@@ -101,34 +102,33 @@ class Subscription(object):
         Disables the running subscription.
         """
         query = "alter subscription {} disable"
-        self.node.safe_psql(query.format(self.name),
-                            dbname=None,
-                            username=None)
+        self.node.safe_psql(query.format(self.name), dbname=None, username=None)
 
     def enable(self, dbname=None, username=None):
         """
         Enables the previously disabled subscription.
         """
         query = "alter subscription {} enable"
-        self.node.safe_psql(query.format(self.name),
-                            dbname=None,
-                            username=None)
+        self.node.safe_psql(query.format(self.name), dbname=None, username=None)
 
     def refresh(self, copy_data=True, dbname=None, username=None):
         """
         Disables the running subscription.
         """
         query = "alter subscription {} refresh publication with (copy_data={})"
-        self.node.safe_psql(query.format(self.name, copy_data),
-                            dbname=dbname,
-                            username=username)
+        self.node.safe_psql(
+            query.format(self.name, copy_data),
+            dbname=dbname,
+            username=username)
 
     def drop(self, dbname=None, username=None):
         """
         Drops subscription
         """
-        self.node.safe_psql("drop subscription {}".format(self.name),
-                            dbname=dbname, username=username)
+        self.node.safe_psql(
+            "drop subscription {}".format(self.name),
+            dbname=dbname,
+            username=username)
 
     def catchup(self, username=None):
         """
@@ -139,8 +139,8 @@ class Subscription(object):
         """
         query = (
             "select pg_current_wal_lsn() - replay_lsn = 0 "
-            "from pg_stat_replication where application_name = '{}'"
-        ).format(self.name)
+            "from pg_stat_replication where application_name = '{}'").format(
+                self.name)
 
         try:
             # wait until this LSN reaches subscriber
