@@ -139,6 +139,10 @@ class PostgresNode(object):
         else:
             self._try_shutdown(attempts)
 
+    def __repr__(self):
+        return "{}(name='{}', port={}, base_dir='{}')".format(
+            self.__class__.__name__, self.name, self.port, self.base_dir)
+
     @property
     def pid(self):
         """

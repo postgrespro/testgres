@@ -12,9 +12,9 @@ typical flow may look like:
 ...     result = node.safe_psql('postgres', 'select 1')
 ...     print(result.decode('utf-8').strip())
 ...     node.stop()
-<testgres.node.PostgresNode object at 0x...>
+PostgresNode(name='...', port=..., base_dir='...')
 1
-<testgres.node.PostgresNode object at 0x...>
+PostgresNode(name='...', port=..., base_dir='...')
 
     Or:
 
@@ -27,7 +27,7 @@ typical flow may look like:
 ...             master.execute('postgres', 'insert into test values (0), (1), (2)')
 ...             replica.catchup()  # wait until changes are visible
 ...             print(replica.execute('postgres', 'select count(*) from test'))
-<testgres.node.PostgresNode object at 0x...>
+PostgresNode(name='...', port=..., base_dir='...')
 [(3,)]
 
 Copyright (c) 2016, Postgres Professional
