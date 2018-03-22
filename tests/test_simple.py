@@ -384,19 +384,15 @@ class TestgresTests(unittest.TestCase):
                 self.assertListEqual(res, [])
 
     def test_replication_slots(self):
-        query_create = 'create table test as select generate_series(1, 2) as val'
-
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
-            node.execute(query_create)
 
-            with node.replicate(slot_name='slot1').start() as replica:
-                res = replica.execute('select * from test')
-                self.assertListEqual(res, [(1, ), (2, )])
+            with node.replicate(slot='slot1').start() as replica:
+                replica.execute('select 1')
 
                 # cannot create new slot with the same name
                 with self.assertRaises(TestgresException):
-                    node._create_replication_slot('slot1')
+                    node.replicate(slot='slot1')
 
     def test_incorrect_catchup(self):
         with get_new_node() as node:

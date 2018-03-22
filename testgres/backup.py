@@ -154,12 +154,13 @@ class NodeBackup(object):
 
         return node
 
-    def spawn_replica(self, name=None, destroy=True, slot_name=None):
+    def spawn_replica(self, name=None, destroy=True, slot=None):
         """
         Create a replica of the original node from a backup.
 
         Args:
             name: replica's application name.
+            slot: create a replication slot with the specified name.
             destroy: should we convert this backup into a node?
 
         Returns:
@@ -171,11 +172,11 @@ class NodeBackup(object):
 
         # Assign it a master and a recovery file (private magic)
         node._assign_master(self.original_node)
-        node._create_recovery_conf(username=self.username, slot_name=slot_name)
+        node._create_recovery_conf(username=self.username, slot=slot)
 
         return node
 
     def cleanup(self):
         if self._available:
-            rmtree(self.base_dir, ignore_errors=True)
             self._available = False
+            rmtree(self.base_dir, ignore_errors=True)
