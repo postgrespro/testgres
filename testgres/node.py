@@ -32,7 +32,8 @@ from .consts import \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
     UTILS_LOG_FILE, \
-    PG_PID_FILE
+    PG_PID_FILE, \
+    REPLICATION_SLOTS
 
 from .decorators import \
     method_decorator, \
@@ -64,7 +65,8 @@ from .utils import \
     reserve_port, \
     release_port, \
     execute_utility, \
-    options_string
+    options_string, \
+    clean_on_error
 
 from .backup import NodeBackup
 
@@ -78,15 +80,17 @@ class ProcessProxy(object):
         ptype: instance of ProcessType
     """
 
-    def __init__(self, process):
+    def __init__(self, process, ptype=None):
         self.process = process
-        self.ptype = ProcessType.from_process(process)
+        self.ptype = ptype or ProcessType.from_process(process)
 
     def __getattr__(self, name):
         return getattr(self.process, name)
 
     def __repr__(self):
-        return '{} : {}'.format(str(self.ptype), repr(self.process))
+        return '{}(ptype={}, process={})'.format(self.__class__.__name__,
+                                                 str(self.ptype),
+                                                 repr(self.process))
 
 
 class PostgresNode(object):
@@ -138,6 +142,10 @@ class PostgresNode(object):
             self.cleanup(attempts)
         else:
             self._try_shutdown(attempts)
+
+    def __repr__(self):
+        return "{}(name='{}', port={}, base_dir='{}')".format(
+            self.__class__.__name__, self.name, self.port, self.base_dir)
 
     @property
     def pid(self):
@@ -281,7 +289,7 @@ class PostgresNode(object):
         # now this node has a master
         self._master = master
 
-    def _create_recovery_conf(self, username):
+    def _create_recovery_conf(self, username, slot=None):
         """NOTE: this is a private method!"""
 
         # fetch master of this node
@@ -308,6 +316,27 @@ class PostgresNode(object):
             "primary_conninfo='{}'\n"
             "standby_mode=on\n"
         ).format(options_string(**conninfo))
+
+        if slot:
+            # Connect to master for some additional actions
+            with master.connect(username=username) as con:
+                # check if slot already exists
+                res = con.execute("""
+                    select exists (
+                        select from pg_catalog.pg_replication_slots
+                        where slot_name = $1
+                    )
+                """, slot)
+
+                if res[0][0]:
+                    raise TestgresException("Slot '{}' already exists".format(slot))
+
+                # TODO: we should drop this slot after replica's cleanup()
+                con.execute("""
+                    select pg_catalog.pg_create_physical_replication_slot($1)
+                """, slot)
+
+            line += "primary_slot_name={}\n".format(slot)
 
         self.append_conf(RECOVERY_CONF_FILE, line)
 
@@ -464,8 +493,10 @@ class PostgresNode(object):
                 wal_keep_segments = 20  # for convenience
                 conf.write(u"hot_standby = on\n"
                            u"max_wal_senders = {}\n"
+                           u"max_replication_slots = {}\n"
                            u"wal_keep_segments = {}\n"
                            u"wal_level = {}\n".format(max_wal_senders,
+                                                      REPLICATION_SLOTS,
                                                       wal_keep_segments,
                                                       wal_level))
 
@@ -954,21 +985,21 @@ class PostgresNode(object):
 
         return NodeBackup(node=self, **kwargs)
 
-    def replicate(self, name=None, **kwargs):
+    def replicate(self, name=None, slot=None, **kwargs):
         """
         Create a binary replica of this node.
 
         Args:
             name: replica's application name.
+            slot: create a replication slot with the specified name.
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
             base_dir: the base directory for data files and logs
         """
 
-        backup = self.backup(**kwargs)
-
         # transform backup into a replica
-        return backup.spawn_replica(name=name, destroy=True)
+        with clean_on_error(self.backup(**kwargs)) as backup:
+            return backup.spawn_replica(name=name, destroy=True, slot=slot)
 
     def catchup(self, dbname=None, username=None):
         """
@@ -979,11 +1010,11 @@ class PostgresNode(object):
             raise TestgresException("Node doesn't have a master")
 
         if pg_version_ge('10'):
-            poll_lsn = "select pg_current_wal_lsn()::text"
-            wait_lsn = "select pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
+            poll_lsn = "select pg_catalog.pg_current_wal_lsn()::text"
+            wait_lsn = "select pg_catalog.pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
         else:
-            poll_lsn = "select pg_current_xlog_location()::text"
-            wait_lsn = "select pg_last_xlog_replay_location() >= '{}'::pg_lsn"
+            poll_lsn = "select pg_catalog.pg_current_xlog_location()::text"
+            wait_lsn = "select pg_catalog.pg_last_xlog_replay_location() >= '{}'::pg_lsn"
 
         try:
             # fetch latest LSN

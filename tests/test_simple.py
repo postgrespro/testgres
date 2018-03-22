@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import os
+import re
 import subprocess
 import tempfile
 import testgres
@@ -70,6 +71,11 @@ def removing(f):
 
 
 class TestgresTests(unittest.TestCase):
+    def test_node_repr(self):
+        with get_new_node() as node:
+            pattern = 'PostgresNode\(name=\'.+\', port=.+, base_dir=\'.+\'\)'
+            self.assertIsNotNone(re.match(pattern, str(node)))
+
     def test_custom_init(self):
         with get_new_node() as node:
             # enable page checksums
@@ -430,8 +436,8 @@ class TestgresTests(unittest.TestCase):
             self.assertListEqual(res, [('a',), ('b',)])
 
             # drop subscription
-            sub.close()
-            pub.close()
+            sub.drop()
+            pub.drop()
 
             # create new publication and subscription for specific table
             # (ommitting copying data as it's already done)
@@ -449,6 +455,17 @@ class TestgresTests(unittest.TestCase):
             sub.catchup()
             res = node2.execute('select * from test2')
             self.assertListEqual(res, [('a',), ('b',)])
+
+    def test_replication_slots(self):
+        with get_new_node() as node:
+            node.init(allow_streaming=True).start()
+
+            with node.replicate(slot='slot1').start() as replica:
+                replica.execute('select 1')
+
+                # cannot create new slot with the same name
+                with self.assertRaises(TestgresException):
+                    node.replicate(slot='slot1')
 
     def test_incorrect_catchup(self):
         with get_new_node() as node:

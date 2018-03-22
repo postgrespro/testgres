@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# capture the changed files that have been staged
+changed_files=$(git diff --staged --name-only)
+
+for file in ${changed_files}
+do
+	if [[ "${file##*.}" == "py" ]]; then
+		echo "Yapfing ${file}"
+		yapf ${file} -i
+		git add ${file}
+	fi
+done

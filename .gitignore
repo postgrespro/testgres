@@ -4,6 +4,7 @@
 .eggs/
 dist/
 build/
+docs/build/
 
 env/
 venv/

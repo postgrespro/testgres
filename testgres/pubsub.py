@@ -31,7 +31,7 @@ class Publication(object):
                        dbname=dbname,
                        username=username)
 
-    def close(self, dbname=None, username=None):
+    def drop(self, dbname=None, username=None):
         """
         Drop publication
         """
@@ -123,7 +123,7 @@ class Subscription(object):
                             dbname=dbname,
                             username=username)
 
-    def close(self, dbname=None, username=None):
+    def drop(self, dbname=None, username=None):
         """
         Drops subscription
         """
