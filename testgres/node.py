@@ -63,7 +63,8 @@ from .utils import \
     pg_version_ge, \
     reserve_port, \
     release_port, \
-    execute_utility
+    execute_utility, \
+    options_string
 
 from .backup import NodeBackup
 
@@ -288,25 +289,25 @@ class PostgresNode(object):
         assert master is not None
 
         # yapf: disable
-        conninfo = (
-            u"application_name={} "
-            u"port={} "
-            u"user={} "
-        ).format(self.name, master.port, username)
+        conninfo = {
+            "application_name": self.name,
+            "port": master.port,
+            "user": username
+        }
 
         # host is tricky
         try:
             import ipaddress
             ipaddress.ip_address(master.host)
-            conninfo += u"hostaddr={}".format(master.host)
+            conninfo["hostaddr"] = master.host
         except ValueError:
-            conninfo += u"host={}".format(master.host)
+            conninfo["host"] = master.host
 
         # yapf: disable
         line = (
             "primary_conninfo='{}'\n"
             "standby_mode=on\n"
-        ).format(conninfo)
+        ).format(options_string(**conninfo))
 
         self.append_conf(RECOVERY_CONF_FILE, line)
 

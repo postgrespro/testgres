@@ -10,6 +10,7 @@ import subprocess
 import sys
 
 from distutils.version import LooseVersion
+from six import iteritems
 
 from .config import testgres_config
 from .exceptions import ExecUtilException
@@ -218,3 +219,7 @@ def file_tail(f, num_lines):
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
+
+
+def options_string(separator=u" ", **kwargs):
+    return separator.join(u"{}={}".format(k, v) for k, v in iteritems(kwargs))

@@ -1,10 +1,10 @@
 # coding: utf-8
 
-from six import raise_from, iteritems
+from six import raise_from
 
 from .defaults import default_dbname, default_username
 from .exceptions import CatchUpException
-from .utils import pg_version_ge
+from .utils import options_string
 
 
 class Publication(object):
@@ -79,21 +79,20 @@ class Subscription(object):
         self.pub = publication
 
         # connection info
-        conninfo = (
-            u"dbname={} user={} host={} port={}"
-        ).format(self.pub.dbname,
-                 self.pub.username,
-                 self.pub.node.host,
-                 self.pub.node.port)
+        conninfo = {
+            "dbname": self.pub.dbname,
+            "user": self.pub.username,
+            "host": self.pub.node.host,
+            "port": self.pub.node.port
+        }
 
         query = (
             "create subscription {} connection '{}' publication {}"
-        ).format(subname, conninfo, self.pub.name)
+        ).format(subname, options_string(**conninfo), self.pub.name)
 
         # additional parameters
         if kwargs:
-            params = ','.join('{}={}'.format(k, v) for k, v in iteritems(kwargs))
-            query += " with ({})".format(params)
+            query += " with ({})".format(options_string(**kwargs))
 
         node.safe_psql(query, dbname=dbname, username=username)
 
