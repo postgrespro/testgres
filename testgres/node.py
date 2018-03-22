@@ -136,8 +136,8 @@ class PostgresNode(object):
             self._try_shutdown(attempts)
 
     def __repr__(self):
-        return "PostgresNode(name='{}', port={}, base_dir='{}')".format(
-            self.name, self.port, self.base_dir)
+        return "{}(name='{}', port={}, base_dir='{}')".format(
+            self.__class__.__name__, self.name, self.port, self.base_dir)
 
     @property
     def pid(self):
