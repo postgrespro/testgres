@@ -138,16 +138,10 @@ class Subscription(object):
         Args:
             username: remote node's user name
         """
-        if pg_version_ge('10'):
-            query = (
-                "select pg_current_wal_lsn() - replay_lsn = 0 "
-                "from pg_stat_replication where application_name = '{}'"
-            ).format(self.name)
-        else:
-            query = (
-                "select pg_current_xlog_location() - replay_location = 0 "
-                "from pg_stat_replication where application_name = '{}'"
-            ).format(self.name)
+        query = (
+            "select pg_current_wal_lsn() - replay_lsn = 0 "
+            "from pg_stat_replication where application_name = '{}'"
+        ).format(self.name)
 
         try:
             # wait until this LSN reaches subscriber
@@ -155,7 +149,6 @@ class Subscription(object):
                 query=query,
                 dbname=self.pub.dbname,
                 username=username or self.pub.username,
-                max_attempts=60,
-                zero_rows_is_ok=True)  # statistics may have not updated yet
+                max_attempts=60)
         except Exception as e:
             raise_from(CatchUpException("Failed to catch up", query), e)

@@ -847,8 +847,7 @@ class PostgresNode(object):
                          expected=True,
                          commit=True,
                          raise_programming_error=True,
-                         raise_internal_error=True,
-                         zero_rows_is_ok=False):
+                         raise_internal_error=True):
         """
         Run a query once per second until it returns 'expected'.
         Query should return a single value (1 row, 1 column).
@@ -884,18 +883,14 @@ class PostgresNode(object):
                 if res is None:
                     raise QueryException('Query returned None', query)
 
-                if len(res) == 0:
-                    if zero_rows_is_ok:
-                        time.sleep(sleep_time)
-                        attempts += 1
-                        continue
-                    else:
-                        raise QueryException('Query returned 0 rows', query)
-
-                if len(res[0]) == 0:
-                    raise QueryException('Query returned 0 columns', query)
-
-                if res[0][0] == expected:
+                # result set is not empty
+                if len(res):
+                    if len(res[0]) == 0:
+                        raise QueryException('Query returned 0 columns', query)
+                    if res[0][0] == expected:
+                        return    # done
+                # empty result set is considered as None
+                elif expected is None:
                     return    # done
 
             except ProgrammingError as e:

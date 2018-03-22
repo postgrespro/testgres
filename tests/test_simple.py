@@ -495,11 +495,6 @@ class TestgresTests(unittest.TestCase):
 
             self.assertTrue(end_time - start_time >= 5)
 
-            # check 0 rows
-            with self.assertRaises(QueryException):
-                node.poll_query_until(
-                    query='select * from pg_class where true = false')
-
             # check 0 columns
             with self.assertRaises(QueryException):
                 node.poll_query_until(query='select from pg_class limit 1')
@@ -511,6 +506,10 @@ class TestgresTests(unittest.TestCase):
             # check None, ok
             node.poll_query_until(
                 query='create table def()', expected=None)    # returns nothing
+
+            # check 0 rows equivalent to expected=None
+            node.poll_query_until(
+                query='select * from pg_class where true = false', expected=None)
 
             # check arbitrary expected value, fail
             with self.assertRaises(TimeoutException):
