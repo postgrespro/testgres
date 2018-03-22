@@ -993,11 +993,11 @@ class PostgresNode(object):
             raise TestgresException("Node doesn't have a master")
 
         if pg_version_ge('10'):
-            poll_lsn = "select pg_current_wal_lsn()::text"
-            wait_lsn = "select pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
+            poll_lsn = "select pg_catalog.pg_current_wal_lsn()::text"
+            wait_lsn = "select pg_catalog.pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
         else:
-            poll_lsn = "select pg_current_xlog_location()::text"
-            wait_lsn = "select pg_last_xlog_replay_location() >= '{}'::pg_lsn"
+            poll_lsn = "select pg_catalog.pg_current_xlog_location()::text"
+            wait_lsn = "select pg_catalog.pg_last_xlog_replay_location() >= '{}'::pg_lsn"
 
         try:
             # fetch latest LSN
