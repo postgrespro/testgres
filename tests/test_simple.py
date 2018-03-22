@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import os
+import re
 import subprocess
 import tempfile
 import testgres
@@ -70,6 +71,11 @@ def removing(f):
 
 
 class TestgresTests(unittest.TestCase):
+    def test_node_repr(self):
+        with get_new_node() as node:
+            pattern = 'PostgresNode\(name=\'.+\', port=.+, base_dir=\'.+\'\)'
+            self.assertIsNotNone(re.match(pattern, str(node)))
+
     def test_custom_init(self):
         with get_new_node() as node:
             # enable page checksums
