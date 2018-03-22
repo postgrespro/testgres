@@ -21,7 +21,8 @@ from .exceptions import BackupException
 
 from .utils import \
     get_bin_path, \
-    execute_utility
+    execute_utility, \
+    clean_on_error
 
 
 class NodeBackup(object):
@@ -56,8 +57,8 @@ class NodeBackup(object):
             try:
                 xlog_method = XLogMethod(xlog_method)
             except ValueError:
-                raise BackupException(
-                    'Invalid xlog_method "{}"'.format(xlog_method))
+                msg = 'Invalid xlog_method "{}"'.format(xlog_method)
+                raise BackupException(msg)
 
         # Set default arguments
         username = username or default_username()
@@ -144,15 +145,16 @@ class NodeBackup(object):
 
         # Build a new PostgresNode
         from .node import PostgresNode
-        node = PostgresNode(name=name, base_dir=base_dir)
+        with clean_on_error(PostgresNode(name=name,
+                                         base_dir=base_dir)) as node:
 
-        # New nodes should always remove dir tree
-        node._should_rm_dirs = True
+            # New nodes should always remove dir tree
+            node._should_rm_dirs = True
 
-        node.append_conf(PG_CONF_FILE, "\n")
-        node.append_conf(PG_CONF_FILE, "port = {}".format(node.port))
+            node.append_conf(PG_CONF_FILE, "\n")
+            node.append_conf(PG_CONF_FILE, "port = {}".format(node.port))
 
-        return node
+            return node
 
     def spawn_replica(self, name=None, destroy=True, slot=None):
         """
@@ -168,13 +170,14 @@ class NodeBackup(object):
         """
 
         # Build a new PostgresNode
-        node = self.spawn_primary(name=name, destroy=destroy)
+        with clean_on_error(self.spawn_primary(name=name,
+                                               destroy=destroy)) as node:
 
-        # Assign it a master and a recovery file (private magic)
-        node._assign_master(self.original_node)
-        node._create_recovery_conf(username=self.username, slot=slot)
+            # Assign it a master and a recovery file (private magic)
+            node._assign_master(self.original_node)
+            node._create_recovery_conf(username=self.username, slot=slot)
 
-        return node
+            return node
 
     def cleanup(self):
         if self._available:

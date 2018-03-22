@@ -61,7 +61,8 @@ from .utils import \
     pg_version_ge, \
     reserve_port, \
     release_port, \
-    execute_utility
+    execute_utility, \
+    clean_on_error
 
 from .backup import NodeBackup
 
@@ -979,10 +980,9 @@ class PostgresNode(object):
             base_dir: the base directory for data files and logs
         """
 
-        backup = self.backup(**kwargs)
-
         # transform backup into a replica
-        return backup.spawn_replica(name=name, destroy=True, slot=slot)
+        with clean_on_error(self.backup(**kwargs)) as backup:
+            return backup.spawn_replica(name=name, destroy=True, slot=slot)
 
     def catchup(self, dbname=None, username=None):
         """

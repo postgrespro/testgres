@@ -9,6 +9,7 @@ import port_for
 import subprocess
 import sys
 
+from contextlib import contextmanager
 from distutils.version import LooseVersion
 
 from .config import testgres_config
@@ -217,4 +218,23 @@ def file_tail(f, num_lines):
 
 
 def eprint(*args, **kwargs):
+    """
+    Print stuff to stderr.
+    """
+
     print(*args, file=sys.stderr, **kwargs)
+
+
+@contextmanager
+def clean_on_error(node):
+    """
+    Context manager to wrap PostgresNode and such.
+    Calls cleanup() method when underlying code raises an exception.
+    """
+
+    try:
+        yield node
+    except Exception:
+        # TODO: should we wrap this in try-block?
+        node.cleanup()
+        raise
