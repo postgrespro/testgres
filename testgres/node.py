@@ -75,15 +75,17 @@ class ProcessProxy(object):
         ptype: instance of ProcessType
     """
 
-    def __init__(self, process):
+    def __init__(self, process, ptype=None):
         self.process = process
-        self.ptype = ProcessType.from_process(process)
+        self.ptype = ptype or ProcessType.from_process(process)
 
     def __getattr__(self, name):
         return getattr(self.process, name)
 
     def __repr__(self):
-        return '{} : {}'.format(str(self.ptype), repr(self.process))
+        return '{}(ptype={}, process={})'.format(self.__class__.__name__,
+                                                 str(self.ptype),
+                                                 repr(self.process))
 
 
 class PostgresNode(object):
@@ -980,9 +982,7 @@ class PostgresNode(object):
         backup = self.backup(**kwargs)
 
         # transform backup into a replica
-        return backup.spawn_replica(name=name,
-                                    destroy=True,
-                                    slot=slot)
+        return backup.spawn_replica(name=name, destroy=True, slot=slot)
 
     def catchup(self, dbname=None, username=None):
         """
