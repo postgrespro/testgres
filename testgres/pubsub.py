@@ -8,26 +8,26 @@ from .utils import options_string
 
 
 class Publication(object):
-    def __init__(self, pubname, node, tables=None, dbname=None, username=None):
+    def __init__(self, name, node, tables=None, dbname=None, username=None):
         """
         Constructor
 
         Args:
-            pubname: publication name
+            name: publication name
             node: publisher's node
             tables: tables list or None for all tables
             dbname: database name used to connect and perform subscription
             username: username used to connect to the database
         """
-        self.name = pubname
+        self.name = name
         self.node = node
         self.dbname = dbname or default_dbname()
         self.username = username or default_username()
 
         # create publication in database
-        t = 'table ' + ', '.join(tables) if tables else 'all tables'
+        t = "table " + ", ".join(tables) if tables else "all tables"
         query = "create publication {} for {}"
-        node.safe_psql(query.format(pubname, t),
+        node.safe_psql(query.format(name, t),
                        dbname=dbname,
                        username=username)
 
@@ -49,14 +49,14 @@ class Publication(object):
             raise ValueError("Tables list is empty")
 
         query = "alter publication {} add table {}"
-        self.node.safe_psql(query.format(self.name, ', '.join(tables)),
+        self.node.safe_psql(query.format(self.name, ", ".join(tables)),
                             dbname=dbname or self.dbname,
                             username=username or self.username)
 
 
 class Subscription(object):
     def __init__(self,
-                 subname,
+                 name,
                  node,
                  publication,
                  dbname=None,
@@ -66,7 +66,7 @@ class Subscription(object):
         Constructor
 
         Args:
-            subname: subscription name
+            name: subscription name
             node: subscriber's node
             publication: Publication object we are subscribing to
             dbname: database name used to connect and perform subscription
@@ -74,7 +74,7 @@ class Subscription(object):
             **kwargs: subscription parameters (see CREATE SUBSCRIPTION
                 in PostgreSQL documentation for more information)
         """
-        self.name = subname
+        self.name = name
         self.node = node
         self.pub = publication
 
@@ -88,7 +88,7 @@ class Subscription(object):
 
         query = (
             "create subscription {} connection '{}' publication {}"
-        ).format(subname, options_string(**conninfo), self.pub.name)
+        ).format(name, options_string(**conninfo), self.pub.name)
 
         # additional parameters
         if kwargs:

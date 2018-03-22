@@ -1032,7 +1032,7 @@ class PostgresNode(object):
             raise_from(CatchUpException("Failed to catch up", poll_lsn), e)
 
     def publish(self,
-                pubname,
+                name,
                 tables=None,
                 dbname=None,
                 username=None):
@@ -1045,11 +1045,12 @@ class PostgresNode(object):
             dbname: database name where objects or interest are located
             username: replication username
         """
-        return Publication(pubname, self, tables, dbname, username)
+        return Publication(name=name, node=self, tables=tables, dbname=dbname,
+                           username=username)
 
     def subscribe(self,
                   publication,
-                  subname,
+                  name,
                   dbname=None,
                   username=None,
                   **kwargs):
@@ -1061,10 +1062,8 @@ class PostgresNode(object):
             publication: publication object obtained from publish()
 
         """
-        return Subscription(subname, self, publication,
-                            dbname=dbname,
-                            username=username,
-                            **kwargs)
+        return Subscription(name=name, node=self, publication=publication,
+                            dbname=dbname, username=username, **kwargs)
 
     def pgbench(self,
                 dbname=None,
