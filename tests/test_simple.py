@@ -456,6 +456,12 @@ class TestgresTests(unittest.TestCase):
             res = node2.execute('select * from test2')
             self.assertListEqual(res, [('a',), ('b',)])
 
+    @unittest.skipIf(pg_version_ge('10'), 'requires <10')
+    def test_logical_replication_fail(self):
+        with get_new_node() as node:
+            with self.assertRaises(InitNodeException):
+                node.init(allow_logical=True)
+
     def test_replication_slots(self):
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
