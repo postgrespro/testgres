@@ -4,7 +4,7 @@ from six import iteritems
 
 class XLogMethod(Enum):
     """
-    Available WAL methods for NodeBackup
+    Available WAL methods for :class:`.NodeBackup`
     """
 
     none = 'none'
@@ -14,7 +14,7 @@ class XLogMethod(Enum):
 
 class IsolationLevel(Enum):
     """
-    Transaction isolation level for NodeConnection
+    Transaction isolation level for :class:`.NodeConnection`
     """
 
     ReadUncommitted = 'read uncommitted'

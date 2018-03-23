@@ -177,7 +177,7 @@ class PostgresNode(object):
     def auxiliary_processes(self):
         """
         Returns a list of auxiliary processes.
-        Each process is represented by ProcessProxy object.
+        Each process is represented by :class:`.ProcessProxy` object.
         """
 
         def is_aux(process):
@@ -189,7 +189,7 @@ class PostgresNode(object):
     def child_processes(self):
         """
         Returns a list of all child processes.
-        Each process is represented by ProcessProxy object.
+        Each process is represented by :class:`.ProcessProxy` object.
         """
 
         # get a list of postmaster's children
@@ -388,7 +388,7 @@ class PostgresNode(object):
             allow_streaming: should this node add a hba entry for replication?
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`
         """
 
         # initialize this PostgreSQL node
@@ -416,7 +416,7 @@ class PostgresNode(object):
             log_statement: one of ('all', 'off', 'mod', 'ddl').
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         postgres_conf = os.path.join(self.data_dir, PG_CONF_FILE)
@@ -510,7 +510,7 @@ class PostgresNode(object):
             filename: config file (postgresql.conf by default).
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         config_name = os.path.join(self.data_dir, filename)
@@ -524,7 +524,7 @@ class PostgresNode(object):
         Check this node's status.
 
         Returns:
-            An instance of NodeStatus.
+            An instance of :class:`.NodeStatus`.
         """
 
         try:
@@ -574,7 +574,7 @@ class PostgresNode(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         # yapf: disable
@@ -605,7 +605,7 @@ class PostgresNode(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         # yapf: disable
@@ -630,7 +630,7 @@ class PostgresNode(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         # yapf: disable
@@ -661,7 +661,7 @@ class PostgresNode(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         # yapf: disable
@@ -713,7 +713,7 @@ class PostgresNode(object):
             max_attempts: how many times should we try to stop()?
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         self._try_shutdown(max_attempts)
@@ -1063,7 +1063,7 @@ class PostgresNode(object):
         Sets initialize=True.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         self.pgbench_run(initialize=True, **kwargs)
@@ -1132,7 +1132,7 @@ class PostgresNode(object):
             password: user's password.
 
         Returns:
-            An instance of NodeConnection.
+            An instance of :class:`.NodeConnection`.
         """
 
         return NodeConnection(node=self,

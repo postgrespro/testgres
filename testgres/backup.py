@@ -43,7 +43,7 @@ class NodeBackup(object):
         Create a new backup.
 
         Args:
-            node: PostgresNode we're going to backup.
+            node: :class:`.PostgresNode` we're going to backup.
             base_dir: where should we store it?
             username: database user name.
             xlog_method: none | fetch | stream (see docs)
@@ -137,7 +137,7 @@ class NodeBackup(object):
             destroy: should we convert this backup into a node?
 
         Returns:
-            New instance of PostgresNode.
+            New instance of :class:`.PostgresNode`.
         """
 
         # Prepare a data directory for this node
@@ -166,7 +166,7 @@ class NodeBackup(object):
             destroy: should we convert this backup into a node?
 
         Returns:
-            New instance of PostgresNode.
+            New instance of :class:`.PostgresNode`.
         """
 
         # Build a new PostgresNode
