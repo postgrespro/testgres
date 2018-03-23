@@ -180,6 +180,11 @@ class NodeBackup(object):
             return node
 
     def cleanup(self):
+        """
+        Remove all files that belong to this backup.
+        No-op if it's been converted to a PostgresNode (destroy=True).
+        """
+
         if self._available:
             self._available = False
             rmtree(self.base_dir, ignore_errors=True)
