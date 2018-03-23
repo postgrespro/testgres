@@ -46,10 +46,9 @@ from testgres.enums import ProcessType
 
 def util_exists(util):
     def good_properties(f):
-        # yapf: disable
         return (os.path.exists(f) and
                 os.path.isfile(f) and
-                os.access(f, os.X_OK))
+                os.access(f, os.X_OK))  # yapf: disable
 
     # try to resolve it
     if good_properties(get_bin_path(util)):
@@ -118,9 +117,8 @@ class TestgresTests(unittest.TestCase):
             with get_new_node().init().start() as node0:
                 id0 = node0.execute(query)[0]
 
-        # yapf: disable
-        with scoped_config(cache_initdb=True,
-                           cached_initdb_unique=True) as config:
+        with scoped_config(
+                cache_initdb=True, cached_initdb_unique=True) as config:
 
             self.assertTrue(config.cache_initdb)
             self.assertTrue(config.cached_initdb_unique)
@@ -371,7 +369,8 @@ class TestgresTests(unittest.TestCase):
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
-            with self.assertRaises(BackupException, msg='Invalid xlog_method "wrong"'):
+            with self.assertRaises(
+                    BackupException, msg='Invalid xlog_method "wrong"'):
                 node.backup(xlog_method='wrong')
 
     def test_replicate(self):
