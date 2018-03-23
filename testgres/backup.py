@@ -74,7 +74,6 @@ class NodeBackup(object):
 
         data_dir = os.path.join(self.base_dir, DATA_DIR)
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_basebackup"),
             "-p", str(node.port),
@@ -82,7 +81,7 @@ class NodeBackup(object):
             "-U", username,
             "-D", data_dir,
             "-X", xlog_method.value
-        ]
+        ]  # yapf: disable
         execute_utility(_params, self.log_file)
 
     def __enter__(self):
@@ -145,8 +144,7 @@ class NodeBackup(object):
 
         # Build a new PostgresNode
         from .node import PostgresNode
-        with clean_on_error(PostgresNode(name=name,
-                                         base_dir=base_dir)) as node:
+        with clean_on_error(PostgresNode(name=name, base_dir=base_dir)) as node:
 
             # New nodes should always remove dir tree
             node._should_rm_dirs = True
