@@ -58,7 +58,6 @@ class ProcessType(Enum):
 
     @staticmethod
     def from_process(process):
-        # yapf: disable
         # legacy names for older releases of PG
         alternative_names = {
             ProcessType.LogicalReplicationLauncher: [
@@ -67,7 +66,7 @@ class ProcessType(Enum):
             ProcessType.BackgroundWriter: [
                 'writer'
             ],
-        }
+        }  # yapf: disable
 
         # we deliberately cut special words and spaces
         cmdline = ''.join(process.cmdline()) \
