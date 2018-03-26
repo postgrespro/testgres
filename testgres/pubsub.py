@@ -1,4 +1,46 @@
 # coding: utf-8
+"""
+Unlike physical replication the logical replication allows users replicate only
+specified databases and tables. It uses publish-subscribe model with possibly
+multiple publishers and multiple subscribers. When initializing publisher's
+node ``allow_logical=True`` should be passed to the :meth:`.PostgresNode.init()`
+method to enable PostgreSQL to write extra information to the WAL needed by
+logical replication.
+
+To replicate table ``X`` from node A to node B the same table structure should
+be defined on the subscriber's node as logical replication don't replicate DDL.
+After that :meth:`~.PostgresNode.publish()` and :meth:`~.PostgresNode.subscribe()`
+methods may be used to setup replication. Example:
+
+>>> from .api import get_new_node
+>>> with get_new_node() as nodeA, get_new_node() as nodeB:
+...     nodeA.init(allow_logical=True).start()
+...     nodeB.init().start()
+...
+...     # create same table both on publisher and subscriber
+...     create_table = 'create table test (a int, b int)'
+...     nodeA.safe_psql(create_table)
+...     nodeB.safe_psql(create_table)
+...
+...     # create publication
+...     pub = nodeA.publish('mypub')
+...     # create subscription
+...     sub = nodeB.subscribe(pub, 'mysub')
+...
+...     # insert some data to the publisher's node
+...     nodeA.execute('insert into test values (1, 1), (2, 2)')
+...
+...     # wait until changes apply on subscriber and check them
+...     sub.catchup()
+...
+...     # read the data from subscriber's node
+...     nodeB.execute('select * from test')
+PostgresNode(name='...', port=..., base_dir='...')
+PostgresNode(name='...', port=..., base_dir='...')
+''
+''
+[(1, 1), (2, 2)]
+"""
 
 from six import raise_from
 
@@ -10,7 +52,8 @@ from .utils import options_string
 class Publication(object):
     def __init__(self, name, node, tables=None, dbname=None, username=None):
         """
-        Constructor
+        Constructor. Use :meth:`.PostgresNode.publish()` instead of direct
+        constructing publication objects.
 
         Args:
             name: publication name
@@ -40,10 +83,11 @@ class Publication(object):
 
     def add_tables(self, tables, dbname=None, username=None):
         """
-        Add tables
+        Add tables to the publication. Cannot be used if publication was
+        created with empty tables list.
 
         Args:
-            tables: a list of tables to add to the publication
+            tables: a list of tables to be added to the publication
         """
         if not tables:
             raise ValueError("Tables list is empty")
@@ -64,15 +108,17 @@ class Subscription(object):
                  username=None,
                  **kwargs):
         """
-        Constructor
+        Constructor. Use :meth:`.PostgresNode.subscribe()` instead of direct
+        constructing subscription objects.
 
         Args:
             name: subscription name
             node: subscriber's node
-            publication: Publication object we are subscribing to
+            publication: :class:`.Publication` object we are subscribing to
+                (see :meth:`.PostgresNode.publish()`)
             dbname: database name used to connect and perform subscription
             username: username used to connect to the database
-            **kwargs: subscription parameters (see CREATE SUBSCRIPTION
+            **kwargs: subscription parameters (see ``CREATE SUBSCRIPTION``
                 in PostgreSQL documentation for more information)
         """
         self.name = name

@@ -25,5 +25,7 @@ PG_LOG_FILE = "postgresql.log"
 UTILS_LOG_FILE = "utils.log"
 BACKUP_LOG_FILE = "backup.log"
 
-# default replication slots number
-REPLICATION_SLOTS = 10
+# defaults for node settings
+MAX_REPLICATION_SLOTS = 10
+MAX_WAL_SENDERS = 10
+WAL_KEEP_SEGMENTS = 20

@@ -32,8 +32,12 @@ from .consts import \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
     UTILS_LOG_FILE, \
-    PG_PID_FILE, \
-    REPLICATION_SLOTS
+    PG_PID_FILE
+
+from .consts import \
+    MAX_WAL_SENDERS, \
+    MAX_REPLICATION_SLOTS, \
+    WAL_KEEP_SEGMENTS
 
 from .decorators import \
     method_decorator, \
@@ -96,7 +100,7 @@ class ProcessProxy(object):
 class PostgresNode(object):
     def __init__(self, name=None, port=None, base_dir=None):
         """
-        Create a new node.
+        PostgresNode constructor.
 
         Args:
             name: node's application name.
@@ -181,7 +185,7 @@ class PostgresNode(object):
     def auxiliary_processes(self):
         """
         Returns a list of auxiliary processes.
-        Each process is represented by ProcessProxy object.
+        Each process is represented by :class:`.ProcessProxy` object.
         """
 
         def is_aux(process):
@@ -193,7 +197,7 @@ class PostgresNode(object):
     def child_processes(self):
         """
         Returns a list of all child processes.
-        Each process is represented by ProcessProxy object.
+        Each process is represented by :class:`.ProcessProxy` object.
         """
 
         # get a list of postmaster's children
@@ -210,7 +214,7 @@ class PostgresNode(object):
         sql = """
             select pid
             from pg_catalog.pg_stat_replication
-            where application_name = $1
+            where application_name = %s
         """
 
         if not self.master:
@@ -296,12 +300,11 @@ class PostgresNode(object):
         master = self.master
         assert master is not None
 
-        # yapf: disable
         conninfo = {
             "application_name": self.name,
             "port": master.port,
             "user": username
-        }
+        }  # yapf: disable
 
         # host is tricky
         try:
@@ -311,11 +314,10 @@ class PostgresNode(object):
         except ValueError:
             conninfo["host"] = master.host
 
-        # yapf: disable
         line = (
             "primary_conninfo='{}'\n"
             "standby_mode=on\n"
-        ).format(options_string(**conninfo))
+        ).format(options_string(**conninfo))  # yapf: disable
 
         if slot:
             # Connect to master for some additional actions
@@ -324,16 +326,17 @@ class PostgresNode(object):
                 res = con.execute("""
                     select exists (
                         select from pg_catalog.pg_replication_slots
-                        where slot_name = $1
+                        where slot_name = %s
                     )
                 """, slot)
 
                 if res[0][0]:
-                    raise TestgresException("Slot '{}' already exists".format(slot))
+                    raise TestgresException(
+                        "Slot '{}' already exists".format(slot))
 
                 # TODO: we should drop this slot after replica's cleanup()
                 con.execute("""
-                    select pg_catalog.pg_create_physical_replication_slot($1)
+                    select pg_catalog.pg_create_physical_replication_slot(%s)
                 """, slot)
 
             line += "primary_slot_name={}\n".format(slot)
@@ -361,7 +364,7 @@ class PostgresNode(object):
             (os.path.join(self.data_dir, RECOVERY_CONF_FILE), 0),
             (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
             (self.pg_log_file, testgres_config.error_log_lines)
-        ]
+        ]  # yapf: disable
 
         for f, num_lines in files:
             # skip missing files
@@ -392,13 +395,14 @@ class PostgresNode(object):
             allow_streaming: should this node add a hba entry for replication?
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`
         """
 
         # initialize this PostgreSQL node
-        cached_initdb(data_dir=self.data_dir,
-                      logfile=self.utils_log_file,
-                      params=initdb_params)
+        cached_initdb(
+            data_dir=self.data_dir,
+            logfile=self.utils_log_file,
+            params=initdb_params)
 
         # initialize default config files
         self.default_conf(**kwargs)
@@ -422,7 +426,7 @@ class PostgresNode(object):
             log_statement: one of ('all', 'off', 'mod', 'ddl').
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         postgres_conf = os.path.join(self.data_dir, PG_CONF_FILE)
@@ -452,12 +456,11 @@ class PostgresNode(object):
                 auth_local = get_auth_method('local')
                 auth_host = get_auth_method('host')
 
-                # yapf: disable
                 new_lines = [
                     u"local\treplication\tall\t\t\t{}\n".format(auth_local),
                     u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
                     u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
-                ]
+                ]  # yapf: disable
 
                 # write missing lines
                 for line in new_lines:
@@ -472,12 +475,11 @@ class PostgresNode(object):
             if not fsync:
                 conf.write(u"fsync = off\n")
 
-            # yapf: disable
             conf.write(u"log_statement = {}\n"
                        u"listen_addresses = '{}'\n"
                        u"port = {}\n".format(log_statement,
                                              self.host,
-                                             self.port))
+                                             self.port))  # yapf: disable
 
             # replication-related settings
             if allow_streaming:
@@ -488,17 +490,14 @@ class PostgresNode(object):
                 else:
                     wal_level = "hot_standby"
 
-                # yapf: disable
-                max_wal_senders = 10    # default in PG 10
-                wal_keep_segments = 20  # for convenience
                 conf.write(u"hot_standby = on\n"
                            u"max_wal_senders = {}\n"
                            u"max_replication_slots = {}\n"
                            u"wal_keep_segments = {}\n"
-                           u"wal_level = {}\n".format(max_wal_senders,
-                                                      REPLICATION_SLOTS,
-                                                      wal_keep_segments,
-                                                      wal_level))
+                           u"wal_level = {}\n".format(MAX_WAL_SENDERS,
+                                                      MAX_REPLICATION_SLOTS,
+                                                      WAL_KEEP_SEGMENTS,
+                                                      wal_level))  # yapf: disable
 
             if allow_logical:
                 if not pg_version_ge('10'):
@@ -522,7 +521,7 @@ class PostgresNode(object):
             filename: config file (postgresql.conf by default).
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         config_name = os.path.join(self.data_dir, filename)
@@ -536,16 +535,15 @@ class PostgresNode(object):
         Check this node's status.
 
         Returns:
-            An instance of NodeStatus.
+            An instance of :class:`.NodeStatus`.
         """
 
         try:
-            # yapf: disable
             _params = [
                 get_bin_path("pg_ctl"),
                 "-D", self.data_dir,
                 "status"
-            ]
+            ]  # yapf: disable
             execute_utility(_params, self.utils_log_file)
             return NodeStatus.Running
 
@@ -586,17 +584,16 @@ class PostgresNode(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-l", self.pg_log_file,
             "-w",  # wait
             "start"
-        ] + params
+        ] + params  # yapf: disable
 
         try:
             execute_utility(_params, self.utils_log_file)
@@ -617,16 +614,15 @@ class PostgresNode(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-w",  # wait
             "stop"
-        ] + params
+        ] + params  # yapf: disable
 
         execute_utility(_params, self.utils_log_file)
 
@@ -642,17 +638,16 @@ class PostgresNode(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-l", self.pg_log_file,
             "-w",  # wait
             "restart"
-        ] + params
+        ] + params  # yapf: disable
 
         try:
             execute_utility(_params, self.utils_log_file)
@@ -673,16 +668,15 @@ class PostgresNode(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-w",  # wait
             "reload"
-        ] + params
+        ] + params  # yapf: disable
 
         execute_utility(_params, self.utils_log_file)
 
@@ -697,12 +691,11 @@ class PostgresNode(object):
             Stdout + stderr of pg_ctl.
         """
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-w"  # wait
-        ] + params
+        ] + params  # yapf: disable
 
         return execute_utility(_params, self.utils_log_file)
 
@@ -725,7 +718,7 @@ class PostgresNode(object):
             max_attempts: how many times should we try to stop()?
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         self._try_shutdown(max_attempts)
@@ -765,7 +758,6 @@ class PostgresNode(object):
         dbname = dbname or default_dbname()
         username = username or default_username()
 
-        # yapf: disable
         psql_params = [
             get_bin_path("psql"),
             "-p", str(self.port),
@@ -776,7 +768,7 @@ class PostgresNode(object):
             "-t",  # print rows only
             "-q",  # run quietly
             dbname
-        ]
+        ]  # yapf: disable
 
         # select query source
         if query:
@@ -843,7 +835,6 @@ class PostgresNode(object):
         username = username or default_username()
         filename = filename or tmpfile()
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_dump"),
             "-p", str(self.port),
@@ -851,7 +842,7 @@ class PostgresNode(object):
             "-f", filename,
             "-U", username,
             "-d", dbname
-        ]
+        ]  # yapf: disable
 
         execute_utility(_params, self.utils_log_file)
 
@@ -961,7 +952,7 @@ class PostgresNode(object):
 
         with self.connect(dbname=dbname,
                           username=username,
-                          password=password) as node_con:
+                          password=password) as node_con:  # yapf: disable
 
             res = node_con.execute(query)
 
@@ -1020,7 +1011,7 @@ class PostgresNode(object):
             # fetch latest LSN
             lsn = self.master.execute(query=poll_lsn,
                                       dbname=dbname,
-                                      username=username)[0][0]
+                                      username=username)[0][0]  # yapf: disable
 
             # wait until this LSN reaches replica
             self.poll_query_until(
@@ -1089,13 +1080,12 @@ class PostgresNode(object):
         dbname = dbname or default_dbname()
         username = username or default_username()
 
-        # yapf: disable
         _params = [
             get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
-        ] + options
+        ] + options  # yapf: disable
 
         # should be the last one
         _params.append(dbname)
@@ -1110,18 +1100,14 @@ class PostgresNode(object):
         Sets initialize=True.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         self.pgbench_run(initialize=True, **kwargs)
 
         return self
 
-    def pgbench_run(self,
-                    dbname=None,
-                    username=None,
-                    options=[],
-                    **kwargs):
+    def pgbench_run(self, dbname=None, username=None, options=[], **kwargs):
         """
         Run pgbench with some options.
         This event is logged (see self.utils_log_file).
@@ -1145,13 +1131,12 @@ class PostgresNode(object):
         dbname = dbname or default_dbname()
         username = username or default_username()
 
-        # yapf: disable
         _params = [
             get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
-        ] + options
+        ] + options  # yapf: disable
 
         for key, value in iteritems(kwargs):
             # rename keys for pgbench
@@ -1161,7 +1146,7 @@ class PostgresNode(object):
             if not isinstance(value, bool):
                 _params.append('--{}={}'.format(key, value))
             else:
-                assert value is True  # just in case
+                assert value is True    # just in case
                 _params.append('--{}'.format(key))
 
         # should be the last one
@@ -1179,10 +1164,10 @@ class PostgresNode(object):
             password: user's password.
 
         Returns:
-            An instance of NodeConnection.
+            An instance of :class:`.NodeConnection`.
         """
 
         return NodeConnection(node=self,
                               dbname=dbname,
                               username=username,
-                              password=password)
+                              password=password)  # yapf: disable
