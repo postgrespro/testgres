@@ -17,14 +17,6 @@ testgres.backup
     :undoc-members:
     :show-inheritance:
 
-testgres.cache
---------------
-
-.. automodule:: testgres.cache
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 testgres.config
 ---------------
 
@@ -32,35 +24,12 @@ testgres.config
     :members:
     :undoc-members:
     :show-inheritance:
+    :member-order: groupwise
 
 testgres.connection
 -------------------
 
 .. automodule:: testgres.connection
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-testgres.consts
----------------
-
-.. automodule:: testgres.consts
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-testgres.decorators
--------------------
-
-.. automodule:: testgres.decorators
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-testgres.defaults
------------------
-
-.. automodule:: testgres.defaults
     :members:
     :undoc-members:
     :show-inheritance:
@@ -81,35 +50,13 @@ testgres.exceptions
     :undoc-members:
     :show-inheritance:
 
-testgres.logger
----------------
-
-.. automodule:: testgres.logger
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 testgres.node
 -------------
 
-.. automodule:: testgres.node
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoclass:: testgres.node.PostgresNode
+   :members:
 
-testgres.utils
---------------
+   .. automethod:: __init__
 
-.. automodule:: testgres.utils
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: testgres
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoclass:: testgres.node.ProcessProxy
+   :members:

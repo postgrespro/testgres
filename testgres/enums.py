@@ -4,7 +4,7 @@ from six import iteritems
 
 class XLogMethod(Enum):
     """
-    Available WAL methods for NodeBackup
+    Available WAL methods for :class:`.NodeBackup`
     """
 
     none = 'none'
@@ -14,7 +14,7 @@ class XLogMethod(Enum):
 
 class IsolationLevel(Enum):
     """
-    Transaction isolation level for NodeConnection
+    Transaction isolation level for :class:`.NodeConnection`
     """
 
     ReadUncommitted = 'read uncommitted'
@@ -58,7 +58,6 @@ class ProcessType(Enum):
 
     @staticmethod
     def from_process(process):
-        # yapf: disable
         # legacy names for older releases of PG
         alternative_names = {
             ProcessType.LogicalReplicationLauncher: [
@@ -67,7 +66,7 @@ class ProcessType(Enum):
             ProcessType.BackgroundWriter: [
                 'writer'
             ],
-        }
+        }  # yapf: disable
 
         # we deliberately cut special words and spaces
         cmdline = ''.join(process.cmdline()) \
