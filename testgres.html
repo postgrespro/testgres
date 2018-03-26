@@ -64,7 +64,13 @@ typical flow may look like:</p>
 <span class="go">[(3,)]</span>
 </pre></div>
 </div>
-<p>Copyright (c) 2016, Postgres Professional</p>
+<dl class="function">
+<dt id="testgres.api.get_new_node">
+<code class="descclassname">testgres.api.</code><code class="descname">get_new_node</code><span class="sig-paren">(</span><em>name=None</em>, <em>base_dir=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.api.get_new_node" title="Permalink to this definition">¶</a></dt>
+<dd><p>Simply a wrapper around <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a> constructor.
+See <a class="reference internal" href="#testgres.node.PostgresNode.__init__" title="testgres.node.PostgresNode.__init__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">PostgresNode.__init__()</span></code></a> for details.</p>
+</dd></dl>
+
 </div>
 <div class="section" id="module-testgres.backup">
 <span id="testgres-backup"></span><h2>testgres.backup<a class="headerlink" href="#module-testgres.backup" title="Permalink to this headline">¶</a></h2>
@@ -76,7 +82,9 @@ typical flow may look like:</p>
 <dl class="method">
 <dt id="testgres.backup.NodeBackup.cleanup">
 <code class="descname">cleanup</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.backup.NodeBackup.cleanup" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Remove all files that belong to this backup.
+No-op if it’s been converted to a PostgresNode (destroy=True).</p>
+</dd></dl>
 
 <dl class="attribute">
 <dt id="testgres.backup.NodeBackup.log_file">
@@ -97,7 +105,7 @@ typical flow may look like:</p>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">New instance of PostgresNode.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">New instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</p>
 </td>
 </tr>
 </tbody>
@@ -119,7 +127,7 @@ typical flow may look like:</p>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">New instance of PostgresNode.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">New instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</p>
 </td>
 </tr>
 </tbody>
@@ -129,152 +137,98 @@ typical flow may look like:</p>
 </dd></dl>
 
 </div>
-<div class="section" id="module-testgres.cache">
-<span id="testgres-cache"></span><h2>testgres.cache<a class="headerlink" href="#module-testgres.cache" title="Permalink to this headline">¶</a></h2>
-<dl class="function">
-<dt id="testgres.cache.cached_initdb">
-<code class="descclassname">testgres.cache.</code><code class="descname">cached_initdb</code><span class="sig-paren">(</span><em>data_dir</em>, <em>logfile=None</em>, <em>params=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.cache.cached_initdb" title="Permalink to this definition">¶</a></dt>
-<dd><p>Perform initdb or use cached node files.</p>
-</dd></dl>
-
-</div>
 <div class="section" id="module-testgres.config">
 <span id="testgres-config"></span><h2>testgres.config<a class="headerlink" href="#module-testgres.config" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="testgres.config.GlobalConfig">
 <em class="property">class </em><code class="descclassname">testgres.config.</code><code class="descname">GlobalConfig</code><span class="sig-paren">(</span><em>**options</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.GlobalConfig" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Global config (override default settings).</p>
+<p>Global configuration object which allows user to override default settings.</p>
+<dl class="method">
+<dt id="testgres.config.GlobalConfig.copy">
+<code class="descname">copy</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.GlobalConfig.copy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a copy of this object.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.config.GlobalConfig.items">
+<code class="descname">items</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.GlobalConfig.items" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return setting-value pairs.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.config.GlobalConfig.keys">
+<code class="descname">keys</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.GlobalConfig.keys" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a list of all available settings.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.config.GlobalConfig.update">
+<code class="descname">update</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.GlobalConfig.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract setting-value pairs from ‘config’ and
+assign those values to corresponding settings
+of this GlobalConfig object.</p>
+</dd></dl>
+
 <dl class="attribute">
 <dt id="testgres.config.GlobalConfig.cache_initdb">
-<code class="descname">cache_initdb</code><a class="headerlink" href="#testgres.config.GlobalConfig.cache_initdb" title="Permalink to this definition">¶</a></dt>
+<code class="descname">cache_initdb</code><em class="property"> = True</em><a class="headerlink" href="#testgres.config.GlobalConfig.cache_initdb" title="Permalink to this definition">¶</a></dt>
 <dd><p>shall we use cached initdb instance?</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="testgres.config.GlobalConfig.cache_pg_config">
+<code class="descname">cache_pg_config</code><em class="property"> = True</em><a class="headerlink" href="#testgres.config.GlobalConfig.cache_pg_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>shall we cache pg_config results?</p>
 </dd></dl>
 
 <dl class="attribute">
 <dt id="testgres.config.GlobalConfig.cached_initdb_dir">
 <code class="descname">cached_initdb_dir</code><a class="headerlink" href="#testgres.config.GlobalConfig.cached_initdb_dir" title="Permalink to this definition">¶</a></dt>
-<dd><p>shall we create a temp dir for cached initdb?</p>
+<dd><p>path to a temp directory for cached initdb.</p>
 </dd></dl>
 
 <dl class="attribute">
 <dt id="testgres.config.GlobalConfig.cached_initdb_unique">
-<code class="descname">cached_initdb_unique</code><a class="headerlink" href="#testgres.config.GlobalConfig.cached_initdb_unique" title="Permalink to this definition">¶</a></dt>
-<dd><p>shall we assign new node a unique system id?</p>
+<code class="descname">cached_initdb_unique</code><em class="property"> = False</em><a class="headerlink" href="#testgres.config.GlobalConfig.cached_initdb_unique" title="Permalink to this definition">¶</a></dt>
+<dd><p>shall we give new node a unique system id?</p>
 </dd></dl>
 
 <dl class="attribute">
-<dt id="testgres.config.GlobalConfig.cache_pg_config">
-<code class="descname">cache_pg_config</code><a class="headerlink" href="#testgres.config.GlobalConfig.cache_pg_config" title="Permalink to this definition">¶</a></dt>
-<dd><p>shall we cache pg_config results?</p>
+<dt id="testgres.config.GlobalConfig.error_log_lines">
+<code class="descname">error_log_lines</code><em class="property"> = 20</em><a class="headerlink" href="#testgres.config.GlobalConfig.error_log_lines" title="Permalink to this definition">¶</a></dt>
+<dd><p>N of log lines to be shown in exceptions (0=inf).</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="testgres.config.GlobalConfig.node_cleanup_full">
+<code class="descname">node_cleanup_full</code><em class="property"> = True</em><a class="headerlink" href="#testgres.config.GlobalConfig.node_cleanup_full" title="Permalink to this definition">¶</a></dt>
+<dd><p>shall we remove EVERYTHING (including logs)?</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="testgres.config.GlobalConfig.node_cleanup_on_bad_exit">
+<code class="descname">node_cleanup_on_bad_exit</code><em class="property"> = False</em><a class="headerlink" href="#testgres.config.GlobalConfig.node_cleanup_on_bad_exit" title="Permalink to this definition">¶</a></dt>
+<dd><p>remove base_dir on __exit__() via exception.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="testgres.config.GlobalConfig.node_cleanup_on_good_exit">
+<code class="descname">node_cleanup_on_good_exit</code><em class="property"> = True</em><a class="headerlink" href="#testgres.config.GlobalConfig.node_cleanup_on_good_exit" title="Permalink to this definition">¶</a></dt>
+<dd><p>remove base_dir on nominal __exit__().</p>
 </dd></dl>
 
 <dl class="attribute">
 <dt id="testgres.config.GlobalConfig.temp_dir">
 <code class="descname">temp_dir</code><a class="headerlink" href="#testgres.config.GlobalConfig.temp_dir" title="Permalink to this definition">¶</a></dt>
-<dd><p>base temp dir for nodes with default ‘base_dir’.</p>
+<dd><p>path to temp dir containing nodes with default ‘base_dir’.</p>
 </dd></dl>
 
 <dl class="attribute">
 <dt id="testgres.config.GlobalConfig.use_python_logging">
-<code class="descname">use_python_logging</code><a class="headerlink" href="#testgres.config.GlobalConfig.use_python_logging" title="Permalink to this definition">¶</a></dt>
-<dd><p>use python logging configuration for all nodes.</p>
+<code class="descname">use_python_logging</code><em class="property"> = False</em><a class="headerlink" href="#testgres.config.GlobalConfig.use_python_logging" title="Permalink to this definition">¶</a></dt>
+<dd><p>enable python logging subsystem (see logger.py).</p>
 </dd></dl>
-
-<dl class="attribute">
-<dt id="testgres.config.GlobalConfig.error_log_lines">
-<code class="descname">error_log_lines</code><a class="headerlink" href="#testgres.config.GlobalConfig.error_log_lines" title="Permalink to this definition">¶</a></dt>
-<dd><p>N of log lines to be shown in exception (0=inf).</p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="testgres.config.GlobalConfig.node_cleanup_full">
-<code class="descname">node_cleanup_full</code><a class="headerlink" href="#testgres.config.GlobalConfig.node_cleanup_full" title="Permalink to this definition">¶</a></dt>
-<dd><p>shall we remove EVERYTHING (including logs)?</p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="testgres.config.GlobalConfig.node_cleanup_on_good_exit">
-<code class="descname">node_cleanup_on_good_exit</code><a class="headerlink" href="#testgres.config.GlobalConfig.node_cleanup_on_good_exit" title="Permalink to this definition">¶</a></dt>
-<dd><p>remove base_dir on nominal __exit__().</p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="testgres.config.GlobalConfig.node_cleanup_on_bad_exit">
-<code class="descname">node_cleanup_on_bad_exit</code><a class="headerlink" href="#testgres.config.GlobalConfig.node_cleanup_on_bad_exit" title="Permalink to this definition">¶</a></dt>
-<dd><p>remove base_dir on __exit__() via exception.</p>
-</dd></dl>
-
-<p>NOTE: attributes must not be callable or begin with __.</p>
-<dl class="attribute">
-<dt>
-<code class="descname">cache_initdb</code><em class="property"> = True</em></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt>
-<code class="descname">cache_pg_config</code><em class="property"> = True</em></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt>
-<code class="descname">cached_initdb_dir</code></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt>
-<code class="descname">cached_initdb_unique</code><em class="property"> = False</em></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="testgres.config.GlobalConfig.copy">
-<code class="descname">copy</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.GlobalConfig.copy" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt>
-<code class="descname">error_log_lines</code><em class="property"> = 20</em></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="testgres.config.GlobalConfig.items">
-<code class="descname">items</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.GlobalConfig.items" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="testgres.config.GlobalConfig.keys">
-<code class="descname">keys</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.GlobalConfig.keys" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt>
-<code class="descname">node_cleanup_full</code><em class="property"> = True</em></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt>
-<code class="descname">node_cleanup_on_bad_exit</code><em class="property"> = False</em></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt>
-<code class="descname">node_cleanup_on_good_exit</code><em class="property"> = True</em></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt>
-<code class="descname">temp_dir</code></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="testgres.config.GlobalConfig.update">
-<code class="descname">update</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.GlobalConfig.update" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt>
-<code class="descname">use_python_logging</code><em class="property"> = False</em></dt>
-<dd></dd></dl>
 
 </dd></dl>
 
@@ -282,7 +236,7 @@ typical flow may look like:</p>
 <dt id="testgres.config.configure_testgres">
 <code class="descclassname">testgres.config.</code><code class="descname">configure_testgres</code><span class="sig-paren">(</span><em>**options</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.configure_testgres" title="Permalink to this definition">¶</a></dt>
 <dd><p>Adjust current global options.
-Look at GlobalConfig to learn what can be set.</p>
+Look at the GlobalConfig to learn about existing settings.</p>
 </dd></dl>
 
 <dl class="function">
@@ -294,17 +248,19 @@ Look at GlobalConfig to learn what can be set.</p>
 <dl class="function">
 <dt id="testgres.config.push_config">
 <code class="descclassname">testgres.config.</code><code class="descname">push_config</code><span class="sig-paren">(</span><em>**options</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.push_config" title="Permalink to this definition">¶</a></dt>
-<dd><p>Permanently set custom GlobalConfig options
-and put previous settings on top of stack.</p>
+<dd><p>Permanently set custom GlobalConfig options and
+put previous settings on top of the config stack.</p>
 </dd></dl>
 
 <dl class="function">
 <dt id="testgres.config.scoped_config">
 <code class="descclassname">testgres.config.</code><code class="descname">scoped_config</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwds</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.scoped_config" title="Permalink to this definition">¶</a></dt>
-<dd><p>Temporarily set custom GlobalConfig options for this context.</p>
+<dd><p>Temporarily set custom GlobalConfig options for this context.
+Previous options are pushed to the config stack.</p>
 <p class="rubric">Example</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">.api</span> <span class="k">import</span> <span class="n">get_new_node</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">scoped_config</span><span class="p">(</span><span class="n">cache_initdb</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="c1"># create a new node with fresh initdb</span>
 <span class="gp">... </span>    <span class="k">with</span> <span class="n">get_new_node</span><span class="p">()</span><span class="o">.</span><span class="n">init</span><span class="p">()</span><span class="o">.</span><span class="n">start</span><span class="p">()</span> <span class="k">as</span> <span class="n">node</span><span class="p">:</span>
 <span class="gp">... </span>        <span class="nb">print</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select 1&#39;</span><span class="p">))</span>
 <span class="go">[(1,)]</span>
@@ -368,63 +324,13 @@ and put previous settings on top of stack.</p>
 </dd></dl>
 
 </div>
-<div class="section" id="module-testgres.consts">
-<span id="testgres-consts"></span><h2>testgres.consts<a class="headerlink" href="#module-testgres.consts" title="Permalink to this headline">¶</a></h2>
-</div>
-<div class="section" id="module-testgres.decorators">
-<span id="testgres-decorators"></span><h2>testgres.decorators<a class="headerlink" href="#module-testgres.decorators" title="Permalink to this headline">¶</a></h2>
-<dl class="function">
-<dt id="testgres.decorators.method_decorator">
-<code class="descclassname">testgres.decorators.</code><code class="descname">method_decorator</code><span class="sig-paren">(</span><em>decorator</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.decorators.method_decorator" title="Permalink to this definition">¶</a></dt>
-<dd><p>Convert a function decorator into a method decorator.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.decorators.positional_args_hack">
-<code class="descclassname">testgres.decorators.</code><code class="descname">positional_args_hack</code><span class="sig-paren">(</span><em>*special_cases</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.decorators.positional_args_hack" title="Permalink to this definition">¶</a></dt>
-<dd><p>Convert positional args described by
-‘special_cases’ into named args.</p>
-<p class="rubric">Example</p>
-<p>&#64;positional_args_hack([‘abc’], [‘def’, ‘abc’])
-def some_api_func(…)</p>
-<p>This is useful for compatibility.</p>
-</dd></dl>
-
-</div>
-<div class="section" id="module-testgres.defaults">
-<span id="testgres-defaults"></span><h2>testgres.defaults<a class="headerlink" href="#module-testgres.defaults" title="Permalink to this headline">¶</a></h2>
-<dl class="function">
-<dt id="testgres.defaults.default_dbname">
-<code class="descclassname">testgres.defaults.</code><code class="descname">default_dbname</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.defaults.default_dbname" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return default DB name.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.defaults.default_username">
-<code class="descclassname">testgres.defaults.</code><code class="descname">default_username</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.defaults.default_username" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return default username (current user).</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.defaults.generate_app_name">
-<code class="descclassname">testgres.defaults.</code><code class="descname">generate_app_name</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.defaults.generate_app_name" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate a new application name for node.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.defaults.generate_system_id">
-<code class="descclassname">testgres.defaults.</code><code class="descname">generate_system_id</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.defaults.generate_system_id" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate a new 64-bit unique system identifier for node.</p>
-</dd></dl>
-
-</div>
 <div class="section" id="module-testgres.enums">
 <span id="testgres-enums"></span><h2>testgres.enums<a class="headerlink" href="#module-testgres.enums" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="testgres.enums.IsolationLevel">
 <em class="property">class </em><code class="descclassname">testgres.enums.</code><code class="descname">IsolationLevel</code><a class="headerlink" href="#testgres.enums.IsolationLevel" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
-<p>Transaction isolation level for NodeConnection</p>
+<p>Transaction isolation level for <a class="reference internal" href="#testgres.connection.NodeConnection" title="testgres.connection.NodeConnection"><code class="xref py py-class docutils literal notranslate"><span class="pre">NodeConnection</span></code></a></p>
 <dl class="attribute">
 <dt id="testgres.enums.IsolationLevel.ReadCommitted">
 <code class="descname">ReadCommitted</code><em class="property"> = 'read committed'</em><a class="headerlink" href="#testgres.enums.IsolationLevel.ReadCommitted" title="Permalink to this definition">¶</a></dt>
@@ -530,7 +436,7 @@ def some_api_func(…)</p>
 <dt id="testgres.enums.XLogMethod">
 <em class="property">class </em><code class="descclassname">testgres.enums.</code><code class="descname">XLogMethod</code><a class="headerlink" href="#testgres.enums.XLogMethod" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
-<p>Available WAL methods for NodeBackup</p>
+<p>Available WAL methods for <a class="reference internal" href="#testgres.backup.NodeBackup" title="testgres.backup.NodeBackup"><code class="xref py py-class docutils literal notranslate"><span class="pre">NodeBackup</span></code></a></p>
 <dl class="attribute">
 <dt id="testgres.enums.XLogMethod.fetch">
 <code class="descname">fetch</code><em class="property"> = 'fetch'</em><a class="headerlink" href="#testgres.enums.XLogMethod.fetch" title="Permalink to this definition">¶</a></dt>
@@ -600,37 +506,30 @@ def some_api_func(…)</p>
 </dd></dl>
 
 </div>
-<div class="section" id="module-testgres.logger">
-<span id="testgres-logger"></span><h2>testgres.logger<a class="headerlink" href="#module-testgres.logger" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="testgres.logger.TestgresLogger">
-<em class="property">class </em><code class="descclassname">testgres.logger.</code><code class="descname">TestgresLogger</code><span class="sig-paren">(</span><em>node_name</em>, <em>log_file_name</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.logger.TestgresLogger" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">threading.Thread</span></code></p>
-<p>Helper class to implement reading from log files.</p>
-<dl class="method">
-<dt id="testgres.logger.TestgresLogger.run">
-<code class="descname">run</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.logger.TestgresLogger.run" title="Permalink to this definition">¶</a></dt>
-<dd><p>Method representing the thread’s activity.</p>
-<p>You may override this method in a subclass. The standard run() method
-invokes the callable object passed to the object’s constructor as the
-target argument, if any, with sequential and keyword arguments taken
-from the args and kwargs arguments, respectively.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="testgres.logger.TestgresLogger.stop">
-<code class="descname">stop</code><span class="sig-paren">(</span><em>wait=True</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.logger.TestgresLogger.stop" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-</div>
-<div class="section" id="module-testgres.node">
-<span id="testgres-node"></span><h2>testgres.node<a class="headerlink" href="#module-testgres.node" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="testgres-node">
+<h2>testgres.node<a class="headerlink" href="#testgres-node" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="testgres.node.PostgresNode">
 <em class="property">class </em><code class="descclassname">testgres.node.</code><code class="descname">PostgresNode</code><span class="sig-paren">(</span><em>name=None</em>, <em>port=None</em>, <em>base_dir=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dd><dl class="method">
+<dt id="testgres.node.PostgresNode.__init__">
+<code class="descname">__init__</code><span class="sig-paren">(</span><em>name=None</em>, <em>port=None</em>, <em>base_dir=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><p>PostgresNode constructor.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>name</strong> – node’s application name.</li>
+<li><strong>port</strong> – port to accept connections.</li>
+<li><strong>base_dir</strong> – path to node’s data directory.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 <dl class="method">
 <dt id="testgres.node.PostgresNode.append_conf">
 <code class="descname">append_conf</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.append_conf" title="Permalink to this definition">¶</a></dt>
@@ -645,7 +544,7 @@ from the args and kwargs arguments, respectively.</p>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">This instance of PostgresNode.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</p>
 </td>
 </tr>
 </tbody>
@@ -662,7 +561,7 @@ from the args and kwargs arguments, respectively.</p>
 <dt id="testgres.node.PostgresNode.auxiliary_processes">
 <code class="descname">auxiliary_processes</code><a class="headerlink" href="#testgres.node.PostgresNode.auxiliary_processes" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of auxiliary processes.
-Each process is represented by ProcessProxy object.</p>
+Each process is represented by <a class="reference internal" href="#testgres.node.ProcessProxy" title="testgres.node.ProcessProxy"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProcessProxy</span></code></a> object.</p>
 </dd></dl>
 
 <dl class="method">
@@ -687,11 +586,6 @@ Each process is represented by ProcessProxy object.</p>
 </table>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="testgres.node.PostgresNode.base_dir">
-<code class="descname">base_dir</code><a class="headerlink" href="#testgres.node.PostgresNode.base_dir" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
 <dl class="method">
 <dt id="testgres.node.PostgresNode.catchup">
 <code class="descname">catchup</code><span class="sig-paren">(</span><em>dbname=None</em>, <em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.catchup" title="Permalink to this definition">¶</a></dt>
@@ -702,7 +596,7 @@ Each process is represented by ProcessProxy object.</p>
 <dt id="testgres.node.PostgresNode.child_processes">
 <code class="descname">child_processes</code><a class="headerlink" href="#testgres.node.PostgresNode.child_processes" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of all child processes.
-Each process is represented by ProcessProxy object.</p>
+Each process is represented by <a class="reference internal" href="#testgres.node.ProcessProxy" title="testgres.node.ProcessProxy"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProcessProxy</span></code></a> object.</p>
 </dd></dl>
 
 <dl class="method">
@@ -716,7 +610,7 @@ NOTE: take a look at TestgresConfig.node_cleanup_full.</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>max_attempts</strong> – how many times should we try to stop()?</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of PostgresNode.</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</td>
 </tr>
 </tbody>
 </table>
@@ -737,17 +631,12 @@ NOTE: take a look at TestgresConfig.node_cleanup_full.</p>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">An instance of NodeConnection.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">An instance of <a class="reference internal" href="#testgres.connection.NodeConnection" title="testgres.connection.NodeConnection"><code class="xref py py-class docutils literal notranslate"><span class="pre">NodeConnection</span></code></a>.</p>
 </td>
 </tr>
 </tbody>
 </table>
 </dd></dl>
-
-<dl class="attribute">
-<dt id="testgres.node.PostgresNode.data_dir">
-<code class="descname">data_dir</code><a class="headerlink" href="#testgres.node.PostgresNode.data_dir" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.default_conf">
@@ -765,7 +654,7 @@ NOTE: take a look at TestgresConfig.node_cleanup_full.</p>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">This instance of PostgresNode.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</p>
 </td>
 </tr>
 </tbody>
@@ -848,22 +737,12 @@ NOTE: does not free auto selected ports.</p>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">This instance of PostgresNode.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a></p>
 </td>
 </tr>
 </tbody>
 </table>
 </dd></dl>
-
-<dl class="attribute">
-<dt id="testgres.node.PostgresNode.logs_dir">
-<code class="descname">logs_dir</code><a class="headerlink" href="#testgres.node.PostgresNode.logs_dir" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="testgres.node.PostgresNode.master">
-<code class="descname">master</code><a class="headerlink" href="#testgres.node.PostgresNode.master" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.pg_ctl">
@@ -880,11 +759,6 @@ NOTE: does not free auto selected ports.</p>
 </tbody>
 </table>
 </dd></dl>
-
-<dl class="attribute">
-<dt id="testgres.node.PostgresNode.pg_log_file">
-<code class="descname">pg_log_file</code><a class="headerlink" href="#testgres.node.PostgresNode.pg_log_file" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.pgbench">
@@ -919,7 +793,7 @@ Sets initialize=True.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">This instance of PostgresNode.</td>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</td>
 </tr>
 </tbody>
 </table>
@@ -1020,7 +894,7 @@ Query should return a single value (1 row, 1 column).</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>params</strong> – additional arguments for pg_ctl.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of PostgresNode.</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</td>
 </tr>
 </tbody>
 </table>
@@ -1057,7 +931,7 @@ Query should return a single value (1 row, 1 column).</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>params</strong> – additional arguments for pg_ctl.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of PostgresNode.</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</td>
 </tr>
 </tbody>
 </table>
@@ -1122,7 +996,7 @@ Query should return a single value (1 row, 1 column).</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>params</strong> – additional arguments for pg_ctl.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of PostgresNode.</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</td>
 </tr>
 </tbody>
 </table>
@@ -1136,7 +1010,7 @@ Query should return a single value (1 row, 1 column).</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">An instance of NodeStatus.</td>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">An instance of <a class="reference internal" href="#testgres.enums.NodeStatus" title="testgres.enums.NodeStatus"><code class="xref py py-class docutils literal notranslate"><span class="pre">NodeStatus</span></code></a>.</td>
 </tr>
 </tbody>
 </table>
@@ -1152,24 +1026,18 @@ Query should return a single value (1 row, 1 column).</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>params</strong> – additional arguments for pg_ctl.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of PostgresNode.</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</td>
 </tr>
 </tbody>
 </table>
 </dd></dl>
-
-<dl class="attribute">
-<dt id="testgres.node.PostgresNode.utils_log_file">
-<code class="descname">utils_log_file</code><a class="headerlink" href="#testgres.node.PostgresNode.utils_log_file" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
 
 </dd></dl>
 
 <dl class="class">
 <dt id="testgres.node.ProcessProxy">
 <em class="property">class </em><code class="descclassname">testgres.node.</code><code class="descname">ProcessProxy</code><span class="sig-paren">(</span><em>process</em>, <em>ptype=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.ProcessProxy" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Wrapper for psutil.Process</p>
+<dd><p>Wrapper for psutil.Process</p>
 <dl class="attribute">
 <dt id="testgres.node.ProcessProxy.process">
 <code class="descname">process</code><a class="headerlink" href="#testgres.node.ProcessProxy.process" title="Permalink to this definition">¶</a></dt>
@@ -1185,90 +1053,6 @@ Query should return a single value (1 row, 1 column).</p>
 </dd></dl>
 
 </div>
-<div class="section" id="module-testgres.utils">
-<span id="testgres-utils"></span><h2>testgres.utils<a class="headerlink" href="#module-testgres.utils" title="Permalink to this headline">¶</a></h2>
-<dl class="function">
-<dt id="testgres.utils.clean_on_error">
-<code class="descclassname">testgres.utils.</code><code class="descname">clean_on_error</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwds</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.utils.clean_on_error" title="Permalink to this definition">¶</a></dt>
-<dd><p>Context manager to wrap PostgresNode and such.
-Calls cleanup() method when underlying code raises an exception.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.utils.eprint">
-<code class="descclassname">testgres.utils.</code><code class="descname">eprint</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.utils.eprint" title="Permalink to this definition">¶</a></dt>
-<dd><p>Print stuff to stderr.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.utils.execute_utility">
-<code class="descclassname">testgres.utils.</code><code class="descname">execute_utility</code><span class="sig-paren">(</span><em>args</em>, <em>logfile=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.utils.execute_utility" title="Permalink to this definition">¶</a></dt>
-<dd><p>Execute utility (pg_ctl, pg_dump etc).</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>args</strong> – utility + arguments (list).</li>
-<li><strong>logfile</strong> – path to file to store stdout and stderr.</li>
-</ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">stdout of executed utility.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.utils.file_tail">
-<code class="descclassname">testgres.utils.</code><code class="descname">file_tail</code><span class="sig-paren">(</span><em>f</em>, <em>num_lines</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.utils.file_tail" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get last N lines of a file.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.utils.get_bin_path">
-<code class="descclassname">testgres.utils.</code><code class="descname">get_bin_path</code><span class="sig-paren">(</span><em>filename</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.utils.get_bin_path" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return absolute path to an executable using PG_BIN or PG_CONFIG.
-This function does nothing if ‘filename’ is already absolute.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.utils.get_pg_config">
-<code class="descclassname">testgres.utils.</code><code class="descname">get_pg_config</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.utils.get_pg_config" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return output of pg_config (provided that it is installed).
-NOTE: this fuction caches the result by default (see GlobalConfig).</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.utils.get_pg_version">
-<code class="descclassname">testgres.utils.</code><code class="descname">get_pg_version</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.utils.get_pg_version" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return PostgreSQL version provided by postmaster.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.utils.pg_version_ge">
-<code class="descclassname">testgres.utils.</code><code class="descname">pg_version_ge</code><span class="sig-paren">(</span><em>version</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.utils.pg_version_ge" title="Permalink to this definition">¶</a></dt>
-<dd><p>Check if PostgreSQL is ‘version’ or newer.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.utils.release_port">
-<code class="descclassname">testgres.utils.</code><code class="descname">release_port</code><span class="sig-paren">(</span><em>port</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.utils.release_port" title="Permalink to this definition">¶</a></dt>
-<dd><p>Free port provided by reserve_port().</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="testgres.utils.reserve_port">
-<code class="descclassname">testgres.utils.</code><code class="descname">reserve_port</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#testgres.utils.reserve_port" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate a new port and add it to ‘bound_ports’.</p>
-</dd></dl>
-
-</div>
-<div class="section" id="module-testgres">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-testgres" title="Permalink to this headline">¶</a></h2>
-</div>
 </div>
 
 
@@ -1282,18 +1066,11 @@ NOTE: this fuction caches the result by default (see GlobalConfig).</p>
 <li><a class="reference internal" href="#">testgres package</a><ul>
 <li><a class="reference internal" href="#module-testgres.api">testgres.api</a></li>
 <li><a class="reference internal" href="#module-testgres.backup">testgres.backup</a></li>
-<li><a class="reference internal" href="#module-testgres.cache">testgres.cache</a></li>
 <li><a class="reference internal" href="#module-testgres.config">testgres.config</a></li>
 <li><a class="reference internal" href="#module-testgres.connection">testgres.connection</a></li>
-<li><a class="reference internal" href="#module-testgres.consts">testgres.consts</a></li>
-<li><a class="reference internal" href="#module-testgres.decorators">testgres.decorators</a></li>
-<li><a class="reference internal" href="#module-testgres.defaults">testgres.defaults</a></li>
 <li><a class="reference internal" href="#module-testgres.enums">testgres.enums</a></li>
 <li><a class="reference internal" href="#module-testgres.exceptions">testgres.exceptions</a></li>
-<li><a class="reference internal" href="#module-testgres.logger">testgres.logger</a></li>
-<li><a class="reference internal" href="#module-testgres.node">testgres.node</a></li>
-<li><a class="reference internal" href="#module-testgres.utils">testgres.utils</a></li>
-<li><a class="reference internal" href="#module-testgres">Module contents</a></li>
+<li><a class="reference internal" href="#testgres-node">testgres.node</a></li>
 </ul>
 </li>
 </ul>
