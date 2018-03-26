@@ -29,16 +29,14 @@ PostgresNode(name='...', port=..., base_dir='...')
 ...             print(replica.execute('postgres', 'select count(*) from test'))
 PostgresNode(name='...', port=..., base_dir='...')
 [(3,)]
-
-Copyright (c) 2016, Postgres Professional
 """
-
-from functools import wraps
-
 from .node import PostgresNode
 
 
-@wraps(PostgresNode.__init__)
 def get_new_node(name=None, base_dir=None, **kwargs):
+    """
+    Simply a wrapper around :class:`.PostgresNode` constructor.
+    See :meth:`.PostgresNode.__init__` for details.
+    """
     # NOTE: leave explicit 'name' and 'base_dir' for compatibility
     return PostgresNode(name=name, base_dir=base_dir, **kwargs)

@@ -44,7 +44,10 @@ testgres.exceptions
 testgres.node
 -------------
 
-.. automodule:: testgres.node
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoclass:: testgres.node.PostgresNode
+   :members:
+
+   .. automethod:: __init__
+
+.. autoclass:: testgres.node.ProcessProxy
+   :members:

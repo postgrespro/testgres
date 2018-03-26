@@ -92,7 +92,7 @@ class ProcessProxy(object):
 class PostgresNode(object):
     def __init__(self, name=None, port=None, base_dir=None):
         """
-        Create a new node.
+        PostgresNode constructor.
 
         Args:
             name: node's application name.
