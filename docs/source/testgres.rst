@@ -17,6 +17,15 @@ testgres.backup
     :undoc-members:
     :show-inheritance:
 
+testgres.config
+---------------
+
+.. automodule:: testgres.config
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :member-order: groupwise
+
 testgres.connection
 -------------------
 

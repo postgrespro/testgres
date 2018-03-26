@@ -14,41 +14,39 @@ from .consts import TMP_CACHE
 class GlobalConfig(object):
     """
     Global configuration object which allows user to override default settings.
-
-    Attributes:
-        cache_initdb:           shall we use cached initdb instance?
-        cached_initdb_dir:      path to a temp directory for cached initdb.
-        cached_initdb_unique:   shall we give new node a unique system id?
-
-        cache_pg_config:        shall we cache pg_config results?
-
-        temp_dir:               path to temp dir containing nodes with default 'base_dir'.
-
-        use_python_logging:     enable python logging subsystem (see logger.py).
-        error_log_lines:        N of log lines to be shown in exceptions (0=inf).
-
-        node_cleanup_full:          shall we remove EVERYTHING (including logs)?
-        node_cleanup_on_good_exit:  remove base_dir on nominal __exit__().
-        node_cleanup_on_bad_exit:   remove base_dir on __exit__() via exception.
-
-    NOTE: attributes must not be callable or begin with __.
     """
+    # NOTE: attributes must not be callable or begin with __.
 
     cache_initdb = True
-    _cached_initdb_dir = None
+    """ shall we use cached initdb instance? """
+
     cached_initdb_unique = False
+    """ shall we give new node a unique system id? """
 
     cache_pg_config = True
+    """ shall we cache pg_config results? """
 
     use_python_logging = False
+    """ enable python logging subsystem (see logger.py). """
+
     error_log_lines = 20
+    """ N of log lines to be shown in exceptions (0=inf). """
 
     node_cleanup_full = True
+    """ shall we remove EVERYTHING (including logs)? """
+
     node_cleanup_on_good_exit = True
+    """ remove base_dir on nominal __exit__(). """
+
     node_cleanup_on_bad_exit = False
+    """ remove base_dir on __exit__() via exception. """
+
+    _cached_initdb_dir = None
+    """ underlying class attribute for cached_initdb_dir property """
 
     @property
     def cached_initdb_dir(self):
+        """ path to a temp directory for cached initdb. """
         return self._cached_initdb_dir
 
     @cached_initdb_dir.setter
@@ -60,6 +58,7 @@ class GlobalConfig(object):
 
     @property
     def temp_dir(self):
+        """ path to temp dir containing nodes with default 'base_dir'. """
         return tempfile.tempdir
 
     @temp_dir.setter
