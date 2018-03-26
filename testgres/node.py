@@ -210,7 +210,7 @@ class PostgresNode(object):
         sql = """
             select pid
             from pg_catalog.pg_stat_replication
-            where application_name = $1
+            where application_name = %s
         """
 
         if not self.master:
@@ -322,7 +322,7 @@ class PostgresNode(object):
                 res = con.execute("""
                     select exists (
                         select from pg_catalog.pg_replication_slots
-                        where slot_name = $1
+                        where slot_name = %s
                     )
                 """, slot)
 
@@ -332,7 +332,7 @@ class PostgresNode(object):
 
                 # TODO: we should drop this slot after replica's cleanup()
                 con.execute("""
-                    select pg_catalog.pg_create_physical_replication_slot($1)
+                    select pg_catalog.pg_create_physical_replication_slot(%s)
                 """, slot)
 
             line += "primary_slot_name={}\n".format(slot)
