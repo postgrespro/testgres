@@ -106,7 +106,7 @@ class Subscription(object):
                  publication,
                  dbname=None,
                  username=None,
-                 **kwargs):
+                 **params):
         """
         Constructor. Use :meth:`.PostgresNode.subscribe()` instead of direct
         constructing subscription objects.
@@ -118,8 +118,9 @@ class Subscription(object):
                 (see :meth:`.PostgresNode.publish()`)
             dbname: database name used to connect and perform subscription
             username: username used to connect to the database
-            **kwargs: subscription parameters (see ``CREATE SUBSCRIPTION``
-                in PostgreSQL documentation for more information)
+            params: subscription parameters (see documentation on `CREATE SUBSCRIPTION
+                 <https://www.postgresql.org/docs/current/static/sql-createsubscription.html>`_
+                 for details)
         """
         self.name = name
         self.node = node
@@ -138,8 +139,8 @@ class Subscription(object):
                 name, options_string(**conninfo), self.pub.name)
 
         # additional parameters
-        if kwargs:
-            query += " with ({})".format(options_string(**kwargs))
+        if params:
+            query += " with ({})".format(options_string(**params))
 
         node.safe_psql(query, dbname=dbname, username=username)
 

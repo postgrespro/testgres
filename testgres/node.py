@@ -501,8 +501,9 @@ class PostgresNode(object):
 
             if allow_logical:
                 if not pg_version_ge('10'):
-                    raise InitNodeException("Logical replication is only "
-                                            "available for Postgres 10 and newer")
+                    raise InitNodeException(
+                        "Logical replication is only available for Postgres 10 "
+                        "and newer")
                 conf.write(u"wal_level = logical\n")
 
             # disable UNIX sockets if asked to
@@ -1022,11 +1023,7 @@ class PostgresNode(object):
         except Exception as e:
             raise_from(CatchUpException("Failed to catch up", poll_lsn), e)
 
-    def publish(self,
-                name,
-                tables=None,
-                dbname=None,
-                username=None):
+    def publish(self, name, **kwargs):
         """
         Create publication for logical replication
 
@@ -1036,25 +1033,26 @@ class PostgresNode(object):
             dbname: database name where objects or interest are located
             username: replication username
         """
-        return Publication(name=name, node=self, tables=tables, dbname=dbname,
-                           username=username)
+        return Publication(name=name, node=self, **kwargs)
 
-    def subscribe(self,
-                  publication,
-                  name,
-                  dbname=None,
-                  username=None,
-                  **kwargs):
+    def subscribe(self, publication, name, dbname=None, username=None,
+                  **params):
         """
         Create subscription for logical replication
 
         Args:
-            subname: subscription name
+            name: subscription name
             publication: publication object obtained from publish()
-
+            dbname: database name
+            username: replication username
+            params: subscription parameters (see documentation on `CREATE SUBSCRIPTION
+                 <https://www.postgresql.org/docs/current/static/sql-createsubscription.html>`_
+                 for details)
         """
+        # yapf: disable
         return Subscription(name=name, node=self, publication=publication,
-                            dbname=dbname, username=username, **kwargs)
+                            dbname=dbname, username=username, **params)
+        # yapf: enable
 
     def pgbench(self,
                 dbname=None,
