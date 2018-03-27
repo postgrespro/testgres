@@ -457,6 +457,29 @@ class TestgresTests(unittest.TestCase):
             res = node2.execute('select * from test2')
             self.assertListEqual(res, [('a',), ('b',)])
 
+    @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
+    def test_logical_catchup(self):
+        """ Runs catchup for 100 times to be sure that it is consistent """
+        with get_new_node() as node1, get_new_node() as node2:
+            node1.init(allow_logical=True)
+            node1.start()
+            node2.init().start()
+
+            create_table = 'create table test (key int primary key, val int); '
+            node1.safe_psql(create_table)
+            node1.safe_psql('alter table test replica identity default')
+            node2.safe_psql(create_table)
+
+            # create publication / create subscription
+            sub = node2.subscribe(node1.publish('mypub'), 'mysub')
+
+            for i in range(0, 100):
+                node1.execute('insert into test values ({0}, {0})'.format(i))
+                sub.catchup()
+                res = node2.execute('select * from test')
+                self.assertListEqual(res, [(i, i,)])
+                node1.execute('delete from test')
+
     @unittest.skipIf(pg_version_ge('10'), 'requires <10')
     def test_logical_replication_fail(self):
         with get_new_node() as node:
