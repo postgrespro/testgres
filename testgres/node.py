@@ -6,6 +6,7 @@ import psutil
 import subprocess
 import time
 
+from collections import Iterable
 from shutil import rmtree
 from six import raise_from, iteritems
 from tempfile import mkstemp, mkdtemp
@@ -61,6 +62,8 @@ from .exceptions import \
     BackupException
 
 from .logger import TestgresLogger
+
+from .standby import First
 
 from .utils import \
     eprint, \
@@ -656,7 +659,7 @@ class PostgresNode(object):
 
     def reload(self, params=[]):
         """
-        Reload config files using pg_ctl.
+        Asynchronously reload config files using pg_ctl.
 
         Args:
             params: additional arguments for pg_ctl.
@@ -1021,6 +1024,33 @@ class PostgresNode(object):
         # transform backup into a replica
         with clean_on_error(self.backup(**kwargs)) as backup:
             return backup.spawn_replica(name=name, destroy=True, slot=slot)
+
+    def set_synchronous_standbys(self, standbys):
+        """
+        Set standby synchronization options. This corresponds to
+        `synchronous_standby_names <https://www.postgresql.org/docs/current/static/runtime-config-replication.html#GUC-SYNCHRONOUS-STANDBY-NAMES>`_
+        option. Note that :meth:`~.PostgresNode.reload` or
+        :meth:`~.PostgresNode.restart` is needed for changes to take place.
+
+        Args:
+            standbys: either :class:`.First` or :class:`.Any` object specifying
+                sychronization parameters. It is also possible to pass simply
+                a list of replicas which would be equivalent to passing
+                ``First(1, <list>)``
+
+        Example::
+
+            master = get_new_node().init().start()
+            with master.replicate.start() as standby:
+                master.append_conf("synchronous_commit = remote_apply")
+                master.set_synchronous_standbys(First(1, [standby]))
+                master.restart()
+
+        """
+        if isinstance(standbys, Iterable):
+            standbys = First(1, standbys)
+
+        self.append_conf("synchronous_standby_names = '{}'".format(standbys))
 
     def catchup(self, dbname=None, username=None):
         """
