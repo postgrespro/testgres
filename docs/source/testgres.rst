@@ -60,3 +60,11 @@ testgres.node
 
 .. autoclass:: testgres.node.ProcessProxy
    :members:
+
+testgres.standby
+----------------
+
+.. automodule:: testgres.standby
+    :members:
+    :undoc-members:
+    :show-inheritance:
