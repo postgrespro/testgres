@@ -691,6 +691,28 @@ class PostgresNode(object):
 
         return self
 
+    def promote(self):
+        """
+        Promote standby instance to master using pg_ctl.
+
+        Returns:
+            This instance of :class:`.PostgresNode`.
+        """
+
+        _params = [
+            get_bin_path("pg_ctl"),
+            "-D", self.data_dir,
+            "-w",  # wait
+            "promote"
+        ]  # yapf: disable
+
+        execute_utility(_params, self.utils_log_file)
+
+        # Node becomes master itself
+        self._master = None
+
+        return self
+
     def pg_ctl(self, params):
         """
         Invoke pg_ctl with params.
