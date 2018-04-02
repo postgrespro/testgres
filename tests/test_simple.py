@@ -407,6 +407,20 @@ class TestgresTests(unittest.TestCase):
             with self.assertRaises(TestgresException):
                 node.catchup()
 
+    def test_promotion(self):
+        with get_new_node() as master:
+            master.init().start()
+            master.safe_psql('create table abc(id serial)')
+
+            with master.replicate().start() as replica:
+                master.stop()
+                replica.promote()
+
+                # make standby becomes writable master
+                replica.safe_psql('insert into abc values (1)')
+                res = replica.safe_psql('select * from abc')
+                self.assertEqual(res, b'1\n')
+
     def test_dump(self):
         query_create = 'create table test as select generate_series(1, 2) as val'
         query_select = 'select * from test order by val asc'
