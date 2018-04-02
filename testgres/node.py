@@ -668,6 +668,8 @@ class PostgresNode(object):
 
         execute_utility(_params, self.utils_log_file)
 
+        return self
+
     def pg_ctl(self, params):
         """
         Invoke pg_ctl with params.
