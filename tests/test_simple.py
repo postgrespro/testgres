@@ -379,12 +379,11 @@ class TestgresTests(unittest.TestCase):
             while True:
                 try:
                     node.stop(wait=False)
-                except ExecUtilException:
-                    # it's ok to break here since node could be not
-                    # started yet
-                    continue
-                else:
                     break
+                except ExecUtilException:
+                    # it's ok to get this exception here since node
+                    # could be not started yet
+                    pass
 
     def test_replicate(self):
         with get_new_node() as node:
