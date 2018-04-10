@@ -570,7 +570,7 @@ class PostgresNode(object):
 
         Args:
             params: additional arguments for pg_ctl.
-            wait: wait until operation completes
+            wait: wait until operation completes.
 
         Returns:
             This instance of :class:`.PostgresNode`.
@@ -601,7 +601,7 @@ class PostgresNode(object):
 
         Args:
             params: additional arguments for pg_ctl.
-            wait: wait until operation completes
+            wait: wait until operation completes.
 
         Returns:
             This instance of :class:`.PostgresNode`.

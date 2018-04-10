@@ -376,7 +376,15 @@ class TestgresTests(unittest.TestCase):
     def test_pg_ctl_wait_option(self):
         with get_new_node() as node:
             node.init().start(wait=False)
-            node.stop(wait=False)
+            while True:
+                try:
+                    node.stop(wait=False)
+                except ExecUtilException:
+                    # it's ok to break here since node could be not
+                    # started yet
+                    continue
+                else:
+                    break
 
     def test_replicate(self):
         with get_new_node() as node:
