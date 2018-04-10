@@ -373,6 +373,11 @@ class TestgresTests(unittest.TestCase):
                     BackupException, msg='Invalid xlog_method "wrong"'):
                 node.backup(xlog_method='wrong')
 
+    def test_pg_ctl_wait_option(self):
+        with get_new_node() as node:
+            node.init().start(wait=False)
+            node.stop(wait=False)
+
     def test_replicate(self):
         with get_new_node() as node:
             node.init(allow_streaming=True).start()

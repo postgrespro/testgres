@@ -564,12 +564,13 @@ class PostgresNode(object):
 
         return out_dict
 
-    def start(self, params=[]):
+    def start(self, params=[], wait=True):
         """
         Start this node using pg_ctl.
 
         Args:
             params: additional arguments for pg_ctl.
+            wait: wait until operation completes
 
         Returns:
             This instance of :class:`.PostgresNode`.
@@ -579,7 +580,7 @@ class PostgresNode(object):
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-l", self.pg_log_file,
-            "-w",  # wait
+            "-w" if wait else '-W',  # --wait or --no-wait
             "start"
         ] + params  # yapf: disable
 
@@ -594,12 +595,13 @@ class PostgresNode(object):
 
         return self
 
-    def stop(self, params=[]):
+    def stop(self, params=[], wait=True):
         """
         Stop this node using pg_ctl.
 
         Args:
             params: additional arguments for pg_ctl.
+            wait: wait until operation completes
 
         Returns:
             This instance of :class:`.PostgresNode`.
@@ -608,7 +610,7 @@ class PostgresNode(object):
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
-            "-w",  # wait
+            "-w" if wait else '-W',  # --wait or --no-wait
             "stop"
         ] + params  # yapf: disable
 
