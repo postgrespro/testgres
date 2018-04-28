@@ -810,7 +810,7 @@ class PostgresNode(object):
              filename=None,
              dbname=None,
              username=None,
-             format=DumpFormat.Plain):
+             format=DumpFormat.Plain.value):
         """
         Dump database into a file using pg_dump.
         NOTE: the file is not removed automatically.
@@ -826,7 +826,7 @@ class PostgresNode(object):
         """
 
         def tmpfile():
-            if format == DumpFormat.Directory:
+            if format == DumpFormat.Directory.value:
                 fname = mkdtemp(prefix=TMP_DUMP)
             else:
                 fd, fname = mkstemp(prefix=TMP_DUMP)
