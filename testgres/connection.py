@@ -9,26 +9,17 @@ except ImportError:
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
-from enum import Enum
+from .enums import IsolationLevel
 
-from .exceptions import QueryException
-
-from .utils import \
+from .defaults import \
     default_dbname, \
     default_username
 
+from .exceptions import QueryException
 
 # export these exceptions
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
-
-
-class IsolationLevel(Enum):
-    """
-    Transaction isolation level for NodeConnection
-    """
-
-    ReadUncommitted, ReadCommitted, RepeatableRead, Serializable = range(4)
 
 
 class NodeConnection(object):
@@ -62,6 +53,10 @@ class NodeConnection(object):
         return self._connection
 
     @property
+    def pid(self):
+        return self.execute("select pg_catalog.pg_backend_pid()")[0][0]
+
+    @property
     def cursor(self):
         return self._cursor
 
@@ -72,39 +67,21 @@ class NodeConnection(object):
         self.close()
 
     def begin(self, isolation_level=IsolationLevel.ReadCommitted):
-        # yapf: disable
-        levels = [
-            'read uncommitted',
-            'read committed',
-            'repeatable read',
-            'serializable'
-        ]
-
-        # Check if level is an IsolationLevel
-        if (isinstance(isolation_level, IsolationLevel)):
-
-            # Get index of isolation level
-            level_idx = isolation_level.value
-            assert level_idx in range(4)
-
-            # Replace isolation level with its name
-            isolation_level = levels[level_idx]
-
-        else:
+        # Check if level isn't an IsolationLevel
+        if not isinstance(isolation_level, IsolationLevel):
             # Get name of isolation level
             level_str = str(isolation_level).lower()
 
             # Validate level string
-            if level_str not in levels:
+            try:
+                isolation_level = IsolationLevel(level_str)
+            except ValueError:
                 error = 'Invalid isolation level "{}"'
                 raise QueryException(error.format(level_str))
 
-            # Replace isolation level with its name
-            isolation_level = level_str
-
         # Set isolation level
         cmd = 'SET TRANSACTION ISOLATION LEVEL {}'
-        self.cursor.execute(cmd.format(isolation_level))
+        self.cursor.execute(cmd.format(isolation_level.value))
 
         return self
 

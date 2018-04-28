@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import os
+import re
 import subprocess
 import tempfile
 import testgres
@@ -11,7 +12,9 @@ import unittest
 import logging.config
 import shutil
 
+from contextlib import contextmanager
 from distutils.version import LooseVersion
+from shutil import rmtree
 
 from testgres import \
     InitNodeException, \
@@ -19,12 +22,14 @@ from testgres import \
     ExecUtilException, \
     BackupException, \
     QueryException, \
-    CatchUpException, \
-    TimeoutException
+    TimeoutException, \
+    TestgresException
 
 from testgres import \
     TestgresConfig, \
-    configure_testgres
+    configure_testgres, \
+    scoped_config, \
+    pop_config
 
 from testgres import \
     NodeStatus, \
@@ -36,28 +41,45 @@ from testgres import \
     get_pg_config
 
 from testgres import bound_ports
+from testgres.utils import pg_version_ge
+from testgres.enums import ProcessType
 
 
-def util_is_executable(util):
-    exe_file = get_bin_path(util)
+def util_exists(util):
+    def good_properties(f):
+        return (os.path.exists(f) and
+                os.path.isfile(f) and
+                os.access(f, os.X_OK))  # yapf: disable
 
-    # check if util exists
-    if os.path.exists(exe_file):
+    # try to resolve it
+    if good_properties(get_bin_path(util)):
         return True
 
     # check if util is in PATH
     for path in os.environ["PATH"].split(os.pathsep):
-        exe_file = os.path.join(path, util)
-        if os.path.exists(exe_file):
+        if good_properties(os.path.join(path, util)):
             return True
 
 
-class SimpleTest(unittest.TestCase):
+@contextmanager
+def removing(f):
+    try:
+        yield f
+    finally:
+        if os.path.isfile(f):
+            os.remove(f)
+
+
+class TestgresTests(unittest.TestCase):
+    def test_node_repr(self):
+        with get_new_node() as node:
+            pattern = 'PostgresNode\(name=\'.+\', port=.+, base_dir=\'.+\'\)'
+            self.assertIsNotNone(re.match(pattern, str(node)))
+
     def test_custom_init(self):
         with get_new_node() as node:
             # enable page checksums
             node.init(initdb_params=['-k']).start()
-            node.safe_psql('select 1')
 
         with get_new_node() as node:
             node.init(
@@ -76,27 +98,63 @@ class SimpleTest(unittest.TestCase):
 
     def test_double_init(self):
         with get_new_node().init() as node:
-
             # can't initialize node more than once
             with self.assertRaises(InitNodeException):
                 node.init()
 
     def test_init_after_cleanup(self):
         with get_new_node() as node:
-            node.init().start()
-            node.status()
-            node.safe_psql('select 1')
-
+            node.init().start().execute('select 1')
             node.cleanup()
+            node.init().start().execute('select 1')
 
-            node.init().start()
-            node.status()
-            node.safe_psql('select 1')
+    @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
+    @unittest.skipUnless(pg_version_ge('9.6'), 'query works on 9.6+')
+    def test_init_unique_system_id(self):
+        # this function exists in PostgreSQL 9.6+
+        query = 'select system_identifier from pg_control_system()'
+
+        with scoped_config(cache_initdb=False):
+            with get_new_node().init().start() as node0:
+                id0 = node0.execute(query)[0]
+
+        with scoped_config(
+                cache_initdb=True, cached_initdb_unique=True) as config:
+
+            self.assertTrue(config.cache_initdb)
+            self.assertTrue(config.cached_initdb_unique)
+
+            # spawn two nodes; ids must be different
+            with get_new_node().init().start() as node1, \
+                    get_new_node().init().start() as node2:
+
+                id1 = node1.execute(query)[0]
+                id2 = node2.execute(query)[0]
+
+                # ids must increase
+                self.assertGreater(id1, id0)
+                self.assertGreater(id2, id1)
+
+    def test_node_exit(self):
+        base_dir = None
+
+        with self.assertRaises(QueryException):
+            with get_new_node().init() as node:
+                base_dir = node.base_dir
+                node.safe_psql('select 1')
+
+        # we should save the DB for "debugging"
+        self.assertTrue(os.path.exists(base_dir))
+        rmtree(base_dir, ignore_errors=True)
+
+        with get_new_node().init() as node:
+            base_dir = node.base_dir
+
+        # should have been removed by default
+        self.assertFalse(os.path.exists(base_dir))
 
     def test_double_start(self):
-        with get_new_node() as node:
-            node.init().start()
-
+        with get_new_node().init().start() as node:
             # can't start node more than once
             with self.assertRaises(StartNodeException):
                 node.start()
@@ -129,7 +187,7 @@ class SimpleTest(unittest.TestCase):
 
             # change client_min_messages and save old value
             cmm_old = node.execute('show client_min_messages')
-            node.append_conf('postgresql.conf', 'client_min_messages = DEBUG1')
+            node.append_conf('client_min_messages = DEBUG1')
 
             # reload config
             node.reload()
@@ -147,38 +205,33 @@ class SimpleTest(unittest.TestCase):
             self.assertTrue('PID' in status)
 
     def test_status(self):
-        # check NodeStatus cast to bool
         self.assertTrue(NodeStatus.Running)
-
-        # check NodeStatus cast to bool
         self.assertFalse(NodeStatus.Stopped)
-
-        # check NodeStatus cast to bool
         self.assertFalse(NodeStatus.Uninitialized)
 
         # check statuses after each operation
         with get_new_node() as node:
-            self.assertEqual(node.get_pid(), 0)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
 
             node.init()
 
-            self.assertEqual(node.get_pid(), 0)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Stopped)
 
             node.start()
 
-            self.assertTrue(node.get_pid() > 0)
+            self.assertNotEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Running)
 
             node.stop()
 
-            self.assertEqual(node.get_pid(), 0)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Stopped)
 
             node.cleanup()
 
-            self.assertEqual(node.get_pid(), 0)
+            self.assertEqual(node.pid, 0)
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
 
     def test_psql(self):
@@ -280,8 +333,7 @@ class SimpleTest(unittest.TestCase):
             master.psql('create table test as select generate_series(1, 4) i')
 
             with master.backup(xlog_method='stream') as backup:
-                with backup.spawn_primary() as slave:
-                    slave.start()
+                with backup.spawn_primary().start() as slave:
                     res = slave.execute('select * from test order by i asc')
                     self.assertListEqual(res, [(1, ), (2, ), (3, ), (4, )])
 
@@ -307,36 +359,32 @@ class SimpleTest(unittest.TestCase):
             with node.backup(xlog_method='fetch') as backup:
 
                 # exhaust backup by creating new node
-                with backup.spawn_primary() as node1:    # noqa
+                with backup.spawn_primary():
                     pass
 
                 # now let's try to create one more node
                 with self.assertRaises(BackupException):
-                    with backup.spawn_primary() as node2:    # noqa
-                        pass
+                    backup.spawn_primary()
 
-    def test_backup_and_replication(self):
+    def test_backup_wrong_xlog_method(self):
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
-            node.psql('create table abc(a int, b int)')
-            node.psql('insert into abc values (1, 2)')
+            with self.assertRaises(
+                    BackupException, msg='Invalid xlog_method "wrong"'):
+                node.backup(xlog_method='wrong')
 
-            backup = node.backup()
-
-            with backup.spawn_replica().start() as replica:
-                res = replica.execute('select * from abc')
-                self.assertListEqual(res, [(1, 2)])
-
-                # Insert into master node
-                node.psql('insert into abc values (3, 4)')
-
-                # Wait until data syncronizes
-                replica.catchup()
-
-                # Check that this record was exported to replica
-                res = replica.execute('select * from abc')
-                self.assertListEqual(res, [(1, 2), (3, 4)])
+    def test_pg_ctl_wait_option(self):
+        with get_new_node() as node:
+            node.init().start(wait=False)
+            while True:
+                try:
+                    node.stop(wait=False)
+                    break
+                except ExecUtilException:
+                    # it's ok to get this exception here since node
+                    # could be not started yet
+                    pass
 
     def test_replicate(self):
         with get_new_node() as node:
@@ -353,12 +401,23 @@ class SimpleTest(unittest.TestCase):
                 res = node.execute('select * from test')
                 self.assertListEqual(res, [])
 
+    def test_replication_slots(self):
+        with get_new_node() as node:
+            node.init(allow_streaming=True).start()
+
+            with node.replicate(slot='slot1').start() as replica:
+                replica.execute('select 1')
+
+                # cannot create new slot with the same name
+                with self.assertRaises(TestgresException):
+                    node.replicate(slot='slot1')
+
     def test_incorrect_catchup(self):
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
             # node has no master, can't catch up
-            with self.assertRaises(CatchUpException):
+            with self.assertRaises(TestgresException):
                 node.catchup()
 
     def test_dump(self):
@@ -402,7 +461,7 @@ class SimpleTest(unittest.TestCase):
                 node5.restore(filename=dump)
                 res = node5.execute(query_select)
                 self.assertListEqual(res, [(1, ), (2, )])
-            shutil.rmtree(dump, ignore_errors=True)
+            rmtree(dump, ignore_errors=True)
 
             # take a new dump tar format
             dump = node1.dump(format='tar')
@@ -506,31 +565,32 @@ class SimpleTest(unittest.TestCase):
 
         logging.config.dictConfig(log_conf)
 
-        node_name = 'master'
-        with get_new_node(name=node_name, use_logging=True) as master:
-            master.init().start()
+        with scoped_config(use_python_logging=True):
+            node_name = 'master'
 
-            # execute a dummy query a few times
-            for i in range(20):
-                master.execute('select 1')
-                time.sleep(0.01)
+            with get_new_node(name=node_name) as master:
+                master.init().start()
 
-            # let logging worker do the job
-            time.sleep(0.1)
+                # execute a dummy query a few times
+                for i in range(20):
+                    master.execute('select 1')
+                    time.sleep(0.01)
 
-            # check that master's port is found
-            with open(logfile.name, 'r') as log:
-                lines = log.readlines()
-                self.assertTrue(any(node_name in s for s in lines))
+                # let logging worker do the job
+                time.sleep(0.1)
 
-            # test logger after stop/start/restart
-            master.stop()
-            master.start()
-            master.restart()
-            self.assertTrue(master._logger.is_alive())
+                # check that master's port is found
+                with open(logfile.name, 'r') as log:
+                    lines = log.readlines()
+                    self.assertTrue(any(node_name in s for s in lines))
 
-    @unittest.skipUnless(
-        util_is_executable("pgbench"), "pgbench may be missing")
+                # test logger after stop/start/restart
+                master.stop()
+                master.start()
+                master.restart()
+                self.assertTrue(master._logger.is_alive())
+
+    @unittest.skipUnless(util_exists('pgbench'), 'might be missing')
     def test_pgbench(self):
         with get_new_node().init().start() as node:
 
@@ -549,26 +609,63 @@ class SimpleTest(unittest.TestCase):
 
             self.assertTrue('tps' in out)
 
-    def test_config(self):
-        # set global if it wasn't set
-        configure_testgres(cache_initdb=True, cache_pg_config=True)
-
+    def test_pg_config(self):
         # check same instances
         a = get_pg_config()
         b = get_pg_config()
         self.assertEqual(id(a), id(b))
 
-        # modify setting
-        configure_testgres(cache_pg_config=False)
-        self.assertFalse(TestgresConfig.cache_pg_config)
+        # save right before config change
+        c1 = get_pg_config()
 
-        # check different instances
-        a = get_pg_config()
-        b = get_pg_config()
-        self.assertNotEqual(id(a), id(b))
+        # modify setting for this scope
+        with scoped_config(cache_pg_config=False) as config:
 
-        # restore setting
-        configure_testgres(cache_pg_config=True)
+            # sanity check for value
+            self.assertFalse(config.cache_pg_config)
+
+            # save right after config change
+            c2 = get_pg_config()
+
+            # check different instances after config change
+            self.assertNotEqual(id(c1), id(c2))
+
+            # check different instances
+            a = get_pg_config()
+            b = get_pg_config()
+            self.assertNotEqual(id(a), id(b))
+
+    def test_config_stack(self):
+        # no such option
+        with self.assertRaises(TypeError):
+            configure_testgres(dummy=True)
+
+        # we have only 1 config in stack
+        with self.assertRaises(IndexError):
+            pop_config()
+
+        d0 = TestgresConfig.cached_initdb_dir
+        d1 = 'dummy_abc'
+        d2 = 'dummy_def'
+
+        with scoped_config(cached_initdb_dir=d1) as c1:
+            self.assertEqual(c1.cached_initdb_dir, d1)
+
+            with scoped_config(cached_initdb_dir=d2) as c2:
+
+                stack_size = len(testgres.config.config_stack)
+
+                # try to break a stack
+                with self.assertRaises(TypeError):
+                    with scoped_config(dummy=True):
+                        pass
+
+                self.assertEqual(c2.cached_initdb_dir, d2)
+                self.assertEqual(len(testgres.config.config_stack), stack_size)
+
+            self.assertEqual(c1.cached_initdb_dir, d1)
+
+        self.assertEqual(TestgresConfig.cached_initdb_dir, d0)
 
     def test_unix_sockets(self):
         with get_new_node() as node:
@@ -591,8 +688,6 @@ class SimpleTest(unittest.TestCase):
                 self.assertTrue(r.status())
 
                 # check their names
-                self.assertIsNotNone(m.name)
-                self.assertIsNotNone(r.name)
                 self.assertNotEqual(m.name, r.name)
                 self.assertTrue('testgres' in m.name)
                 self.assertTrue('testgres' in r.name)
@@ -605,7 +700,9 @@ class SimpleTest(unittest.TestCase):
         s3 = "def\n"
 
         with tempfile.NamedTemporaryFile(mode='r+', delete=True) as f:
-            for i in range(1, 5000):
+            sz = 0
+            while sz < 3 * 8192:
+                sz += len(s1)
                 f.write(s1)
             f.write(s2)
             f.write(s3)
@@ -655,6 +752,11 @@ class SimpleTest(unittest.TestCase):
         # check that port has been freed successfully
         self.assertEqual(len(bound_ports), 0)
 
+    def test_exceptions(self):
+        str(StartNodeException('msg', [('file', 'lines')]))
+        str(ExecUtilException('msg', 'cmd', 1, 'out'))
+        str(QueryException('msg', 'query'))
+
     def test_version_management(self):
         a = LooseVersion('10.0')
         b = LooseVersion('10')
@@ -664,6 +766,75 @@ class SimpleTest(unittest.TestCase):
         self.assertTrue(b > c)
         self.assertTrue(a > c)
 
+    def test_child_pids(self):
+        master_processes = [
+            ProcessType.AutovacuumLauncher,
+            ProcessType.BackgroundWriter,
+            ProcessType.Checkpointer,
+            ProcessType.StatsCollector,
+            ProcessType.WalSender,
+            ProcessType.WalWriter,
+        ]
+
+        if pg_version_ge('10'):
+            master_processes.append(ProcessType.LogicalReplicationLauncher)
+
+        repl_processes = [
+            ProcessType.Startup,
+            ProcessType.WalReceiver,
+        ]
+
+        with get_new_node().init().start() as master:
+
+            # master node doesn't have a source walsender!
+            with self.assertRaises(TestgresException):
+                master.source_walsender
+
+            with master.connect() as con:
+                self.assertGreater(con.pid, 0)
+
+            with master.replicate().start() as replica:
+
+                # test __str__ method
+                str(master.child_processes[0])
+
+                master_pids = master.auxiliary_pids
+                for ptype in master_processes:
+                    self.assertIn(ptype, master_pids)
+
+                replica_pids = replica.auxiliary_pids
+                for ptype in repl_processes:
+                    self.assertIn(ptype, replica_pids)
+
+                # there should be exactly 1 source walsender for replica
+                self.assertEqual(len(master_pids[ProcessType.WalSender]), 1)
+                pid1 = master_pids[ProcessType.WalSender][0]
+                pid2 = replica.source_walsender.pid
+                self.assertEqual(pid1, pid2)
+
+                replica.stop()
+
+                # there should be no walsender after we've stopped replica
+                with self.assertRaises(TestgresException):
+                    replica.source_walsender
+
 
 if __name__ == '__main__':
-    unittest.main()
+    if os.environ.get('ALT_CONFIG'):
+        suite = unittest.TestSuite()
+
+        # Small subset of tests for alternative configs (PG_BIN or PG_CONFIG)
+        suite.addTest(TestgresTests('test_pg_config'))
+        suite.addTest(TestgresTests('test_pg_ctl'))
+        suite.addTest(TestgresTests('test_psql'))
+        suite.addTest(TestgresTests('test_replicate'))
+
+        print('Running tests for alternative config:')
+        for t in suite:
+            print(t)
+        print()
+
+        runner = unittest.TextTestRunner()
+        runner.run(suite)
+    else:
+        unittest.main()

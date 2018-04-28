@@ -1,23 +1,28 @@
 # coding: utf-8
 
 import os
-import shutil
-import tempfile
 
+from shutil import rmtree, copytree
 from six import raise_from
+from tempfile import mkdtemp
+
+from .enums import XLogMethod
 
 from .consts import \
     DATA_DIR, \
+    TMP_NODE, \
+    TMP_BACKUP, \
     PG_CONF_FILE, \
-    BACKUP_LOG_FILE, \
-    DEFAULT_XLOG_METHOD
+    BACKUP_LOG_FILE
+
+from .defaults import default_username
 
 from .exceptions import BackupException
 
 from .utils import \
     get_bin_path, \
-    default_username, \
-    execute_utility
+    execute_utility, \
+    clean_on_error
 
 
 class NodeBackup(object):
@@ -33,12 +38,12 @@ class NodeBackup(object):
                  node,
                  base_dir=None,
                  username=None,
-                 xlog_method=DEFAULT_XLOG_METHOD):
+                 xlog_method=XLogMethod.fetch):
         """
         Create a new backup.
 
         Args:
-            node: PostgresNode we're going to backup.
+            node: :class:`.PostgresNode` we're going to backup.
             base_dir: where should we store it?
             username: database user name.
             xlog_method: none | fetch | stream (see docs)
@@ -47,9 +52,17 @@ class NodeBackup(object):
         if not node.status():
             raise BackupException('Node must be running')
 
+        # Check arguments
+        if not isinstance(xlog_method, XLogMethod):
+            try:
+                xlog_method = XLogMethod(xlog_method)
+            except ValueError:
+                msg = 'Invalid xlog_method "{}"'.format(xlog_method)
+                raise BackupException(msg)
+
         # Set default arguments
         username = username or default_username()
-        base_dir = base_dir or tempfile.mkdtemp()
+        base_dir = base_dir or mkdtemp(prefix=TMP_BACKUP)
 
         # public
         self.original_node = node
@@ -61,15 +74,14 @@ class NodeBackup(object):
 
         data_dir = os.path.join(self.base_dir, DATA_DIR)
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_basebackup"),
             "-p", str(node.port),
             "-h", node.host,
             "-U", username,
             "-D", data_dir,
-            "-X", xlog_method
-        ]
+            "-X", xlog_method.value
+        ]  # yapf: disable
         execute_utility(_params, self.log_file)
 
     def __enter__(self):
@@ -96,14 +108,14 @@ class NodeBackup(object):
         available = not destroy
 
         if available:
-            dest_base_dir = tempfile.mkdtemp()
+            dest_base_dir = mkdtemp(prefix=TMP_NODE)
 
             data1 = os.path.join(self.base_dir, DATA_DIR)
             data2 = os.path.join(dest_base_dir, DATA_DIR)
 
             try:
                 # Copy backup to new data dir
-                shutil.copytree(data1, data2)
+                copytree(data1, data2)
             except Exception as e:
                 raise_from(BackupException('Failed to copy files'), e)
         else:
@@ -115,17 +127,16 @@ class NodeBackup(object):
         # Return path to new node
         return dest_base_dir
 
-    def spawn_primary(self, name=None, destroy=True, use_logging=False):
+    def spawn_primary(self, name=None, destroy=True):
         """
         Create a primary node from a backup.
 
         Args:
             name: primary's application name.
             destroy: should we convert this backup into a node?
-            use_logging: enable python logging.
 
         Returns:
-            New instance of PostgresNode.
+            New instance of :class:`.PostgresNode`.
         """
 
         # Prepare a data directory for this node
@@ -133,43 +144,45 @@ class NodeBackup(object):
 
         # Build a new PostgresNode
         from .node import PostgresNode
-        node = PostgresNode(name=name,
-                            base_dir=base_dir,
-                            use_logging=use_logging)
+        with clean_on_error(PostgresNode(name=name, base_dir=base_dir)) as node:
 
-        # New nodes should always remove dir tree
-        node._should_rm_dirs = True
+            # New nodes should always remove dir tree
+            node._should_rm_dirs = True
 
-        node.append_conf(PG_CONF_FILE, "\n")
-        node.append_conf(PG_CONF_FILE, "port = {}".format(node.port))
+            node.append_conf(PG_CONF_FILE, "\n")
+            node.append_conf(PG_CONF_FILE, "port = {}".format(node.port))
 
-        return node
+            return node
 
-    def spawn_replica(self, name=None, destroy=True, use_logging=False):
+    def spawn_replica(self, name=None, destroy=True, slot=None):
         """
         Create a replica of the original node from a backup.
 
         Args:
             name: replica's application name.
+            slot: create a replication slot with the specified name.
             destroy: should we convert this backup into a node?
-            use_logging: enable python logging.
 
         Returns:
-            New instance of PostgresNode.
+            New instance of :class:`.PostgresNode`.
         """
 
         # Build a new PostgresNode
-        node = self.spawn_primary(name=name,
-                                  destroy=destroy,
-                                  use_logging=use_logging)
+        with clean_on_error(self.spawn_primary(name=name,
+                                               destroy=destroy)) as node:
 
-        # Assign it a master and a recovery file (private magic)
-        node._assign_master(self.original_node)
-        node._create_recovery_conf(username=self.username)
+            # Assign it a master and a recovery file (private magic)
+            node._assign_master(self.original_node)
+            node._create_recovery_conf(username=self.username, slot=slot)
 
-        return node
+            return node
 
     def cleanup(self):
+        """
+        Remove all files that belong to this backup.
+        No-op if it's been converted to a PostgresNode (destroy=True).
+        """
+
         if self._available:
-            shutil.rmtree(self.base_dir, ignore_errors=True)
             self._available = False
+            rmtree(self.base_dir, ignore_errors=True)

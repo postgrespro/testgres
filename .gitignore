@@ -1,11 +1,13 @@
 *.pyc
 *.egg
 *.egg-info/
-dist
+.eggs/
+dist/
+build/
+docs/build/
 
 env/
 venv/
-build/
 
 .coverage
 coverage.xml

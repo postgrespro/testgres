@@ -1,13 +1,16 @@
 # coding: utf-8
 
-import atexit
+import io
 import os
-import shutil
-import tempfile
 
+from shutil import copytree
 from six import raise_from
 
-from .config import TestgresConfig
+from .config import testgres_config
+
+from .consts import XLOG_CONTROL_FILE
+
+from .defaults import generate_system_id
 
 from .exceptions import \
     InitNodeException, \
@@ -18,44 +21,49 @@ from .utils import \
     execute_utility
 
 
-def cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
+def cached_initdb(data_dir, logfile=None, params=None):
     """
     Perform initdb or use cached node files.
     """
 
-    def call_initdb(initdb_dir):
+    def call_initdb(initdb_dir, log=None):
         try:
             _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
-            execute_utility(_params + initdb_params, initdb_logfile)
+            execute_utility(_params + (params or []), log)
         except ExecUtilException as e:
             raise_from(InitNodeException("Failed to run initdb"), e)
 
-    def rm_cached_data_dir(cached_data_dir):
-        shutil.rmtree(cached_data_dir, ignore_errors=True)
-
-    # Call initdb if we have custom params or shouldn't cache it
-    if initdb_params or not TestgresConfig.cache_initdb:
-        call_initdb(data_dir)
+    if params or not testgres_config.cache_initdb:
+        call_initdb(data_dir, logfile)
     else:
-        # Set default temp dir for cached initdb
-        if TestgresConfig.cached_initdb_dir is None:
-
-            # Create default temp dir
-            TestgresConfig.cached_initdb_dir = tempfile.mkdtemp()
-
-            # Schedule cleanup
-            atexit.register(rm_cached_data_dir,
-                            TestgresConfig.cached_initdb_dir)
-
         # Fetch cached initdb dir
-        cached_data_dir = TestgresConfig.cached_initdb_dir
+        cached_data_dir = testgres_config.cached_initdb_dir
 
         # Initialize cached initdb
-        if not os.listdir(cached_data_dir):
+        if not os.path.exists(cached_data_dir) or \
+           not os.listdir(cached_data_dir):
             call_initdb(cached_data_dir)
 
         try:
             # Copy cached initdb to current data dir
-            shutil.copytree(cached_data_dir, data_dir)
+            copytree(cached_data_dir, data_dir)
+
+            # Assign this node a unique system id if asked to
+            if testgres_config.cached_initdb_unique:
+                # XXX: write new unique system id to control file
+                # Some users might rely upon unique system ids, but
+                # our initdb caching mechanism breaks this contract.
+                pg_control = os.path.join(data_dir, XLOG_CONTROL_FILE)
+                with io.open(pg_control, "r+b") as f:
+                    f.write(generate_system_id())    # overwrite id
+
+                # XXX: build new WAL segment with our system id
+                _params = [get_bin_path("pg_resetwal"), "-D", data_dir, "-f"]
+                execute_utility(_params, logfile)
+
+        except ExecUtilException as e:
+            msg = "Failed to reset WAL for system id"
+            raise_from(InitNodeException(msg), e)
+
         except Exception as e:
-            raise_from(InitNodeException("Failed to copy files"), e)
+            raise_from(InitNodeException("Failed to spawn a node"), e)

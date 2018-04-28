@@ -2,18 +2,19 @@
 
 import io
 import os
-import shutil
-import six
+import psutil
 import subprocess
-import tempfile
 import time
 
-from enum import Enum
-from six import raise_from
+from shutil import rmtree
+from six import raise_from, iteritems
+from tempfile import mkstemp, mkdtemp
+
+from .enums import NodeStatus, ProcessType
 
 from .cache import cached_initdb
 
-from .config import TestgresConfig
+from .config import testgres_config
 
 from .connection import \
     NodeConnection, \
@@ -23,110 +24,266 @@ from .connection import \
 from .consts import \
     DATA_DIR, \
     LOGS_DIR, \
+    TMP_NODE, \
+    TMP_DUMP, \
     PG_CONF_FILE, \
+    PG_AUTO_CONF_FILE, \
     HBA_CONF_FILE, \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
     UTILS_LOG_FILE, \
-    DEFAULT_XLOG_METHOD, \
     DEFAULT_DUMP_FORMAT, \
-    DUMP_DIRECTORY
+    DUMP_DIRECTORY, \
+    PG_PID_FILE
+
+from .consts import \
+    MAX_WAL_SENDERS, \
+    MAX_REPLICATION_SLOTS, \
+    WAL_KEEP_SEGMENTS
+
+from .decorators import \
+    method_decorator, \
+    positional_args_hack
+
+from .defaults import \
+    default_dbname, \
+    default_username, \
+    generate_app_name
 
 from .exceptions import \
     CatchUpException,   \
     ExecUtilException,  \
     QueryException,     \
     StartNodeException, \
-    TimeoutException
+    TimeoutException,   \
+    TestgresException
 
 from .logger import TestgresLogger
 
 from .utils import \
+    eprint, \
     get_bin_path, \
     file_tail, \
     pg_version_ge, \
     reserve_port, \
     release_port, \
-    default_dbname, \
-    default_username, \
-    generate_app_name, \
     execute_utility, \
-    method_decorator, \
-    positional_args_hack
+    clean_on_error
+
+from .backup import NodeBackup
 
 
-class NodeStatus(Enum):
+class ProcessProxy(object):
     """
-    Status of a PostgresNode
+    Wrapper for psutil.Process
+
+    Attributes:
+        process: wrapped psutill.Process object
+        ptype: instance of ProcessType
     """
 
-    Running, Stopped, Uninitialized = range(3)
+    def __init__(self, process, ptype=None):
+        self.process = process
+        self.ptype = ptype or ProcessType.from_process(process)
 
-    # for Python 3.x
-    def __bool__(self):
-        return self.value == NodeStatus.Running.value
+    def __getattr__(self, name):
+        return getattr(self.process, name)
 
-    # for Python 2.x
-    __nonzero__ = __bool__
+    def __repr__(self):
+        return '{}(ptype={}, process={})'.format(self.__class__.__name__,
+                                                 str(self.ptype),
+                                                 repr(self.process))
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, port=None, base_dir=None, use_logging=False):
+    def __init__(self, name=None, port=None, base_dir=None):
         """
-        Create a new node manually.
+        PostgresNode constructor.
 
         Args:
             name: node's application name.
             port: port to accept connections.
             base_dir: path to node's data directory.
-            use_logging: enable python logging.
         """
 
-        # public
-        self.host = '127.0.0.1'
-        self.name = name or generate_app_name()
-        self.port = port or reserve_port()
-        self.base_dir = base_dir
-
         # private
-        self._should_rm_dirs = base_dir is None
         self._should_free_port = port is None
-        self._use_logging = use_logging
+        self._base_dir = base_dir
         self._logger = None
         self._master = None
 
-        # create directories if needed
-        self._prepare_dirs()
+        # basic
+        self.host = '127.0.0.1'
+        self.name = name or generate_app_name()
+        self.port = port or reserve_port()
+
+        # defaults for __exit__()
+        self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
+        self.cleanup_on_bad_exit = testgres_config.node_cleanup_on_bad_exit
+        self.shutdown_max_attempts = 3
+
+        # NOTE: for compatibility
+        self.utils_log_name = self.utils_log_file
+        self.pg_log_name = self.pg_log_file
 
     def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
-        # stop node if necessary
-        self.cleanup()
-
-        # free port if necessary
         self.free_port()
+
+        # NOTE: Ctrl+C does not count!
+        got_exception = type is not None and type != KeyboardInterrupt
+
+        c1 = self.cleanup_on_good_exit and not got_exception
+        c2 = self.cleanup_on_bad_exit and got_exception
+
+        attempts = self.shutdown_max_attempts
+
+        if c1 or c2:
+            self.cleanup(attempts)
+        else:
+            self._try_shutdown(attempts)
+
+    def __repr__(self):
+        return "{}(name='{}', port={}, base_dir='{}')".format(
+            self.__class__.__name__, self.name, self.port, self.base_dir)
+
+    @property
+    def pid(self):
+        """
+        Return postmaster's PID if node is running, else 0.
+        """
+
+        if self.status():
+            pid_file = os.path.join(self.data_dir, PG_PID_FILE)
+            with io.open(pid_file) as f:
+                return int(f.readline())
+
+        # for clarity
+        return 0
+
+    @property
+    def auxiliary_pids(self):
+        """
+        Returns a dict of { ProcessType : PID }.
+        """
+
+        result = {}
+
+        for process in self.auxiliary_processes:
+            if process.ptype not in result:
+                result[process.ptype] = []
+
+            result[process.ptype].append(process.pid)
+
+        return result
+
+    @property
+    def auxiliary_processes(self):
+        """
+        Returns a list of auxiliary processes.
+        Each process is represented by :class:`.ProcessProxy` object.
+        """
+
+        def is_aux(process):
+            return process.ptype != ProcessType.Unknown
+
+        return list(filter(is_aux, self.child_processes))
+
+    @property
+    def child_processes(self):
+        """
+        Returns a list of all child processes.
+        Each process is represented by :class:`.ProcessProxy` object.
+        """
+
+        # get a list of postmaster's children
+        children = psutil.Process(self.pid).children()
+
+        return [ProcessProxy(p) for p in children]
+
+    @property
+    def source_walsender(self):
+        """
+        Returns master's walsender feeding this replica.
+        """
+
+        sql = """
+            select pid
+            from pg_catalog.pg_stat_replication
+            where application_name = %s
+        """
+
+        if not self.master:
+            raise TestgresException("Node doesn't have a master")
+
+        # master should be on the same host
+        assert self.master.host == self.host
+
+        with self.master.connect() as con:
+            for row in con.execute(sql, self.name):
+                for child in self.master.auxiliary_processes:
+                    if child.pid == int(row[0]):
+                        return child
+
+        msg = "Master doesn't send WAL to {}".format(self.name)
+        raise TestgresException(msg)
 
     @property
     def master(self):
         return self._master
 
     @property
-    def data_dir(self):
-        return os.path.join(self.base_dir, DATA_DIR)
+    def base_dir(self):
+        if not self._base_dir:
+            self._base_dir = mkdtemp(prefix=TMP_NODE)
+
+        # NOTE: it's safe to create a new dir
+        if not os.path.exists(self._base_dir):
+            os.makedirs(self._base_dir)
+
+        return self._base_dir
 
     @property
     def logs_dir(self):
-        return os.path.join(self.base_dir, LOGS_DIR)
+        path = os.path.join(self.base_dir, LOGS_DIR)
+
+        # NOTE: it's safe to create a new dir
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        return path
 
     @property
-    def utils_log_name(self):
+    def data_dir(self):
+        # NOTE: we can't run initdb without user's args
+        return os.path.join(self.base_dir, DATA_DIR)
+
+    @property
+    def utils_log_file(self):
         return os.path.join(self.logs_dir, UTILS_LOG_FILE)
 
     @property
-    def pg_log_name(self):
+    def pg_log_file(self):
         return os.path.join(self.logs_dir, PG_LOG_FILE)
+
+    def _try_shutdown(self, max_attempts):
+        attempts = 0
+
+        # try stopping server N times
+        while attempts < max_attempts:
+            try:
+                self.stop()
+                break    # OK
+            except ExecUtilException:
+                pass    # one more time
+            except Exception:
+                # TODO: probably should kill stray instance
+                eprint('cannot stop node {}'.format(self.name))
+                break
+
+            attempts += 1
 
     def _assign_master(self, master):
         """NOTE: this is a private method!"""
@@ -134,19 +291,18 @@ class PostgresNode(object):
         # now this node has a master
         self._master = master
 
-    def _create_recovery_conf(self, username):
+    def _create_recovery_conf(self, username, slot=None):
         """NOTE: this is a private method!"""
 
         # fetch master of this node
         master = self.master
         assert master is not None
 
-        # yapf: disable
         conninfo = (
             u"application_name={} "
             u"port={} "
             u"user={} "
-        ).format(master.name, master.port, username)
+        ).format(self.name, master.port, username)  # yapf: disable
 
         # host is tricky
         try:
@@ -156,58 +312,57 @@ class PostgresNode(object):
         except ValueError:
             conninfo += u"host={}".format(master.host)
 
-        # yapf: disable
         line = (
             "primary_conninfo='{}'\n"
             "standby_mode=on\n"
-        ).format(conninfo)
+        ).format(conninfo)  # yapf: disable
+
+        if slot:
+            # Connect to master for some additional actions
+            with master.connect(username=username) as con:
+                # check if slot already exists
+                res = con.execute("""
+                    select exists (
+                        select from pg_catalog.pg_replication_slots
+                        where slot_name = %s
+                    )
+                """, slot)
+
+                if res[0][0]:
+                    raise TestgresException(
+                        "Slot '{}' already exists".format(slot))
+
+                # TODO: we should drop this slot after replica's cleanup()
+                con.execute("""
+                    select pg_catalog.pg_create_physical_replication_slot(%s)
+                """, slot)
+
+            line += "primary_slot_name={}\n".format(slot)
 
         self.append_conf(RECOVERY_CONF_FILE, line)
 
-    def _prepare_dirs(self):
-        """NOTE: this is a private method!"""
-
-        if not self.base_dir:
-            self.base_dir = tempfile.mkdtemp()
-
-        if not os.path.exists(self.base_dir):
-            os.makedirs(self.base_dir)
-
-        if not os.path.exists(self.logs_dir):
-            os.makedirs(self.logs_dir)
-
     def _maybe_start_logger(self):
-        """NOTE: this is a private method!"""
-
-        if self._use_logging:
-            # spawn new logger if it doesn't exist or stopped
+        if testgres_config.use_python_logging:
+            # spawn new logger if it doesn't exist or is stopped
             if not self._logger or not self._logger.is_alive():
-                self._logger = TestgresLogger(self.name, self.pg_log_name)
+                self._logger = TestgresLogger(self.name, self.pg_log_file)
                 self._logger.start()
 
     def _maybe_stop_logger(self):
-        """NOTE: this is a private method!"""
-
         if self._logger:
             self._logger.stop()
 
-    def _format_verbose_error(self, message=None):
-        """NOTE: this is a private method!"""
+    def _collect_special_files(self):
+        result = []
 
-        # list of important files + N of last lines
+        # list of important files + last N lines
         files = [
             (os.path.join(self.data_dir, PG_CONF_FILE), 0),
-            (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
+            (os.path.join(self.data_dir, PG_AUTO_CONF_FILE), 0),
             (os.path.join(self.data_dir, RECOVERY_CONF_FILE), 0),
-            (self.pg_log_name, TestgresConfig.error_log_lines)
-        ]
-
-        error_text = ""
-
-        # append message if asked to
-        if message:
-            error_text += message
-            error_text += '\n' * 2
+            (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
+            (self.pg_log_file, testgres_config.error_log_lines)
+        ]  # yapf: disable
 
         for f, num_lines in files:
             # skip missing files
@@ -222,40 +377,33 @@ class PostgresNode(object):
                     # read whole file
                     lines = _f.read().decode('utf-8')
 
-                # append contents
-                error_text += u"{}:\n----\n{}\n".format(f, lines)
+                # fill list
+                result.append((f, lines))
 
-        return error_text
+        return result
 
-    def init(self,
-             fsync=False,
-             unix_sockets=True,
-             allow_streaming=False,
-             initdb_params=[]):
+    def init(self, initdb_params=None, **kwargs):
         """
         Perform initdb for this node.
 
         Args:
+            initdb_params: parameters for initdb (list).
             fsync: should this node use fsync to keep data safe?
             unix_sockets: should we enable UNIX sockets?
             allow_streaming: should this node add a hba entry for replication?
-            initdb_params: parameters for initdb (list).
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`
         """
 
-        # create directories if needed
-        self._prepare_dirs()
-
         # initialize this PostgreSQL node
-        initdb_log = os.path.join(self.logs_dir, "initdb.log")
-        cached_initdb(self.data_dir, initdb_log, initdb_params)
+        cached_initdb(
+            data_dir=self.data_dir,
+            logfile=self.utils_log_file,
+            params=initdb_params)
 
         # initialize default config files
-        self.default_conf(fsync=fsync,
-                          unix_sockets=unix_sockets,
-                          allow_streaming=allow_streaming)
+        self.default_conf(**kwargs)
 
         return self
 
@@ -274,7 +422,7 @@ class PostgresNode(object):
             log_statement: one of ('all', 'off', 'mod', 'ddl').
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         postgres_conf = os.path.join(self.data_dir, PG_CONF_FILE)
@@ -304,12 +452,11 @@ class PostgresNode(object):
                 auth_local = get_auth_method('local')
                 auth_host = get_auth_method('host')
 
-                # yapf: disable
                 new_lines = [
                     u"local\treplication\tall\t\t\t{}\n".format(auth_local),
                     u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
                     u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
-                ]
+                ]  # yapf: disable
 
                 # write missing lines
                 for line in new_lines:
@@ -324,12 +471,11 @@ class PostgresNode(object):
             if not fsync:
                 conf.write(u"fsync = off\n")
 
-            # yapf: disable
             conf.write(u"log_statement = {}\n"
                        u"listen_addresses = '{}'\n"
                        u"port = {}\n".format(log_statement,
                                              self.host,
-                                             self.port))
+                                             self.port))  # yapf: disable
 
             # replication-related settings
             if allow_streaming:
@@ -340,15 +486,14 @@ class PostgresNode(object):
                 else:
                     wal_level = "hot_standby"
 
-                # yapf: disable
-                max_wal_senders = 10    # default in PG 10
-                wal_keep_segments = 20  # for convenience
                 conf.write(u"hot_standby = on\n"
                            u"max_wal_senders = {}\n"
+                           u"max_replication_slots = {}\n"
                            u"wal_keep_segments = {}\n"
-                           u"wal_level = {}\n".format(max_wal_senders,
-                                                      wal_keep_segments,
-                                                      wal_level))
+                           u"wal_level = {}\n".format(MAX_WAL_SENDERS,
+                                                      MAX_REPLICATION_SLOTS,
+                                                      WAL_KEEP_SEGMENTS,
+                                                      wal_level))  # yapf: disable
 
             # disable UNIX sockets if asked to
             if not unix_sockets:
@@ -356,21 +501,22 @@ class PostgresNode(object):
 
         return self
 
-    def append_conf(self, filename, string):
+    @method_decorator(positional_args_hack(['filename', 'line']))
+    def append_conf(self, line, filename=PG_CONF_FILE):
         """
-        Append line to a config file (i.e. postgresql.conf).
+        Append line to a config file.
 
         Args:
-            filename: name of the config file.
-            string: string to be appended to config.
+            line: string to be appended to config.
+            filename: config file (postgresql.conf by default).
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         config_name = os.path.join(self.data_dir, filename)
-        with io.open(config_name, "a") as conf:
-            conf.write(u"".join([string, '\n']))
+        with io.open(config_name, 'a') as conf:
+            conf.write(u''.join([line, '\n']))
 
         return self
 
@@ -379,17 +525,16 @@ class PostgresNode(object):
         Check this node's status.
 
         Returns:
-            An instance of NodeStatus.
+            An instance of :class:`.NodeStatus`.
         """
 
         try:
-            # yapf: disable
             _params = [
                 get_bin_path("pg_ctl"),
                 "-D", self.data_dir,
                 "status"
-            ]
-            execute_utility(_params, self.utils_log_name)
+            ]  # yapf: disable
+            execute_utility(_params, self.utils_log_file)
             return NodeStatus.Running
 
         except ExecUtilException as e:
@@ -401,18 +546,6 @@ class PostgresNode(object):
             elif e.exit_code == 4:
                 return NodeStatus.Uninitialized
 
-    def get_pid(self):
-        """
-        Return postmaster's pid if node is running, else 0.
-        """
-
-        if self.status():
-            with io.open(os.path.join(self.data_dir, 'postmaster.pid')) as f:
-                return int(f.readline())
-
-        # for clarity
-        return 0
-
     def get_control_data(self):
         """
         Return contents of pg_control file.
@@ -423,7 +556,7 @@ class PostgresNode(object):
         _params += ["-D"] if pg_version_ge('9.5') else []
         _params += [self.data_dir]
 
-        data = execute_utility(_params, self.utils_log_name)
+        data = execute_utility(_params, self.utils_log_file)
 
         out_dict = {}
 
@@ -433,56 +566,57 @@ class PostgresNode(object):
 
         return out_dict
 
-    def start(self, params=[]):
+    def start(self, params=[], wait=True):
         """
         Start this node using pg_ctl.
 
         Args:
             params: additional arguments for pg_ctl.
+            wait: wait until operation completes.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
-            "-l", self.pg_log_name,
-            "-w",  # wait
+            "-l", self.pg_log_file,
+            "-w" if wait else '-W',  # --wait or --no-wait
             "start"
-        ] + params
+        ] + params  # yapf: disable
 
         try:
-            execute_utility(_params, self.utils_log_name)
+            execute_utility(_params, self.utils_log_file)
         except ExecUtilException as e:
-            msg = self._format_verbose_error('Cannot start node')
-            raise_from(StartNodeException(msg), e)
+            msg = 'Cannot start node'
+            files = self._collect_special_files()
+            raise_from(StartNodeException(msg, files), e)
 
         self._maybe_start_logger()
 
         return self
 
-    def stop(self, params=[]):
+    def stop(self, params=[], wait=True):
         """
         Stop this node using pg_ctl.
 
         Args:
             params: additional arguments for pg_ctl.
+            wait: wait until operation completes.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
-            "-w",  # wait
+            "-w" if wait else '-W',  # --wait or --no-wait
             "stop"
-        ] + params
+        ] + params  # yapf: disable
 
-        execute_utility(_params, self.utils_log_name)
+        execute_utility(_params, self.utils_log_file)
 
         self._maybe_stop_logger()
 
@@ -496,23 +630,23 @@ class PostgresNode(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
-            "-l", self.pg_log_name,
+            "-l", self.pg_log_file,
             "-w",  # wait
             "restart"
-        ] + params
+        ] + params  # yapf: disable
 
         try:
-            execute_utility(_params, self.utils_log_name)
+            execute_utility(_params, self.utils_log_file)
         except ExecUtilException as e:
-            msg = self._format_verbose_error('Cannot restart node')
-            raise_from(StartNodeException(msg), e)
+            msg = 'Cannot restart node'
+            files = self._collect_special_files()
+            raise_from(StartNodeException(msg, files), e)
 
         self._maybe_start_logger()
 
@@ -526,18 +660,19 @@ class PostgresNode(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-w",  # wait
             "reload"
-        ] + params
+        ] + params  # yapf: disable
 
-        execute_utility(_params, self.utils_log_name)
+        execute_utility(_params, self.utils_log_file)
+
+        return self
 
     def pg_ctl(self, params):
         """
@@ -550,62 +685,49 @@ class PostgresNode(object):
             Stdout + stderr of pg_ctl.
         """
 
-        # yapf: disable
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-w"  # wait
-        ] + params
+        ] + params  # yapf: disable
 
-        return execute_utility(_params, self.utils_log_name)
+        return execute_utility(_params, self.utils_log_file)
 
     def free_port(self):
         """
         Reclaim port owned by this node.
+        NOTE: does not free auto selected ports.
         """
 
         if self._should_free_port:
+            self._should_free_port = False
             release_port(self.port)
 
     def cleanup(self, max_attempts=3):
         """
-        Stop node if needed and remove its data directory.
+        Stop node if needed and remove its data/logs directory.
+        NOTE: take a look at TestgresConfig.node_cleanup_full.
 
         Args:
             max_attempts: how many times should we try to stop()?
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
-        attempts = 0
+        self._try_shutdown(max_attempts)
 
-        # try stopping server
-        while attempts < max_attempts:
-            try:
-                self.stop()
-                break    # OK
-            except ExecUtilException:
-                pass     # one more time
-            except Exception:
-                print('cannot stop node {}'.format(self.name))
+        # choose directory to be removed
+        if testgres_config.node_cleanup_full:
+            rm_dir = self.base_dir    # everything
+        else:
+            rm_dir = self.data_dir    # just data, save logs
 
-            attempts += 1
-
-        # remove directory tree if necessary
-        if self._should_rm_dirs:
-
-            # choose directory to be removed
-            if TestgresConfig.node_cleanup_full:
-                rm_dir = self.base_dir    # everything
-            else:
-                rm_dir = self.data_dir    # just data, save logs
-
-            shutil.rmtree(rm_dir, ignore_errors=True)
+        rmtree(rm_dir, ignore_errors=True)
 
         return self
 
-    @method_decorator(positional_args_hack(['query'], ['dbname', 'query']))
+    @method_decorator(positional_args_hack(['dbname', 'query']))
     def psql(self,
              query=None,
              filename=None,
@@ -630,7 +752,6 @@ class PostgresNode(object):
         dbname = dbname or default_dbname()
         username = username or default_username()
 
-        # yapf: disable
         psql_params = [
             get_bin_path("psql"),
             "-p", str(self.port),
@@ -641,7 +762,7 @@ class PostgresNode(object):
             "-t",  # print rows only
             "-q",  # run quietly
             dbname
-        ]
+        ]  # yapf: disable
 
         # select query source
         if query:
@@ -663,16 +784,13 @@ class PostgresNode(object):
         return process.returncode, out, err
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
-    def safe_psql(self,
-                  query,
-                  dbname=None,
-                  username=None,
-                  input=None):
+    def safe_psql(self, query=None, **kwargs):
         """
         Execute a query using psql.
 
         Args:
             query: query to be executed.
+            filename: file with a query.
             dbname: database name to connect to.
             username: database user name.
             input: raw input to be passed.
@@ -681,12 +799,9 @@ class PostgresNode(object):
             psql's output as str.
         """
 
-        ret, out, err = self.psql(query=query,
-                                  dbname=dbname,
-                                  username=username,
-                                  input=input)
+        ret, out, err = self.psql(query=query, **kwargs)
         if ret:
-            raise QueryException((err or b'').decode('utf-8'))
+            raise QueryException((err or b'').decode('utf-8'), query)
 
         return out
 
@@ -707,9 +822,9 @@ class PostgresNode(object):
 
         def tmpfile():
             if format == DUMP_DIRECTORY:
-                fname = tempfile.mkdtemp()
+                fname = mkdtemp(prefix=TMP_DUMP)
             else:
-                fd, fname = tempfile.mkstemp()
+                fd, fname = mkstemp(prefix=TMP_DUMP)
                 os.close(fd)
             return fname
 
@@ -718,8 +833,6 @@ class PostgresNode(object):
         username = username or default_username()
         filename = filename or tmpfile()
 
-
-        # yapf: disable
         _params = [
             get_bin_path("pg_dump"),
             "-p", str(self.port),
@@ -728,9 +841,9 @@ class PostgresNode(object):
             "-U", username,
             "-d", dbname,
             "-F", format
-        ]
+        ]  # yapf: disable
 
-        execute_utility(_params, self.utils_log_name)
+        execute_utility(_params, self.utils_log_file)
 
         return filename
 
@@ -772,8 +885,8 @@ class PostgresNode(object):
                          raise_programming_error=True,
                          raise_internal_error=True):
         """
-        Run a query once a second until it returs 'expected'.
-        Query should return single column.
+        Run a query once per second until it returns 'expected'.
+        Query should return a single value (1 row, 1 column).
 
         Args:
             query: query to be executed.
@@ -804,13 +917,13 @@ class PostgresNode(object):
                     return    # done
 
                 if res is None:
-                    raise QueryException('Query returned None')
+                    raise QueryException('Query returned None', query)
 
                 if len(res) == 0:
-                    raise QueryException('Query returned 0 rows')
+                    raise QueryException('Query returned 0 rows', query)
 
                 if len(res[0]) == 0:
-                    raise QueryException('Query returned 0 columns')
+                    raise QueryException('Query returned 0 columns', query)
 
                 if res[0][0] == expected:
                     return    # done
@@ -851,7 +964,7 @@ class PostgresNode(object):
 
         with self.connect(dbname=dbname,
                           username=username,
-                          password=password) as node_con:
+                          password=password) as node_con:  # yapf: disable
 
             res = node_con.execute(query)
 
@@ -860,44 +973,36 @@ class PostgresNode(object):
 
             return res
 
-    def backup(self, username=None, xlog_method=DEFAULT_XLOG_METHOD):
+    def backup(self, **kwargs):
         """
         Perform pg_basebackup.
 
         Args:
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
+            base_dir: the base directory for data files and logs
 
         Returns:
             A smart object of type NodeBackup.
         """
 
-        from .backup import NodeBackup
-        return NodeBackup(node=self,
-                          username=username,
-                          xlog_method=xlog_method)
+        return NodeBackup(node=self, **kwargs)
 
-    def replicate(self,
-                  name=None,
-                  username=None,
-                  xlog_method=DEFAULT_XLOG_METHOD,
-                  use_logging=False):
+    def replicate(self, name=None, slot=None, **kwargs):
         """
         Create a binary replica of this node.
 
         Args:
             name: replica's application name.
+            slot: create a replication slot with the specified name.
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
-            use_logging: enable python logging.
+            base_dir: the base directory for data files and logs
         """
 
-        backup = self.backup(username=username, xlog_method=xlog_method)
-
         # transform backup into a replica
-        return backup.spawn_replica(name=name,
-                                    destroy=True,
-                                    use_logging=use_logging)
+        with clean_on_error(self.backup(**kwargs)) as backup:
+            return backup.spawn_replica(name=name, destroy=True, slot=slot)
 
     def catchup(self, dbname=None, username=None):
         """
@@ -905,20 +1010,20 @@ class PostgresNode(object):
         """
 
         if not self.master:
-            raise CatchUpException("Node doesn't have a master")
+            raise TestgresException("Node doesn't have a master")
 
         if pg_version_ge('10'):
-            poll_lsn = "select pg_current_wal_lsn()::text"
-            wait_lsn = "select pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
+            poll_lsn = "select pg_catalog.pg_current_wal_lsn()::text"
+            wait_lsn = "select pg_catalog.pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
         else:
-            poll_lsn = "select pg_current_xlog_location()::text"
-            wait_lsn = "select pg_last_xlog_replay_location() >= '{}'::pg_lsn"
+            poll_lsn = "select pg_catalog.pg_current_xlog_location()::text"
+            wait_lsn = "select pg_catalog.pg_last_xlog_replay_location() >= '{}'::pg_lsn"
 
         try:
             # fetch latest LSN
             lsn = self.master.execute(query=poll_lsn,
                                       dbname=dbname,
-                                      username=username)[0][0]
+                                      username=username)[0][0]  # yapf: disable
 
             # wait until this LSN reaches replica
             self.poll_query_until(
@@ -927,7 +1032,7 @@ class PostgresNode(object):
                 username=username,
                 max_attempts=0)    # infinite
         except Exception as e:
-            raise_from(CatchUpException('Failed to catch up'), e)
+            raise_from(CatchUpException("Failed to catch up", poll_lsn), e)
 
     def pgbench(self,
                 dbname=None,
@@ -953,13 +1058,12 @@ class PostgresNode(object):
         dbname = dbname or default_dbname()
         username = username or default_username()
 
-        # yapf: disable
         _params = [
             get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
-        ] + options
+        ] + options  # yapf: disable
 
         # should be the last one
         _params.append(dbname)
@@ -974,21 +1078,17 @@ class PostgresNode(object):
         Sets initialize=True.
 
         Returns:
-            This instance of PostgresNode.
+            This instance of :class:`.PostgresNode`.
         """
 
         self.pgbench_run(initialize=True, **kwargs)
 
         return self
 
-    def pgbench_run(self,
-                    dbname=None,
-                    username=None,
-                    options=[],
-                    **kwargs):
+    def pgbench_run(self, dbname=None, username=None, options=[], **kwargs):
         """
         Run pgbench with some options.
-        This event is logged (see self.utils_log_name).
+        This event is logged (see self.utils_log_file).
 
         Args:
             dbname: database name to connect to.
@@ -1009,15 +1109,14 @@ class PostgresNode(object):
         dbname = dbname or default_dbname()
         username = username or default_username()
 
-        # yapf: disable
         _params = [
             get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
-        ] + options
+        ] + options  # yapf: disable
 
-        for key, value in six.iteritems(kwargs):
+        for key, value in iteritems(kwargs):
             # rename keys for pgbench
             key = key.replace('_', '-')
 
@@ -1025,13 +1124,13 @@ class PostgresNode(object):
             if not isinstance(value, bool):
                 _params.append('--{}={}'.format(key, value))
             else:
-                assert value is True  # just in case
+                assert value is True    # just in case
                 _params.append('--{}'.format(key))
 
         # should be the last one
         _params.append(dbname)
 
-        return execute_utility(_params, self.utils_log_name)
+        return execute_utility(_params, self.utils_log_file)
 
     def connect(self, dbname=None, username=None, password=None):
         """
@@ -1043,10 +1142,10 @@ class PostgresNode(object):
             password: user's password.
 
         Returns:
-            An instance of NodeConnection.
+            An instance of :class:`.NodeConnection`.
         """
 
         return NodeConnection(node=self,
                               dbname=dbname,
                               username=username,
-                              password=password)
+                              password=password)  # yapf: disable

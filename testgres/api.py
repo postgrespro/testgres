@@ -12,9 +12,9 @@ typical flow may look like:
 ...     result = node.safe_psql('postgres', 'select 1')
 ...     print(result.decode('utf-8').strip())
 ...     node.stop()
-<testgres.node.PostgresNode object at 0x...>
+PostgresNode(name='...', port=..., base_dir='...')
 1
-<testgres.node.PostgresNode object at 0x...>
+PostgresNode(name='...', port=..., base_dir='...')
 
     Or:
 
@@ -27,26 +27,16 @@ typical flow may look like:
 ...             master.execute('postgres', 'insert into test values (0), (1), (2)')
 ...             replica.catchup()  # wait until changes are visible
 ...             print(replica.execute('postgres', 'select count(*) from test'))
-<testgres.node.PostgresNode object at 0x...>
+PostgresNode(name='...', port=..., base_dir='...')
 [(3,)]
-
-Copyright (c) 2016, Postgres Professional
 """
-
 from .node import PostgresNode
 
 
-def get_new_node(name=None, base_dir=None, use_logging=False):
+def get_new_node(name=None, base_dir=None, **kwargs):
     """
-    Create a new node (select port automatically).
-
-    Args:
-        name: node's application name.
-        base_dir: path to node's data directory.
-        use_logging: enable python logging.
-
-    Returns:
-        An instance of PostgresNode.
+    Simply a wrapper around :class:`.PostgresNode` constructor.
+    See :meth:`.PostgresNode.__init__` for details.
     """
-
-    return PostgresNode(name=name, base_dir=base_dir, use_logging=use_logging)
+    # NOTE: leave explicit 'name' and 'base_dir' for compatibility
+    return PostgresNode(name=name, base_dir=base_dir, **kwargs)
