@@ -10,7 +10,6 @@ import time
 import unittest
 
 import logging.config
-import shutil
 
 from contextlib import contextmanager
 from distutils.version import LooseVersion

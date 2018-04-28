@@ -10,7 +10,10 @@ from shutil import rmtree
 from six import raise_from, iteritems
 from tempfile import mkstemp, mkdtemp
 
-from .enums import NodeStatus, ProcessType
+from .enums import \
+    NodeStatus, \
+    ProcessType, \
+    DumpFormat
 
 from .cache import cached_initdb
 
@@ -32,8 +35,6 @@ from .consts import \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
     UTILS_LOG_FILE, \
-    DEFAULT_DUMP_FORMAT, \
-    DUMP_DIRECTORY, \
     PG_PID_FILE
 
 from .consts import \
@@ -805,23 +806,27 @@ class PostgresNode(object):
 
         return out
 
-    def dump(self, filename=None, dbname=None, username=None, format=DEFAULT_DUMP_FORMAT):
+    def dump(self,
+             filename=None,
+             dbname=None,
+             username=None,
+             format=DumpFormat.Plain):
         """
         Dump database into a file using pg_dump.
         NOTE: the file is not removed automatically.
 
         Args:
+            filename: database dump taken by pg_dump.
             dbname: database name to connect to.
             username: database user name.
-            filename: output file.
-            format: format argument plain/custom/directory/tar
+            format: format argument plain/custom/directory/tar.
 
         Returns:
             Path to a file containing dump.
         """
 
         def tmpfile():
-            if format == DUMP_DIRECTORY:
+            if format == DumpFormat.Directory:
                 fname = mkdtemp(prefix=TMP_DUMP)
             else:
                 fd, fname = mkstemp(prefix=TMP_DUMP)
@@ -852,7 +857,7 @@ class PostgresNode(object):
         Restore database from pg_dump's file.
 
         Args:
-            filename: input file.
+            filename: database dump taken by pg_dump in custom/directory/tar formats.
             dbname: database name to connect to.
             username: database user name.
         """
@@ -862,16 +867,12 @@ class PostgresNode(object):
         username = username or default_username()
 
         _params = [
-            get_bin_path("pg_restore"),
-            "-p", str(self.port),
-            "-h", self.host,
-            "-U", username,
-            "-d", dbname,
+            get_bin_path("pg_restore"), "-p",
+            str(self.port), "-h", self.host, "-U", username, "-d", dbname,
             filename
         ]
 
         execute_utility(_params, self.utils_log_name)
-
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def poll_query_until(self,

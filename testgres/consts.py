@@ -25,10 +25,6 @@ PG_LOG_FILE = "postgresql.log"
 UTILS_LOG_FILE = "utils.log"
 BACKUP_LOG_FILE = "backup.log"
 
-# name of dump/restore formates
-DUMP_DIRECTORY = "directory"
-DEFAULT_DUMP_FORMAT = "plain"
-
 # defaults for node settings
 MAX_REPLICATION_SLOTS = 10
 MAX_WAL_SENDERS = 10
