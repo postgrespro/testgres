@@ -13,6 +13,9 @@ PG_LOG_FILE = "postgresql.log"
 UTILS_LOG_FILE = "utils.log"
 BACKUP_LOG_FILE = "backup.log"
 
+# name of dump/restore formates
+DUMP_DIRECTORY = "directory"
+
 # default argument values
 DEFAULT_XLOG_METHOD = "fetch"
 DEFAULT_DUMP_FORMAT = "plain"

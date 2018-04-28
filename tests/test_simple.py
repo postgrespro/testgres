@@ -11,8 +11,6 @@ import unittest
 import logging.config
 import shutil
 
-import pdb
-
 from distutils.version import LooseVersion
 
 from testgres import \
@@ -375,96 +373,43 @@ class SimpleTest(unittest.TestCase):
             dump = node1.dump()
             self.assertTrue(os.path.isfile(dump))
             with get_new_node().init().start() as node2:
-                # restore dump
-                node2.restore(filename=dump)
+                node2.psql(filename=dump, dbname=None, username=None)
                 res = node2.execute(query_select)
                 self.assertListEqual(res, [(1, ), (2, )])
-            # finally, remove dump
             os.remove(dump)
 
-    def test_dump_plain(self):
-        query_create = 'create table test as select generate_series(1, 2) as val'
-        query_select = 'select * from test order by val asc'
-
-        with get_new_node().init().start() as node1:
-
-            node1.execute(query_create)
-
-            # take a new dump plain format
             dump = node1.dump(format='plain')
             self.assertTrue(os.path.isfile(dump))
-            with get_new_node().init().start() as node2:
-                # node2.restore(filename=dump)
-                node2.psql(filename=dump, dbname=None, username=None) #add
-                res = node2.execute(query_select)
+            with get_new_node().init().start() as node3:
+                node3.psql(filename=dump, dbname=None, username=None)
+                res = node3.execute(query_select)
                 self.assertListEqual(res, [(1, ), (2, )])
             os.remove(dump)
-
-            # with get_new_node().init().start() as node2:
-            #     for f in ['plain', 'custom', 'directory', 'tar']:
-            #         # dump
-            #         dump = node1.dump(format=f)
-            #         # create database
-            #         # connect
-            #         # restore
-            #         node2.restore(filename=f)
-            #         # check
-            #         res = node2.execute(query_select)
-            #         self.assertListEqual(res, [(1, ), (2, )])
-            #         # drop database
-            #         os.remove(f)
-
-    def test_dump_custom(self):
-        query_create = 'create table test as select generate_series(1, 2) as val'
-        query_select = 'select * from test order by val asc'
-
-        with get_new_node().init().start() as node1:
-
-            node1.execute(query_create)
 
             # take a new dump custom format
             dump = node1.dump(format='custom')
             self.assertTrue(os.path.isfile(dump))
-            with get_new_node().init().start() as node2:
-                node2.restore(filename=dump)
-                res = node2.execute(query_select)
-                print(res)
+            with get_new_node().init().start() as node4:
+                node4.restore(filename=dump)
+                res = node4.execute(query_select)
                 self.assertListEqual(res, [(1, ), (2, )])
             os.remove(dump)
-
-    def test_dump_directory(self):
-        query_create = 'create table test as select generate_series(1, 2) as val'
-        query_select = 'select * from test order by val asc'
-
-        with get_new_node().init().start() as node1:
-
-            node1.execute(query_create)
 
             # take a new dump directory format
             dump = node1.dump(format='directory')
             self.assertTrue(os.path.isdir(dump))
-            with get_new_node().init().start() as node2:
-                node2.restore(filename=dump)
-                res = node2.execute(query_select)
+            with get_new_node().init().start() as node5:
+                node5.restore(filename=dump)
+                res = node5.execute(query_select)
                 self.assertListEqual(res, [(1, ), (2, )])
             shutil.rmtree(dump, ignore_errors=True)
-
-    def test_dump_tar(self):
-        query_create = 'create table test as select generate_series(1, 2) as val'
-        query_select = 'select * from test order by val asc'
-
-        with get_new_node().init().start() as node1:
-
-            node1.execute(query_create)
 
             # take a new dump tar format
             dump = node1.dump(format='tar')
             self.assertTrue(os.path.isfile(dump))
-            with get_new_node().init().start() as node2:
-                node2.restore(filename=dump)
-                print("Restore finished")
-                pdb.set_trace()
-                res = node2.execute(query_select)
+            with get_new_node().init().start() as node6:
+                node6.restore(filename=dump)
+                res = node6.execute(query_select)
                 self.assertListEqual(res, [(1, ), (2, )])
             os.remove(dump)
 

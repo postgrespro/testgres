@@ -29,7 +29,8 @@ from .consts import \
     PG_LOG_FILE, \
     UTILS_LOG_FILE, \
     DEFAULT_XLOG_METHOD, \
-    DEFAULT_DUMP_FORMAT
+    DEFAULT_DUMP_FORMAT, \
+    DUMP_DIRECTORY
 
 from .exceptions import \
     CatchUpException,   \
@@ -705,7 +706,7 @@ class PostgresNode(object):
         """
 
         def tmpfile():
-            if format == 'directory':
+            if format == DUMP_DIRECTORY:
                 fname = tempfile.mkdtemp()
             else:
                 fd, fname = tempfile.mkstemp()
@@ -743,17 +744,6 @@ class PostgresNode(object):
             username: database user name.
         """
 
-        # self.psql(filename=filename, dbname=dbname, username=username)
-                # yapf: disable
-        # _params = [
-        #     get_bin_path("pg_restore"),
-        #     "-p", str(self.port),
-        #     "-h", self.host,
-        #           filename,
-        #     "-U", username,
-        #     "-d", dbname
-        # ]
-
         # Set default arguments
         dbname = dbname or default_dbname()
         username = username or default_username()
@@ -762,13 +752,10 @@ class PostgresNode(object):
             get_bin_path("pg_restore"),
             "-p", str(self.port),
             "-h", self.host,
-            #       filename,
-            # "-c",
-            # "-U", username,
+            "-U", username,
             "-d", dbname,
             filename
         ]
-        print(_params)
 
         execute_utility(_params, self.utils_log_name)
 
