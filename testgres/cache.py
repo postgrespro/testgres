@@ -15,7 +15,7 @@ from .exceptions import \
 
 from .utils import \
     get_bin_path, \
-    execute_utility as _execute_utility
+    execute_utility
 
 
 def cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
@@ -26,7 +26,7 @@ def cached_initdb(data_dir, initdb_logfile, initdb_params=[]):
     def call_initdb(initdb_dir):
         try:
             _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
-            _execute_utility(_params + initdb_params, initdb_logfile)
+            execute_utility(_params + initdb_params, initdb_logfile)
         except ExecUtilException as e:
             raise_from(InitNodeException("Failed to run initdb"), e)
 

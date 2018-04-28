@@ -8,7 +8,7 @@ import time
 
 class TestgresLogger(threading.Thread):
     """
-    Helper class to implement reading from postgresql.log
+    Helper class to implement reading from log files.
     """
 
     def __init__(self, node_name, log_file_name):

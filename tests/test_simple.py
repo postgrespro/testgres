@@ -9,6 +9,9 @@ import time
 import unittest
 
 import logging.config
+import shutil
+
+import pdb
 
 from distutils.version import LooseVersion
 
@@ -53,12 +56,12 @@ def util_is_executable(util):
 
 class SimpleTest(unittest.TestCase):
     def test_custom_init(self):
-        with get_new_node('test') as node:
+        with get_new_node() as node:
             # enable page checksums
             node.init(initdb_params=['-k']).start()
-            node.safe_psql('postgres', 'select 1')
+            node.safe_psql('select 1')
 
-        with get_new_node('test') as node:
+        with get_new_node() as node:
             node.init(
                 allow_streaming=True,
                 initdb_params=['--auth-local=reject', '--auth-host=reject'])
@@ -74,27 +77,26 @@ class SimpleTest(unittest.TestCase):
                 self.assertFalse(any('trust' in s for s in lines))
 
     def test_double_init(self):
-        with get_new_node('test') as node:
-            node.init()
+        with get_new_node().init() as node:
 
             # can't initialize node more than once
             with self.assertRaises(InitNodeException):
                 node.init()
 
     def test_init_after_cleanup(self):
-        with get_new_node('test') as node:
+        with get_new_node() as node:
             node.init().start()
             node.status()
-            node.safe_psql('postgres', 'select 1')
+            node.safe_psql('select 1')
 
             node.cleanup()
 
             node.init().start()
             node.status()
-            node.safe_psql('postgres', 'select 1')
+            node.safe_psql('select 1')
 
     def test_double_start(self):
-        with get_new_node('test') as node:
+        with get_new_node() as node:
             node.init().start()
 
             # can't start node more than once
@@ -102,20 +104,20 @@ class SimpleTest(unittest.TestCase):
                 node.start()
 
     def test_uninitialized_start(self):
-        with get_new_node('test') as node:
+        with get_new_node() as node:
             # node is not initialized yet
             with self.assertRaises(StartNodeException):
                 node.start()
 
     def test_restart(self):
-        with get_new_node('test') as node:
+        with get_new_node() as node:
             node.init().start()
 
             # restart, ok
-            res = node.execute('postgres', 'select 1')
+            res = node.execute('select 1')
             self.assertEqual(res, [(1, )])
             node.restart()
-            res = node.execute('postgres', 'select 2')
+            res = node.execute('select 2')
             self.assertEqual(res, [(2, )])
 
             # restart, fail
@@ -123,39 +125,28 @@ class SimpleTest(unittest.TestCase):
                 node.append_conf('pg_hba.conf', 'DUMMY')
                 node.restart()
 
-    def test_psql(self):
-        with get_new_node('test') as node:
+    def test_reload(self):
+        with get_new_node() as node:
             node.init().start()
 
-            # check default params
-            with self.assertRaises(QueryException):
-                node.psql('postgres')
+            # change client_min_messages and save old value
+            cmm_old = node.execute('show client_min_messages')
+            node.append_conf('postgresql.conf', 'client_min_messages = DEBUG1')
 
-            # check returned values
-            res = node.psql('postgres', 'select 1')
-            self.assertEqual(res[0], 0)
-            self.assertEqual(res[1], b'1\n')
-            self.assertEqual(res[2], b'')
+            # reload config
+            node.reload()
 
-            # check returned values
-            res = node.safe_psql('postgres', 'select 1')
-            self.assertEqual(res, b'1\n')
+            # check new value
+            cmm_new = node.execute('show client_min_messages')
+            self.assertEqual('debug1', cmm_new[0][0].lower())
+            self.assertNotEqual(cmm_old, cmm_new)
 
-            # check feeding input
-            node.safe_psql('postgres', 'create table horns (w int)')
-            node.safe_psql(
-                'postgres',
-                'copy horns from stdin (format csv)',
-                input=b"1\n2\n3\n\.\n")
-            sum = node.safe_psql('postgres', 'select sum(w) from horns')
-            self.assertEqual(sum, b'6\n')
-            node.safe_psql('postgres', 'drop table horns')
+    def test_pg_ctl(self):
+        with get_new_node() as node:
+            node.init().start()
 
-            node.stop()
-
-            # check psql on stopped node
-            with self.assertRaises(QueryException):
-                node.safe_psql('postgres', 'select 1')
+            status = node.pg_ctl(['status'])
+            self.assertTrue('PID' in status)
 
     def test_status(self):
         # check NodeStatus cast to bool
@@ -168,7 +159,7 @@ class SimpleTest(unittest.TestCase):
         self.assertFalse(NodeStatus.Uninitialized)
 
         # check statuses after each operation
-        with get_new_node('test') as node:
+        with get_new_node() as node:
             self.assertEqual(node.get_pid(), 0)
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
 
@@ -192,28 +183,54 @@ class SimpleTest(unittest.TestCase):
             self.assertEqual(node.get_pid(), 0)
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
 
-    def test_simple_queries(self):
-        with get_new_node('test') as node:
-            node.init().start()
+    def test_psql(self):
+        with get_new_node().init().start() as node:
 
-            res = node.psql('postgres', 'select 1')
+            # check returned values (1 arg)
+            res = node.psql('select 1')
             self.assertEqual(res, (0, b'1\n', b''))
 
-            res = node.safe_psql('postgres', 'select 1')
-            self.assertEqual(res, b'1\n')
+            # check returned values (2 args)
+            res = node.psql('postgres', 'select 2')
+            self.assertEqual(res, (0, b'2\n', b''))
 
-            res = node.execute('postgres', 'select 1')
-            self.assertListEqual(res, [(1, )])
+            # check returned values (named)
+            res = node.psql(query='select 3', dbname='postgres')
+            self.assertEqual(res, (0, b'3\n', b''))
 
-            with node.connect('postgres') as con:
-                res = con.execute('select 1')
-                self.assertListEqual(res, [(1, )])
+            # check returned values (1 arg)
+            res = node.safe_psql('select 4')
+            self.assertEqual(res, b'4\n')
+
+            # check returned values (2 args)
+            res = node.safe_psql('postgres', 'select 5')
+            self.assertEqual(res, b'5\n')
+
+            # check returned values (named)
+            res = node.safe_psql(query='select 6', dbname='postgres')
+            self.assertEqual(res, b'6\n')
+
+            # check feeding input
+            node.safe_psql('create table horns (w int)')
+            node.safe_psql(
+                'copy horns from stdin (format csv)', input=b"1\n2\n3\n\.\n")
+            _sum = node.safe_psql('select sum(w) from horns')
+            self.assertEqual(_sum, b'6\n')
+
+            # check psql's default args, fails
+            with self.assertRaises(QueryException):
+                node.psql()
+
+            node.stop()
+
+            # check psql on stopped node, fails
+            with self.assertRaises(QueryException):
+                node.safe_psql('select 1')
 
     def test_transactions(self):
-        with get_new_node('test') as node:
-            node.init().start()
+        with get_new_node().init().start() as node:
 
-            with node.connect('postgres') as con:
+            with node.connect() as con:
                 con.begin()
                 con.execute('create table test(val int)')
                 con.execute('insert into test values (1)')
@@ -235,7 +252,7 @@ class SimpleTest(unittest.TestCase):
                 con.commit()
 
     def test_control_data(self):
-        with get_new_node('test') as node:
+        with get_new_node() as node:
 
             # node is not initialized yet
             with self.assertRaises(ExecUtilException):
@@ -249,7 +266,7 @@ class SimpleTest(unittest.TestCase):
             self.assertTrue(any('pg_control' in s for s in data.keys()))
 
     def test_backup_simple(self):
-        with get_new_node('master') as master:
+        with get_new_node() as master:
 
             # enable streaming for backups
             master.init(allow_streaming=True)
@@ -262,18 +279,16 @@ class SimpleTest(unittest.TestCase):
             master.start()
 
             # fill node with some data
-            master.psql('postgres',
-                        'create table test as select generate_series(1, 4) i')
+            master.psql('create table test as select generate_series(1, 4) i')
 
             with master.backup(xlog_method='stream') as backup:
-                with backup.spawn_primary('slave') as slave:
+                with backup.spawn_primary() as slave:
                     slave.start()
-                    res = slave.execute('postgres',
-                                        'select * from test order by i asc')
+                    res = slave.execute('select * from test order by i asc')
                     self.assertListEqual(res, [(1, ), (2, ), (3, ), (4, )])
 
     def test_backup_multiple(self):
-        with get_new_node('node') as node:
+        with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
             with node.backup(xlog_method='fetch') as backup1, \
@@ -288,62 +303,60 @@ class SimpleTest(unittest.TestCase):
                     self.assertNotEqual(node1.base_dir, node2.base_dir)
 
     def test_backup_exhaust(self):
-        with get_new_node('node') as node:
+        with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
             with node.backup(xlog_method='fetch') as backup:
 
                 # exhaust backup by creating new node
-                with backup.spawn_primary('node1') as node1:    # noqa
+                with backup.spawn_primary() as node1:    # noqa
                     pass
 
                 # now let's try to create one more node
                 with self.assertRaises(BackupException):
-                    with backup.spawn_primary('node2') as node2:    # noqa
+                    with backup.spawn_primary() as node2:    # noqa
                         pass
 
     def test_backup_and_replication(self):
-        with get_new_node('node') as node:
-            node.init(allow_streaming=True)
-            node.start()
-            node.psql('postgres', 'create table abc(a int, b int)')
-            node.psql('postgres', 'insert into abc values (1, 2)')
+        with get_new_node() as node:
+            node.init(allow_streaming=True).start()
+
+            node.psql('create table abc(a int, b int)')
+            node.psql('insert into abc values (1, 2)')
 
             backup = node.backup()
 
-            with backup.spawn_replica('replica') as replica:
-                replica.start()
-                res = replica.execute('postgres', 'select * from abc')
+            with backup.spawn_replica().start() as replica:
+                res = replica.execute('select * from abc')
                 self.assertListEqual(res, [(1, 2)])
 
                 # Insert into master node
-                node.psql('postgres', 'insert into abc values (3, 4)')
+                node.psql('insert into abc values (3, 4)')
 
                 # Wait until data syncronizes
                 replica.catchup()
 
                 # Check that this record was exported to replica
-                res = replica.execute('postgres', 'select * from abc')
+                res = replica.execute('select * from abc')
                 self.assertListEqual(res, [(1, 2), (3, 4)])
 
     def test_replicate(self):
-        with get_new_node('node') as node:
+        with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
-            with node.replicate(name='replica') as replica:
-                res = replica.start().execute('postgres', 'select 1')
+            with node.replicate().start() as replica:
+                res = replica.execute('select 1')
                 self.assertListEqual(res, [(1, )])
 
-                node.execute(
-                    'postgres', 'create table test (val int)', commit=True)
+                node.execute('create table test (val int)', commit=True)
 
                 replica.catchup()
 
-                res = node.execute('postgres', 'select * from test')
+                res = node.execute('select * from test')
                 self.assertListEqual(res, [])
 
     def test_incorrect_catchup(self):
-        with get_new_node('node') as node:
+        with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
             # node has no master, can't catch up
@@ -351,104 +364,176 @@ class SimpleTest(unittest.TestCase):
                 node.catchup()
 
     def test_dump(self):
-        with get_new_node('node1') as node1:
-            node1.init().start()
+        query_create = 'create table test as select generate_series(1, 2) as val'
+        query_select = 'select * from test order by val asc'
 
-            with node1.connect('postgres') as con:
-                con.begin()
-                con.execute('create table test (val int)')
-                con.execute('insert into test values (1), (2)')
-                con.commit()
+        with get_new_node().init().start() as node1:
 
-            # take a new dump
-            dump = node1.dump('postgres')
+            node1.execute(query_create)
+
+            # take a new dump plain format
+            dump = node1.dump()
             self.assertTrue(os.path.isfile(dump))
-
-            with get_new_node('node2') as node2:
-                node2.init().start().restore('postgres', dump)
-
-                res = node2.execute('postgres',
-                                    'select * from test order by val asc')
+            with get_new_node().init().start() as node2:
+                # restore dump
+                node2.restore(filename=dump)
+                res = node2.execute(query_select)
                 self.assertListEqual(res, [(1, ), (2, )])
-
             # finally, remove dump
             os.remove(dump)
 
+    def test_dump_plain(self):
+        query_create = 'create table test as select generate_series(1, 2) as val'
+        query_select = 'select * from test order by val asc'
+
+        with get_new_node().init().start() as node1:
+
+            node1.execute(query_create)
+
+            # take a new dump plain format
+            dump = node1.dump(format='plain')
+            self.assertTrue(os.path.isfile(dump))
+            with get_new_node().init().start() as node2:
+                # node2.restore(filename=dump)
+                node2.psql(filename=dump, dbname=None, username=None) #add
+                res = node2.execute(query_select)
+                self.assertListEqual(res, [(1, ), (2, )])
+            os.remove(dump)
+
+            # with get_new_node().init().start() as node2:
+            #     for f in ['plain', 'custom', 'directory', 'tar']:
+            #         # dump
+            #         dump = node1.dump(format=f)
+            #         # create database
+            #         # connect
+            #         # restore
+            #         node2.restore(filename=f)
+            #         # check
+            #         res = node2.execute(query_select)
+            #         self.assertListEqual(res, [(1, ), (2, )])
+            #         # drop database
+            #         os.remove(f)
+
+    def test_dump_custom(self):
+        query_create = 'create table test as select generate_series(1, 2) as val'
+        query_select = 'select * from test order by val asc'
+
+        with get_new_node().init().start() as node1:
+
+            node1.execute(query_create)
+
+            # take a new dump custom format
+            dump = node1.dump(format='custom')
+            self.assertTrue(os.path.isfile(dump))
+            with get_new_node().init().start() as node2:
+                node2.restore(filename=dump)
+                res = node2.execute(query_select)
+                print(res)
+                self.assertListEqual(res, [(1, ), (2, )])
+            os.remove(dump)
+
+    def test_dump_directory(self):
+        query_create = 'create table test as select generate_series(1, 2) as val'
+        query_select = 'select * from test order by val asc'
+
+        with get_new_node().init().start() as node1:
+
+            node1.execute(query_create)
+
+            # take a new dump directory format
+            dump = node1.dump(format='directory')
+            self.assertTrue(os.path.isdir(dump))
+            with get_new_node().init().start() as node2:
+                node2.restore(filename=dump)
+                res = node2.execute(query_select)
+                self.assertListEqual(res, [(1, ), (2, )])
+            shutil.rmtree(dump, ignore_errors=True)
+
+    def test_dump_tar(self):
+        query_create = 'create table test as select generate_series(1, 2) as val'
+        query_select = 'select * from test order by val asc'
+
+        with get_new_node().init().start() as node1:
+
+            node1.execute(query_create)
+
+            # take a new dump tar format
+            dump = node1.dump(format='tar')
+            self.assertTrue(os.path.isfile(dump))
+            with get_new_node().init().start() as node2:
+                node2.restore(filename=dump)
+                print("Restore finished")
+                pdb.set_trace()
+                res = node2.execute(query_select)
+                self.assertListEqual(res, [(1, ), (2, )])
+            os.remove(dump)
+
     def test_users(self):
-        with get_new_node('master') as node:
-            node.init().start()
-            node.psql('postgres', 'create role test_user login')
-            value = node.safe_psql('postgres', 'select 1', username='test_user')
+        with get_new_node().init().start() as node:
+            node.psql('create role test_user login')
+            value = node.safe_psql('select 1', username='test_user')
             self.assertEqual(value, b'1\n')
 
     def test_poll_query_until(self):
-        with get_new_node('master') as node:
+        with get_new_node() as node:
             node.init().start()
 
             get_time = 'select extract(epoch from now())'
             check_time = 'select extract(epoch from now()) - {} >= 5'
 
-            start_time = node.execute('postgres', get_time)[0][0]
-            node.poll_query_until(
-                dbname='postgres', query=check_time.format(start_time))
-            end_time = node.execute('postgres', get_time)[0][0]
+            start_time = node.execute(get_time)[0][0]
+            node.poll_query_until(query=check_time.format(start_time))
+            end_time = node.execute(get_time)[0][0]
 
             self.assertTrue(end_time - start_time >= 5)
 
             # check 0 rows
             with self.assertRaises(QueryException):
                 node.poll_query_until(
-                    dbname='postgres',
                     query='select * from pg_class where true = false')
 
             # check 0 columns
             with self.assertRaises(QueryException):
-                node.poll_query_until(
-                    dbname='postgres', query='select from pg_class limit 1')
+                node.poll_query_until(query='select from pg_class limit 1')
 
             # check None, fail
             with self.assertRaises(QueryException):
-                node.poll_query_until(
-                    dbname='postgres', query='create table abc (val int)')
+                node.poll_query_until(query='create table abc (val int)')
 
             # check None, ok
             node.poll_query_until(
-                dbname='postgres', query='create table def()',
-                expected=None)    # returns nothing
+                query='create table def()', expected=None)    # returns nothing
 
             # check arbitrary expected value, fail
             with self.assertRaises(TimeoutException):
                 node.poll_query_until(
-                    dbname='postgres',
                     query='select 3',
                     expected=1,
                     max_attempts=3,
                     sleep_time=0.01)
 
             # check arbitrary expected value, ok
-            node.poll_query_until(
-                dbname='postgres', query='select 2', expected=2)
+            node.poll_query_until(query='select 2', expected=2)
 
             # check timeout
             with self.assertRaises(TimeoutException):
                 node.poll_query_until(
-                    dbname='postgres',
-                    query='select 1 > 2',
-                    max_attempts=3,
-                    sleep_time=0.01)
+                    query='select 1 > 2', max_attempts=3, sleep_time=0.01)
 
             # check ProgrammingError, fail
             with self.assertRaises(testgres.ProgrammingError):
-                node.poll_query_until(dbname='postgres', query='dummy1')
+                node.poll_query_until(query='dummy1')
 
             # check ProgrammingError, ok
             with self.assertRaises(TimeoutException):
                 node.poll_query_until(
-                    dbname='postgres',
                     query='dummy2',
                     max_attempts=3,
                     sleep_time=0.01,
                     raise_programming_error=False)
+
+            # check 1 arg, ok
+            node.poll_query_until('select true')
 
     def test_logging(self):
         logfile = tempfile.NamedTemporaryFile('w', delete=True)
@@ -477,12 +562,12 @@ class SimpleTest(unittest.TestCase):
         logging.config.dictConfig(log_conf)
 
         node_name = 'master'
-        with get_new_node(node_name, use_logging=True) as master:
+        with get_new_node(name=node_name, use_logging=True) as master:
             master.init().start()
 
             # execute a dummy query a few times
             for i in range(20):
-                master.execute('postgres', 'select 1')
+                master.execute('select 1')
                 time.sleep(0.01)
 
             # let logging worker do the job
@@ -502,72 +587,22 @@ class SimpleTest(unittest.TestCase):
     @unittest.skipUnless(
         util_is_executable("pgbench"), "pgbench may be missing")
     def test_pgbench(self):
-        with get_new_node('node') as node:
-            node.init().start()
+        with get_new_node().init().start() as node:
 
-            # initialize pgbench
-            node.pgbench_run(options=['-i'])
+            # initialize pgbench DB and run benchmarks
+            node.pgbench_init(
+                scale=2, foreign_keys=True, options=['-q']).pgbench_run(time=2)
 
             # run TPC-B benchmark
             proc = node.pgbench(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                options=['-T5'])
+                options=['-T3'])
 
             out, _ = proc.communicate()
             out = out.decode('utf-8')
 
             self.assertTrue('tps' in out)
-
-    def test_reload(self):
-        with get_new_node('node') as node:
-            node.init().start()
-
-            cmd = "show client_min_messages"
-
-            # change client_min_messages and save old value
-            cmm_old = node.execute(dbname='postgres', query=cmd)
-            node.append_conf('postgresql.conf', 'client_min_messages = DEBUG1')
-
-            # reload config
-            node.reload()
-
-            # check new value
-            cmm_new = node.execute(dbname='postgres', query=cmd)
-            self.assertEqual('debug1', cmm_new[0][0].lower())
-            self.assertNotEqual(cmm_old, cmm_new)
-
-    def test_pg_ctl(self):
-        with get_new_node('node') as node:
-            node.init().start()
-
-            status = node.pg_ctl(['status'])
-            self.assertTrue('PID' in status)
-
-    def test_ports_management(self):
-        # check that no ports have been bound yet
-        self.assertEqual(len(bound_ports), 0)
-
-        with get_new_node('node') as node:
-            # check that we've just bound a port
-            self.assertEqual(len(bound_ports), 1)
-
-            # check that bound_ports contains our port
-            port_1 = list(bound_ports)[0]
-            port_2 = node.port
-            self.assertEqual(port_1, port_2)
-
-        # check that port has been freed successfully
-        self.assertEqual(len(bound_ports), 0)
-
-    def test_version_management(self):
-        a = LooseVersion('10.0')
-        b = LooseVersion('10')
-        c = LooseVersion('9.6.5')
-
-        self.assertTrue(a > b)
-        self.assertTrue(b > c)
-        self.assertTrue(a > c)
 
     def test_config(self):
         # set global if it wasn't set
@@ -591,16 +626,16 @@ class SimpleTest(unittest.TestCase):
         configure_testgres(cache_pg_config=True)
 
     def test_unix_sockets(self):
-        with get_new_node('node') as node:
+        with get_new_node() as node:
             node.init(unix_sockets=False, allow_streaming=True)
             node.start()
 
-            node.execute('postgres', 'select 1')
-            node.safe_psql('postgres', 'select 1')
+            node.execute('select 1')
+            node.safe_psql('select 1')
 
-            with node.replicate('r').start() as r:
-                r.execute('postgres', 'select 1')
-                r.safe_psql('postgres', 'select 1')
+            with node.replicate().start() as r:
+                r.execute('select 1')
+                r.safe_psql('select 1')
 
     def test_auto_name(self):
         with get_new_node().init(allow_streaming=True).start() as m:
@@ -641,7 +676,7 @@ class SimpleTest(unittest.TestCase):
             self.assertEqual(lines[0], s3)
 
     def test_isolation_levels(self):
-        with get_new_node('node').init().start() as node:
+        with get_new_node().init().start() as node:
             with node.connect() as con:
                 # string levels
                 con.begin('Read Uncommitted').commit()
@@ -658,6 +693,31 @@ class SimpleTest(unittest.TestCase):
                 # check wrong level
                 with self.assertRaises(QueryException):
                     con.begin('Garbage').commit()
+
+    def test_ports_management(self):
+        # check that no ports have been bound yet
+        self.assertEqual(len(bound_ports), 0)
+
+        with get_new_node() as node:
+            # check that we've just bound a port
+            self.assertEqual(len(bound_ports), 1)
+
+            # check that bound_ports contains our port
+            port_1 = list(bound_ports)[0]
+            port_2 = node.port
+            self.assertEqual(port_1, port_2)
+
+        # check that port has been freed successfully
+        self.assertEqual(len(bound_ports), 0)
+
+    def test_version_management(self):
+        a = LooseVersion('10.0')
+        b = LooseVersion('10')
+        c = LooseVersion('9.6.5')
+
+        self.assertTrue(a > b)
+        self.assertTrue(b > c)
+        self.assertTrue(a > c)
 
 
 if __name__ == '__main__':

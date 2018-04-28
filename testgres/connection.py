@@ -12,7 +12,11 @@ except ImportError:
 from enum import Enum
 
 from .exceptions import QueryException
-from .utils import default_username as _default_username
+
+from .utils import \
+    default_dbname, \
+    default_username
+
 
 # export these exceptions
 InternalError = pglib.InternalError
@@ -32,26 +36,34 @@ class NodeConnection(object):
     Transaction wrapper returned by Node
     """
 
-    def __init__(self,
-                 parent_node,
-                 dbname,
-                 host="127.0.0.1",
-                 username=None,
-                 password=None):
+    def __init__(self, node, dbname=None, username=None, password=None):
 
-        # Use default user if not specified
-        username = username or _default_username()
+        # Set default arguments
+        dbname = dbname or default_dbname()
+        username = username or default_username()
 
-        self.parent_node = parent_node
+        self._node = node
 
-        self.connection = pglib.connect(
+        self._connection = pglib.connect(
             database=dbname,
             user=username,
-            port=parent_node.port,
-            host=host,
-            password=password)
+            password=password,
+            host=node.host,
+            port=node.port)
 
-        self.cursor = self.connection.cursor()
+        self._cursor = self.connection.cursor()
+
+    @property
+    def node(self):
+        return self._node
+
+    @property
+    def connection(self):
+        return self._connection
+
+    @property
+    def cursor(self):
+        return self._cursor
 
     def __enter__(self):
         return self
@@ -73,7 +85,7 @@ class NodeConnection(object):
 
             # Get index of isolation level
             level_idx = isolation_level.value
-            assert(level_idx in range(4))
+            assert level_idx in range(4)
 
             # Replace isolation level with its name
             isolation_level = levels[level_idx]
