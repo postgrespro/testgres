@@ -428,13 +428,13 @@ class TestgresTests(unittest.TestCase):
             node1.execute(query_create)
 
             # take a new dump plain format
-            dump = node1.dump()
-            self.assertTrue(os.path.isfile(dump))
-            with get_new_node().init().start() as node2:
-                node2.psql(filename=dump, dbname=None, username=None)
-                res = node2.execute(query_select)
-                self.assertListEqual(res, [(1, ), (2, )])
-            os.remove(dump)
+            with removing(node1.dump()) as dump:
+                with get_new_node().init().start() as node2:
+                    # restore dump
+                    self.assertTrue(os.path.isfile(dump))
+                    node2.psql(filename=dump, dbname=None, username=None)
+                    res = node2.execute(query_select)
+                    self.assertListEqual(res, [(1, ), (2, )])
 
             dump = node1.dump(format='plain')
             self.assertTrue(os.path.isfile(dump))
