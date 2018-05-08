@@ -46,8 +46,8 @@ from testgres.enums import ProcessType
 
 def util_exists(util):
     def good_properties(f):
-        return (os.path.exists(f) and
-                os.path.isfile(f) and
+        return (os.path.exists(f) and  # noqa: W504
+                os.path.isfile(f) and  # noqa: W504
                 os.access(f, os.X_OK))  # yapf: disable
 
     # try to resolve it
@@ -72,7 +72,7 @@ def removing(f):
 class TestgresTests(unittest.TestCase):
     def test_node_repr(self):
         with get_new_node() as node:
-            pattern = 'PostgresNode\(name=\'.+\', port=.+, base_dir=\'.+\'\)'
+            pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
             self.assertIsNotNone(re.match(pattern, str(node)))
 
     def test_custom_init(self):
@@ -263,7 +263,7 @@ class TestgresTests(unittest.TestCase):
             # check feeding input
             node.safe_psql('create table horns (w int)')
             node.safe_psql(
-                'copy horns from stdin (format csv)', input=b"1\n2\n3\n\.\n")
+                'copy horns from stdin (format csv)', input=b"1\n2\n3\n\\.\n")
             _sum = node.safe_psql('select sum(w) from horns')
             self.assertEqual(_sum, b'6\n')
 
