@@ -57,7 +57,8 @@ from .exceptions import \
     QueryException,     \
     StartNodeException, \
     TimeoutException,   \
-    TestgresException
+    TestgresException,  \
+    BackupException
 
 from .logger import TestgresLogger
 
@@ -884,7 +885,7 @@ class PostgresNode(object):
         # try pg_restore if dump is binary formate, and psql if not
         try:
             execute_utility(_params, self.utils_log_name)
-        except ExecUtilException as e:
+        except ExecUtilException:
             self.psql(filename=filename, dbname=dbname, username=username)
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
