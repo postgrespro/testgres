@@ -67,6 +67,8 @@ def removing(f):
     finally:
         if os.path.isfile(f):
             os.remove(f)
+        elif os.path.isdir(f):
+            rmtree(f, ignore_errors=True)
 
 
 class TestgresTests(unittest.TestCase):
@@ -426,16 +428,17 @@ class TestgresTests(unittest.TestCase):
         with get_new_node().init().start() as node1:
 
             node1.execute(query_create)
-
-            # take a new dump
-            with removing(node1.dump()) as dump:
-                with get_new_node().init().start() as node2:
-                    # restore dump
-                    self.assertTrue(os.path.isfile(dump))
-                    node2.restore(filename=dump)
-
-                    res = node2.execute(query_select)
-                    self.assertListEqual(res, [(1, ), (2, )])
+            for format in ['plain', 'custom', 'directory', 'tar']:
+                with removing(node1.dump(format=format)) as dump:
+                    with get_new_node().init().start() as node3:
+                        if format == 'directory':
+                            self.assertTrue(os.path.isdir(dump))
+                        else:
+                            self.assertTrue(os.path.isfile(dump))
+                        # restore dump
+                        node3.restore(filename=dump)
+                        res = node3.execute(query_select)
+                        self.assertListEqual(res, [(1, ), (2, )])
 
     def test_users(self):
         with get_new_node().init().start() as node:
