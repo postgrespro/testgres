@@ -877,10 +877,13 @@ class PostgresNode(object):
         username = username or default_username()
 
         _params = [
-            get_bin_path("pg_restore"), "-p",
-            str(self.port), "-h", self.host, "-U", username, "-d", dbname,
+            get_bin_path("pg_restore"),
+            "-p", str(self.port),
+            "-h", self.host,
+            "-U", username,
+            "-d", dbname,
             filename
-        ]
+        ]  # yapf: disable
 
         # try pg_restore if dump is binary formate, and psql if not
         try:
