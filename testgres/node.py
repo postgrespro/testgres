@@ -810,7 +810,7 @@ class PostgresNode(object):
              filename=None,
              dbname=None,
              username=None,
-             format=DumpFormat.Plain.value):
+             format=DumpFormat.Plain):
         """
         Dump database into a file using pg_dump.
         NOTE: the file is not removed automatically.
@@ -825,8 +825,17 @@ class PostgresNode(object):
             Path to a file containing dump.
         """
 
+        # Check arguments
+        if not isinstance(format, DumpFormat):
+            try:
+                format = DumpFormat(format)
+            except ValueError:
+                msg = 'Invalid format "{}"'.format(format)
+                raise BackupException(msg)
+
+        # Generate tmpfile or tmpdir
         def tmpfile():
-            if format == DumpFormat.Directory.value:
+            if format == DumpFormat.Directory:
                 fname = mkdtemp(prefix=TMP_DUMP)
             else:
                 fd, fname = mkstemp(prefix=TMP_DUMP)
@@ -845,7 +854,7 @@ class PostgresNode(object):
             "-f", filename,
             "-U", username,
             "-d", dbname,
-            "-F", format
+            "-F", format.value
         ]  # yapf: disable
 
         execute_utility(_params, self.utils_log_file)
@@ -872,7 +881,11 @@ class PostgresNode(object):
             filename
         ]
 
-        execute_utility(_params, self.utils_log_name)
+        # try pg_restore if dump is binary formate, and psql if not
+        try:
+            execute_utility(_params, self.utils_log_name)
+        except ExecUtilException as e:
+            self.psql(filename=filename, dbname=dbname, username=username)
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def poll_query_until(self,

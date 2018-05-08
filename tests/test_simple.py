@@ -432,14 +432,14 @@ class TestgresTests(unittest.TestCase):
                 with get_new_node().init().start() as node2:
                     # restore dump
                     self.assertTrue(os.path.isfile(dump))
-                    node2.psql(filename=dump, dbname=None, username=None)
+                    node2.restore(filename=dump)
                     res = node2.execute(query_select)
                     self.assertListEqual(res, [(1, ), (2, )])
 
             dump = node1.dump(format='plain')
             self.assertTrue(os.path.isfile(dump))
             with get_new_node().init().start() as node3:
-                node3.psql(filename=dump, dbname=None, username=None)
+                node3.restore(filename=dump)
                 res = node3.execute(query_select)
                 self.assertListEqual(res, [(1, ), (2, )])
             os.remove(dump)
