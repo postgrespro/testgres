@@ -67,6 +67,8 @@ def removing(f):
     finally:
         if os.path.isfile(f):
             os.remove(f)
+        elif os.path.isdir(f):
+            rmtree(f, ignore_errors=True)
 
 
 class TestgresTests(unittest.TestCase):
@@ -436,40 +438,17 @@ class TestgresTests(unittest.TestCase):
                     res = node2.execute(query_select)
                     self.assertListEqual(res, [(1, ), (2, )])
 
-            dump = node1.dump(format='plain')
-            self.assertTrue(os.path.isfile(dump))
-            with get_new_node().init().start() as node3:
-                node3.restore(filename=dump)
-                res = node3.execute(query_select)
-                self.assertListEqual(res, [(1, ), (2, )])
-            os.remove(dump)
-
-            # take a new dump custom format
-            dump = node1.dump(format='custom')
-            self.assertTrue(os.path.isfile(dump))
-            with get_new_node().init().start() as node4:
-                node4.restore(filename=dump)
-                res = node4.execute(query_select)
-                self.assertListEqual(res, [(1, ), (2, )])
-            os.remove(dump)
-
-            # take a new dump directory format
-            dump = node1.dump(format='directory')
-            self.assertTrue(os.path.isdir(dump))
-            with get_new_node().init().start() as node5:
-                node5.restore(filename=dump)
-                res = node5.execute(query_select)
-                self.assertListEqual(res, [(1, ), (2, )])
-            rmtree(dump, ignore_errors=True)
-
-            # take a new dump tar format
-            dump = node1.dump(format='tar')
-            self.assertTrue(os.path.isfile(dump))
-            with get_new_node().init().start() as node6:
-                node6.restore(filename=dump)
-                res = node6.execute(query_select)
-                self.assertListEqual(res, [(1, ), (2, )])
-            os.remove(dump)
+            for format in ['plain', 'custom', 'directory', 'tar']:
+                with removing(node1.dump(format=format)) as dump:
+                    with get_new_node().init().start() as node3:
+                        if format == 'directory':
+                            self.assertTrue(os.path.isdir(dump))
+                        else:
+                            self.assertTrue(os.path.isfile(dump))
+                        # restore dump
+                        node3.restore(filename=dump)
+                        res = node3.execute(query_select)
+                        self.assertListEqual(res, [(1, ), (2, )])
 
     def test_users(self):
         with get_new_node().init().start() as node:
