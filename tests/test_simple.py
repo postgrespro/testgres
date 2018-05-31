@@ -414,12 +414,12 @@ class TestgresTests(unittest.TestCase):
                 standby2.start()
 
                 # check formatting
-                self.assertEqual('1 ("{}", "{}")'.format(
-                    standby1.name, standby2.name),
-                                 str(First(1, (standby1, standby2))))
-                self.assertEqual('ANY 1 ("{}", "{}")'.format(
-                    standby1.name, standby2.name),
-                                 str(Any(1, (standby1, standby2))))
+                self.assertEqual(
+                    '1 ("{}", "{}")'.format(standby1.name, standby2.name),
+                    str(First(1, (standby1, standby2))))  # yapf: disable
+                self.assertEqual(
+                    'ANY 1 ("{}", "{}")'.format(standby1.name, standby2.name),
+                    str(Any(1, (standby1, standby2))))  # yapf: disable
 
                 # set synchronous_standby_names
                 master.set_synchronous_standbys([standby1, standby2])
