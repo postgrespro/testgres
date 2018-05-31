@@ -85,3 +85,14 @@ class ProcessType(Enum):
 
         # default
         return ProcessType.Unknown
+
+
+class DumpFormat(Enum):
+    """
+    Available dump formats
+    """
+
+    Plain = 'plain'
+    Custom = 'custom'
+    Directory = 'directory'
+    Tar = 'tar'

@@ -102,9 +102,9 @@ class Publication(object):
 
 class Subscription(object):
     def __init__(self,
-                 name,
                  node,
                  publication,
+                 name=None,
                  dbname=None,
                  username=None,
                  **params):

@@ -16,12 +16,18 @@ if sys.version_info < (3, 4):
 if sys.version_info < (3, 3):
     install_requires.append("ipaddress")
 
+# Get contents of README file
+with open('README.md', 'r') as f:
+    readme = f.read()
+
 setup(
-    version='1.6.0',
+    version='1.7.0',
     name='testgres',
     packages=['testgres'],
     description='Testing utility for PostgreSQL and its extensions',
     url='https://github.com/postgrespro/testgres',
+    long_description=readme,
+    long_description_content_type='text/markdown',
     license='PostgreSQL',
     author='Ildar Musin',
     author_email='zildermann@gmail.com',

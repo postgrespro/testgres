@@ -46,8 +46,8 @@ from testgres.enums import ProcessType
 
 def util_exists(util):
     def good_properties(f):
-        return (os.path.exists(f) and
-                os.path.isfile(f) and
+        return (os.path.exists(f) and  # noqa: W504
+                os.path.isfile(f) and  # noqa: W504
                 os.access(f, os.X_OK))  # yapf: disable
 
     # try to resolve it
@@ -67,12 +67,14 @@ def removing(f):
     finally:
         if os.path.isfile(f):
             os.remove(f)
+        elif os.path.isdir(f):
+            rmtree(f, ignore_errors=True)
 
 
 class TestgresTests(unittest.TestCase):
     def test_node_repr(self):
         with get_new_node() as node:
-            pattern = 'PostgresNode\(name=\'.+\', port=.+, base_dir=\'.+\'\)'
+            pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
             self.assertIsNotNone(re.match(pattern, str(node)))
 
     def test_custom_init(self):
@@ -263,7 +265,7 @@ class TestgresTests(unittest.TestCase):
             # check feeding input
             node.safe_psql('create table horns (w int)')
             node.safe_psql(
-                'copy horns from stdin (format csv)', input=b"1\n2\n3\n\.\n")
+                'copy horns from stdin (format csv)', input=b"1\n2\n3\n\\.\n")
             _sum = node.safe_psql('select sum(w) from horns')
             self.assertEqual(_sum, b'6\n')
 
@@ -372,6 +374,18 @@ class TestgresTests(unittest.TestCase):
             with self.assertRaises(
                     BackupException, msg='Invalid xlog_method "wrong"'):
                 node.backup(xlog_method='wrong')
+
+    def test_pg_ctl_wait_option(self):
+        with get_new_node() as node:
+            node.init().start(wait=False)
+            while True:
+                try:
+                    node.stop(wait=False)
+                    break
+                except ExecUtilException:
+                    # it's ok to get this exception here since node
+                    # could be not started yet
+                    pass
 
     def test_replicate(self):
         with get_new_node() as node:
@@ -515,16 +529,17 @@ class TestgresTests(unittest.TestCase):
         with get_new_node().init().start() as node1:
 
             node1.execute(query_create)
-
-            # take a new dump
-            with removing(node1.dump()) as dump:
-                with get_new_node().init().start() as node2:
-                    # restore dump
-                    self.assertTrue(os.path.isfile(dump))
-                    node2.restore(filename=dump)
-
-                    res = node2.execute(query_select)
-                    self.assertListEqual(res, [(1, ), (2, )])
+            for format in ['plain', 'custom', 'directory', 'tar']:
+                with removing(node1.dump(format=format)) as dump:
+                    with get_new_node().init().start() as node3:
+                        if format == 'directory':
+                            self.assertTrue(os.path.isdir(dump))
+                        else:
+                            self.assertTrue(os.path.isfile(dump))
+                        # restore dump
+                        node3.restore(filename=dump)
+                        res = node3.execute(query_select)
+                        self.assertListEqual(res, [(1, ), (2, )])
 
     def test_users(self):
         with get_new_node().init().start() as node:

@@ -10,7 +10,10 @@ from shutil import rmtree
 from six import raise_from, iteritems
 from tempfile import mkstemp, mkdtemp
 
-from .enums import NodeStatus, ProcessType
+from .enums import \
+    NodeStatus, \
+    ProcessType, \
+    DumpFormat
 
 from .cache import cached_initdb
 
@@ -55,7 +58,8 @@ from .exceptions import \
     StartNodeException, \
     TimeoutException,   \
     InitNodeException,  \
-    TestgresException
+    TestgresException,  \
+    BackupException
 
 from .logger import TestgresLogger
 
@@ -577,12 +581,13 @@ class PostgresNode(object):
 
         return out_dict
 
-    def start(self, params=[]):
+    def start(self, params=[], wait=True):
         """
         Start this node using pg_ctl.
 
         Args:
             params: additional arguments for pg_ctl.
+            wait: wait until operation completes.
 
         Returns:
             This instance of :class:`.PostgresNode`.
@@ -592,7 +597,7 @@ class PostgresNode(object):
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-l", self.pg_log_file,
-            "-w",  # wait
+            "-w" if wait else '-W',  # --wait or --no-wait
             "start"
         ] + params  # yapf: disable
 
@@ -607,12 +612,13 @@ class PostgresNode(object):
 
         return self
 
-    def stop(self, params=[]):
+    def stop(self, params=[], wait=True):
         """
         Stop this node using pg_ctl.
 
         Args:
             params: additional arguments for pg_ctl.
+            wait: wait until operation completes.
 
         Returns:
             This instance of :class:`.PostgresNode`.
@@ -621,7 +627,7 @@ class PostgresNode(object):
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
-            "-w",  # wait
+            "-w" if wait else '-W',  # --wait or --no-wait
             "stop"
         ] + params  # yapf: disable
 
@@ -680,6 +686,8 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         execute_utility(_params, self.utils_log_file)
+
+        return self
 
     def pg_ctl(self, params):
         """
@@ -812,7 +820,11 @@ class PostgresNode(object):
 
         return out
 
-    def dump(self, filename=None, dbname=None, username=None):
+    def dump(self,
+             filename=None,
+             dbname=None,
+             username=None,
+             format=DumpFormat.Plain):
         """
         Dump database into a file using pg_dump.
         NOTE: the file is not removed automatically.
@@ -821,14 +833,27 @@ class PostgresNode(object):
             filename: database dump taken by pg_dump.
             dbname: database name to connect to.
             username: database user name.
+            format: format argument plain/custom/directory/tar.
 
         Returns:
             Path to a file containing dump.
         """
 
+        # Check arguments
+        if not isinstance(format, DumpFormat):
+            try:
+                format = DumpFormat(format)
+            except ValueError:
+                msg = 'Invalid format "{}"'.format(format)
+                raise BackupException(msg)
+
+        # Generate tmpfile or tmpdir
         def tmpfile():
-            fd, fname = mkstemp(prefix=TMP_DUMP)
-            os.close(fd)
+            if format == DumpFormat.Directory:
+                fname = mkdtemp(prefix=TMP_DUMP)
+            else:
+                fd, fname = mkstemp(prefix=TMP_DUMP)
+                os.close(fd)
             return fname
 
         # Set default arguments
@@ -842,7 +867,8 @@ class PostgresNode(object):
             "-h", self.host,
             "-f", filename,
             "-U", username,
-            "-d", dbname
+            "-d", dbname,
+            "-F", format.value
         ]  # yapf: disable
 
         execute_utility(_params, self.utils_log_file)
@@ -854,12 +880,29 @@ class PostgresNode(object):
         Restore database from pg_dump's file.
 
         Args:
-            filename: database dump taken by pg_dump.
+            filename: database dump taken by pg_dump in custom/directory/tar formats.
             dbname: database name to connect to.
             username: database user name.
         """
 
-        self.psql(filename=filename, dbname=dbname, username=username)
+        # Set default arguments
+        dbname = dbname or default_dbname()
+        username = username or default_username()
+
+        _params = [
+            get_bin_path("pg_restore"),
+            "-p", str(self.port),
+            "-h", self.host,
+            "-U", username,
+            "-d", dbname,
+            filename
+        ]  # yapf: disable
+
+        # try pg_restore if dump is binary formate, and psql if not
+        try:
+            execute_utility(_params, self.utils_log_name)
+        except ExecUtilException:
+            self.psql(filename=filename, dbname=dbname, username=username)
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def poll_query_until(self,
