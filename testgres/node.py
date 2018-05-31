@@ -1040,8 +1040,10 @@ class PostgresNode(object):
 
         Example::
 
+            from testgres import get_new_node, First
+
             master = get_new_node().init().start()
-            with master.replicate.start() as standby:
+            with master.replicate().start() as standby:
                 master.append_conf("synchronous_commit = remote_apply")
                 master.set_synchronous_standbys(First(1, [standby]))
                 master.restart()
