@@ -432,7 +432,7 @@ class TestgresTests(unittest.TestCase):
             node1.safe_psql('insert into test2 values (\'a\'), (\'b\')')
             sub.catchup()
             res = node2.execute('select * from test2')
-            self.assertListEqual(res, [('a',), ('b',)])
+            self.assertListEqual(res, [('a', ), ('b', )])
 
             # drop subscription
             sub.drop()
@@ -450,12 +450,12 @@ class TestgresTests(unittest.TestCase):
 
             # explicitely add table
             with self.assertRaises(ValueError):
-                pub.add_tables([])  # fail
+                pub.add_tables([])    # fail
             pub.add_tables(['test2'])
             node1.safe_psql('insert into test2 values (\'c\')')
             sub.catchup()
             res = node2.execute('select * from test2')
-            self.assertListEqual(res, [('a',), ('b',)])
+            self.assertListEqual(res, [('a', ), ('b', )])
 
     @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_catchup(self):
@@ -477,7 +477,10 @@ class TestgresTests(unittest.TestCase):
                 node1.execute('insert into test values ({0}, {0})'.format(i))
                 sub.catchup()
                 res = node2.execute('select * from test')
-                self.assertListEqual(res, [(i, i,)])
+                self.assertListEqual(res, [(
+                    i,
+                    i,
+                )])
                 node1.execute('delete from test')
 
     @unittest.skipIf(pg_version_ge('10'), 'requires <10')
@@ -544,7 +547,8 @@ class TestgresTests(unittest.TestCase):
 
             # check 0 columns
             with self.assertRaises(QueryException):
-                node.poll_query_until(query='select from pg_class limit 1')
+                node.poll_query_until(
+                    query='select from pg_catalog.pg_class limit 1')
 
             # check None, fail
             with self.assertRaises(QueryException):
@@ -556,7 +560,8 @@ class TestgresTests(unittest.TestCase):
 
             # check 0 rows equivalent to expected=None
             node.poll_query_until(
-                query='select * from pg_class where true = false', expected=None)
+                query='select * from pg_catalog.pg_class where true = false',
+                expected=None)
 
             # check arbitrary expected value, fail
             with self.assertRaises(TimeoutException):

@@ -953,12 +953,10 @@ class PostgresNode(object):
 
         with self.connect(dbname=dbname,
                           username=username,
-                          password=password) as node_con:  # yapf: disable
+                          password=password,
+                          autocommit=commit) as node_con:  # yapf: disable
 
             res = node_con.execute(query)
-
-            if commit:
-                node_con.commit()
 
             return res
 
@@ -1152,7 +1150,11 @@ class PostgresNode(object):
 
         return execute_utility(_params, self.utils_log_file)
 
-    def connect(self, dbname=None, username=None, password=None):
+    def connect(self,
+                dbname=None,
+                username=None,
+                password=None,
+                autocommit=False):
         """
         Connect to a database.
 
@@ -1160,6 +1162,9 @@ class PostgresNode(object):
             dbname: database name to connect to.
             username: database user name.
             password: user's password.
+            autocommit: commit each statement automatically. Also it should be
+                set to `True` for statements requiring to be run outside
+                a transaction? such as `VACUUM` or `CREATE DATABASE`.
 
         Returns:
             An instance of :class:`.NodeConnection`.
@@ -1168,4 +1173,5 @@ class PostgresNode(object):
         return NodeConnection(node=self,
                               dbname=dbname,
                               username=username,
-                              password=password)  # yapf: disable
+                              password=password,
+                              autocommit=autocommit)  # yapf: disable
