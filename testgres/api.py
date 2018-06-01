@@ -28,7 +28,7 @@ PostgresNode(name='...', port=..., base_dir='...')
 ...             replica.catchup()  # wait until changes are visible
 ...             print(replica.execute('postgres', 'select count(*) from test'))
 PostgresNode(name='...', port=..., base_dir='...')
-[(3L,)]
+[(3,)]
 """
 from .node import PostgresNode
 

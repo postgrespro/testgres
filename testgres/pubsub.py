@@ -77,7 +77,7 @@ class Publication(object):
         """
         Drop publication
         """
-        self.node.safe_psql(
+        self.node.execute(
             "drop publication {}".format(self.name),
             dbname=dbname,
             username=username)
