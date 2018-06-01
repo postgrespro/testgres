@@ -66,10 +66,11 @@ from .logger import TestgresLogger
 from .pubsub import Publication, Subscription
 
 from .utils import \
+    PgVer, \
     eprint, \
     get_bin_path, \
+    get_pg_version, \
     file_tail, \
-    pg_version_ge, \
     reserve_port, \
     release_port, \
     execute_utility, \
@@ -113,6 +114,7 @@ class PostgresNode(object):
         """
 
         # private
+        self._pg_version = PgVer(get_pg_version())
         self._should_free_port = port is None
         self._base_dir = base_dir
         self._logger = None
@@ -489,7 +491,7 @@ class PostgresNode(object):
             if allow_streaming:
 
                 # select a proper wal_level for PostgreSQL
-                if pg_version_ge('9.6'):
+                if self._pg_version >= '9.6':
                     wal_level = "replica"
                 else:
                     wal_level = "hot_standby"
@@ -504,7 +506,7 @@ class PostgresNode(object):
                                                       wal_level))  # yapf: disable
 
             if allow_logical:
-                if not pg_version_ge('10'):
+                if self._pg_version < '10':
                     raise InitNodeException(
                         "Logical replication is only available for Postgres 10 "
                         "and newer")
@@ -568,7 +570,7 @@ class PostgresNode(object):
 
         # this one is tricky (blame PG 9.4)
         _params = [get_bin_path("pg_controldata")]
-        _params += ["-D"] if pg_version_ge('9.5') else []
+        _params += ["-D"] if self._pg_version >= '9.5' else []
         _params += [self.data_dir]
 
         data = execute_utility(_params, self.utils_log_file)
@@ -1042,7 +1044,7 @@ class PostgresNode(object):
         if not self.master:
             raise TestgresException("Node doesn't have a master")
 
-        if pg_version_ge('10'):
+        if self._pg_version >= '10':
             poll_lsn = "select pg_catalog.pg_current_wal_lsn()::text"
             wait_lsn = "select pg_catalog.pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
         else:
