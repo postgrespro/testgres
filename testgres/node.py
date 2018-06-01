@@ -1034,9 +1034,11 @@ class PostgresNode(object):
 
         Args:
             standbys: either :class:`.First` or :class:`.Any` object specifying
-                sychronization parameters. It is also possible to pass simply
-                a list of replicas which would be equivalent to passing
-                ``First(1, <list>)``
+                sychronization parameters or just a plain list of
+                :class:`.PostgresNode`s replicas which would be equivalent
+                to passing ``First(1, <list>)``. For PostgreSQL 9.5 and below
+                it is only possible to specify a plain list of standbys as
+                `FIRST` and `ANY` keywords aren't supported.
 
         Example::
 
@@ -1049,8 +1051,16 @@ class PostgresNode(object):
                 master.restart()
 
         """
-        if isinstance(standbys, Iterable):
-            standbys = First(1, standbys)
+        if pg_version_ge('9.6'):
+            if isinstance(standbys, Iterable):
+                standbys = First(1, standbys)
+        else:
+            if isinstance(standbys, Iterable):
+                standbys = u", ".join(
+                    u"\"{}\"".format(r.name) for r in standbys)
+            else:
+                raise TestgresException("Feature isn't supported in "
+                                        "Postgres 9.5 and below")
 
         self.append_conf("synchronous_standby_names = '{}'".format(standbys))
 

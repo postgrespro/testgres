@@ -405,8 +405,12 @@ class TestgresTests(unittest.TestCase):
 
     def test_synchronous_replication(self):
         with get_new_node() as master:
+            old_version = not pg_version_ge('9.6')
+
             master.init(allow_streaming=True).start()
-            master.append_conf('synchronous_commit = remote_apply')
+
+            if not old_version:
+                master.append_conf('synchronous_commit = remote_apply')
 
             # create standby
             with master.replicate() as standby1, master.replicate() as standby2:
@@ -424,16 +428,20 @@ class TestgresTests(unittest.TestCase):
                 # set synchronous_standby_names
                 master.set_synchronous_standbys([standby1, standby2])
                 master.restart()
-                master.safe_psql('create table abc(a int)')
 
-                # Create a large transaction that will take some time to apply
-                # on standby to check that it applies synchronously
-                # (If set synchronous_commit to 'on' or other lower level then
-                # standby most likely won't catchup so fast and test will fail)
-                master.safe_psql(
-                    'insert into abc select generate_series(1, 1000000)')
-                res = standby1.safe_psql('select count(*) from abc')
-                self.assertEqual(res, b'1000000\n')
+                # the following part of the test is only applicable to newer
+                # versions of PostgresQL
+                if not old_version:
+                    master.safe_psql('create table abc(a int)')
+
+                    # Create a large transaction that will take some time to apply
+                    # on standby to check that it applies synchronously
+                    # (If set synchronous_commit to 'on' or other lower level then
+                    # standby most likely won't catchup so fast and test will fail)
+                    master.safe_psql(
+                        'insert into abc select generate_series(1, 1000000)')
+                    res = standby1.safe_psql('select count(*) from abc')
+                    self.assertEqual(res, b'1000000\n')
 
     def test_replication_slots(self):
         with get_new_node() as node:
