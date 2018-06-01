@@ -12,7 +12,6 @@ import unittest
 import logging.config
 
 from contextlib import contextmanager
-from distutils.version import LooseVersion
 from shutil import rmtree
 
 from testgres import \
@@ -32,17 +31,28 @@ from testgres import \
 
 from testgres import \
     NodeStatus, \
+    ProcessType, \
     IsolationLevel, \
     get_new_node
 
 from testgres import \
     get_bin_path, \
-    get_pg_config
+    get_pg_config, \
+    get_pg_version
 
+from testgres import \
+    First, \
+    Any
+
+# NOTE: those are ugly imports
 from testgres import bound_ports
-from testgres.utils import pg_version_ge
-from testgres.enums import ProcessType
-from testgres.standby import First, Any
+from testgres.utils import PgVer
+
+
+def pg_version_ge(version):
+    cur_ver = PgVer(get_pg_version())
+    min_ver = PgVer(version)
+    return cur_ver >= min_ver
 
 
 def util_exists(util):
@@ -111,7 +121,7 @@ class TestgresTests(unittest.TestCase):
             node.init().start().execute('select 1')
 
     @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
-    @unittest.skipUnless(pg_version_ge('9.6'), 'query works on 9.6+')
+    @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_init_unique_system_id(self):
         # this function exists in PostgreSQL 9.6+
         query = 'select system_identifier from pg_control_system()'
@@ -869,9 +879,9 @@ class TestgresTests(unittest.TestCase):
         str(QueryException('msg', 'query'))
 
     def test_version_management(self):
-        a = LooseVersion('10.0')
-        b = LooseVersion('10')
-        c = LooseVersion('9.6.5')
+        a = PgVer('10.0')
+        b = PgVer('10')
+        c = PgVer('9.6.5')
 
         self.assertTrue(a > b)
         self.assertTrue(b > c)

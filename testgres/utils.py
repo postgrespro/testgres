@@ -22,6 +22,9 @@ _pg_config_data = {}
 # ports used by nodes
 bound_ports = set()
 
+# re-export version type
+PgVer = LooseVersion
+
 
 def reserve_port():
     """
@@ -178,17 +181,6 @@ def get_pg_version():
                      .partition('rc')[0]
 
     return version
-
-
-def pg_version_ge(version):
-    """
-    Check if PostgreSQL is 'version' or newer.
-    """
-
-    cur_ver = LooseVersion(get_pg_version())
-    min_ver = LooseVersion(version)
-
-    return cur_ver >= min_ver
 
 
 def file_tail(f, num_lines):
