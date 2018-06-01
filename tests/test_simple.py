@@ -402,6 +402,107 @@ class TestgresTests(unittest.TestCase):
                 res = node.execute('select * from test')
                 self.assertListEqual(res, [])
 
+    @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
+    def test_logical_replication(self):
+        with get_new_node() as node1, get_new_node() as node2:
+            node1.init(allow_logical=True)
+            node1.start()
+            node2.init().start()
+
+            create_table = 'create table test (a int, b int)'
+            node1.safe_psql(create_table)
+            node2.safe_psql(create_table)
+
+            # create publication / create subscription
+            pub = node1.publish('mypub')
+            sub = node2.subscribe(pub, 'mysub')
+
+            node1.safe_psql('insert into test values (1, 1), (2, 2)')
+
+            # wait until changes apply on subscriber and check them
+            sub.catchup()
+            res = node2.execute('select * from test')
+            self.assertListEqual(res, [(1, 1), (2, 2)])
+
+            # disable and put some new data
+            sub.disable()
+            node1.safe_psql('insert into test values (3, 3)')
+
+            # enable and ensure that data successfully transfered
+            sub.enable()
+            sub.catchup()
+            res = node2.execute('select * from test')
+            self.assertListEqual(res, [(1, 1), (2, 2), (3, 3)])
+
+            # Add new tables. Since we added "all tables" to publication
+            # (default behaviour of publish() method) we don't need
+            # to explicitely perform pub.add_tables()
+            create_table = 'create table test2 (c char)'
+            node1.safe_psql(create_table)
+            node2.safe_psql(create_table)
+            sub.refresh()
+
+            # put new data
+            node1.safe_psql('insert into test2 values (\'a\'), (\'b\')')
+            sub.catchup()
+            res = node2.execute('select * from test2')
+            self.assertListEqual(res, [('a', ), ('b', )])
+
+            # drop subscription
+            sub.drop()
+            pub.drop()
+
+            # create new publication and subscription for specific table
+            # (ommitting copying data as it's already done)
+            pub = node1.publish('newpub', tables=['test'])
+            sub = node2.subscribe(pub, 'newsub', copy_data=False)
+
+            node1.safe_psql('insert into test values (4, 4)')
+            sub.catchup()
+            res = node2.execute('select * from test')
+            self.assertListEqual(res, [(1, 1), (2, 2), (3, 3), (4, 4)])
+
+            # explicitely add table
+            with self.assertRaises(ValueError):
+                pub.add_tables([])    # fail
+            pub.add_tables(['test2'])
+            node1.safe_psql('insert into test2 values (\'c\')')
+            sub.catchup()
+            res = node2.execute('select * from test2')
+            self.assertListEqual(res, [('a', ), ('b', )])
+
+    @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
+    def test_logical_catchup(self):
+        """ Runs catchup for 100 times to be sure that it is consistent """
+        with get_new_node() as node1, get_new_node() as node2:
+            node1.init(allow_logical=True)
+            node1.start()
+            node2.init().start()
+
+            create_table = 'create table test (key int primary key, val int); '
+            node1.safe_psql(create_table)
+            node1.safe_psql('alter table test replica identity default')
+            node2.safe_psql(create_table)
+
+            # create publication / create subscription
+            sub = node2.subscribe(node1.publish('mypub'), 'mysub')
+
+            for i in range(0, 100):
+                node1.execute('insert into test values ({0}, {0})'.format(i))
+                sub.catchup()
+                res = node2.execute('select * from test')
+                self.assertListEqual(res, [(
+                    i,
+                    i,
+                )])
+                node1.execute('delete from test')
+
+    @unittest.skipIf(pg_version_ge('10'), 'requires <10')
+    def test_logical_replication_fail(self):
+        with get_new_node() as node:
+            with self.assertRaises(InitNodeException):
+                node.init(allow_logical=True)
+
     def test_replication_slots(self):
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
@@ -459,14 +560,10 @@ class TestgresTests(unittest.TestCase):
 
             self.assertTrue(end_time - start_time >= 5)
 
-            # check 0 rows
-            with self.assertRaises(QueryException):
-                node.poll_query_until(
-                    query='select * from pg_class where true = false')
-
             # check 0 columns
             with self.assertRaises(QueryException):
-                node.poll_query_until(query='select from pg_class limit 1')
+                node.poll_query_until(
+                    query='select from pg_catalog.pg_class limit 1')
 
             # check None, fail
             with self.assertRaises(QueryException):
@@ -475,6 +572,11 @@ class TestgresTests(unittest.TestCase):
             # check None, ok
             node.poll_query_until(
                 query='create table def()', expected=None)    # returns nothing
+
+            # check 0 rows equivalent to expected=None
+            node.poll_query_until(
+                query='select * from pg_catalog.pg_class where true = false',
+                expected=None)
 
             # check arbitrary expected value, fail
             with self.assertRaises(TimeoutException):

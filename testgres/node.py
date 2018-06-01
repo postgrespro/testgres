@@ -57,10 +57,13 @@ from .exceptions import \
     QueryException,     \
     StartNodeException, \
     TimeoutException,   \
+    InitNodeException,  \
     TestgresException,  \
     BackupException
 
 from .logger import TestgresLogger
+
+from .pubsub import Publication, Subscription
 
 from .utils import \
     eprint, \
@@ -70,6 +73,7 @@ from .utils import \
     reserve_port, \
     release_port, \
     execute_utility, \
+    options_string, \
     clean_on_error
 
 from .backup import NodeBackup
@@ -300,24 +304,24 @@ class PostgresNode(object):
         master = self.master
         assert master is not None
 
-        conninfo = (
-            u"application_name={} "
-            u"port={} "
-            u"user={} "
-        ).format(self.name, master.port, username)  # yapf: disable
+        conninfo = {
+            "application_name": self.name,
+            "port": master.port,
+            "user": username
+        }  # yapf: disable
 
         # host is tricky
         try:
             import ipaddress
             ipaddress.ip_address(master.host)
-            conninfo += u"hostaddr={}".format(master.host)
+            conninfo["hostaddr"] = master.host
         except ValueError:
-            conninfo += u"host={}".format(master.host)
+            conninfo["host"] = master.host
 
         line = (
             "primary_conninfo='{}'\n"
             "standby_mode=on\n"
-        ).format(conninfo)  # yapf: disable
+        ).format(options_string(**conninfo))  # yapf: disable
 
         if slot:
             # Connect to master for some additional actions
@@ -413,6 +417,7 @@ class PostgresNode(object):
                      fsync=False,
                      unix_sockets=True,
                      allow_streaming=True,
+                     allow_logical=False,
                      log_statement='all'):
         """
         Apply default settings to this node.
@@ -421,6 +426,7 @@ class PostgresNode(object):
             fsync: should this node use fsync to keep data safe?
             unix_sockets: should we enable UNIX sockets?
             allow_streaming: should this node add a hba entry for replication?
+            allow_logical: can this node be used as a logical replication publisher?
             log_statement: one of ('all', 'off', 'mod', 'ddl').
 
         Returns:
@@ -496,6 +502,13 @@ class PostgresNode(object):
                                                       MAX_REPLICATION_SLOTS,
                                                       WAL_KEEP_SEGMENTS,
                                                       wal_level))  # yapf: disable
+
+            if allow_logical:
+                if not pg_version_ge('10'):
+                    raise InitNodeException(
+                        "Logical replication is only available for Postgres 10 "
+                        "and newer")
+                conf.write(u"wal_level = logical\n")
 
             # disable UNIX sockets if asked to
             if not unix_sockets:
@@ -937,13 +950,14 @@ class PostgresNode(object):
                 if res is None:
                     raise QueryException('Query returned None', query)
 
-                if len(res) == 0:
-                    raise QueryException('Query returned 0 rows', query)
-
-                if len(res[0]) == 0:
-                    raise QueryException('Query returned 0 columns', query)
-
-                if res[0][0] == expected:
+                # result set is not empty
+                if len(res):
+                    if len(res[0]) == 0:
+                        raise QueryException('Query returned 0 columns', query)
+                    if res[0][0] == expected:
+                        return    # done
+                # empty result set is considered as None
+                elif expected is None:
                     return    # done
 
             except ProgrammingError as e:
@@ -982,12 +996,10 @@ class PostgresNode(object):
 
         with self.connect(dbname=dbname,
                           username=username,
-                          password=password) as node_con:  # yapf: disable
+                          password=password,
+                          autocommit=commit) as node_con:  # yapf: disable
 
             res = node_con.execute(query)
-
-            if commit:
-                node_con.commit()
 
             return res
 
@@ -1051,6 +1063,37 @@ class PostgresNode(object):
                 max_attempts=0)    # infinite
         except Exception as e:
             raise_from(CatchUpException("Failed to catch up", poll_lsn), e)
+
+    def publish(self, name, **kwargs):
+        """
+        Create publication for logical replication
+
+        Args:
+            pubname: publication name
+            tables: tables names list
+            dbname: database name where objects or interest are located
+            username: replication username
+        """
+        return Publication(name=name, node=self, **kwargs)
+
+    def subscribe(self, publication, name, dbname=None, username=None,
+                  **params):
+        """
+        Create subscription for logical replication
+
+        Args:
+            name: subscription name
+            publication: publication object obtained from publish()
+            dbname: database name
+            username: replication username
+            params: subscription parameters (see documentation on `CREATE SUBSCRIPTION
+                 <https://www.postgresql.org/docs/current/static/sql-createsubscription.html>`_
+                 for details)
+        """
+        # yapf: disable
+        return Subscription(name=name, node=self, publication=publication,
+                            dbname=dbname, username=username, **params)
+        # yapf: enable
 
     def pgbench(self,
                 dbname=None,
@@ -1150,7 +1193,11 @@ class PostgresNode(object):
 
         return execute_utility(_params, self.utils_log_file)
 
-    def connect(self, dbname=None, username=None, password=None):
+    def connect(self,
+                dbname=None,
+                username=None,
+                password=None,
+                autocommit=False):
         """
         Connect to a database.
 
@@ -1158,6 +1205,9 @@ class PostgresNode(object):
             dbname: database name to connect to.
             username: database user name.
             password: user's password.
+            autocommit: commit each statement automatically. Also it should be
+                set to `True` for statements requiring to be run outside
+                a transaction? such as `VACUUM` or `CREATE DATABASE`.
 
         Returns:
             An instance of :class:`.NodeConnection`.
@@ -1166,4 +1216,5 @@ class PostgresNode(object):
         return NodeConnection(node=self,
                               dbname=dbname,
                               username=username,
-                              password=password)  # yapf: disable
+                              password=password,
+                              autocommit=autocommit)  # yapf: disable
