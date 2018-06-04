@@ -683,11 +683,47 @@ class PostgresNode(object):
         _params = [
             get_bin_path("pg_ctl"),
             "-D", self.data_dir,
-            "-w",  # wait
             "reload"
         ] + params  # yapf: disable
 
         execute_utility(_params, self.utils_log_file)
+
+        return self
+
+    def promote(self, dbname=None, username=None):
+        """
+        Promote standby instance to master using pg_ctl. For PostgreSQL versions
+        below 10 some additional actions required to ensure that instance
+        became writable and hence `dbname` and `username` parameters may be
+        needed.
+
+        Returns:
+            This instance of :class:`.PostgresNode`.
+        """
+
+        _params = [
+            get_bin_path("pg_ctl"),
+            "-D", self.data_dir,
+            "-w",  # wait
+            "promote"
+        ]  # yapf: disable
+
+        execute_utility(_params, self.utils_log_file)
+
+        # for versions below 10 `promote` is asynchronous so we need to wait
+        # until it actually becomes writable
+        if self._pg_version < '10':
+            check_query = "SELECT pg_is_in_recovery()"
+
+            self.poll_query_until(
+                query=check_query,
+                expected=False,
+                dbname=dbname,
+                username=username,
+                max_attempts=0)    # infinite
+
+        # node becomes master itself
+        self._master = None
 
         return self
 
