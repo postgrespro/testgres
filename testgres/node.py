@@ -712,7 +712,7 @@ class PostgresNode(object):
 
         # for versions below 10 `promote` is asynchronous so we need to wait
         # until it actually becomes writable
-        if not pg_version_ge("10"):
+        if self._pg_version < '10':
             check_query = "SHOW transaction_read_only"
 
             self.poll_query_until(
