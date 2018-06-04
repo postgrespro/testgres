@@ -713,11 +713,11 @@ class PostgresNode(object):
         # for versions below 10 `promote` is asynchronous so we need to wait
         # until it actually becomes writable
         if self._pg_version < '10':
-            check_query = "SHOW transaction_read_only"
+            check_query = "SELECT pg_is_in_recovery()"
 
             self.poll_query_until(
                 query=check_query,
-                expected="off",
+                expected=False,
                 dbname=dbname,
                 username=username,
                 max_attempts=0)    # infinite
