@@ -717,7 +717,7 @@ class PostgresNode(object):
 
             self.poll_query_until(
                 query=check_query,
-                expected="on",
+                expected="off",
                 dbname=dbname,
                 username=username,
                 max_attempts=0)    # infinite
