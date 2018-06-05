@@ -7,7 +7,7 @@ import subprocess
 import time
 
 from shutil import rmtree
-from six import raise_from, iteritems
+from six import raise_from, iteritems, text_type
 from tempfile import mkstemp, mkdtemp
 
 from .enums import \
@@ -38,8 +38,10 @@ from .consts import \
     PG_PID_FILE
 
 from .consts import \
-    MAX_WAL_SENDERS, \
+    MAX_LOGICAL_REPLICATION_WORKERS, \
     MAX_REPLICATION_SLOTS, \
+    MAX_WORKER_PROCESSES, \
+    MAX_WAL_SENDERS, \
     WAL_KEEP_SEGMENTS
 
 from .decorators import \
@@ -329,25 +331,27 @@ class PostgresNode(object):
             # Connect to master for some additional actions
             with master.connect(username=username) as con:
                 # check if slot already exists
-                res = con.execute("""
+                res = con.execute(
+                    """
                     select exists (
                         select from pg_catalog.pg_replication_slots
                         where slot_name = %s
                     )
-                """, slot)
+                    """, slot)
 
                 if res[0][0]:
                     raise TestgresException(
                         "Slot '{}' already exists".format(slot))
 
                 # TODO: we should drop this slot after replica's cleanup()
-                con.execute("""
+                con.execute(
+                    """
                     select pg_catalog.pg_create_physical_replication_slot(%s)
-                """, slot)
+                    """, slot)
 
             line += "primary_slot_name={}\n".format(slot)
 
-        self.append_conf(RECOVERY_CONF_FILE, line)
+        self.append_conf(filename=RECOVERY_CONF_FILE, line=line)
 
     def _maybe_start_logger(self):
         if testgres_config.use_python_logging:
@@ -475,65 +479,80 @@ class PostgresNode(object):
 
         # overwrite config file
         with io.open(postgres_conf, "w") as conf:
-            # remove old lines
             conf.truncate()
 
-            if not fsync:
-                conf.write(u"fsync = off\n")
+        self.append_conf(fsync=fsync,
+                         max_worker_processes=MAX_WORKER_PROCESSES,
+                         log_statement=log_statement,
+                         listen_addresses=self.host,
+                         port=self.port)  # yapf:disable
 
-            conf.write(u"log_statement = {}\n"
-                       u"listen_addresses = '{}'\n"
-                       u"port = {}\n".format(log_statement,
-                                             self.host,
-                                             self.port))  # yapf: disable
+        # common replication settings
+        if allow_streaming or allow_logical:
+            self.append_conf(max_replication_slots=MAX_REPLICATION_SLOTS,
+                             max_wal_senders=MAX_WAL_SENDERS)  # yapf: disable
 
-            # replication-related settings
-            if allow_streaming:
+        # binary replication
+        if allow_streaming:
+            # select a proper wal_level for PostgreSQL
+            wal_level = 'replica' if self._pg_version >= '9.6' else 'hot_standby'
 
-                # select a proper wal_level for PostgreSQL
-                if self._pg_version >= '9.6':
-                    wal_level = "replica"
-                else:
-                    wal_level = "hot_standby"
+            self.append_conf(hot_standby=True,
+                             wal_keep_segments=WAL_KEEP_SEGMENTS,
+                             wal_level=wal_level)  # yapf: disable
 
-                conf.write(u"hot_standby = on\n"
-                           u"max_wal_senders = {}\n"
-                           u"max_replication_slots = {}\n"
-                           u"wal_keep_segments = {}\n"
-                           u"wal_level = {}\n".format(MAX_WAL_SENDERS,
-                                                      MAX_REPLICATION_SLOTS,
-                                                      WAL_KEEP_SEGMENTS,
-                                                      wal_level))  # yapf: disable
+        # logical replication
+        if allow_logical:
+            if self._pg_version < '10':
+                raise InitNodeException("Logical replication is only "
+                                        "available on PostgreSQL 10 and newer")
 
-            if allow_logical:
-                if self._pg_version < '10':
-                    raise InitNodeException(
-                        "Logical replication is only available for Postgres 10 "
-                        "and newer")
-                conf.write(u"wal_level = logical\n")
+            self.append_conf(
+                max_logical_replication_workers=MAX_LOGICAL_REPLICATION_WORKERS,
+                wal_level='logical')
 
-            # disable UNIX sockets if asked to
-            if not unix_sockets:
-                conf.write(u"unix_socket_directories = ''\n")
+        # disable UNIX sockets if asked to
+        if not unix_sockets:
+            self.append_conf(unix_socket_directories='')
 
         return self
 
     @method_decorator(positional_args_hack(['filename', 'line']))
-    def append_conf(self, line, filename=PG_CONF_FILE):
+    def append_conf(self, line='', filename=PG_CONF_FILE, **kwargs):
         """
         Append line to a config file.
 
         Args:
             line: string to be appended to config.
             filename: config file (postgresql.conf by default).
+            **kwargs: named config options.
 
         Returns:
             This instance of :class:`.PostgresNode`.
+
+        Examples:
+            append_conf(fsync=False)
+            append_conf('log_connections = yes')
+            append_conf(random_page_cost=1.5, fsync=True, ...)
+            append_conf('postgresql.conf', 'synchronous_commit = off')
         """
+
+        lines = [line]
+
+        for option, value in iteritems(kwargs):
+            if isinstance(value, bool):
+                value = 'on' if value else 'off'
+            elif not str(value).replace('.', '', 1).isdigit():
+                value = "'{}'".format(value)
+
+            # format a new config line
+            lines.append('{} = {}'.format(option, value))
 
         config_name = os.path.join(self.data_dir, filename)
         with io.open(config_name, 'a') as conf:
-            conf.write(u''.join([line, '\n']))
+            for line in lines:
+                conf.write(text_type(line))
+                conf.write(text_type('\n'))
 
         return self
 

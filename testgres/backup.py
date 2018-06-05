@@ -149,8 +149,9 @@ class NodeBackup(object):
             # New nodes should always remove dir tree
             node._should_rm_dirs = True
 
-            node.append_conf(PG_CONF_FILE, "\n")
-            node.append_conf(PG_CONF_FILE, "port = {}".format(node.port))
+            # Set a new port
+            node.append_conf(filename=PG_CONF_FILE, line='\n')
+            node.append_conf(filename=PG_CONF_FILE, port=node.port)
 
             return node
 
