@@ -195,7 +195,7 @@ class TestgresTests(unittest.TestCase):
 
             # change client_min_messages and save old value
             cmm_old = node.execute('show client_min_messages')
-            node.append_conf('client_min_messages = DEBUG1')
+            node.append_conf(client_min_messages='DEBUG1')
 
             # reload config
             node.reload()
