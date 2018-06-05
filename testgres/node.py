@@ -533,6 +533,7 @@ class PostgresNode(object):
         Examples:
             append_conf(fsync=False)
             append_conf('log_connections = yes')
+            append_conf(random_page_cost=1.5, fsync=True, ...)
             append_conf('postgresql.conf', 'synchronous_commit = off')
         """
 
