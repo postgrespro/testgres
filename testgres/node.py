@@ -986,6 +986,11 @@ class PostgresNode(object):
             commit: should (possible) changes be committed?
             raise_programming_error: enable ProgrammingError?
             raise_internal_error: enable InternalError?
+
+        Examples:
+            poll_query_until('select true')
+            poll_query_until('postgres', "select now() > '01.01.2018'")
+            poll_query_until('select false', expected=True, max_attempts=4)
         """
 
         # sanity checks
