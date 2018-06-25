@@ -857,6 +857,12 @@ class TestgresTests(unittest.TestCase):
         self.assertTrue(b > c)
         self.assertTrue(a > c)
 
+        version = get_pg_version()
+        with get_new_node() as node:
+            self.assertTrue(isinstance(version, str))
+            self.assertTrue(isinstance(node.version, PgVer))
+            self.assertTrue(node.version == version)
+
     def test_child_pids(self):
         master_processes = [
             ProcessType.AutovacuumLauncher,

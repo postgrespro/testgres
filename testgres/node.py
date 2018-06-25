@@ -278,6 +278,16 @@ class PostgresNode(object):
     def pg_log_file(self):
         return os.path.join(self.logs_dir, PG_LOG_FILE)
 
+    @property
+    def version(self):
+        """
+        Return PostgreSQL version for this node.
+
+        Returns:
+            Instance of :class:`distutils.version.LooseVersion`.
+        """
+        return self._pg_version
+
     def _try_shutdown(self, max_attempts):
         attempts = 0
 
