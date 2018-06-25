@@ -11,6 +11,7 @@ import sys
 
 from contextlib import contextmanager
 from distutils.version import LooseVersion
+from distutils.spawn import find_executable
 from six import iteritems
 
 from .config import testgres_config
@@ -116,10 +117,15 @@ def get_bin_path(filename):
     if pg_bin:
         return os.path.join(pg_bin, filename)
 
+    pg_config_path = find_executable('pg_config')
+    if pg_config_path:
+        bindir = get_pg_config(pg_config_path)["BINDIR"]
+        return os.path.join(bindir, filename)
+
     return filename
 
 
-def get_pg_config():
+def get_pg_config(pg_config_path=None):
     """
     Return output of pg_config (provided that it is installed).
     NOTE: this fuction caches the result by default (see GlobalConfig).
@@ -150,8 +156,8 @@ def get_pg_config():
     if _pg_config_data:
         return _pg_config_data
 
-    # try PG_CONFIG
-    pg_config = os.environ.get("PG_CONFIG")
+    # try specified pg_config path or PG_CONFIG
+    pg_config = pg_config_path or os.environ.get("PG_CONFIG")
     if pg_config:
         return cache_pg_config_data(pg_config)
 
