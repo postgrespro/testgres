@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import testgres
 import time
+import six
 import unittest
 
 import logging.config
@@ -859,7 +860,7 @@ class TestgresTests(unittest.TestCase):
 
         version = get_pg_version()
         with get_new_node() as node:
-            self.assertTrue(isinstance(version, str))
+            self.assertTrue(isinstance(version, six.string_types))
             self.assertTrue(isinstance(node.version, PgVer))
             self.assertTrue(node.version == version)
 
