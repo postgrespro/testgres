@@ -862,7 +862,7 @@ class TestgresTests(unittest.TestCase):
         with get_new_node() as node:
             self.assertTrue(isinstance(version, six.string_types))
             self.assertTrue(isinstance(node.version, PgVer))
-            self.assertTrue(node.version == version)
+            self.assertEqual(node.version, str(version))
 
     def test_child_pids(self):
         master_processes = [
