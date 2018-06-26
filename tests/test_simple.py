@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import testgres
 import time
+import six
 import unittest
 
 import logging.config
@@ -856,6 +857,12 @@ class TestgresTests(unittest.TestCase):
         self.assertTrue(a > b)
         self.assertTrue(b > c)
         self.assertTrue(a > c)
+
+        version = get_pg_version()
+        with get_new_node() as node:
+            self.assertTrue(isinstance(version, six.string_types))
+            self.assertTrue(isinstance(node.version, PgVer))
+            self.assertEqual(node.version, str(version))
 
     def test_child_pids(self):
         master_processes = [
