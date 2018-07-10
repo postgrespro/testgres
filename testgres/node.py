@@ -22,7 +22,8 @@ from .config import testgres_config
 from .connection import \
     NodeConnection, \
     InternalError,  \
-    ProgrammingError
+    ProgrammingError, \
+    OperationalError
 
 from .consts import \
     DATA_DIR, \
@@ -981,7 +982,8 @@ class PostgresNode(object):
                          expected=True,
                          commit=True,
                          raise_programming_error=True,
-                         raise_internal_error=True):
+                         raise_internal_error=True,
+                         raise_operational_error=True):
         """
         Run a query once per second until it returns 'expected'.
         Query should return a single value (1 row, 1 column).
@@ -1038,6 +1040,10 @@ class PostgresNode(object):
 
             except InternalError as e:
                 if raise_internal_error:
+                    raise e
+
+            except OperationalError as e:
+                if raise_operational_error:
                     raise e
 
             time.sleep(sleep_time)
