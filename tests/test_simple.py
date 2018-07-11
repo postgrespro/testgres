@@ -7,12 +7,12 @@ import subprocess
 import tempfile
 import testgres
 import time
+import six
 import unittest
 
 import logging.config
 
 from contextlib import contextmanager
-from distutils.version import LooseVersion
 from shutil import rmtree
 
 from testgres import \
@@ -32,22 +32,30 @@ from testgres import \
 
 from testgres import \
     NodeStatus, \
+    ProcessType, \
     IsolationLevel, \
     get_new_node
 
 from testgres import \
     get_bin_path, \
-    get_pg_config
+    get_pg_config, \
+    get_pg_version
 
+# NOTE: those are ugly imports
 from testgres import bound_ports
-from testgres.utils import pg_version_ge
-from testgres.enums import ProcessType
+from testgres.utils import PgVer
+
+
+def pg_version_ge(version):
+    cur_ver = PgVer(get_pg_version())
+    min_ver = PgVer(version)
+    return cur_ver >= min_ver
 
 
 def util_exists(util):
     def good_properties(f):
-        return (os.path.exists(f) and
-                os.path.isfile(f) and
+        return (os.path.exists(f) and  # noqa: W504
+                os.path.isfile(f) and  # noqa: W504
                 os.access(f, os.X_OK))  # yapf: disable
 
     # try to resolve it
@@ -67,12 +75,14 @@ def removing(f):
     finally:
         if os.path.isfile(f):
             os.remove(f)
+        elif os.path.isdir(f):
+            rmtree(f, ignore_errors=True)
 
 
 class TestgresTests(unittest.TestCase):
     def test_node_repr(self):
         with get_new_node() as node:
-            pattern = 'PostgresNode\(name=\'.+\', port=.+, base_dir=\'.+\'\)'
+            pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
             self.assertIsNotNone(re.match(pattern, str(node)))
 
     def test_custom_init(self):
@@ -108,7 +118,7 @@ class TestgresTests(unittest.TestCase):
             node.init().start().execute('select 1')
 
     @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
-    @unittest.skipUnless(pg_version_ge('9.6'), 'query works on 9.6+')
+    @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_init_unique_system_id(self):
         # this function exists in PostgreSQL 9.6+
         query = 'select system_identifier from pg_control_system()'
@@ -186,7 +196,7 @@ class TestgresTests(unittest.TestCase):
 
             # change client_min_messages and save old value
             cmm_old = node.execute('show client_min_messages')
-            node.append_conf('client_min_messages = DEBUG1')
+            node.append_conf(client_min_messages='DEBUG1')
 
             # reload config
             node.reload()
@@ -263,7 +273,7 @@ class TestgresTests(unittest.TestCase):
             # check feeding input
             node.safe_psql('create table horns (w int)')
             node.safe_psql(
-                'copy horns from stdin (format csv)', input=b"1\n2\n3\n\.\n")
+                'copy horns from stdin (format csv)', input=b"1\n2\n3\n\\.\n")
             _sum = node.safe_psql('select sum(w) from horns')
             self.assertEqual(_sum, b'6\n')
 
@@ -373,6 +383,18 @@ class TestgresTests(unittest.TestCase):
                     BackupException, msg='Invalid xlog_method "wrong"'):
                 node.backup(xlog_method='wrong')
 
+    def test_pg_ctl_wait_option(self):
+        with get_new_node() as node:
+            node.init().start(wait=False)
+            while True:
+                try:
+                    node.stop(wait=False)
+                    break
+                except ExecUtilException:
+                    # it's ok to get this exception here since node
+                    # could be not started yet
+                    pass
+
     def test_replicate(self):
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
@@ -387,6 +409,107 @@ class TestgresTests(unittest.TestCase):
 
                 res = node.execute('select * from test')
                 self.assertListEqual(res, [])
+
+    @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
+    def test_logical_replication(self):
+        with get_new_node() as node1, get_new_node() as node2:
+            node1.init(allow_logical=True)
+            node1.start()
+            node2.init().start()
+
+            create_table = 'create table test (a int, b int)'
+            node1.safe_psql(create_table)
+            node2.safe_psql(create_table)
+
+            # create publication / create subscription
+            pub = node1.publish('mypub')
+            sub = node2.subscribe(pub, 'mysub')
+
+            node1.safe_psql('insert into test values (1, 1), (2, 2)')
+
+            # wait until changes apply on subscriber and check them
+            sub.catchup()
+            res = node2.execute('select * from test')
+            self.assertListEqual(res, [(1, 1), (2, 2)])
+
+            # disable and put some new data
+            sub.disable()
+            node1.safe_psql('insert into test values (3, 3)')
+
+            # enable and ensure that data successfully transfered
+            sub.enable()
+            sub.catchup()
+            res = node2.execute('select * from test')
+            self.assertListEqual(res, [(1, 1), (2, 2), (3, 3)])
+
+            # Add new tables. Since we added "all tables" to publication
+            # (default behaviour of publish() method) we don't need
+            # to explicitely perform pub.add_tables()
+            create_table = 'create table test2 (c char)'
+            node1.safe_psql(create_table)
+            node2.safe_psql(create_table)
+            sub.refresh()
+
+            # put new data
+            node1.safe_psql('insert into test2 values (\'a\'), (\'b\')')
+            sub.catchup()
+            res = node2.execute('select * from test2')
+            self.assertListEqual(res, [('a', ), ('b', )])
+
+            # drop subscription
+            sub.drop()
+            pub.drop()
+
+            # create new publication and subscription for specific table
+            # (ommitting copying data as it's already done)
+            pub = node1.publish('newpub', tables=['test'])
+            sub = node2.subscribe(pub, 'newsub', copy_data=False)
+
+            node1.safe_psql('insert into test values (4, 4)')
+            sub.catchup()
+            res = node2.execute('select * from test')
+            self.assertListEqual(res, [(1, 1), (2, 2), (3, 3), (4, 4)])
+
+            # explicitely add table
+            with self.assertRaises(ValueError):
+                pub.add_tables([])    # fail
+            pub.add_tables(['test2'])
+            node1.safe_psql('insert into test2 values (\'c\')')
+            sub.catchup()
+            res = node2.execute('select * from test2')
+            self.assertListEqual(res, [('a', ), ('b', )])
+
+    @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
+    def test_logical_catchup(self):
+        """ Runs catchup for 100 times to be sure that it is consistent """
+        with get_new_node() as node1, get_new_node() as node2:
+            node1.init(allow_logical=True)
+            node1.start()
+            node2.init().start()
+
+            create_table = 'create table test (key int primary key, val int); '
+            node1.safe_psql(create_table)
+            node1.safe_psql('alter table test replica identity default')
+            node2.safe_psql(create_table)
+
+            # create publication / create subscription
+            sub = node2.subscribe(node1.publish('mypub'), 'mysub')
+
+            for i in range(0, 100):
+                node1.execute('insert into test values ({0}, {0})'.format(i))
+                sub.catchup()
+                res = node2.execute('select * from test')
+                self.assertListEqual(res, [(
+                    i,
+                    i,
+                )])
+                node1.execute('delete from test')
+
+    @unittest.skipIf(pg_version_ge('10'), 'requires <10')
+    def test_logical_replication_fail(self):
+        with get_new_node() as node:
+            with self.assertRaises(InitNodeException):
+                node.init(allow_logical=True)
 
     def test_replication_slots(self):
         with get_new_node() as node:
@@ -407,6 +530,20 @@ class TestgresTests(unittest.TestCase):
             with self.assertRaises(TestgresException):
                 node.catchup()
 
+    def test_promotion(self):
+        with get_new_node() as master:
+            master.init().start()
+            master.safe_psql('create table abc(id serial)')
+
+            with master.replicate().start() as replica:
+                master.stop()
+                replica.promote()
+
+                # make standby becomes writable master
+                replica.safe_psql('insert into abc values (1)')
+                res = replica.safe_psql('select * from abc')
+                self.assertEqual(res, b'1\n')
+
     def test_dump(self):
         query_create = 'create table test as select generate_series(1, 2) as val'
         query_select = 'select * from test order by val asc'
@@ -414,16 +551,17 @@ class TestgresTests(unittest.TestCase):
         with get_new_node().init().start() as node1:
 
             node1.execute(query_create)
-
-            # take a new dump
-            with removing(node1.dump()) as dump:
-                with get_new_node().init().start() as node2:
-                    # restore dump
-                    self.assertTrue(os.path.isfile(dump))
-                    node2.restore(filename=dump)
-
-                    res = node2.execute(query_select)
-                    self.assertListEqual(res, [(1, ), (2, )])
+            for format in ['plain', 'custom', 'directory', 'tar']:
+                with removing(node1.dump(format=format)) as dump:
+                    with get_new_node().init().start() as node3:
+                        if format == 'directory':
+                            self.assertTrue(os.path.isdir(dump))
+                        else:
+                            self.assertTrue(os.path.isfile(dump))
+                        # restore dump
+                        node3.restore(filename=dump)
+                        res = node3.execute(query_select)
+                        self.assertListEqual(res, [(1, ), (2, )])
 
     def test_users(self):
         with get_new_node().init().start() as node:
@@ -444,14 +582,10 @@ class TestgresTests(unittest.TestCase):
 
             self.assertTrue(end_time - start_time >= 5)
 
-            # check 0 rows
-            with self.assertRaises(QueryException):
-                node.poll_query_until(
-                    query='select * from pg_class where true = false')
-
             # check 0 columns
             with self.assertRaises(QueryException):
-                node.poll_query_until(query='select from pg_class limit 1')
+                node.poll_query_until(
+                    query='select from pg_catalog.pg_class limit 1')
 
             # check None, fail
             with self.assertRaises(QueryException):
@@ -460,6 +594,11 @@ class TestgresTests(unittest.TestCase):
             # check None, ok
             node.poll_query_until(
                 query='create table def()', expected=None)    # returns nothing
+
+            # check 0 rows equivalent to expected=None
+            node.poll_query_until(
+                query='select * from pg_catalog.pg_class where true = false',
+                expected=None)
 
             # check arbitrary expected value, fail
             with self.assertRaises(TimeoutException):
@@ -487,7 +626,7 @@ class TestgresTests(unittest.TestCase):
                     query='dummy2',
                     max_attempts=3,
                     sleep_time=0.01,
-                    raise_programming_error=False)
+                    suppress={testgres.ProgrammingError})
 
             # check 1 arg, ok
             node.poll_query_until('select true')
@@ -711,13 +850,19 @@ class TestgresTests(unittest.TestCase):
         str(QueryException('msg', 'query'))
 
     def test_version_management(self):
-        a = LooseVersion('10.0')
-        b = LooseVersion('10')
-        c = LooseVersion('9.6.5')
+        a = PgVer('10.0')
+        b = PgVer('10')
+        c = PgVer('9.6.5')
 
         self.assertTrue(a > b)
         self.assertTrue(b > c)
         self.assertTrue(a > c)
+
+        version = get_pg_version()
+        with get_new_node() as node:
+            self.assertTrue(isinstance(version, six.string_types))
+            self.assertTrue(isinstance(node.version, PgVer))
+            self.assertEqual(node.version, str(version))
 
     def test_child_pids(self):
         master_processes = [

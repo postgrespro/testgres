@@ -11,6 +11,7 @@ import sys
 
 from contextlib import contextmanager
 from distutils.version import LooseVersion
+from six import iteritems
 
 from .config import testgres_config
 from .exceptions import ExecUtilException
@@ -20,6 +21,9 @@ _pg_config_data = {}
 
 # ports used by nodes
 bound_ports = set()
+
+# re-export version type
+PgVer = LooseVersion
 
 
 def reserve_port():
@@ -179,17 +183,6 @@ def get_pg_version():
     return version
 
 
-def pg_version_ge(version):
-    """
-    Check if PostgreSQL is 'version' or newer.
-    """
-
-    cur_ver = LooseVersion(get_pg_version())
-    min_ver = LooseVersion(version)
-
-    return cur_ver >= min_ver
-
-
 def file_tail(f, num_lines):
     """
     Get last N lines of a file.
@@ -223,6 +216,10 @@ def eprint(*args, **kwargs):
     """
 
     print(*args, file=sys.stderr, **kwargs)
+
+
+def options_string(separator=u" ", **kwargs):
+    return separator.join(u"{}={}".format(k, v) for k, v in iteritems(kwargs))
 
 
 @contextmanager

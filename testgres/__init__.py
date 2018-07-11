@@ -10,8 +10,10 @@ from .config import \
 
 from .connection import \
     NodeConnection, \
+    DatabaseError, \
     InternalError, \
-    ProgrammingError
+    ProgrammingError, \
+    OperationalError
 
 from .exceptions import *
 from .enums import *

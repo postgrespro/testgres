@@ -60,3 +60,18 @@ testgres.node
 
 .. autoclass:: testgres.node.ProcessProxy
    :members:
+
+testgres.pubsub
+---------------
+
+.. automodule:: testgres.pubsub
+
+.. autoclass:: testgres.node.Publication
+   :members:
+
+   .. automethod:: __init__
+
+.. autoclass:: testgres.node.Subscription
+   :members:
+
+   .. automethod:: __init__

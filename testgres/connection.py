@@ -17,9 +17,11 @@ from .defaults import \
 
 from .exceptions import QueryException
 
-# export these exceptions
+# export some exceptions
+DatabaseError = pglib.DatabaseError
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
+OperationalError = pglib.OperationalError
 
 
 class NodeConnection(object):
@@ -27,7 +29,12 @@ class NodeConnection(object):
     Transaction wrapper returned by Node
     """
 
-    def __init__(self, node, dbname=None, username=None, password=None):
+    def __init__(self,
+                 node,
+                 dbname=None,
+                 username=None,
+                 password=None,
+                 autocommit=False):
 
         # Set default arguments
         dbname = dbname or default_dbname()
@@ -42,6 +49,7 @@ class NodeConnection(object):
             host=node.host,
             port=node.port)
 
+        self._connection.autocommit = autocommit
         self._cursor = self.connection.cursor()
 
     @property
