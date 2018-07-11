@@ -17,9 +17,11 @@ from .defaults import \
 
 from .exceptions import QueryException
 
-# export these exceptions
+# export some exceptions
+DatabaseError = pglib.DatabaseError
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
+OperationalError = pglib.OperationalError
 
 
 class NodeConnection(object):

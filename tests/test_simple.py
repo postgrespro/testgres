@@ -625,7 +625,7 @@ class TestgresTests(unittest.TestCase):
                     query='dummy2',
                     max_attempts=3,
                     sleep_time=0.01,
-                    raise_programming_error=False)
+                    suppress={testgres.ProgrammingError})
 
             # check 1 arg, ok
             node.poll_query_until('select true')
