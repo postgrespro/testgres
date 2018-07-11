@@ -19,10 +19,7 @@ from .cache import cached_initdb
 
 from .config import testgres_config
 
-from .connection import \
-    NodeConnection, \
-    InternalError,  \
-    ProgrammingError
+from .connection import NodeConnection
 
 from .consts import \
     DATA_DIR, \
@@ -541,10 +538,10 @@ class PostgresNode(object):
             This instance of :class:`.PostgresNode`.
 
         Examples:
-            append_conf(fsync=False)
-            append_conf('log_connections = yes')
-            append_conf(random_page_cost=1.5, fsync=True, ...)
-            append_conf('postgresql.conf', 'synchronous_commit = off')
+            >>> append_conf(fsync=False)
+            >>> append_conf('log_connections = yes')
+            >>> append_conf(random_page_cost=1.5, fsync=True, ...)
+            >>> append_conf('postgresql.conf', 'synchronous_commit = off')
         """
 
         lines = [line]
@@ -980,8 +977,7 @@ class PostgresNode(object):
                          sleep_time=1,
                          expected=True,
                          commit=True,
-                         raise_programming_error=True,
-                         raise_internal_error=True):
+                         suppress=None):
         """
         Run a query once per second until it returns 'expected'.
         Query should return a single value (1 row, 1 column).
@@ -994,13 +990,13 @@ class PostgresNode(object):
             sleep_time: how much should we sleep after a failure?
             expected: what should be returned to break the cycle?
             commit: should (possible) changes be committed?
-            raise_programming_error: enable ProgrammingError?
-            raise_internal_error: enable InternalError?
+            suppress: a collection of exceptions to be suppressed.
 
         Examples:
-            poll_query_until('select true')
-            poll_query_until('postgres', "select now() > '01.01.2018'")
-            poll_query_until('select false', expected=True, max_attempts=4)
+            >>> poll_query_until('select true')
+            >>> poll_query_until('postgres', "select now() > '01.01.2018'")
+            >>> poll_query_until('select false', expected=True, max_attempts=4)
+            >>> poll_query_until('select 1', suppress={testgres.OperationalError})
         """
 
         # sanity checks
@@ -1032,13 +1028,8 @@ class PostgresNode(object):
                 elif expected is None:
                     return    # done
 
-            except ProgrammingError as e:
-                if raise_programming_error:
-                    raise e
-
-            except InternalError as e:
-                if raise_internal_error:
-                    raise e
+            except tuple(suppress or []):
+                pass    # we're suppressing them
 
             time.sleep(sleep_time)
             attempts += 1
@@ -1229,13 +1220,14 @@ class PostgresNode(object):
             options: additional options for pgbench (list).
 
             **kwargs: named options for pgbench.
-                Examples:
-                    pgbench_run(initialize=True, scale=2)
-                    pgbench_run(time=10)
                 Run pgbench --help to learn more.
 
         Returns:
             Stdout produced by pgbench.
+
+        Examples:
+            >>> pgbench_run(initialize=True, scale=2)
+            >>> pgbench_run(time=10)
         """
 
         # Set default arguments
