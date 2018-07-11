@@ -9,7 +9,7 @@
     <title>testgres package &#8212; testgres 1.5 documentation</title>
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script type="text/javascript" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
@@ -28,6 +28,8 @@
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
+          
+
           <div class="body" role="main">
             
   <div class="section" id="testgres-package">
@@ -254,7 +256,7 @@ put previous settings on top of the config stack.</p>
 
 <dl class="function">
 <dt id="testgres.config.scoped_config">
-<code class="descclassname">testgres.config.</code><code class="descname">scoped_config</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwds</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.scoped_config" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">testgres.config.</code><code class="descname">scoped_config</code><span class="sig-paren">(</span><em>**options</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.config.scoped_config" title="Permalink to this definition">¶</a></dt>
 <dd><p>Temporarily set custom GlobalConfig options for this context.
 Previous options are pushed to the config stack.</p>
 <p class="rubric">Example</p>
@@ -273,7 +275,7 @@ Previous options are pushed to the config stack.</p>
 <span id="testgres-connection"></span><h2>testgres.connection<a class="headerlink" href="#module-testgres.connection" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="testgres.connection.NodeConnection">
-<em class="property">class </em><code class="descclassname">testgres.connection.</code><code class="descname">NodeConnection</code><span class="sig-paren">(</span><em>node</em>, <em>dbname=None</em>, <em>username=None</em>, <em>password=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.connection.NodeConnection" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="descclassname">testgres.connection.</code><code class="descname">NodeConnection</code><span class="sig-paren">(</span><em>node</em>, <em>dbname=None</em>, <em>username=None</em>, <em>password=None</em>, <em>autocommit=False</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.connection.NodeConnection" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Transaction wrapper returned by Node</p>
 <dl class="method">
@@ -326,6 +328,33 @@ Previous options are pushed to the config stack.</p>
 </div>
 <div class="section" id="module-testgres.enums">
 <span id="testgres-enums"></span><h2>testgres.enums<a class="headerlink" href="#module-testgres.enums" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="testgres.enums.DumpFormat">
+<em class="property">class </em><code class="descclassname">testgres.enums.</code><code class="descname">DumpFormat</code><a class="headerlink" href="#testgres.enums.DumpFormat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">enum.Enum</span></code></p>
+<p>Available dump formats</p>
+<dl class="attribute">
+<dt id="testgres.enums.DumpFormat.Custom">
+<code class="descname">Custom</code><em class="property"> = 'custom'</em><a class="headerlink" href="#testgres.enums.DumpFormat.Custom" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="testgres.enums.DumpFormat.Directory">
+<code class="descname">Directory</code><em class="property"> = 'directory'</em><a class="headerlink" href="#testgres.enums.DumpFormat.Directory" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="testgres.enums.DumpFormat.Plain">
+<code class="descname">Plain</code><em class="property"> = 'plain'</em><a class="headerlink" href="#testgres.enums.DumpFormat.Plain" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="testgres.enums.DumpFormat.Tar">
+<code class="descname">Tar</code><em class="property"> = 'tar'</em><a class="headerlink" href="#testgres.enums.DumpFormat.Tar" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 <dl class="class">
 <dt id="testgres.enums.IsolationLevel">
 <em class="property">class </em><code class="descclassname">testgres.enums.</code><code class="descname">IsolationLevel</code><a class="headerlink" href="#testgres.enums.IsolationLevel" title="Permalink to this definition">¶</a></dt>
@@ -496,7 +525,7 @@ Previous options are pushed to the config stack.</p>
 <dl class="exception">
 <dt id="testgres.exceptions.TestgresException">
 <em class="property">exception </em><code class="descclassname">testgres.exceptions.</code><code class="descname">TestgresException</code><a class="headerlink" href="#testgres.exceptions.TestgresException" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">exceptions.Exception</span></code></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
 </dd></dl>
 
 <dl class="exception">
@@ -532,7 +561,7 @@ Previous options are pushed to the config stack.</p>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.append_conf">
-<code class="descname">append_conf</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.append_conf" title="Permalink to this definition">¶</a></dt>
+<code class="descname">append_conf</code><span class="sig-paren">(</span><em>line=''</em>, <em>filename='postgresql.conf'</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.append_conf" title="Permalink to this definition">¶</a></dt>
 <dd><p>Append line to a config file.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -541,6 +570,7 @@ Previous options are pushed to the config stack.</p>
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>line</strong> – string to be appended to config.</li>
 <li><strong>filename</strong> – config file (postgresql.conf by default).</li>
+<li><strong>**kwargs</strong> – named config options.</li>
 </ul>
 </td>
 </tr>
@@ -549,6 +579,13 @@ Previous options are pushed to the config stack.</p>
 </tr>
 </tbody>
 </table>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">append_conf</span><span class="p">(</span><span class="n">fsync</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">append_conf</span><span class="p">(</span><span class="s1">&#39;log_connections = yes&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">append_conf</span><span class="p">(</span><span class="n">random_page_cost</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">fsync</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">append_conf</span><span class="p">(</span><span class="s1">&#39;postgresql.conf&#39;</span><span class="p">,</span> <span class="s1">&#39;synchronous_commit = off&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="attribute">
@@ -618,7 +655,7 @@ NOTE: take a look at TestgresConfig.node_cleanup_full.</p>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.connect">
-<code class="descname">connect</code><span class="sig-paren">(</span><em>dbname=None</em>, <em>username=None</em>, <em>password=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.connect" title="Permalink to this definition">¶</a></dt>
+<code class="descname">connect</code><span class="sig-paren">(</span><em>dbname=None</em>, <em>username=None</em>, <em>password=None</em>, <em>autocommit=False</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.connect" title="Permalink to this definition">¶</a></dt>
 <dd><p>Connect to a database.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -628,6 +665,9 @@ NOTE: take a look at TestgresConfig.node_cleanup_full.</p>
 <li><strong>dbname</strong> – database name to connect to.</li>
 <li><strong>username</strong> – database user name.</li>
 <li><strong>password</strong> – user’s password.</li>
+<li><strong>autocommit</strong> – commit each statement automatically. Also it should be
+set to <cite>True</cite> for statements requiring to be run outside
+a transaction? such as <cite>VACUUM</cite> or <cite>CREATE DATABASE</cite>.</li>
 </ul>
 </td>
 </tr>
@@ -640,7 +680,7 @@ NOTE: take a look at TestgresConfig.node_cleanup_full.</p>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.default_conf">
-<code class="descname">default_conf</code><span class="sig-paren">(</span><em>fsync=False</em>, <em>unix_sockets=True</em>, <em>allow_streaming=True</em>, <em>log_statement='all'</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.default_conf" title="Permalink to this definition">¶</a></dt>
+<code class="descname">default_conf</code><span class="sig-paren">(</span><em>fsync=False</em>, <em>unix_sockets=True</em>, <em>allow_streaming=True</em>, <em>allow_logical=False</em>, <em>log_statement='all'</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.default_conf" title="Permalink to this definition">¶</a></dt>
 <dd><p>Apply default settings to this node.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -650,6 +690,7 @@ NOTE: take a look at TestgresConfig.node_cleanup_full.</p>
 <li><strong>fsync</strong> – should this node use fsync to keep data safe?</li>
 <li><strong>unix_sockets</strong> – should we enable UNIX sockets?</li>
 <li><strong>allow_streaming</strong> – should this node add a hba entry for replication?</li>
+<li><strong>allow_logical</strong> – can this node be used as a logical replication publisher?</li>
 <li><strong>log_statement</strong> – one of (‘all’, ‘off’, ‘mod’, ‘ddl’).</li>
 </ul>
 </td>
@@ -663,7 +704,7 @@ NOTE: take a look at TestgresConfig.node_cleanup_full.</p>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.dump">
-<code class="descname">dump</code><span class="sig-paren">(</span><em>filename=None</em>, <em>dbname=None</em>, <em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.dump" title="Permalink to this definition">¶</a></dt>
+<code class="descname">dump</code><span class="sig-paren">(</span><em>filename=None</em>, <em>dbname=None</em>, <em>username=None</em>, <em>format=&lt;DumpFormat.Plain: 'plain'&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.dump" title="Permalink to this definition">¶</a></dt>
 <dd><p>Dump database into a file using pg_dump.
 NOTE: the file is not removed automatically.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -674,6 +715,7 @@ NOTE: the file is not removed automatically.</p>
 <li><strong>filename</strong> – database dump taken by pg_dump.</li>
 <li><strong>dbname</strong> – database name to connect to.</li>
 <li><strong>username</strong> – database user name.</li>
+<li><strong>format</strong> – format argument plain/custom/directory/tar.</li>
 </ul>
 </td>
 </tr>
@@ -686,7 +728,7 @@ NOTE: the file is not removed automatically.</p>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.execute">
-<code class="descname">execute</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.execute" title="Permalink to this definition">¶</a></dt>
+<code class="descname">execute</code><span class="sig-paren">(</span><em>query</em>, <em>dbname=None</em>, <em>username=None</em>, <em>password=None</em>, <em>commit=True</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.execute" title="Permalink to this definition">¶</a></dt>
 <dd><p>Execute a query and return all rows as list.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -812,12 +854,8 @@ This event is logged (see self.utils_log_file).</p>
 <li><strong>dbname</strong> – database name to connect to.</li>
 <li><strong>username</strong> – database user name.</li>
 <li><strong>options</strong> – additional options for pgbench (list).</li>
-<li><strong>**kwargs</strong> – <p>named options for pgbench.
-.. rubric:: Examples</p>
-<p>pgbench_run(initialize=True, scale=2)
-pgbench_run(time=10)</p>
-<p>Run pgbench –help to learn more.</p>
-</li>
+<li><strong>**kwargs</strong> – named options for pgbench.
+Run pgbench –help to learn more.</li>
 </ul>
 </td>
 </tr>
@@ -826,6 +864,11 @@ pgbench_run(time=10)</p>
 </tr>
 </tbody>
 </table>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">pgbench_run</span><span class="p">(</span><span class="n">initialize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pgbench_run</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="attribute">
@@ -836,7 +879,7 @@ pgbench_run(time=10)</p>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.poll_query_until">
-<code class="descname">poll_query_until</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.poll_query_until" title="Permalink to this definition">¶</a></dt>
+<code class="descname">poll_query_until</code><span class="sig-paren">(</span><em>query</em>, <em>dbname=None</em>, <em>username=None</em>, <em>max_attempts=0</em>, <em>sleep_time=1</em>, <em>expected=True</em>, <em>commit=True</em>, <em>suppress=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.poll_query_until" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run a query once per second until it returns ‘expected’.
 Query should return a single value (1 row, 1 column).</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -851,10 +894,33 @@ Query should return a single value (1 row, 1 column).</p>
 <li><strong>sleep_time</strong> – how much should we sleep after a failure?</li>
 <li><strong>expected</strong> – what should be returned to break the cycle?</li>
 <li><strong>commit</strong> – should (possible) changes be committed?</li>
-<li><strong>raise_programming_error</strong> – enable ProgrammingError?</li>
-<li><strong>raise_internal_error</strong> – enable InternalError?</li>
+<li><strong>suppress</strong> – a collection of exceptions to be suppressed.</li>
 </ul>
 </td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">poll_query_until</span><span class="p">(</span><span class="s1">&#39;select true&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poll_query_until</span><span class="p">(</span><span class="s1">&#39;postgres&#39;</span><span class="p">,</span> <span class="s2">&quot;select now() &gt; &#39;01.01.2018&#39;&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poll_query_until</span><span class="p">(</span><span class="s1">&#39;select false&#39;</span><span class="p">,</span> <span class="n">expected</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">max_attempts</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">poll_query_until</span><span class="p">(</span><span class="s1">&#39;select 1&#39;</span><span class="p">,</span> <span class="n">suppress</span><span class="o">=</span><span class="p">{</span><span class="n">testgres</span><span class="o">.</span><span class="n">OperationalError</span><span class="p">})</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.node.PostgresNode.promote">
+<code class="descname">promote</code><span class="sig-paren">(</span><em>dbname=None</em>, <em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.promote" title="Permalink to this definition">¶</a></dt>
+<dd><p>Promote standby instance to master using pg_ctl. For PostgreSQL versions
+below 10 some additional actions required to ensure that instance
+became writable and hence <cite>dbname</cite> and <cite>username</cite> parameters may be
+needed.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</td>
 </tr>
 </tbody>
 </table>
@@ -862,7 +928,7 @@ Query should return a single value (1 row, 1 column).</p>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.psql">
-<code class="descname">psql</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.psql" title="Permalink to this definition">¶</a></dt>
+<code class="descname">psql</code><span class="sig-paren">(</span><em>query=None</em>, <em>filename=None</em>, <em>dbname=None</em>, <em>username=None</em>, <em>input=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.psql" title="Permalink to this definition">¶</a></dt>
 <dd><p>Execute a query using psql.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -878,6 +944,26 @@ Query should return a single value (1 row, 1 column).</p>
 </td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A tuple of (code, stdout, stderr).</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.node.PostgresNode.publish">
+<code class="descname">publish</code><span class="sig-paren">(</span><em>name</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.publish" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create publication for logical replication</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>pubname</strong> – publication name</li>
+<li><strong>tables</strong> – tables names list</li>
+<li><strong>dbname</strong> – database name where objects or interest are located</li>
+<li><strong>username</strong> – replication username</li>
+</ul>
 </td>
 </tr>
 </tbody>
@@ -946,7 +1032,7 @@ Query should return a single value (1 row, 1 column).</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>filename</strong> – database dump taken by pg_dump.</li>
+<li><strong>filename</strong> – database dump taken by pg_dump in custom/directory/tar formats.</li>
 <li><strong>dbname</strong> – database name to connect to.</li>
 <li><strong>username</strong> – database user name.</li>
 </ul>
@@ -958,7 +1044,7 @@ Query should return a single value (1 row, 1 column).</p>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.safe_psql">
-<code class="descname">safe_psql</code><span class="sig-paren">(</span><em>*args</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.safe_psql" title="Permalink to this definition">¶</a></dt>
+<code class="descname">safe_psql</code><span class="sig-paren">(</span><em>query=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.safe_psql" title="Permalink to this definition">¶</a></dt>
 <dd><p>Execute a query using psql.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -988,15 +1074,20 @@ Query should return a single value (1 row, 1 column).</p>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.start">
-<code class="descname">start</code><span class="sig-paren">(</span><em>params=[]</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.start" title="Permalink to this definition">¶</a></dt>
+<code class="descname">start</code><span class="sig-paren">(</span><em>params=[]</em>, <em>wait=True</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.start" title="Permalink to this definition">¶</a></dt>
 <dd><p>Start this node using pg_ctl.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>params</strong> – additional arguments for pg_ctl.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>params</strong> – additional arguments for pg_ctl.</li>
+<li><strong>wait</strong> – wait until operation completes.</li>
+</ul>
+</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</p>
+</td>
 </tr>
 </tbody>
 </table>
@@ -1018,15 +1109,56 @@ Query should return a single value (1 row, 1 column).</p>
 
 <dl class="method">
 <dt id="testgres.node.PostgresNode.stop">
-<code class="descname">stop</code><span class="sig-paren">(</span><em>params=[]</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.stop" title="Permalink to this definition">¶</a></dt>
+<code class="descname">stop</code><span class="sig-paren">(</span><em>params=[]</em>, <em>wait=True</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.stop" title="Permalink to this definition">¶</a></dt>
 <dd><p>Stop this node using pg_ctl.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>params</strong> – additional arguments for pg_ctl.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>params</strong> – additional arguments for pg_ctl.</li>
+<li><strong>wait</strong> – wait until operation completes.</li>
+</ul>
+</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">This instance of <a class="reference internal" href="#testgres.node.PostgresNode" title="testgres.node.PostgresNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">PostgresNode</span></code></a>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.node.PostgresNode.subscribe">
+<code class="descname">subscribe</code><span class="sig-paren">(</span><em>publication</em>, <em>name</em>, <em>dbname=None</em>, <em>username=None</em>, <em>**params</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.subscribe" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create subscription for logical replication</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>name</strong> – subscription name</li>
+<li><strong>publication</strong> – publication object obtained from publish()</li>
+<li><strong>dbname</strong> – database name</li>
+<li><strong>username</strong> – replication username</li>
+<li><strong>params</strong> – subscription parameters (see documentation on <a class="reference external" href="https://www.postgresql.org/docs/current/static/sql-createsubscription.html">CREATE SUBSCRIPTION</a>
+for details)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="testgres.node.PostgresNode.version">
+<code class="descname">version</code><a class="headerlink" href="#testgres.node.PostgresNode.version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return PostgreSQL version for this node.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">distutils.version.LooseVersion</span></code>.</td>
 </tr>
 </tbody>
 </table>
@@ -1053,10 +1185,171 @@ Query should return a single value (1 row, 1 column).</p>
 </dd></dl>
 
 </div>
+<div class="section" id="module-testgres.pubsub">
+<span id="testgres-pubsub"></span><h2>testgres.pubsub<a class="headerlink" href="#module-testgres.pubsub" title="Permalink to this headline">¶</a></h2>
+<p>Unlike physical replication the logical replication allows users replicate only
+specified databases and tables. It uses publish-subscribe model with possibly
+multiple publishers and multiple subscribers. When initializing publisher’s
+node <code class="docutils literal notranslate"><span class="pre">allow_logical=True</span></code> should be passed to the <a class="reference internal" href="#testgres.node.PostgresNode.init" title="testgres.node.PostgresNode.init"><code class="xref py py-meth docutils literal notranslate"><span class="pre">PostgresNode.init()</span></code></a>
+method to enable PostgreSQL to write extra information to the WAL needed by
+logical replication.</p>
+<p>To replicate table <code class="docutils literal notranslate"><span class="pre">X</span></code> from node A to node B the same table structure should
+be defined on the subscriber’s node as logical replication don’t replicate DDL.
+After that <a class="reference internal" href="#testgres.node.PostgresNode.publish" title="testgres.node.PostgresNode.publish"><code class="xref py py-meth docutils literal notranslate"><span class="pre">publish()</span></code></a> and <a class="reference internal" href="#testgres.node.PostgresNode.subscribe" title="testgres.node.PostgresNode.subscribe"><code class="xref py py-meth docutils literal notranslate"><span class="pre">subscribe()</span></code></a>
+methods may be used to setup replication. Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">testgres</span> <span class="k">import</span> <span class="n">get_new_node</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">get_new_node</span><span class="p">()</span> <span class="k">as</span> <span class="n">nodeA</span><span class="p">,</span> <span class="n">get_new_node</span><span class="p">()</span> <span class="k">as</span> <span class="n">nodeB</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">nodeA</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">allow_logical</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="gp">... </span>    <span class="n">nodeB</span><span class="o">.</span><span class="n">init</span><span class="p">()</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+<span class="gp">...</span>
+<span class="gp">... </span>    <span class="c1"># create same table both on publisher and subscriber</span>
+<span class="gp">... </span>    <span class="n">create_table</span> <span class="o">=</span> <span class="s1">&#39;create table test (a int, b int)&#39;</span>
+<span class="gp">... </span>    <span class="n">nodeA</span><span class="o">.</span><span class="n">safe_psql</span><span class="p">(</span><span class="n">create_table</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="n">nodeB</span><span class="o">.</span><span class="n">safe_psql</span><span class="p">(</span><span class="n">create_table</span><span class="p">)</span>
+<span class="gp">...</span>
+<span class="gp">... </span>    <span class="c1"># create publication</span>
+<span class="gp">... </span>    <span class="n">pub</span> <span class="o">=</span> <span class="n">nodeA</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s1">&#39;mypub&#39;</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="c1"># create subscription</span>
+<span class="gp">... </span>    <span class="n">sub</span> <span class="o">=</span> <span class="n">nodeB</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">pub</span><span class="p">,</span> <span class="s1">&#39;mysub&#39;</span><span class="p">)</span>
+<span class="gp">...</span>
+<span class="gp">... </span>    <span class="c1"># insert some data to the publisher&#39;s node</span>
+<span class="gp">... </span>    <span class="n">nodeA</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;insert into test values (1, 1), (2, 2)&#39;</span><span class="p">)</span>
+<span class="gp">...</span>
+<span class="gp">... </span>    <span class="c1"># wait until changes apply on subscriber and check them</span>
+<span class="gp">... </span>    <span class="n">sub</span><span class="o">.</span><span class="n">catchup</span><span class="p">()</span>
+<span class="gp">...</span>
+<span class="gp">... </span>    <span class="c1"># read the data from subscriber&#39;s node</span>
+<span class="gp">... </span>    <span class="n">nodeB</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;select * from test&#39;</span><span class="p">)</span>
+<span class="go">PostgresNode(name=&#39;...&#39;, port=..., base_dir=&#39;...&#39;)</span>
+<span class="go">PostgresNode(name=&#39;...&#39;, port=..., base_dir=&#39;...&#39;)</span>
+<span class="go">&#39;&#39;</span>
+<span class="go">&#39;&#39;</span>
+<span class="go">[(1, 1), (2, 2)]</span>
+</pre></div>
+</div>
+<dl class="class">
+<dt id="testgres.node.Publication">
+<em class="property">class </em><code class="descclassname">testgres.node.</code><code class="descname">Publication</code><span class="sig-paren">(</span><em>name</em>, <em>node</em>, <em>tables=None</em>, <em>dbname=None</em>, <em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.Publication" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="testgres.node.Publication.__init__">
+<code class="descname">__init__</code><span class="sig-paren">(</span><em>name</em>, <em>node</em>, <em>tables=None</em>, <em>dbname=None</em>, <em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.Publication.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Constructor. Use <a class="reference internal" href="#testgres.node.PostgresNode.publish" title="testgres.node.PostgresNode.publish"><code class="xref py py-meth docutils literal notranslate"><span class="pre">PostgresNode.publish()</span></code></a> instead of direct
+constructing publication objects.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>name</strong> – publication name.</li>
+<li><strong>node</strong> – publisher’s node.</li>
+<li><strong>tables</strong> – tables list or None for all tables.</li>
+<li><strong>dbname</strong> – database name used to connect and perform subscription.</li>
+<li><strong>username</strong> – username used to connect to the database.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.node.Publication.add_tables">
+<code class="descname">add_tables</code><span class="sig-paren">(</span><em>tables</em>, <em>dbname=None</em>, <em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.Publication.add_tables" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add tables to the publication. Cannot be used if publication was
+created with empty tables list.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>tables</strong> – a list of tables to be added to the publication.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.node.Publication.drop">
+<code class="descname">drop</code><span class="sig-paren">(</span><em>dbname=None</em>, <em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.Publication.drop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Drop publication</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="testgres.node.Subscription">
+<em class="property">class </em><code class="descclassname">testgres.node.</code><code class="descname">Subscription</code><span class="sig-paren">(</span><em>node</em>, <em>publication</em>, <em>name=None</em>, <em>dbname=None</em>, <em>username=None</em>, <em>**params</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.Subscription" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="testgres.node.Subscription.__init__">
+<code class="descname">__init__</code><span class="sig-paren">(</span><em>node</em>, <em>publication</em>, <em>name=None</em>, <em>dbname=None</em>, <em>username=None</em>, <em>**params</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.Subscription.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Constructor. Use <a class="reference internal" href="#testgres.node.PostgresNode.subscribe" title="testgres.node.PostgresNode.subscribe"><code class="xref py py-meth docutils literal notranslate"><span class="pre">PostgresNode.subscribe()</span></code></a> instead of direct
+constructing subscription objects.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>name</strong> – subscription name.</li>
+<li><strong>node</strong> – subscriber’s node.</li>
+<li><strong>publication</strong> – <a class="reference internal" href="#testgres.node.Publication" title="testgres.node.Publication"><code class="xref py py-class docutils literal notranslate"><span class="pre">Publication</span></code></a> object we are subscribing to
+(see <a class="reference internal" href="#testgres.node.PostgresNode.publish" title="testgres.node.PostgresNode.publish"><code class="xref py py-meth docutils literal notranslate"><span class="pre">PostgresNode.publish()</span></code></a>).</li>
+<li><strong>dbname</strong> – database name used to connect and perform subscription.</li>
+<li><strong>username</strong> – username used to connect to the database.</li>
+<li><strong>params</strong> – <p>subscription parameters (see documentation on <a class="reference external" href="https://www.postgresql.org/docs/current/static/sql-createsubscription.html">CREATE SUBSCRIPTION</a>
+for details).</p>
+</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.node.Subscription.catchup">
+<code class="descname">catchup</code><span class="sig-paren">(</span><em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.Subscription.catchup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wait until subscription catches up with publication.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>username</strong> – remote node’s user name.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.node.Subscription.disable">
+<code class="descname">disable</code><span class="sig-paren">(</span><em>dbname=None</em>, <em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.Subscription.disable" title="Permalink to this definition">¶</a></dt>
+<dd><p>Disables the running subscription.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.node.Subscription.drop">
+<code class="descname">drop</code><span class="sig-paren">(</span><em>dbname=None</em>, <em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.Subscription.drop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Drops subscription</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.node.Subscription.enable">
+<code class="descname">enable</code><span class="sig-paren">(</span><em>dbname=None</em>, <em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.Subscription.enable" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enables the previously disabled subscription.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="testgres.node.Subscription.refresh">
+<code class="descname">refresh</code><span class="sig-paren">(</span><em>copy_data=True</em>, <em>dbname=None</em>, <em>username=None</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.Subscription.refresh" title="Permalink to this definition">¶</a></dt>
+<dd><p>Disables the running subscription.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 </div>
 
 
           </div>
+          
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
@@ -1071,6 +1364,7 @@ Query should return a single value (1 row, 1 column).</p>
 <li><a class="reference internal" href="#module-testgres.enums">testgres.enums</a></li>
 <li><a class="reference internal" href="#module-testgres.exceptions">testgres.exceptions</a></li>
 <li><a class="reference internal" href="#testgres-node">testgres.node</a></li>
+<li><a class="reference internal" href="#module-testgres.pubsub">testgres.pubsub</a></li>
 </ul>
 </li>
 </ul>
@@ -1109,8 +1403,8 @@ Query should return a single value (1 row, 1 column).</p>
       &copy;2016-2018, Postgres Professional.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.2</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.11</a>
       
       |
       <a href="_sources/testgres.rst.txt"

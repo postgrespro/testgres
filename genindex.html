@@ -10,7 +10,7 @@
     <title>Index &#8212; testgres 1.5 documentation</title>
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script type="text/javascript" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
@@ -28,6 +28,8 @@
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
+          
+
           <div class="body" role="main">
             
 
@@ -52,6 +54,7 @@
  | <a href="#S"><strong>S</strong></a>
  | <a href="#T"><strong>T</strong></a>
  | <a href="#U"><strong>U</strong></a>
+ | <a href="#V"><strong>V</strong></a>
  | <a href="#W"><strong>W</strong></a>
  | <a href="#X"><strong>X</strong></a>
  
@@ -60,19 +63,27 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="testgres.html#testgres.node.PostgresNode.__init__">__init__() (testgres.node.PostgresNode method)</a>
+
+      <ul>
+        <li><a href="testgres.html#testgres.node.Publication.__init__">(testgres.node.Publication method)</a>
 </li>
+        <li><a href="testgres.html#testgres.node.Subscription.__init__">(testgres.node.Subscription method)</a>
+</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
 <h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="testgres.html#testgres.node.PostgresNode.append_conf">append_conf() (testgres.node.PostgresNode method)</a>
+      <li><a href="testgres.html#testgres.node.Publication.add_tables">add_tables() (testgres.node.Publication method)</a>
 </li>
-      <li><a href="testgres.html#testgres.enums.ProcessType.AutovacuumLauncher">AutovacuumLauncher (testgres.enums.ProcessType attribute)</a>
+      <li><a href="testgres.html#testgres.node.PostgresNode.append_conf">append_conf() (testgres.node.PostgresNode method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="testgres.html#testgres.enums.ProcessType.AutovacuumLauncher">AutovacuumLauncher (testgres.enums.ProcessType attribute)</a>
+</li>
       <li><a href="testgres.html#testgres.node.PostgresNode.auxiliary_pids">auxiliary_pids (testgres.node.PostgresNode attribute)</a>
 </li>
       <li><a href="testgres.html#testgres.node.PostgresNode.auxiliary_processes">auxiliary_processes (testgres.node.PostgresNode attribute)</a>
@@ -108,7 +119,11 @@
       <li><a href="testgres.html#testgres.config.GlobalConfig.cached_initdb_unique">cached_initdb_unique (testgres.config.GlobalConfig attribute)</a>
 </li>
       <li><a href="testgres.html#testgres.node.PostgresNode.catchup">catchup() (testgres.node.PostgresNode method)</a>
+
+      <ul>
+        <li><a href="testgres.html#testgres.node.Subscription.catchup">(testgres.node.Subscription method)</a>
 </li>
+      </ul></li>
       <li><a href="testgres.html#testgres.exceptions.CatchUpException">CatchUpException</a>
 </li>
       <li><a href="testgres.html#testgres.enums.ProcessType.Checkpointer">Checkpointer (testgres.enums.ProcessType attribute)</a>
@@ -137,6 +152,8 @@
 </li>
       <li><a href="testgres.html#testgres.connection.NodeConnection.cursor">cursor (testgres.connection.NodeConnection attribute)</a>
 </li>
+      <li><a href="testgres.html#testgres.enums.DumpFormat.Custom">Custom (testgres.enums.DumpFormat attribute)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -145,9 +162,21 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="testgres.html#testgres.node.PostgresNode.default_conf">default_conf() (testgres.node.PostgresNode method)</a>
 </li>
+      <li><a href="testgres.html#testgres.enums.DumpFormat.Directory">Directory (testgres.enums.DumpFormat attribute)</a>
+</li>
+      <li><a href="testgres.html#testgres.node.Subscription.disable">disable() (testgres.node.Subscription method)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="testgres.html#testgres.node.Publication.drop">drop() (testgres.node.Publication method)</a>
+
+      <ul>
+        <li><a href="testgres.html#testgres.node.Subscription.drop">(testgres.node.Subscription method)</a>
+</li>
+      </ul></li>
       <li><a href="testgres.html#testgres.node.PostgresNode.dump">dump() (testgres.node.PostgresNode method)</a>
+</li>
+      <li><a href="testgres.html#testgres.enums.DumpFormat">DumpFormat (class in testgres.enums)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -155,16 +184,18 @@
 <h2 id="E">E</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="testgres.html#testgres.node.Subscription.enable">enable() (testgres.node.Subscription method)</a>
+</li>
       <li><a href="testgres.html#testgres.config.GlobalConfig.error_log_lines">error_log_lines (testgres.config.GlobalConfig attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="testgres.html#testgres.connection.NodeConnection.execute">execute() (testgres.connection.NodeConnection method)</a>
 
       <ul>
         <li><a href="testgres.html#testgres.node.PostgresNode.execute">(testgres.node.PostgresNode method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="testgres.html#testgres.exceptions.ExecUtilException">ExecUtilException</a>
 </li>
   </ul></td>
@@ -273,12 +304,14 @@
         <li><a href="testgres.html#testgres.node.PostgresNode.pid">(testgres.node.PostgresNode attribute)</a>
 </li>
       </ul></li>
+      <li><a href="testgres.html#testgres.enums.DumpFormat.Plain">Plain (testgres.enums.DumpFormat attribute)</a>
+</li>
       <li><a href="testgres.html#testgres.node.PostgresNode.poll_query_until">poll_query_until() (testgres.node.PostgresNode method)</a>
+</li>
+      <li><a href="testgres.html#testgres.config.pop_config">pop_config() (in module testgres.config)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="testgres.html#testgres.config.pop_config">pop_config() (in module testgres.config)</a>
-</li>
       <li><a href="testgres.html#testgres.node.PostgresNode">PostgresNode (class in testgres.node)</a>
 </li>
       <li><a href="testgres.html#testgres.node.ProcessProxy.process">process (testgres.node.ProcessProxy attribute)</a>
@@ -287,9 +320,15 @@
 </li>
       <li><a href="testgres.html#testgres.enums.ProcessType">ProcessType (class in testgres.enums)</a>
 </li>
+      <li><a href="testgres.html#testgres.node.PostgresNode.promote">promote() (testgres.node.PostgresNode method)</a>
+</li>
       <li><a href="testgres.html#testgres.node.PostgresNode.psql">psql() (testgres.node.PostgresNode method)</a>
 </li>
       <li><a href="testgres.html#testgres.node.ProcessProxy.ptype">ptype (testgres.node.ProcessProxy attribute)</a>
+</li>
+      <li><a href="testgres.html#testgres.node.Publication">Publication (class in testgres.node)</a>
+</li>
+      <li><a href="testgres.html#testgres.node.PostgresNode.publish">publish() (testgres.node.PostgresNode method)</a>
 </li>
       <li><a href="testgres.html#testgres.config.push_config">push_config() (in module testgres.config)</a>
 </li>
@@ -310,6 +349,8 @@
       <li><a href="testgres.html#testgres.enums.IsolationLevel.ReadCommitted">ReadCommitted (testgres.enums.IsolationLevel attribute)</a>
 </li>
       <li><a href="testgres.html#testgres.enums.IsolationLevel.ReadUncommitted">ReadUncommitted (testgres.enums.IsolationLevel attribute)</a>
+</li>
+      <li><a href="testgres.html#testgres.node.Subscription.refresh">refresh() (testgres.node.Subscription method)</a>
 </li>
       <li><a href="testgres.html#testgres.node.PostgresNode.reload">reload() (testgres.node.PostgresNode method)</a>
 </li>
@@ -347,10 +388,10 @@
 </li>
       <li><a href="testgres.html#testgres.node.PostgresNode.start">start() (testgres.node.PostgresNode method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="testgres.html#testgres.exceptions.StartNodeException">StartNodeException</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="testgres.html#testgres.enums.ProcessType.Startup">Startup (testgres.enums.ProcessType attribute)</a>
 </li>
       <li><a href="testgres.html#testgres.enums.ProcessType.StatsCollector">StatsCollector (testgres.enums.ProcessType attribute)</a>
@@ -363,12 +404,18 @@
 </li>
       <li><a href="testgres.html#testgres.enums.XLogMethod.stream">stream (testgres.enums.XLogMethod attribute)</a>
 </li>
+      <li><a href="testgres.html#testgres.node.PostgresNode.subscribe">subscribe() (testgres.node.PostgresNode method)</a>
+</li>
+      <li><a href="testgres.html#testgres.node.Subscription">Subscription (class in testgres.node)</a>
+</li>
   </ul></td>
 </tr></table>
 
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="testgres.html#testgres.enums.DumpFormat.Tar">Tar (testgres.enums.DumpFormat attribute)</a>
+</li>
       <li><a href="testgres.html#testgres.config.GlobalConfig.temp_dir">temp_dir (testgres.config.GlobalConfig attribute)</a>
 </li>
       <li><a href="testgres.html#module-testgres.api">testgres.api (module)</a>
@@ -384,6 +431,8 @@
       <li><a href="testgres.html#module-testgres.enums">testgres.enums (module)</a>
 </li>
       <li><a href="testgres.html#module-testgres.exceptions">testgres.exceptions (module)</a>
+</li>
+      <li><a href="testgres.html#module-testgres.pubsub">testgres.pubsub (module)</a>
 </li>
       <li><a href="testgres.html#testgres.exceptions.TestgresException">TestgresException</a>
 </li>
@@ -404,6 +453,14 @@
       <li><a href="testgres.html#testgres.config.GlobalConfig.update">update() (testgres.config.GlobalConfig method)</a>
 </li>
       <li><a href="testgres.html#testgres.config.GlobalConfig.use_python_logging">use_python_logging (testgres.config.GlobalConfig attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="V">V</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="testgres.html#testgres.node.PostgresNode.version">version (testgres.node.PostgresNode attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -433,6 +490,7 @@
 
 
           </div>
+          
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
@@ -463,8 +521,8 @@
       &copy;2016-2018, Postgres Professional.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.2</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.11</a>
       
     </div>
 
