@@ -2,6 +2,8 @@
 [![codecov](https://codecov.io/gh/postgrespro/testgres/branch/master/graph/badge.svg)](https://codecov.io/gh/postgrespro/testgres)
 [![PyPI version](https://badge.fury.io/py/testgres.svg)](https://badge.fury.io/py/testgres)
 
+[Documentation](https://postgrespro.github.io/testgres/)
+
 # testgres
 
 PostgreSQL testing utility. Both Python 2.7 and 3.3+ are supported.
