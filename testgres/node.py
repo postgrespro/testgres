@@ -812,7 +812,8 @@ class PostgresNode(object):
              filename=None,
              dbname=None,
              username=None,
-             input=None):
+             input=None,
+             **variables):
         """
         Execute a query using psql.
 
@@ -822,9 +823,18 @@ class PostgresNode(object):
             dbname: database name to connect to.
             username: database user name.
             input: raw input to be passed.
+            **variables: vars to be set before execution.
 
         Returns:
             A tuple of (code, stdout, stderr).
+
+        Examples:
+            >>> psql('select 1')
+            (0, b'1\n', b'')
+            >>> psql('postgres', 'select 2')
+            (0, b'2\n', b'')
+            >>> psql(query='select 3', ON_ERROR_STOP=1)
+            (0, b'3\n', b'')
         """
 
         # Set default arguments
@@ -842,6 +852,10 @@ class PostgresNode(object):
             "-q",  # run quietly
             dbname
         ]  # yapf: disable
+
+        # set variables before execution
+        for key, value in iteritems(variables):
+            psql_params.extend(["--set", '{}={}'.format(key, value)])
 
         # select query source
         if query:
@@ -874,9 +888,14 @@ class PostgresNode(object):
             username: database user name.
             input: raw input to be passed.
 
+            **kwargs are passed to psql().
+
         Returns:
             psql's output as str.
         """
+
+        # force this setting
+        kwargs['ON_ERROR_STOP'] = 1
 
         ret, out, err = self.psql(query=query, **kwargs)
         if ret:
