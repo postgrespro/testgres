@@ -813,7 +813,7 @@ class PostgresNode(object):
              dbname=None,
              username=None,
              input=None,
-             **kwargs):
+             **variables):
         """
         Execute a query using psql.
 
@@ -823,7 +823,7 @@ class PostgresNode(object):
             dbname: database name to connect to.
             username: database user name.
             input: raw input to be passed.
-            **kwargs: variables to be set before execution.
+            **variables: vars to be set before execution.
 
         Returns:
             A tuple of (code, stdout, stderr).
@@ -854,7 +854,7 @@ class PostgresNode(object):
         ]  # yapf: disable
 
         # set variables before execution
-        for key, value in iteritems(kwargs):
+        for key, value in iteritems(variables):
             psql_params.extend(["--set", '{}={}'.format(key, value)])
 
         # select query source
