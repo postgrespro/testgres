@@ -929,41 +929,32 @@ needed.</p>
 <dl class="method">
 <dt id="testgres.node.PostgresNode.psql">
 <code class="descname">psql</code><span class="sig-paren">(</span><em>query=None</em>, <em>filename=None</em>, <em>dbname=None</em>, <em>username=None</em>, <em>input=None</em>, <em>**variables</em><span class="sig-paren">)</span><a class="headerlink" href="#testgres.node.PostgresNode.psql" title="Permalink to this definition">¶</a></dt>
-<dd><blockquote>
-<div><p>Execute a query using psql.</p>
-<dl class="docutils">
-<dt>Args:</dt>
-<dd>query: query to be executed.
-filename: file with a query.
-dbname: database name to connect to.
-username: database user name.
-input: raw input to be passed.
-<a href="#id1"><span class="problematic" id="id2">**</span></a>variables: vars to be set before execution.</dd>
-<dt>Returns:</dt>
-<dd>A tuple of (code, stdout, stderr).</dd>
-<dt>Examples:</dt>
-<dd><div class="first last highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">psql</span><span class="p">(</span><span class="s1">&#39;select 1&#39;</span><span class="p">)</span>
-<span class="go">(0, b&#39;1</span>
+<dd><p>Execute a query using psql.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>query</strong> – query to be executed.</li>
+<li><strong>filename</strong> – file with a query.</li>
+<li><strong>dbname</strong> – database name to connect to.</li>
+<li><strong>username</strong> – database user name.</li>
+<li><strong>input</strong> – raw input to be passed.</li>
+<li><strong>**variables</strong> – vars to be set before execution.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A tuple of (code, stdout, stderr).</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">psql</span><span class="p">(</span><span class="s1">&#39;select 1&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">psql</span><span class="p">(</span><span class="s1">&#39;postgres&#39;</span><span class="p">,</span> <span class="s1">&#39;select 2&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">psql</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="s1">&#39;select 3&#39;</span><span class="p">,</span> <span class="n">ON_ERROR_STOP</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 </div>
-</dd>
-</dl>
-</div></blockquote>
-<dl class="docutils">
-<dt>‘, b’‘)</dt>
-<dd><div class="first last highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">psql</span><span class="p">(</span><span class="s1">&#39;postgres&#39;</span><span class="p">,</span> <span class="s1">&#39;select 2&#39;</span><span class="p">)</span>
-<span class="go">(0, b&#39;2</span>
-</pre></div>
-</div>
-</dd>
-<dt>‘, b’‘)</dt>
-<dd><div class="first last highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">psql</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="s1">&#39;select 3&#39;</span><span class="p">,</span> <span class="n">ON_ERROR_STOP</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="go">(0, b&#39;3</span>
-</pre></div>
-</div>
-</dd>
-</dl>
-<p>‘, b’‘)</p>
 </dd></dl>
 
 <dl class="method">
