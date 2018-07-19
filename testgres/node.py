@@ -830,11 +830,8 @@ class PostgresNode(object):
 
         Examples:
             >>> psql('select 1')
-            (0, b'1\n', b'')
             >>> psql('postgres', 'select 2')
-            (0, b'2\n', b'')
             >>> psql(query='select 3', ON_ERROR_STOP=1)
-            (0, b'3\n', b'')
         """
 
         # Set default arguments
