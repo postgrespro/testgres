@@ -626,7 +626,7 @@ class TestgresTests(unittest.TestCase):
                     query='dummy2',
                     max_attempts=3,
                     sleep_time=0.01,
-                    raise_programming_error=False)
+                    suppress={testgres.ProgrammingError})
 
             # check 1 arg, ok
             node.poll_query_until('select true')
@@ -862,7 +862,7 @@ class TestgresTests(unittest.TestCase):
         with get_new_node() as node:
             self.assertTrue(isinstance(version, six.string_types))
             self.assertTrue(isinstance(node.version, PgVer))
-            self.assertTrue(node.version == version)
+            self.assertEqual(node.version, str(version))
 
     def test_child_pids(self):
         master_processes = [
