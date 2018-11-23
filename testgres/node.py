@@ -115,9 +115,11 @@ class PostgresNode(object):
         # private
         self._pg_version = PgVer(get_pg_version())
         self._should_free_port = port is None
-        self._base_dir = base_dir
         self._logger = None
         self._master = None
+
+        self._custom_base_dir = base_dir
+        self._base_dir = base_dir
 
         # basic
         self.host = '127.0.0.1'
@@ -796,11 +798,13 @@ class PostgresNode(object):
 
         self._try_shutdown(max_attempts)
 
-        # choose directory to be removed
-        if testgres_config.node_cleanup_full:
-            rm_dir = self.base_dir    # everything
-        else:
-            rm_dir = self.data_dir    # just data, save logs
+        # only remove if base directory was temporary
+        if not self._custom_base_dir:
+            # choose directory to be removed
+            if testgres_config.node_cleanup_full:
+                rm_dir = self.base_dir    # everything
+            else:
+                rm_dir = self.data_dir    # just data, save logs
 
         rmtree(rm_dir, ignore_errors=True)
 
