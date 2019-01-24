@@ -94,7 +94,7 @@ import logging
 logging.basicConfig(filename='/tmp/testgres.log')
 
 # enable logging, and create two different nodes
-testgres.configure_testgres(enable_python_logging=True)
+testgres.configure_testgres(use_python_logging=True)
 node1 = testgres.get_new_node().init().start()
 node2 = testgres.get_new_node().init().start()
 
@@ -103,7 +103,7 @@ node1.execute('select 1')
 node2.execute('select 2')
 
 # disable logging
-testgres.configure_testgres(enable_python_logging=False)
+testgres.configure_testgres(use_python_logging=False)
 ```
 
 Look at `tests/test_simple.py` file for a complete example of the logging
