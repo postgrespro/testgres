@@ -41,6 +41,10 @@ from testgres import \
     get_pg_config, \
     get_pg_version
 
+from testgres import \
+    First, \
+    Any
+
 # NOTE: those are ugly imports
 from testgres import bound_ports
 from testgres.utils import PgVer
@@ -409,6 +413,46 @@ class TestgresTests(unittest.TestCase):
 
                 res = node.execute('select * from test')
                 self.assertListEqual(res, [])
+
+    def test_synchronous_replication(self):
+        with get_new_node() as master:
+            old_version = not pg_version_ge('9.6')
+
+            master.init(allow_streaming=True).start()
+
+            if not old_version:
+                master.append_conf('synchronous_commit = remote_apply')
+
+            # create standby
+            with master.replicate() as standby1, master.replicate() as standby2:
+                standby1.start()
+                standby2.start()
+
+                # check formatting
+                self.assertEqual(
+                    '1 ("{}", "{}")'.format(standby1.name, standby2.name),
+                    str(First(1, (standby1, standby2))))  # yapf: disable
+                self.assertEqual(
+                    'ANY 1 ("{}", "{}")'.format(standby1.name, standby2.name),
+                    str(Any(1, (standby1, standby2))))  # yapf: disable
+
+                # set synchronous_standby_names
+                master.set_synchronous_standbys([standby1, standby2])
+                master.restart()
+
+                # the following part of the test is only applicable to newer
+                # versions of PostgresQL
+                if not old_version:
+                    master.safe_psql('create table abc(a int)')
+
+                    # Create a large transaction that will take some time to apply
+                    # on standby to check that it applies synchronously
+                    # (If set synchronous_commit to 'on' or other lower level then
+                    # standby most likely won't catchup so fast and test will fail)
+                    master.safe_psql(
+                        'insert into abc select generate_series(1, 1000000)')
+                    res = standby1.safe_psql('select count(*) from abc')
+                    self.assertEqual(res, b'1000000\n')
 
     @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_replication(self):

@@ -26,3 +26,7 @@ from .utils import \
     get_bin_path, \
     get_pg_config, \
     get_pg_version
+
+from .standby import \
+    First, \
+    Any

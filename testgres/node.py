@@ -6,6 +6,7 @@ import psutil
 import subprocess
 import time
 
+from collections import Iterable
 from shutil import rmtree
 from six import raise_from, iteritems, text_type
 from tempfile import mkstemp, mkdtemp
@@ -63,6 +64,8 @@ from .exceptions import \
 from .logger import TestgresLogger
 
 from .pubsub import Publication, Subscription
+
+from .standby import First
 
 from .utils import \
     PgVer, \
@@ -699,7 +702,7 @@ class PostgresNode(object):
 
     def reload(self, params=[]):
         """
-        Reload config files using pg_ctl.
+        Asynchronously reload config files using pg_ctl.
 
         Args:
             params: additional arguments for pg_ctl.
@@ -1116,6 +1119,45 @@ class PostgresNode(object):
         # transform backup into a replica
         with clean_on_error(self.backup(**kwargs)) as backup:
             return backup.spawn_replica(name=name, destroy=True, slot=slot)
+
+    def set_synchronous_standbys(self, standbys):
+        """
+        Set standby synchronization options. This corresponds to
+        `synchronous_standby_names <https://www.postgresql.org/docs/current/static/runtime-config-replication.html#GUC-SYNCHRONOUS-STANDBY-NAMES>`_
+        option. Note that :meth:`~.PostgresNode.reload` or
+        :meth:`~.PostgresNode.restart` is needed for changes to take place.
+
+        Args:
+            standbys: either :class:`.First` or :class:`.Any` object specifying
+                sychronization parameters or just a plain list of
+                :class:`.PostgresNode`s replicas which would be equivalent
+                to passing ``First(1, <list>)``. For PostgreSQL 9.5 and below
+                it is only possible to specify a plain list of standbys as
+                `FIRST` and `ANY` keywords aren't supported.
+
+        Example::
+
+            from testgres import get_new_node, First
+
+            master = get_new_node().init().start()
+            with master.replicate().start() as standby:
+                master.append_conf("synchronous_commit = remote_apply")
+                master.set_synchronous_standbys(First(1, [standby]))
+                master.restart()
+
+        """
+        if self._pg_version >= '9.6':
+            if isinstance(standbys, Iterable):
+                standbys = First(1, standbys)
+        else:
+            if isinstance(standbys, Iterable):
+                standbys = u", ".join(
+                    u"\"{}\"".format(r.name) for r in standbys)
+            else:
+                raise TestgresException("Feature isn't supported in "
+                                        "Postgres 9.5 and below")
+
+        self.append_conf("synchronous_standby_names = '{}'".format(standbys))
 
     def catchup(self, dbname=None, username=None):
         """
