@@ -176,7 +176,7 @@ the configuration file, which means that they should be called before `append_co
 
 ## Authors
 
-[Ildar Musin](https://github.com/zilder) <i.musin(at)postgrespro.ru> Postgres Professional Ltd., Russia  
-[Dmitry Ivanov](https://github.com/funbringer) <d.ivanov(at)postgrespro.ru> Postgres Professional Ltd., Russia  
-[Ildus Kurbangaliev](https://github.com/ildus) <i.kurbangaliev(at)postgrespro.ru> Postgres Professional Ltd., Russia  
-[Yury Zhuravlev](https://github.com/stalkerg) <stalkerg(at)gmail.com>  
+[Ildar Musin](https://github.com/zilder)  
+[Dmitry Ivanov](https://github.com/funbringer)  
+[Ildus Kurbangaliev](https://github.com/ildus)  
+[Yury Zhuravlev](https://github.com/stalkerg)  
