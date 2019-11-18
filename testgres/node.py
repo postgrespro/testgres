@@ -336,8 +336,15 @@ class PostgresNode(object):
 
         line = (
             "primary_conninfo='{}'\n"
-            "standby_mode=on\n"
         ).format(options_string(**conninfo))  # yapf: disable
+        # Since 12 recovery.conf had disappeared
+        if self.version >= '12':
+            signal_name = os.path.join(self.data_dir, "standby.signal")
+            # cross-python touch(). It is vulnerable to races, but who cares?
+            with open(signal_name, 'a'):
+                os.utime(signal_name, None)
+        else:
+            line += "standby_mode=on\n"
 
         if slot:
             # Connect to master for some additional actions
@@ -363,7 +370,10 @@ class PostgresNode(object):
 
             line += "primary_slot_name={}\n".format(slot)
 
-        self.append_conf(filename=RECOVERY_CONF_FILE, line=line)
+        if self.version >= '12':
+            self.append_conf(line=line)
+        else:
+            self.append_conf(filename=RECOVERY_CONF_FILE, line=line)
 
     def _maybe_start_logger(self):
         if testgres_config.use_python_logging:
