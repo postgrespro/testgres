@@ -186,18 +186,16 @@ class Subscription(object):
         Args:
             username: remote node's user name.
         """
-
         try:
-            pub_lsn = pub.node.execute(query="select pg_current_wal_lsn()::text from pg_catalog.pg_stat_replication",
-                                       dbname=None,
-                                       username=None)  # yapf: disable
+            pub_lsn = self.pub.node.execute(query="select pg_current_wal_lsn()",
+                                            dbname=None,
+                                            username=None)[0][0]  # yapf: disable
             # create dummy xact
-            pub.node.execute(query="select txid_current()", dbname=None, username=None)
+            self.pub.node.execute(query="select txid_current()", dbname=None, username=None)
             query = """
-            select {} - replay_lsn <= 0
+            select '{}'::pg_lsn - replay_lsn <= 0
             from pg_catalog.pg_stat_replication where application_name = '{}'
             """.format(pub_lsn, self.name)
-
 
             # wait until this LSN reaches subscriber
             self.pub.node.poll_query_until(
