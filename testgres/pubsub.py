@@ -190,7 +190,7 @@ class Subscription(object):
             pub_lsn = self.pub.node.execute(query="select pg_current_wal_lsn()",
                                             dbname=None,
                                             username=None)[0][0]  # yapf: disable
-            # create dummy xact
+            # create dummy xact, as LR replicates only on commit.
             self.pub.node.execute(query="select txid_current()", dbname=None, username=None)
             query = """
             select '{}'::pg_lsn - replay_lsn <= 0
@@ -199,6 +199,18 @@ class Subscription(object):
 
             # wait until this LSN reaches subscriber
             self.pub.node.poll_query_until(
+                query=query,
+                dbname=self.pub.dbname,
+                username=username or self.pub.username,
+                max_attempts=LOGICAL_REPL_MAX_CATCHUP_ATTEMPTS)
+
+            # Now, wait until there are no tablesync workers: probably
+            # replay_lsn above was sent with changes of new tables just skipped;
+            # they will be eaten by tablesync workers.
+            query = """
+            select count(*) = 0 from pg_subscription_rel where srsubstate != 'r'
+            """
+            self.node.poll_query_until(
                 query=query,
                 dbname=self.pub.dbname,
                 username=username or self.pub.username,
