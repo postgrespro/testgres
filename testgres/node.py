@@ -526,8 +526,8 @@ class PostgresNode(object):
                                  wal_level=wal_level)  # yapf: disable
             else:
                 self.append_conf(hot_standby=True,
-                        wal_keep_size=WAL_KEEP_SIZE,
-                        wal_level=wal_level)  # yapf: disable
+                                 wal_keep_size=WAL_KEEP_SIZE,
+                                 wal_level=wal_level)  # yapf: disable
 
         # logical replication
         if allow_logical:
