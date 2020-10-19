@@ -79,7 +79,7 @@ def execute_utility(args, logfile=None):
 
                 if out:
                     # comment-out lines
-                    lines = ('# ' + l for l in out.splitlines(True))
+                    lines = ('# ' + line for line in out.splitlines(True))
                     file_out.write(u'\n')
                     file_out.writelines(lines)
 
