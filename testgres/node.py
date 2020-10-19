@@ -519,9 +519,14 @@ class PostgresNode(object):
             # select a proper wal_level for PostgreSQL
             wal_level = 'replica' if self._pg_version >= '9.6' else 'hot_standby'
 
-            self.append_conf(hot_standby=True,
-                             wal_keep_segments=WAL_KEEP_SEGMENTS,
-                             wal_level=wal_level)  # yapf: disable
+            if self._pg_version < '13':
+                self.append_conf(hot_standby=True,
+                                 wal_keep_segments=WAL_KEEP_SEGMENTS,
+                                 wal_level=wal_level)  # yapf: disable
+            else:
+                self.append_conf(hot_standby=True,
+                        wal_keep_size=WAL_KEEP_SIZE,
+                        wal_level=wal_level)  # yapf: disable
 
         # logical replication
         if allow_logical:
