@@ -40,7 +40,8 @@ from .consts import \
     MAX_REPLICATION_SLOTS, \
     MAX_WORKER_PROCESSES, \
     MAX_WAL_SENDERS, \
-    WAL_KEEP_SEGMENTS
+    WAL_KEEP_SEGMENTS, \
+    WAL_KEEP_SIZE
 
 from .decorators import \
     method_decorator, \
