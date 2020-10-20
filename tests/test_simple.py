@@ -414,6 +414,7 @@ class TestgresTests(unittest.TestCase):
                 res = node.execute('select * from test')
                 self.assertListEqual(res, [])
 
+    @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_synchronous_replication(self):
         with get_new_node() as master:
             old_version = not pg_version_ge('9.6')
