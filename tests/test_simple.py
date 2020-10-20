@@ -437,7 +437,7 @@ class TestgresTests(unittest.TestCase):
                     str(Any(1, (standby1, standby2))))  # yapf: disable
 
                 # set synchronous_standby_names
-                master.set_synchronous_standbys([standby1, standby2])
+                master.set_synchronous_standbys(First(2, [standby1, standby2]))
                 master.restart()
 
                 # the following part of the test is only applicable to newer
