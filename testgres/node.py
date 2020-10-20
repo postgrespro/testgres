@@ -821,7 +821,7 @@ class PostgresNode(object):
         else:
             rm_dir = self.data_dir    # just data, save logs
 
-            rmtree(rm_dir, ignore_errors=True)
+        rmtree(rm_dir, ignore_errors=True)
 
         return self
 
