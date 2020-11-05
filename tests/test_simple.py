@@ -51,13 +51,31 @@ from testgres.utils import PgVer
 
 
 def pg_version_ge(version):
+    """
+    Determine if the current version is running.
+
+    Args:
+        version: (str): write your description
+    """
     cur_ver = PgVer(get_pg_version())
     min_ver = PgVer(version)
     return cur_ver >= min_ver
 
 
 def util_exists(util):
+    """
+    Return true if the path tomodir is installed.
+
+    Args:
+        util: (str): write your description
+    """
     def good_properties(f):
+        """
+        Return true if f is a file.
+
+        Args:
+            f: (todo): write your description
+        """
         return (os.path.exists(f) and  # noqa: W504
                 os.path.isfile(f) and  # noqa: W504
                 os.access(f, os.X_OK))  # yapf: disable
@@ -74,6 +92,12 @@ def util_exists(util):
 
 @contextmanager
 def removing(f):
+    """
+    Remove a context manager.
+
+    Args:
+        f: (todo): write your description
+    """
     try:
         yield f
     finally:
@@ -85,11 +109,23 @@ def removing(f):
 
 class TestgresTests(unittest.TestCase):
     def test_node_repr(self):
+        """
+        Test if a node can be executed.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
             self.assertIsNotNone(re.match(pattern, str(node)))
 
     def test_custom_init(self):
+        """
+        Initialize custom meta data
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             # enable page checksums
             node.init(initdb_params=['-k']).start()
@@ -110,12 +146,24 @@ class TestgresTests(unittest.TestCase):
                 self.assertFalse(any('trust' in s for s in lines))
 
     def test_double_init(self):
+        """
+        Called when a new node is created.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node().init() as node:
             # can't initialize node more than once
             with self.assertRaises(InitNodeException):
                 node.init()
 
     def test_init_after_cleanup(self):
+        """
+        Called when a new database is removed.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init().start().execute('select 1')
             node.cleanup()
@@ -124,6 +172,12 @@ class TestgresTests(unittest.TestCase):
     @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
     @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_init_unique_system_id(self):
+        """
+        Test if a node id exists in the cluster
+
+        Args:
+            self: (todo): write your description
+        """
         # this function exists in PostgreSQL 9.6+
         query = 'select system_identifier from pg_control_system()'
 
@@ -149,6 +203,12 @@ class TestgresTests(unittest.TestCase):
                 self.assertGreater(id2, id1)
 
     def test_node_exit(self):
+        """
+        Test if the directory exists.
+
+        Args:
+            self: (todo): write your description
+        """
         base_dir = None
 
         with self.assertRaises(QueryException):
@@ -167,18 +227,36 @@ class TestgresTests(unittest.TestCase):
         self.assertFalse(os.path.exists(base_dir))
 
     def test_double_start(self):
+        """
+        Test if the start of start a new node.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node().init().start() as node:
             # can't start node more than once
             with self.assertRaises(StartNodeException):
                 node.start()
 
     def test_uninitialized_start(self):
+        """
+        Uninitialized of the node.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             # node is not initialized yet
             with self.assertRaises(StartNodeException):
                 node.start()
 
     def test_restart(self):
+        """
+        Restart a new node.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init().start()
 
@@ -195,6 +273,12 @@ class TestgresTests(unittest.TestCase):
                 node.restart()
 
     def test_reload(self):
+        """
+        Reload a new configuration
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init().start()
 
@@ -211,6 +295,12 @@ class TestgresTests(unittest.TestCase):
             self.assertNotEqual(cmm_old, cmm_new)
 
     def test_pg_ctl(self):
+        """
+        Test if a postgres database.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init().start()
 
@@ -218,6 +308,12 @@ class TestgresTests(unittest.TestCase):
             self.assertTrue('PID' in status)
 
     def test_status(self):
+        """
+        Update the status of a test.
+
+        Args:
+            self: (todo): write your description
+        """
         self.assertTrue(NodeStatus.Running)
         self.assertFalse(NodeStatus.Stopped)
         self.assertFalse(NodeStatus.Uninitialized)
@@ -248,6 +344,12 @@ class TestgresTests(unittest.TestCase):
             self.assertEqual(node.status(), NodeStatus.Uninitialized)
 
     def test_psql(self):
+        """
+        Run a new psql
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node().init().start() as node:
 
             # check returned values (1 arg)
@@ -292,6 +394,12 @@ class TestgresTests(unittest.TestCase):
                 node.safe_psql('select 1')
 
     def test_transactions(self):
+        """
+        Test the transaction.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node().init().start() as node:
 
             with node.connect() as con:
@@ -316,6 +424,12 @@ class TestgresTests(unittest.TestCase):
                 con.commit()
 
     def test_control_data(self):
+        """
+        Test if the control control of the control control ().
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
 
             # node is not initialized yet
@@ -330,6 +444,12 @@ class TestgresTests(unittest.TestCase):
             self.assertTrue(any('pg_control' in s for s in data.keys()))
 
     def test_backup_simple(self):
+        """
+        Test for backup of backup
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as master:
 
             # enable streaming for backups
@@ -351,6 +471,12 @@ class TestgresTests(unittest.TestCase):
                     self.assertListEqual(res, [(1, ), (2, ), (3, ), (4, )])
 
     def test_backup_multiple(self):
+        """
+        Test for backup backup_back.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
@@ -366,6 +492,12 @@ class TestgresTests(unittest.TestCase):
                     self.assertNotEqual(node1.base_dir, node2.base_dir)
 
     def test_backup_exhaust(self):
+        """
+        Spawn a backup of the backup.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
@@ -380,6 +512,12 @@ class TestgresTests(unittest.TestCase):
                     backup.spawn_primary()
 
     def test_backup_wrong_xlog_method(self):
+        """
+        Test for backup backup backupup_method.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
@@ -388,6 +526,12 @@ class TestgresTests(unittest.TestCase):
                 node.backup(xlog_method='wrong')
 
     def test_pg_ctl_wait_option(self):
+        """
+        Waits the wait_pg_option is true.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init().start(wait=False)
             while True:
@@ -400,6 +544,12 @@ class TestgresTests(unittest.TestCase):
                     pass
 
     def test_replicate(self):
+        """
+        Replacement for new replica.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
@@ -416,6 +566,12 @@ class TestgresTests(unittest.TestCase):
 
     @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_synchronous_replication(self):
+        """
+        Test for a master master master.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as master:
             old_version = not pg_version_ge('9.6')
 
@@ -457,6 +613,12 @@ class TestgresTests(unittest.TestCase):
 
     @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_replication(self):
+        """
+        Logical replica.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node1, get_new_node() as node2:
             node1.init(allow_logical=True)
             node1.start()
@@ -552,11 +714,23 @@ class TestgresTests(unittest.TestCase):
 
     @unittest.skipIf(pg_version_ge('10'), 'requires <10')
     def test_logical_replication_fail(self):
+        """
+        Test if new replication node.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             with self.assertRaises(InitNodeException):
                 node.init(allow_logical=True)
 
     def test_replication_slots(self):
+        """
+        Test for replication replication.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
@@ -568,6 +742,12 @@ class TestgresTests(unittest.TestCase):
                     node.replicate(slot='slot1')
 
     def test_incorrect_catchup(self):
+        """
+        Called when a test.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
@@ -576,6 +756,12 @@ class TestgresTests(unittest.TestCase):
                 node.catchup()
 
     def test_promotion(self):
+        """
+        Prompt the master and sends a master.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as master:
             master.init().start()
             master.safe_psql('create table abc(id serial)')
@@ -590,6 +776,12 @@ class TestgresTests(unittest.TestCase):
                 self.assertEqual(res, b'1\n')
 
     def test_dump(self):
+        """
+        Dump the test data to a file.
+
+        Args:
+            self: (todo): write your description
+        """
         query_create = 'create table test as select generate_series(1, 2) as val'
         query_select = 'select * from test order by val asc'
 
@@ -609,12 +801,24 @@ class TestgresTests(unittest.TestCase):
                         self.assertListEqual(res, [(1, ), (2, )])
 
     def test_users(self):
+        """
+        Test if the user is_users
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node().init().start() as node:
             node.psql('create role test_user login')
             value = node.safe_psql('select 1', username='test_user')
             self.assertEqual(value, b'1\n')
 
     def test_poll_query_until(self):
+        """
+        Test for a query to be run.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init().start()
 
@@ -677,6 +881,12 @@ class TestgresTests(unittest.TestCase):
             node.poll_query_until('select true')
 
     def test_logging(self):
+        """
+        Test for logging.
+
+        Args:
+            self: (todo): write your description
+        """
         logfile = tempfile.NamedTemporaryFile('w', delete=True)
 
         log_conf = {
@@ -729,6 +939,12 @@ class TestgresTests(unittest.TestCase):
 
     @unittest.skipUnless(util_exists('pgbench'), 'might be missing')
     def test_pgbench(self):
+        """
+        Test for pgbench
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node().init().start() as node:
 
             # initialize pgbench DB and run benchmarks
@@ -747,6 +963,12 @@ class TestgresTests(unittest.TestCase):
             self.assertTrue('tps' in out)
 
     def test_pg_config(self):
+        """
+        Test if pg_config_config
+
+        Args:
+            self: (todo): write your description
+        """
         # check same instances
         a = get_pg_config()
         b = get_pg_config()
@@ -773,6 +995,12 @@ class TestgresTests(unittest.TestCase):
             self.assertNotEqual(id(a), id(b))
 
     def test_config_stack(self):
+        """
+        Test if the stack is a stack.
+
+        Args:
+            self: (todo): write your description
+        """
         # no such option
         with self.assertRaises(TypeError):
             configure_testgres(dummy=True)
@@ -805,6 +1033,12 @@ class TestgresTests(unittest.TestCase):
         self.assertEqual(TestgresConfig.cached_initdb_dir, d0)
 
     def test_unix_sockets(self):
+        """
+        Test if a new sockets of the given node.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node() as node:
             node.init(unix_sockets=False, allow_streaming=True)
             node.start()
@@ -817,6 +1051,12 @@ class TestgresTests(unittest.TestCase):
                 r.safe_psql('select 1')
 
     def test_auto_name(self):
+        """
+        Test if a new auto - created_name
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node().init(allow_streaming=True).start() as m:
             with m.replicate().start() as r:
 
@@ -830,6 +1070,12 @@ class TestgresTests(unittest.TestCase):
                 self.assertTrue('testgres' in r.name)
 
     def test_file_tail(self):
+        """
+        Writes the tail of the first row.
+
+        Args:
+            self: (todo): write your description
+        """
         from testgres.utils import file_tail
 
         s1 = "the quick brown fox jumped over that lazy dog\n"
@@ -855,6 +1101,12 @@ class TestgresTests(unittest.TestCase):
             self.assertEqual(lines[0], s3)
 
     def test_isolation_levels(self):
+        """
+        Check if the database levels isolation.
+
+        Args:
+            self: (todo): write your description
+        """
         with get_new_node().init().start() as node:
             with node.connect() as con:
                 # string levels
@@ -874,6 +1126,12 @@ class TestgresTests(unittest.TestCase):
                     con.begin('Garbage').commit()
 
     def test_ports_management(self):
+        """
+        Set the port ports.
+
+        Args:
+            self: (todo): write your description
+        """
         # check that no ports have been bound yet
         self.assertEqual(len(bound_ports), 0)
 
@@ -890,11 +1148,23 @@ class TestgresTests(unittest.TestCase):
         self.assertEqual(len(bound_ports), 0)
 
     def test_exceptions(self):
+        """
+        This function will be called when the test
+
+        Args:
+            self: (todo): write your description
+        """
         str(StartNodeException('msg', [('file', 'lines')]))
         str(ExecUtilException('msg', 'cmd', 1, 'out'))
         str(QueryException('msg', 'query'))
 
     def test_version_management(self):
+        """
+        Test if the version of the current version.
+
+        Args:
+            self: (todo): write your description
+        """
         a = PgVer('10.0')
         b = PgVer('10')
         c = PgVer('9.6.5')
@@ -910,6 +1180,12 @@ class TestgresTests(unittest.TestCase):
             self.assertEqual(node.version, str(version))
 
     def test_child_pids(self):
+        """
+        Test if the worker processes.
+
+        Args:
+            self: (todo): write your description
+        """
         master_processes = [
             ProcessType.AutovacuumLauncher,
             ProcessType.BackgroundWriter,

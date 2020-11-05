@@ -22,8 +22,19 @@ def positional_args_hack(*special_cases):
         cases[k] = case
 
     def decorator(function):
+        """
+        Decorator to apply a function to the decorator.
+
+        Args:
+            function: (todo): write your description
+        """
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
+            """
+            Wrapper around a function.
+
+            Args:
+            """
             k = len(args)
 
             if k in six.iterkeys(cases):
@@ -52,9 +63,28 @@ def method_decorator(decorator):
     """
 
     def _dec(func):
+        """
+        Decorator for decorates function.
+
+        Args:
+            func: (todo): write your description
+        """
         def _wrapper(self, *args, **kwargs):
+            """
+            Decorator for bound methods.
+
+            Args:
+                self: (todo): write your description
+            """
             @decorator
             def bound_func(*args2, **kwargs2):
+                """
+                Return a bound bound to the wrapped function.
+
+                Args:
+                    args2: (tuple): write your description
+                    kwargs2: (dict): write your description
+                """
                 return func.__get__(self, type(self))(*args2, **kwargs2)
 
             # 'bound_func' is a closure and can see 'self'

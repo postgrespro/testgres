@@ -10,6 +10,16 @@ class TestgresException(Exception):
 @six.python_2_unicode_compatible
 class ExecUtilException(TestgresException):
     def __init__(self, message=None, command=None, exit_code=0, out=None):
+        """
+        Initialize the message.
+
+        Args:
+            self: (todo): write your description
+            message: (str): write your description
+            command: (str): write your description
+            exit_code: (int): write your description
+            out: (str): write your description
+        """
         super(ExecUtilException, self).__init__(message)
 
         self.message = message
@@ -18,6 +28,12 @@ class ExecUtilException(TestgresException):
         self.out = out
 
     def __str__(self):
+        """
+        Return a string representation of the command.
+
+        Args:
+            self: (todo): write your description
+        """
         msg = []
 
         if self.message:
@@ -38,12 +54,26 @@ class ExecUtilException(TestgresException):
 @six.python_2_unicode_compatible
 class QueryException(TestgresException):
     def __init__(self, message=None, query=None):
+        """
+        Initialize the query.
+
+        Args:
+            self: (todo): write your description
+            message: (str): write your description
+            query: (str): write your description
+        """
         super(QueryException, self).__init__(message)
 
         self.message = message
         self.query = query
 
     def __str__(self):
+        """
+        Returns a string representation of the query.
+
+        Args:
+            self: (todo): write your description
+        """
         msg = []
 
         if self.message:
@@ -66,12 +96,26 @@ class CatchUpException(QueryException):
 @six.python_2_unicode_compatible
 class StartNodeException(TestgresException):
     def __init__(self, message=None, files=None):
+        """
+        Initialize the message.
+
+        Args:
+            self: (todo): write your description
+            message: (str): write your description
+            files: (list): write your description
+        """
         super(StartNodeException, self).__init__(message)
 
         self.message = message
         self.files = files
 
     def __str__(self):
+        """
+        Return a string representation of this message.
+
+        Args:
+            self: (todo): write your description
+        """
         msg = []
 
         if self.message:

@@ -51,6 +51,13 @@ class GlobalConfig(object):
 
     @cached_initdb_dir.setter
     def cached_initdb_dir(self, value):
+        """
+        Initialize the database.
+
+        Args:
+            self: (todo): write your description
+            value: (todo): write your description
+        """
         self._cached_initdb_dir = value
 
         if value:
@@ -63,18 +70,55 @@ class GlobalConfig(object):
 
     @temp_dir.setter
     def temp_dir(self, value):
+        """
+        Create a temporary directory.
+
+        Args:
+            self: (todo): write your description
+            value: (todo): write your description
+        """
         tempfile.tempdir = value
 
     def __init__(self, **options):
+        """
+        Initialize the options.
+
+        Args:
+            self: (todo): write your description
+            options: (dict): write your description
+        """
         self.update(options)
 
     def __setitem__(self, key, value):
+        """
+        Sets the value of a key.
+
+        Args:
+            self: (todo): write your description
+            key: (str): write your description
+            value: (str): write your description
+        """
         setattr(self, key, value)
 
     def __getitem__(self, key):
+        """
+        Get an item from the cache.
+
+        Args:
+            self: (todo): write your description
+            key: (str): write your description
+        """
         return getattr(self, key)
 
     def __setattr__(self, name, value):
+        """
+        Sets a configuration attribute.
+
+        Args:
+            self: (todo): write your description
+            name: (str): write your description
+            value: (todo): write your description
+        """
         if name not in self.keys():
             raise TypeError('Unknown option {}'.format(name))
 
@@ -135,6 +179,11 @@ config_stack = []
 
 @atexit.register
 def _rm_cached_initdb_dirs():
+    """
+    Remove all cached directories.
+
+    Args:
+    """
     for d in cached_initdb_dirs:
         rmtree(d, ignore_errors=True)
 

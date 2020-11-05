@@ -32,6 +32,12 @@ class NodeStatus(IntEnum):
 
     # for Python 3.x
     def __bool__(self):
+        """
+        Returns true if this node is true false otherwise.
+
+        Args:
+            self: (todo): write your description
+        """
         return self == NodeStatus.Running
 
     # for Python 2.x
@@ -58,6 +64,12 @@ class ProcessType(Enum):
 
     @staticmethod
     def from_process(process):
+        """
+        Create a process object from process from process name.
+
+        Args:
+            process: (todo): write your description
+        """
         # legacy names for older releases of PG
         alternative_names = {
             ProcessType.LogicalReplicationLauncher: [

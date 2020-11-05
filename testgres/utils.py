@@ -132,6 +132,12 @@ def get_pg_config(pg_config_path=None):
     """
 
     def cache_pg_config_data(cmd):
+        """
+        Cache pg_config_data
+
+        Args:
+            cmd: (str): write your description
+        """
         # execute pg_config and get the output
         out = subprocess.check_output([cmd]).decode('utf-8')
 
@@ -225,6 +231,12 @@ def eprint(*args, **kwargs):
 
 
 def options_string(separator=u" ", **kwargs):
+    """
+    Convert a string to a list of options.
+
+    Args:
+        separator: (str): write your description
+    """
     return separator.join(u"{}={}".format(k, v) for k, v in iteritems(kwargs))
 
 
