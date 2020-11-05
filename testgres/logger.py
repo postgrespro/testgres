@@ -12,6 +12,14 @@ class TestgresLogger(threading.Thread):
     """
 
     def __init__(self, node_name, log_file_name):
+        """
+        Initialize a logger.
+
+        Args:
+            self: (todo): write your description
+            node_name: (str): write your description
+            log_file_name: (str): write your description
+        """
         threading.Thread.__init__(self)
 
         self._node_name = node_name
@@ -21,6 +29,12 @@ class TestgresLogger(threading.Thread):
         self._logger.setLevel(logging.INFO)
 
     def run(self):
+        """
+        Run the log file.
+
+        Args:
+            self: (todo): write your description
+        """
         # open log file for reading
         with open(self._log_file_name, 'r') as fd:
             # work until we're asked to stop
@@ -44,6 +58,13 @@ class TestgresLogger(threading.Thread):
             self._stop_event.clear()
 
     def stop(self, wait=True):
+        """
+        Stop the thread.
+
+        Args:
+            self: (todo): write your description
+            wait: (bool): write your description
+        """
         self._stop_event.set()
 
         if wait:

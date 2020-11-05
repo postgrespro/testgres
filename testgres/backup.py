@@ -32,6 +32,12 @@ class NodeBackup(object):
 
     @property
     def log_file(self):
+        """
+        Return log file.
+
+        Args:
+            self: (str): write your description
+        """
         return os.path.join(self.base_dir, BACKUP_LOG_FILE)
 
     def __init__(self,
@@ -85,9 +91,24 @@ class NodeBackup(object):
         execute_utility(_params, self.log_file)
 
     def __enter__(self):
+        """
+        Decor function.
+
+        Args:
+            self: (todo): write your description
+        """
         return self
 
     def __exit__(self, type, value, traceback):
+        """
+        Called when the given value.
+
+        Args:
+            self: (todo): write your description
+            type: (todo): write your description
+            value: (todo): write your description
+            traceback: (todo): write your description
+        """
         self.cleanup()
 
     def _prepare_dir(self, destroy):

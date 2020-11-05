@@ -27,6 +27,13 @@ def cached_initdb(data_dir, logfile=None, params=None):
     """
 
     def call_initdb(initdb_dir, log=None):
+        """
+        Execute initdb init init.
+
+        Args:
+            initdb_dir: (str): write your description
+            log: (todo): write your description
+        """
         try:
             _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
             execute_utility(_params + (params or []), log)

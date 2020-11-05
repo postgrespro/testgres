@@ -18,10 +18,24 @@ class First:
     """
 
     def __init__(self, sync_num, standbys):
+        """
+        Initialize the sync.
+
+        Args:
+            self: (todo): write your description
+            sync_num: (int): write your description
+            standbys: (todo): write your description
+        """
         self.sync_num = sync_num
         self.standbys = standbys
 
     def __str__(self):
+        """
+        Return the string representation of this object.
+
+        Args:
+            self: (todo): write your description
+        """
         return u"{} ({})".format(self.sync_num, u", ".join(
             u"\"{}\"".format(r.name) for r in self.standbys))
 
@@ -41,9 +55,23 @@ class Any:
     """
 
     def __init__(self, sync_num, standbys):
+        """
+        Initialize the sync.
+
+        Args:
+            self: (todo): write your description
+            sync_num: (int): write your description
+            standbys: (todo): write your description
+        """
         self.sync_num = sync_num
         self.standbys = standbys
 
     def __str__(self):
+        """
+        Return the string representation of this object.
+
+        Args:
+            self: (todo): write your description
+        """
         return u"ANY {} ({})".format(self.sync_num, u", ".join(
             u"\"{}\"".format(r.name) for r in self.standbys))

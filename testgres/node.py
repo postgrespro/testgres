@@ -93,13 +93,34 @@ class ProcessProxy(object):
     """
 
     def __init__(self, process, ptype=None):
+        """
+        Initialize process.
+
+        Args:
+            self: (todo): write your description
+            process: (todo): write your description
+            ptype: (todo): write your description
+        """
         self.process = process
         self.ptype = ptype or ProcessType.from_process(process)
 
     def __getattr__(self, name):
+        """
+        Return the attribute of a given name.
+
+        Args:
+            self: (todo): write your description
+            name: (str): write your description
+        """
         return getattr(self.process, name)
 
     def __repr__(self):
+        """
+        Return a string.
+
+        Args:
+            self: (todo): write your description
+        """
         return '{}(ptype={}, process={})'.format(self.__class__.__name__,
                                                  str(self.ptype),
                                                  repr(self.process))
@@ -138,9 +159,24 @@ class PostgresNode(object):
         self.pg_log_name = self.pg_log_file
 
     def __enter__(self):
+        """
+        Decor function.
+
+        Args:
+            self: (todo): write your description
+        """
         return self
 
     def __exit__(self, type, value, traceback):
+        """
+        Called when a connection.
+
+        Args:
+            self: (todo): write your description
+            type: (todo): write your description
+            value: (todo): write your description
+            traceback: (todo): write your description
+        """
         self.free_port()
 
         # NOTE: Ctrl+C does not count!
@@ -157,6 +193,12 @@ class PostgresNode(object):
             self._try_shutdown(attempts)
 
     def __repr__(self):
+        """
+        Return a representation for this object.
+
+        Args:
+            self: (todo): write your description
+        """
         return "{}(name='{}', port={}, base_dir='{}')".format(
             self.__class__.__name__, self.name, self.port, self.base_dir)
 
@@ -198,6 +240,12 @@ class PostgresNode(object):
         """
 
         def is_aux(process):
+            """
+            Return true if process is a process.
+
+            Args:
+                process: (todo): write your description
+            """
             return process.ptype != ProcessType.Unknown
 
         return list(filter(is_aux, self.child_processes))
@@ -243,10 +291,22 @@ class PostgresNode(object):
 
     @property
     def master(self):
+        """
+        Return master master master master master.
+
+        Args:
+            self: (todo): write your description
+        """
         return self._master
 
     @property
     def base_dir(self):
+        """
+        Return the base directory.
+
+        Args:
+            self: (todo): write your description
+        """
         if not self._base_dir:
             self._base_dir = mkdtemp(prefix=TMP_NODE)
 
@@ -258,6 +318,12 @@ class PostgresNode(object):
 
     @property
     def logs_dir(self):
+        """
+        Return the absolute path to the log directories.
+
+        Args:
+            self: (todo): write your description
+        """
         path = os.path.join(self.base_dir, LOGS_DIR)
 
         # NOTE: it's safe to create a new dir
@@ -268,15 +334,33 @@ class PostgresNode(object):
 
     @property
     def data_dir(self):
+        """
+        Return the absolute path for the data directory.
+
+        Args:
+            self: (todo): write your description
+        """
         # NOTE: we can't run initdb without user's args
         return os.path.join(self.base_dir, DATA_DIR)
 
     @property
     def utils_log_file(self):
+        """
+        Get log file.
+
+        Args:
+            self: (todo): write your description
+        """
         return os.path.join(self.logs_dir, UTILS_LOG_FILE)
 
     @property
     def pg_log_file(self):
+        """
+        Return the log file.
+
+        Args:
+            self: (todo): write your description
+        """
         return os.path.join(self.logs_dir, PG_LOG_FILE)
 
     @property
@@ -290,6 +374,13 @@ class PostgresNode(object):
         return self._pg_version
 
     def _try_shutdown(self, max_attempts):
+        """
+        Try to stop the specified connections.
+
+        Args:
+            self: (todo): write your description
+            max_attempts: (int): write your description
+        """
         attempts = 0
 
         # try stopping server N times
@@ -375,6 +466,12 @@ class PostgresNode(object):
             self.append_conf(filename=RECOVERY_CONF_FILE, line=line)
 
     def _maybe_start_logger(self):
+        """
+        Start the logger.
+
+        Args:
+            self: (todo): write your description
+        """
         if testgres_config.use_python_logging:
             # spawn new logger if it doesn't exist or is stopped
             if not self._logger or not self._logger.is_alive():
@@ -382,10 +479,22 @@ class PostgresNode(object):
                 self._logger.start()
 
     def _maybe_stop_logger(self):
+        """
+        Stop the logger.
+
+        Args:
+            self: (todo): write your description
+        """
         if self._logger:
             self._logger.stop()
 
     def _collect_special_files(self):
+        """
+        Collects all special special special files.
+
+        Args:
+            self: (todo): write your description
+        """
         result = []
 
         # list of important files + last N lines
@@ -480,6 +589,12 @@ class PostgresNode(object):
             if allow_streaming:
                 # get auth method for host or local users
                 def get_auth_method(t):
+                    """
+                    Return the auth method for a given string.
+
+                    Args:
+                        t: (todo): write your description
+                    """
                     return next((s.split()[-1] for s in lines
                                  if s.startswith(t)), 'trust')
 
@@ -948,6 +1063,11 @@ class PostgresNode(object):
 
         # Generate tmpfile or tmpdir
         def tmpfile():
+            """
+            Create a temporary filename.
+
+            Args:
+            """
             if format == DumpFormat.Directory:
                 fname = mkdtemp(prefix=TMP_DUMP)
             else:
