@@ -5,7 +5,7 @@ from __future__ import print_function
 
 import io
 import os
-import port_for
+import socket
 import subprocess
 import sys
 import tempfile
@@ -33,7 +33,10 @@ def reserve_port():
     Generate a new port and add it to 'bound_ports'.
     """
 
-    port = port_for.select_random(exclude_ports=bound_ports)
+    s = socket.socket()
+    s.bind(("", 0))
+    port = s.getsockname()[1]
+    s.close()
     bound_ports.add(port)
 
     return port
