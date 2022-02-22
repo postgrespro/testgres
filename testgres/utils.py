@@ -8,6 +8,7 @@ import os
 import port_for
 import subprocess
 import sys
+import tempfile
 
 from contextlib import contextmanager
 from distutils.version import LooseVersion
@@ -59,13 +60,32 @@ def execute_utility(args, logfile=None):
     """
 
     # run utility
-    process = subprocess.Popen(
-        args,    # util + params
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT)
+    if os.name == 'nt':
+        # using output to a temporary file in Windows
+        buf = tempfile.NamedTemporaryFile()
 
-    # get result and decode it
-    out, _ = process.communicate()
+        process = subprocess.Popen(
+            args,    # util + params
+            stdout=buf,
+            stderr=subprocess.STDOUT
+            )
+        process.communicate()
+
+        # get result
+        buf.file.flush()
+        buf.file.seek(0)
+        out = buf.file.read()
+        buf.close()
+    else:
+        process = subprocess.Popen(
+            args,    # util + params
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT)
+
+        # get result
+        out, _ = process.communicate()
+
+    # decode result
     out = '' if not out else out.decode('utf-8')
 
     # format command

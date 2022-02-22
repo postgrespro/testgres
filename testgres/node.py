@@ -865,8 +865,7 @@ class PostgresNode(object):
             "-X",  # no .psqlrc
             "-A",  # unaligned output
             "-t",  # print rows only
-            "-q",  # run quietly
-            dbname
+            "-q"  # run quietly
         ]  # yapf: disable
 
         # set variables before execution
@@ -880,6 +879,9 @@ class PostgresNode(object):
             psql_params.extend(("-f", filename))
         else:
             raise QueryException('Query or filename must be provided')
+
+        # should be the last one
+        psql_params.append(dbname)
 
         # start psql process
         process = subprocess.Popen(
