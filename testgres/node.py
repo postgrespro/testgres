@@ -7,9 +7,9 @@ import subprocess
 import time
 
 try:
-    from collections import Iterable
-except ImportError:
     from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
 
 from shutil import rmtree
 from six import raise_from, iteritems, text_type
