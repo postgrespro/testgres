@@ -77,10 +77,9 @@ class Publication(object):
         """
         Drop publication
         """
-        self.node.execute(
-            "drop publication {}".format(self.name),
-            dbname=dbname,
-            username=username)
+        self.node.execute("drop publication {}".format(self.name),
+                          dbname=dbname,
+                          username=username)
 
     def add_tables(self, tables, dbname=None, username=None):
         """
@@ -94,10 +93,9 @@ class Publication(object):
             raise ValueError("Tables list is empty")
 
         query = "alter publication {} add table {}"
-        self.node.execute(
-            query.format(self.name, ", ".join(tables)),
-            dbname=dbname or self.dbname,
-            username=username or self.username)
+        self.node.execute(query.format(self.name, ", ".join(tables)),
+                          dbname=dbname or self.dbname,
+                          username=username or self.username)
 
 
 class Subscription(object):
@@ -165,19 +163,17 @@ class Subscription(object):
         Disables the running subscription.
         """
         query = "alter subscription {} refresh publication with (copy_data={})"
-        self.node.execute(
-            query.format(self.name, copy_data),
-            dbname=dbname,
-            username=username)
+        self.node.execute(query.format(self.name, copy_data),
+                          dbname=dbname,
+                          username=username)
 
     def drop(self, dbname=None, username=None):
         """
         Drops subscription
         """
-        self.node.execute(
-            "drop subscription {}".format(self.name),
-            dbname=dbname,
-            username=username)
+        self.node.execute("drop subscription {}".format(self.name),
+                          dbname=dbname,
+                          username=username)
 
     def catchup(self, username=None):
         """
@@ -191,7 +187,9 @@ class Subscription(object):
                                             dbname=None,
                                             username=None)[0][0]  # yapf: disable
             # create dummy xact, as LR replicates only on commit.
-            self.pub.node.execute(query="select txid_current()", dbname=None, username=None)
+            self.pub.node.execute(query="select txid_current()",
+                                  dbname=None,
+                                  username=None)
             query = """
             select '{}'::pg_lsn - replay_lsn <= 0
             from pg_catalog.pg_stat_replication where application_name = '{}'
