@@ -43,7 +43,6 @@ class GlobalConfig(object):
 
     _cached_initdb_dir = None
     """ underlying class attribute for cached_initdb_dir property """
-
     @property
     def cached_initdb_dir(self):
         """ path to a temp directory for cached initdb. """

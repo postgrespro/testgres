@@ -25,7 +25,6 @@ def cached_initdb(data_dir, logfile=None, params=None):
     """
     Perform initdb or use cached node files.
     """
-
     def call_initdb(initdb_dir, log=None):
         try:
             _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
