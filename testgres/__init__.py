@@ -25,7 +25,8 @@ from .utils import \
     bound_ports, \
     get_bin_path, \
     get_pg_config, \
-    get_pg_version
+    get_pg_version, \
+    execute_utility
 
 from .standby import \
     First, \
