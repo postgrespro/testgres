@@ -106,7 +106,8 @@ class ProcessProxy(object):
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, port=None, base_dir=None):
+    def __init__(self, name=None, port=None, base_dir=None,
+                 host='*', hostname='locahost'):
         """
         PostgresNode constructor.
 
@@ -124,9 +125,11 @@ class PostgresNode(object):
         self._master = None
 
         # basic
-        self.host = '127.0.0.1'
         self.name = name or generate_app_name()
         self.port = port or reserve_port()
+
+        self.host = host
+        self.hostname = hostname
 
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
@@ -415,7 +418,7 @@ class PostgresNode(object):
 
         return result
 
-    def init(self, initdb_params=None, **kwargs):
+    def init(self, initdb_params=None, hostname='localhost', ssh_key=None, **kwargs):
         """
         Perform initdb for this node.
 
@@ -433,6 +436,8 @@ class PostgresNode(object):
         cached_initdb(
             data_dir=self.data_dir,
             logfile=self.utils_log_file,
+            hostname=self.hostname,
+            ssh_key=ssh_key,
             params=initdb_params)
 
         # initialize default config files
@@ -490,6 +495,10 @@ class PostgresNode(object):
                 new_lines = [
                     u"local\treplication\tall\t\t\t{}\n".format(auth_local),
                     u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
+                    
+                    u"host\treplication\tall\t0.0.0.0/0\t{}\n".format(auth_host),
+                    u"host\tall\tall\t0.0.0.0/0\t{}\n".format(auth_host),                   
+                    
                     u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
                 ]  # yapf: disable
 

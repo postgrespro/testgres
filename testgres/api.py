@@ -38,5 +38,6 @@ def get_new_node(name=None, base_dir=None, **kwargs):
     Simply a wrapper around :class:`.PostgresNode` constructor.
     See :meth:`.PostgresNode.__init__` for details.
     """
+    
     # NOTE: leave explicit 'name' and 'base_dir' for compatibility
     return PostgresNode(name=name, base_dir=base_dir, **kwargs)

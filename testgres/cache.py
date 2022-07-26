@@ -21,15 +21,19 @@ from .utils import \
     execute_utility
 
 
-def cached_initdb(data_dir, logfile=None, params=None):
+def cached_initdb(data_dir, logfile=None, hostname='localhost', ssh_key=None, params=None):
     """
     Perform initdb or use cached node files.
-    """
 
+    DDD return
+    """
+    
     def call_initdb(initdb_dir, log=None):
         try:
             _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
-            execute_utility(_params + (params or []), log)
+
+            # DDD return executions code
+            execute_utility(_params + (params or []), log, hostname=hostname)
         except ExecUtilException as e:
             raise_from(InitNodeException("Failed to run initdb"), e)
 
@@ -59,7 +63,10 @@ def cached_initdb(data_dir, logfile=None, params=None):
 
                 # XXX: build new WAL segment with our system id
                 _params = [get_bin_path("pg_resetwal"), "-D", data_dir, "-f"]
-                execute_utility(_params, logfile)
+
+
+                # DDD refactor to PostgresNode method and check execute code
+                execute_utility(_params, logfile, hostname=hostname)
 
         except ExecUtilException as e:
             msg = "Failed to reset WAL for system id"

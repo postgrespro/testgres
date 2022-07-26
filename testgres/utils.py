@@ -9,11 +9,15 @@ import port_for
 import subprocess
 import sys
 import tempfile
+import socket
 
 from contextlib import contextmanager
 from distutils.version import LooseVersion
 from distutils.spawn import find_executable
 from six import iteritems
+
+# Add remote host call
+from fabric import Connection
 
 from .config import testgres_config
 from .exceptions import ExecUtilException
@@ -47,18 +51,42 @@ def release_port(port):
     bound_ports.discard(port)
 
 
-def execute_utility(args, logfile=None):
+def execute_utility(args, logfile=None, hostname='localhost', ssh_key=None):
     """
-    Execute utility (pg_ctl, pg_dump etc).
+    Execute utility wrapper (pg_ctl, pg_dump etc).
+
+    # DDD pass host_params 
+    # DDD logfile ... use logging and STDOUT & FILE proxying 
 
     Args:
         args: utility + arguments (list).
+        host_params : dict {
         logfile: path to file to store stdout and stderr.
 
     Returns:
         stdout of executed utility.
     """
 
+
+    if hostname != 'localhost':        
+        conn = Connection(
+            hostname,
+            connect_kwargs={
+                # XXX pass SSH key path
+                "key_filename": "/mnt/ssh/id_rsa",
+            },
+        )
+
+        # TODO skip remote ssh run if we are on the localhost.
+        # result = conn.run('hostname', hide=True)
+        # add logger 
+
+        cmd = ' '.join(args)
+        result = conn.run(cmd, hide=True)        
+        
+        return result
+        
+    
     # run utility
     if os.name == 'nt':
         # using output to a temporary file in Windows
