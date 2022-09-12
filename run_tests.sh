@@ -27,9 +27,8 @@ $PIP install coverage flake8 psutil Sphinx sphinxcontrib-napoleon
 # install testgres' dependencies
 export PYTHONPATH=$(pwd)
 $PIP install .
-
 # test code quality
-flake8 .
+flake8 --ignore=F401,E501,F403 .
 
 
 # remove existing coverage file
@@ -68,3 +67,4 @@ set +eux
 
 # send coverage stats to Codecov
 bash <(curl -s https://codecov.io/bash)
+bash
