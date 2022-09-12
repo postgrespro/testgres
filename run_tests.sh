@@ -67,4 +67,3 @@ set +eux
 
 # send coverage stats to Codecov
 bash <(curl -s https://codecov.io/bash)
-bash
