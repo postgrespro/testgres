@@ -28,7 +28,7 @@ $PIP install coverage flake8 psutil Sphinx sphinxcontrib-napoleon
 export PYTHONPATH=$(pwd)
 $PIP install .
 # test code quality
-flake8 --ignore=F401,E501,F403 .
+flake8 .
 
 
 # remove existing coverage file
