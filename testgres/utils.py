@@ -120,10 +120,9 @@ def execute_utility(args, logfile=None):
     return out
 
 
-def get_bin_path(filename):
+def _choose_bin_path(filename):
     """
-    Return absolute path to an executable using PG_BIN or PG_CONFIG.
-    This function does nothing if 'filename' is already absolute.
+    Worker function for get_bin_path.
     """
 
     # check if it's already absolute
@@ -146,6 +145,19 @@ def get_bin_path(filename):
         bindir = get_pg_config(pg_config_path)["BINDIR"]
         return os.path.join(bindir, filename)
 
+    return filename
+
+def get_bin_path(filename):
+    """
+    Return absolute path to an executable using PG_BIN or PG_CONFIG.
+    This function does nothing if 'filename' is already absolute.
+    """
+
+    filename = _choose_bin_path(filename)
+
+    # Windows should find executable again for suffixes
+    if sys.platform == 'win32':
+        return find_executable(filename)
     return filename
 
 
