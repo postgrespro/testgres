@@ -29,7 +29,6 @@ class NodeBackup(object):
     """
     Smart object responsible for backups
     """
-
     @property
     def log_file(self):
         return os.path.join(self.base_dir, BACKUP_LOG_FILE)

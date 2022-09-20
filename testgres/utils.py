@@ -70,8 +70,7 @@ def execute_utility(args, logfile=None):
         process = subprocess.Popen(
             args,    # util + params
             stdout=buf,
-            stderr=subprocess.STDOUT
-            )
+            stderr=subprocess.STDOUT)
         process.communicate()
 
         # get result
@@ -113,8 +112,10 @@ def execute_utility(args, logfile=None):
     exit_code = process.returncode
     if exit_code:
         message = 'Utility exited with non-zero code'
-        raise ExecUtilException(
-            message=message, command=command, exit_code=exit_code, out=out)
+        raise ExecUtilException(message=message,
+                                command=command,
+                                exit_code=exit_code,
+                                out=out)
 
     return out
 
@@ -153,7 +154,6 @@ def get_pg_config(pg_config_path=None):
     Return output of pg_config (provided that it is installed).
     NOTE: this fuction caches the result by default (see GlobalConfig).
     """
-
     def cache_pg_config_data(cmd):
         # execute pg_config and get the output
         out = subprocess.check_output([cmd]).decode('utf-8')
