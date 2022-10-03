@@ -339,7 +339,7 @@ class PostgresNode(object):
             "primary_conninfo='{}'\n"
         ).format(options_string(**conninfo))  # yapf: disable
         # Since 12 recovery.conf had disappeared
-        if self.version >= '12':
+        if self.version >= PgVer('12'):
             signal_name = os.path.join(self.data_dir, "standby.signal")
             # cross-python touch(). It is vulnerable to races, but who cares?
             with open(signal_name, 'a'):
@@ -371,7 +371,7 @@ class PostgresNode(object):
 
             line += "primary_slot_name={}\n".format(slot)
 
-        if self.version >= '12':
+        if self.version >= PgVer('12'):
             self.append_conf(line=line)
         else:
             self.append_conf(filename=RECOVERY_CONF_FILE, line=line)
@@ -517,9 +517,9 @@ class PostgresNode(object):
         # binary replication
         if allow_streaming:
             # select a proper wal_level for PostgreSQL
-            wal_level = 'replica' if self._pg_version >= '9.6' else 'hot_standby'
+            wal_level = 'replica' if self._pg_version >= PgVer('9.6') else 'hot_standby'
 
-            if self._pg_version < '13':
+            if self._pg_version < PgVer('13'):
                 self.append_conf(hot_standby=True,
                                  wal_keep_segments=WAL_KEEP_SEGMENTS,
                                  wal_level=wal_level)  # yapf: disable
@@ -530,7 +530,7 @@ class PostgresNode(object):
 
         # logical replication
         if allow_logical:
-            if self._pg_version < '10':
+            if self._pg_version < PgVer('10'):
                 raise InitNodeException("Logical replication is only "
                                         "available on PostgreSQL 10 and newer")
 
@@ -616,7 +616,7 @@ class PostgresNode(object):
 
         # this one is tricky (blame PG 9.4)
         _params = [get_bin_path("pg_controldata")]
-        _params += ["-D"] if self._pg_version >= '9.5' else []
+        _params += ["-D"] if self._pg_version >= PgVer('9.5') else []
         _params += [self.data_dir]
 
         data = execute_utility(_params, self.utils_log_file)
@@ -758,7 +758,7 @@ class PostgresNode(object):
 
         # for versions below 10 `promote` is asynchronous so we need to wait
         # until it actually becomes writable
-        if self._pg_version < '10':
+        if self._pg_version < PgVer('10'):
             check_query = "SELECT pg_is_in_recovery()"
 
             self.poll_query_until(query=check_query,
@@ -1158,7 +1158,7 @@ class PostgresNode(object):
                 master.restart()
 
         """
-        if self._pg_version >= '9.6':
+        if self._pg_version >= PgVer('9.6'):
             if isinstance(standbys, Iterable):
                 standbys = First(1, standbys)
         else:
@@ -1179,7 +1179,7 @@ class PostgresNode(object):
         if not self.master:
             raise TestgresException("Node doesn't have a master")
 
-        if self._pg_version >= '10':
+        if self._pg_version >= PgVer('10'):
             poll_lsn = "select pg_catalog.pg_current_wal_lsn()::text"
             wait_lsn = "select pg_catalog.pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
         else:

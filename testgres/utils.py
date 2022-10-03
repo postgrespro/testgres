@@ -11,7 +11,7 @@ import sys
 import tempfile
 
 from contextlib import contextmanager
-from distutils.version import LooseVersion
+from packaging.version import Version
 from distutils.spawn import find_executable
 from six import iteritems
 
@@ -25,7 +25,7 @@ _pg_config_data = {}
 bound_ports = set()
 
 # re-export version type
-PgVer = LooseVersion
+PgVer = Version
 
 
 def reserve_port():
