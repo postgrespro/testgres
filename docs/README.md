@@ -1,9 +1,9 @@
 # Building the documentation
 
-Make sure you have `Sphinx` and `sphinxcontrib-napoleon` packages installed:
+Make sure you have `Sphinx` package installed:
 
 ```
-pip install Sphinx sphinxcontrib-napoleon
+pip install Sphinx
 ```
 
 Then just run
