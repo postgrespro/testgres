@@ -896,16 +896,22 @@ class TestgresTests(unittest.TestCase):
         a = PgVer('10.0')
         b = PgVer('10')
         c = PgVer('9.6.5')
+        d = PgVer('15.0')
+        e = PgVer('15rc1')
+        f = PgVer('15beta4')
 
-        self.assertTrue(a > b)
+        self.assertTrue(a == b)
         self.assertTrue(b > c)
         self.assertTrue(a > c)
+        self.assertTrue(d > e)
+        self.assertTrue(e > f)
+        self.assertTrue(d > f)
 
         version = get_pg_version()
         with get_new_node() as node:
             self.assertTrue(isinstance(version, six.string_types))
             self.assertTrue(isinstance(node.version, PgVer))
-            self.assertEqual(node.version, str(version))
+            self.assertEqual(node.version, PgVer(version))
 
     def test_child_pids(self):
         master_processes = [
