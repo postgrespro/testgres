@@ -19,13 +19,13 @@ sys.path.insert(0, os.path.abspath('../..'))
 # -- Project information -----------------------------------------------------
 
 project = u'testgres'
-copyright = u'2016-2018, Postgres Professional'
+copyright = u'2016-2022, Postgres Professional'
 author = u'Postgres Professional'
 
 # The short X.Y version
 version = u''
 # The full version, including alpha/beta/rc tags
-release = u'1.5'
+release = u'1.9'
 
 # -- General configuration ---------------------------------------------------
 

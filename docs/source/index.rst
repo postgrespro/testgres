@@ -32,7 +32,7 @@ Example:
 
 .. code-block:: bash
 
-    export PG_BIN=$HOME/pg_10/bin
+    export PG_BIN=$HOME/pg_14/bin
     python my_tests.py
 
 Examples
