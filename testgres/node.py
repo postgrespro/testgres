@@ -6,7 +6,11 @@ import psutil
 import subprocess
 import time
 
-from collections import Iterable
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
+
 from shutil import rmtree
 from six import raise_from, iteritems, text_type
 from tempfile import mkstemp, mkdtemp
@@ -91,7 +95,6 @@ class ProcessProxy(object):
         process: wrapped psutill.Process object
         ptype: instance of ProcessType
     """
-
     def __init__(self, process, ptype=None):
         self.process = process
         self.ptype = ptype or ProcessType.from_process(process)
@@ -196,7 +199,6 @@ class PostgresNode(object):
         Returns a list of auxiliary processes.
         Each process is represented by :class:`.ProcessProxy` object.
         """
-
         def is_aux(process):
             return process.ptype != ProcessType.Unknown
 
@@ -430,10 +432,9 @@ class PostgresNode(object):
         """
 
         # initialize this PostgreSQL node
-        cached_initdb(
-            data_dir=self.data_dir,
-            logfile=self.utils_log_file,
-            params=initdb_params)
+        cached_initdb(data_dir=self.data_dir,
+                      logfile=self.utils_log_file,
+                      params=initdb_params)
 
         # initialize default config files
         self.default_conf(**kwargs)
@@ -480,8 +481,8 @@ class PostgresNode(object):
             if allow_streaming:
                 # get auth method for host or local users
                 def get_auth_method(t):
-                    return next((s.split()[-1] for s in lines
-                                 if s.startswith(t)), 'trust')
+                    return next((s.split()[-1]
+                                 for s in lines if s.startswith(t)), 'trust')
 
                 # get auth methods
                 auth_local = get_auth_method('local')
@@ -760,12 +761,11 @@ class PostgresNode(object):
         if self._pg_version < '10':
             check_query = "SELECT pg_is_in_recovery()"
 
-            self.poll_query_until(
-                query=check_query,
-                expected=False,
-                dbname=dbname,
-                username=username,
-                max_attempts=0)    # infinite
+            self.poll_query_until(query=check_query,
+                                  expected=False,
+                                  dbname=dbname,
+                                  username=username,
+                                  max_attempts=0)    # infinite
 
         # node becomes master itself
         self._master = None
@@ -884,11 +884,10 @@ class PostgresNode(object):
         psql_params.append(dbname)
 
         # start psql process
-        process = subprocess.Popen(
-            psql_params,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
+        process = subprocess.Popen(psql_params,
+                                   stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
 
         # wait until it finishes and get stdout and stderr
         out, err = process.communicate(input=input)
@@ -1043,11 +1042,10 @@ class PostgresNode(object):
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
             try:
-                res = self.execute(
-                    dbname=dbname,
-                    query=query,
-                    username=username,
-                    commit=commit)
+                res = self.execute(dbname=dbname,
+                                   query=query,
+                                   username=username,
+                                   commit=commit)
 
                 if expected is None and res is None:
                     return    # done
@@ -1165,8 +1163,8 @@ class PostgresNode(object):
                 standbys = First(1, standbys)
         else:
             if isinstance(standbys, Iterable):
-                standbys = u", ".join(
-                    u"\"{}\"".format(r.name) for r in standbys)
+                standbys = u", ".join(u"\"{}\"".format(r.name)
+                                      for r in standbys)
             else:
                 raise TestgresException("Feature isn't supported in "
                                         "Postgres 9.5 and below")
@@ -1195,11 +1193,10 @@ class PostgresNode(object):
                                       username=username)[0][0]  # yapf: disable
 
             # wait until this LSN reaches replica
-            self.poll_query_until(
-                query=wait_lsn.format(lsn),
-                dbname=dbname,
-                username=username,
-                max_attempts=0)    # infinite
+            self.poll_query_until(query=wait_lsn.format(lsn),
+                                  dbname=dbname,
+                                  username=username,
+                                  max_attempts=0)    # infinite
         except Exception as e:
             raise_from(CatchUpException("Failed to catch up", poll_lsn), e)
 
@@ -1215,7 +1212,11 @@ class PostgresNode(object):
         """
         return Publication(name=name, node=self, **kwargs)
 
-    def subscribe(self, publication, name, dbname=None, username=None,
+    def subscribe(self,
+                  publication,
+                  name,
+                  dbname=None,
+                  username=None,
                   **params):
         """
         Create subscription for logical replication

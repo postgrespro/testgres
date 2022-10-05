@@ -28,7 +28,6 @@ class NodeConnection(object):
     """
     Transaction wrapper returned by Node
     """
-
     def __init__(self,
                  node,
                  dbname=None,
@@ -42,12 +41,11 @@ class NodeConnection(object):
 
         self._node = node
 
-        self._connection = pglib.connect(
-            database=dbname,
-            user=username,
-            password=password,
-            host=node.host,
-            port=node.port)
+        self._connection = pglib.connect(database=dbname,
+                                         user=username,
+                                         password=password,
+                                         host=node.host,
+                                         port=node.port)
 
         self._connection.autocommit = autocommit
         self._cursor = self.connection.cursor()
