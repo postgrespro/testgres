@@ -1,7 +1,11 @@
+.\#*
+\#*
+
 *.pyc
 *.egg
 *.egg-info/
 .eggs/
+.DS_Store
 dist/
 build/
 docs/build/
@@ -13,6 +17,10 @@ venv/
 coverage.xml
 
 Dockerfile
+.idea
+.mailmap
+.env
+.dockerignore
 
 *~
 *.swp
