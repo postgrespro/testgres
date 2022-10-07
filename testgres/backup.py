@@ -27,7 +27,7 @@ from .utils import \
 
 class NodeBackup(object):
     """
-    Smart object responsible for backups
+    Smart object responsible for backups using pg_basebackup utils
     """
     @property
     def log_file(self):
@@ -186,3 +186,5 @@ class NodeBackup(object):
         if self._available:
             self._available = False
             rmtree(self.base_dir, ignore_errors=True)
+
+
