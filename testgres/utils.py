@@ -261,3 +261,30 @@ def clean_on_error(node):
         # TODO: should we wrap this in try-block?
         node.cleanup()
         raise
+
+
+def is_enterprise():
+    # pg_config --help
+    # DDD move to the common helpers
+    cmd = [os.environ['PG_CONFIG'], '--configure']
+
+    p = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+
+    #p.communicate()[0]
+    
+    return b'postgrespro.ru' in p.communicate()[0]
+
+
+def is_nls_enabled():
+    cmd = [os.environ['PG_CONFIG'], '--configure']
+
+    p = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    return b'enable-nls' in p.communicate()[0]

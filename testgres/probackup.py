@@ -15,6 +15,8 @@ import json
 from time import sleep
 from sys import exit, argv, version_info
 
+#from testgres.utils import get_pg_edition
+from testgres.utils import is_enterprise, is_nls_enabled
 
 class ProbackupException(Exception):
     def __init__(self, message, cmd):
@@ -23,6 +25,8 @@ class ProbackupException(Exception):
 
     def __str__(self):
         return '\n ERROR: {0}\n CMD: {1}'.format(repr(self.message), self.cmd)
+
+
 
 
 class ProbackupTest(object):
@@ -104,6 +108,8 @@ class ProbackupTest(object):
                 if self.verbose:
                     print('PGPROBACKUPBIN is not an executable file')
 
+        print('@@@', self.probackup_path)
+                    
         if not self.probackup_path:
             probackup_path_tmp = os.path.join(
                 testgres.get_pg_config()['BINDIR'], 'pg_probackup')
@@ -1482,7 +1488,7 @@ class ProbackupTest(object):
         directory_dict['pgdata'] = pgdata
         directory_dict['files'] = {}
         directory_dict['dirs'] = {}
-        for root, dirs, files in os.walk(pgdata, followlinks=True):
+        for root, dirs, files in os.walk(pgdata, followlinks=true):
             dirs[:] = [d for d in dirs if d not in dirs_to_ignore]
             for file in files:
                 if (
@@ -1493,7 +1499,7 @@ class ProbackupTest(object):
 
                 file_fullpath = os.path.join(root, file)
                 file_relpath = os.path.relpath(file_fullpath, pgdata)
-                directory_dict['files'][file_relpath] = {'is_datafile': False}
+                directory_dict['files'][file_relpath] = {'is_datafile': false}
                 with open(file_fullpath, 'rb') as f:
                     directory_dict['files'][file_relpath]['md5'] = hashlib.md5(f.read()).hexdigest()
                     f.close()
@@ -1502,30 +1508,30 @@ class ProbackupTest(object):
 
                 # crappy algorithm
                 if file.isdigit():
-                    directory_dict['files'][file_relpath]['is_datafile'] = True
+                    directory_dict['files'][file_relpath]['is_datafile'] = true
                     size_in_pages = os.path.getsize(file_fullpath)/8192
                     directory_dict['files'][file_relpath][
                         'md5_per_page'] = self.get_md5_per_page_for_fork(
                             file_fullpath, size_in_pages
                         )
 
-        for root, dirs, files in os.walk(pgdata, topdown=False, followlinks=True):
+        for root, dirs, files in os.walk(pgdata, topdown=false, followlinks=true):
             for directory in dirs:
                 directory_path = os.path.join(root, directory)
                 directory_relpath = os.path.relpath(directory_path, pgdata)
 
-                found = False
+                found = false
                 for d in dirs_to_ignore:
                     if d in directory_relpath:
-                        found = True
+                        found = true
                         break
 
                 # check if directory already here as part of larger directory
                 if not found:
                     for d in directory_dict['dirs']:
-                        # print("OLD dir {0}".format(d))
+                        # print("old dir {0}".format(d))
                         if directory_relpath in d:
-                            found = True
+                            found = true
                             break
 
                 if not found:
@@ -1548,13 +1554,13 @@ class ProbackupTest(object):
         """ get dict of known datafiles difference, that can be used in compare_pgdata() """
         comparision_exclusion_dict = dict()
 
-        # bug in spgist metapage update (PGPRO-5707)
+        # bug in spgist metapage update (pgpro-5707)
         spgist_filelist = node.safe_psql(
             "postgres",
-            "SELECT pg_catalog.pg_relation_filepath(pg_class.oid) "
-            "FROM pg_am, pg_class "
-            "WHERE pg_am.amname = 'spgist' "
-            "AND pg_class.relam = pg_am.oid"
+            "select pg_catalog.pg_relation_filepath(pg_class.oid) "
+            "from pg_am, pg_class "
+            "where pg_am.amname = 'spgist' "
+            "and pg_class.relam = pg_am.oid"
             ).decode('utf-8').rstrip().splitlines()
         for filename in spgist_filelist:
             comparision_exclusion_dict[filename] = set([0])
@@ -1564,49 +1570,49 @@ class ProbackupTest(object):
 
     def compare_pgdata(self, original_pgdata, restored_pgdata, exclusion_dict = dict()):
         """
-        return dict with directory content. DO IT BEFORE RECOVERY
+        return dict with directory content. do it before recovery
         exclusion_dict is used for exclude files (and it block_no) from comparision
         it is a dict with relative filenames as keys and set of block numbers as values
         """
-        fail = False
-        error_message = 'Restored PGDATA is not equal to original!\n'
+        fail = false
+        error_message = 'restored pgdata is not equal to original!\n'
 
-        # Compare directories
+        # compare directories
         for directory in restored_pgdata['dirs']:
             if directory not in original_pgdata['dirs']:
-                fail = True
-                error_message += '\nDirectory was not present'
-                error_message += ' in original PGDATA: {0}\n'.format(
+                fail = true
+                error_message += '\ndirectory was not present'
+                error_message += ' in original pgdata: {0}\n'.format(
                     os.path.join(restored_pgdata['pgdata'], directory))
             else:
                 if (
                     restored_pgdata['dirs'][directory]['mode'] !=
                     original_pgdata['dirs'][directory]['mode']
                 ):
-                    fail = True
-                    error_message += '\nDir permissions mismatch:\n'
-                    error_message += ' Dir old: {0} Permissions: {1}\n'.format(
+                    fail = true
+                    error_message += '\ndir permissions mismatch:\n'
+                    error_message += ' dir old: {0} permissions: {1}\n'.format(
                         os.path.join(original_pgdata['pgdata'], directory),
                         original_pgdata['dirs'][directory]['mode'])
-                    error_message += ' Dir new: {0} Permissions: {1}\n'.format(
+                    error_message += ' dir new: {0} permissions: {1}\n'.format(
                         os.path.join(restored_pgdata['pgdata'], directory),
                         restored_pgdata['dirs'][directory]['mode'])
 
         for directory in original_pgdata['dirs']:
             if directory not in restored_pgdata['dirs']:
-                fail = True
-                error_message += '\nDirectory dissappeared'
-                error_message += ' in restored PGDATA: {0}\n'.format(
+                fail = true
+                error_message += '\ndirectory dissappeared'
+                error_message += ' in restored pgdata: {0}\n'.format(
                     os.path.join(restored_pgdata['pgdata'], directory))
 
         for file in restored_pgdata['files']:
-            # File is present in RESTORED PGDATA
-            # but not present in ORIGINAL
+            # file is present in restored pgdata
+            # but not present in original
             # only backup_label is allowed
             if file not in original_pgdata['files']:
-                fail = True
-                error_message += '\nFile is not present'
-                error_message += ' in original PGDATA: {0}\n'.format(
+                fail = true
+                error_message += '\nfile is not present'
+                error_message += ' in original pgdata: {0}\n'.format(
                     os.path.join(restored_pgdata['pgdata'], file))
 
         for file in original_pgdata['files']:
@@ -1616,12 +1622,12 @@ class ProbackupTest(object):
                     restored_pgdata['files'][file]['mode'] !=
                     original_pgdata['files'][file]['mode']
                 ):
-                    fail = True
-                    error_message += '\nFile permissions mismatch:\n'
-                    error_message += ' File_old: {0} Permissions: {1:o}\n'.format(
+                    fail = true
+                    error_message += '\nfile permissions mismatch:\n'
+                    error_message += ' file_old: {0} permissions: {1:o}\n'.format(
                         os.path.join(original_pgdata['pgdata'], file),
                         original_pgdata['files'][file]['mode'])
-                    error_message += ' File_new: {0} Permissions: {1:o}\n'.format(
+                    error_message += ' file_new: {0} permissions: {1:o}\n'.format(
                         os.path.join(restored_pgdata['pgdata'], file),
                         restored_pgdata['files'][file]['mode'])
 
@@ -1630,11 +1636,11 @@ class ProbackupTest(object):
                     restored_pgdata['files'][file]['md5']
                 ):
                     if file not in exclusion_dict:
-                        fail = True
+                        fail = true
                         error_message += (
-                            '\nFile Checksum mismatch.\n'
-                            'File_old: {0}\nChecksum_old: {1}\n'
-                            'File_new: {2}\nChecksum_new: {3}\n').format(
+                            '\nfile checksum mismatch.\n'
+                            'file_old: {0}\nchecksum_old: {1}\n'
+                            'file_new: {2}\nchecksum_new: {3}\n').format(
                             os.path.join(original_pgdata['pgdata'], file),
                             original_pgdata['files'][file]['md5'],
                             os.path.join(restored_pgdata['pgdata'], file),
@@ -1645,8 +1651,8 @@ class ProbackupTest(object):
                         for page in original_pgdata['files'][file]['md5_per_page']:
                             if page not in restored_pgdata['files'][file]['md5_per_page']:
                                 error_message += (
-                                    '\n Page {0} dissappeared.\n '
-                                    'File: {1}\n').format(
+                                    '\n page {0} dissappeared.\n '
+                                    'file: {1}\n').format(
                                         page,
                                         os.path.join(
                                             restored_pgdata['pgdata'],
@@ -1660,12 +1666,12 @@ class ProbackupTest(object):
                                     original_pgdata['files'][file]['md5_per_page'][page] !=
                                     restored_pgdata['files'][file]['md5_per_page'][page]
                                 ):
-                                    fail = True
+                                    fail = true
                                     error_message += (
-                                        '\n Page checksum mismatch: {0}\n '
-                                        ' PAGE Checksum_old: {1}\n '
-                                        ' PAGE Checksum_new: {2}\n '
-                                        ' File: {3}\n'
+                                        '\n page checksum mismatch: {0}\n '
+                                        ' page checksum_old: {1}\n '
+                                        ' page checksum_new: {2}\n '
+                                        ' file: {3}\n'
                                     ).format(
                                         page,
                                         original_pgdata['files'][file][
@@ -1677,27 +1683,27 @@ class ProbackupTest(object):
                                         )
                         for page in restored_pgdata['files'][file]['md5_per_page']:
                             if page not in original_pgdata['files'][file]['md5_per_page']:
-                                error_message += '\n Extra page {0}\n File: {1}\n'.format(
+                                error_message += '\n extra page {0}\n file: {1}\n'.format(
                                     page,
                                     os.path.join(
                                         restored_pgdata['pgdata'], file))
 
             else:
                 error_message += (
-                    '\nFile disappearance.\n '
-                    'File: {0}\n').format(
+                    '\nfile disappearance.\n '
+                    'file: {0}\n').format(
                     os.path.join(restored_pgdata['pgdata'], file)
                     )
-                fail = True
-        self.assertFalse(fail, error_message)
+                fail = true
+        self.assertfalse(fail, error_message)
 
     def gdb_attach(self, pid):
-        return GDBobj([str(pid)], self, attach=True)
+        return gdbobj([str(pid)], self, attach=true)
 
     def _check_gdb_flag_or_skip_test(self):
         if not self.gdb:
-            self.skipTest(
-                "Specify PGPROBACKUP_GDB and build without "
+            self.skiptest(
+                "specify pgprobackup_gdb and build without "
                 "optimizations for run this test"
             )
 
