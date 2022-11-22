@@ -12,13 +12,23 @@ import select
 import re
 import json
 
+import errno
+import unittest
+from termcolor import colored
+
+
 from time import sleep
 from sys import exit, argv, version_info
 
 #from testgres.utils import get_pg_edition
 from testgres.utils import is_enterprise, is_nls_enabled
 
-class ProbackupException(Exception):
+
+# move to the settings.py with other global configurations
+TEST_DIR = 'tmp_dirs'
+
+
+class PGProbackupException(Exception):
     def __init__(self, message, cmd):
         self.message = message
         self.cmd = cmd
@@ -27,21 +37,60 @@ class ProbackupException(Exception):
         return '\n ERROR: {0}\n CMD: {1}'.format(repr(self.message), self.cmd)
 
 
+class PGProbackupApp(object):
+    IS_ENTERPRISE = False
+    
+    settings = dict()
+    host = 'localhost'
+    tests_full_path  = TEST_DIR # tmp_test_dirs
+    
+    
+    #def __new__(self, *args, **kwargs):
+    #    pass
+    
+    def __init__(
+            self, tests_path='.', test_dir=TEST_DIR,
+            *args, **kwargs):               
+        pass
 
 
-class ProbackupTest(object):
+class PGProbackupTestCaseMixin(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+
+    
+class PGProbackupPackageCompTestCaseMixin(PGProbackupTestCaseMixin):
+    current_version = None
+    previous_version = None
+    
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    
+    
+
+class ProbackupTest(object):    
     # Class attributes
     enterprise = is_enterprise()
     enable_nls = is_nls_enabled()
 
     def __init__(self, *args, **kwargs):
         super(ProbackupTest, self).__init__(*args, **kwargs)
+        
+        self.verbose = False
         if '-v' in argv or '--verbose' in argv:
             self.verbose = True
-        else:
-            self.verbose = False
+            
 
         self.test_env = os.environ.copy()
+        
         envs_list = [
             'LANGUAGE',
             'LC_ALL',
@@ -75,28 +124,32 @@ class ProbackupTest(object):
         self.archive_compress = 'ARCHIVE_COMPRESSION' in self.test_env and \
             self.test_env['ARCHIVE_COMPRESSION'] == 'ON'
 
-        try:
-            testgres.configure_testgres(
-                cache_initdb=False,
-                cached_initdb_dir=False,
-                cache_pg_config=False,
-                node_cleanup_full=False)
-        except:
-            pass
 
-        self.helpers_path = os.path.dirname(os.path.realpath(__file__))
-        self.dir_path = os.path.abspath(
-            os.path.join(self.helpers_path, os.pardir)
-            )
-        self.tmp_path = os.path.abspath(
-            os.path.join(self.dir_path, 'tmp_dirs')
-            )
-        try:
-            os.makedirs(os.path.join(self.dir_path, 'tmp_dirs'))
-        except:
-            pass
+        testgres.configure_testgres(
+            cache_initdb=False,
+            cached_initdb_dir=False,
+            cache_pg_config=False,
+            node_cleanup_full=False)
 
+
+        # Choose path for the tests artifacts
+        self.tests_path =os.path.join(os.path.abspath('.'), TEST_DIR)    
+        try:
+            os.makedirs(os.path.join(self.tests_path))
+            log.info('Artefacts from the tests are stored in the direcotry: %s'%self.tests_path)
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                pass
+            else:
+                #    print(
+                #        colored('Please choose directory for the tests artefacts with 777 chmod. [%s]'%self.tests_path, 'red'))
+                raise
+        
+        
+        # XXX dont work with 
         self.user = self.get_username()
+
+        
         self.probackup_path = None
         if 'PGPROBACKUPBIN' in self.test_env:
             if (
@@ -108,6 +161,7 @@ class ProbackupTest(object):
                 if self.verbose:
                     print('PGPROBACKUPBIN is not an executable file')
 
+        # XXX 
         print('@@@', self.probackup_path)
                     
         if not self.probackup_path:
@@ -162,18 +216,22 @@ class ProbackupTest(object):
         self.old_probackup_version = None
 
         try:
+            
             self.probackup_version_output = subprocess.check_output(
                 [self.probackup_path, "--version"],
                 stderr=subprocess.STDOUT,
                 ).decode('utf-8')
+            
         except subprocess.CalledProcessError as e:
-            raise ProbackupException(e.output.decode('utf-8'))
+            raise PGProbackupException(e.output.decode('utf-8'))
 
         if self.probackup_old_path:
+            
             old_probackup_version_output = subprocess.check_output(
                 [self.probackup_old_path, "--version"],
                 stderr=subprocess.STDOUT,
                 ).decode('utf-8')
+            
             self.old_probackup_version = re.search(
                 r"\d+\.\d+\.\d+",
                 subprocess.check_output(
@@ -224,19 +282,26 @@ class ProbackupTest(object):
 #                print('PGPROBACKUP_SSH_USER is not set')
 #                exit(1)
 
+
+    # XXX move to the node.PostgresNode 
     def make_empty_node(
             self,
             base_dir=None):
-        real_base_dir = os.path.join(self.tmp_path, base_dir)
+
+        real_base_dir = os.path.join(self.tests_path, base_dir)
         shutil.rmtree(real_base_dir, ignore_errors=True)
         os.makedirs(real_base_dir)
 
         node = testgres.get_new_node('test', base_dir=real_base_dir)
+        
         # bound method slow_start() to 'node' class instance
-        node.slow_start = slow_start.__get__(node)
+        #node.slow_start = slow_start.__get__(node)
+        
         node.should_rm_dirs = True
         return node
 
+
+    # XXX preconfigured Node for the pg_probackup app 
     def make_simple_node(
             self,
             base_dir=None,
@@ -254,6 +319,8 @@ class ProbackupTest(object):
             node.major_version_str = str(f.read().rstrip())
             node.major_version = float(node.major_version_str)
 
+        # XXX move it to the ProbackupTestCaseMixin class setUp
+        
         # Sane default parameters
         options = {}
         options['max_connections'] = 100
@@ -405,7 +472,7 @@ class ProbackupTest(object):
 
         size = size_in_pages
         for segment_number in range(nsegments):
-            if size - 131072 > 0:
+            if size - 131072 > 0: # XXX make global static config PARAM
                 pages_per_segment[segment_number] = 131072
             else:
                 pages_per_segment[segment_number] = size
@@ -427,7 +494,7 @@ class ProbackupTest(object):
             for page in range(start_page, end_page):
                 md5_per_page[page] = hashlib.md5(
                     os.read(file_desc, 8192)).hexdigest()
-                offset += 8192
+                offset += 8192 # XXX make global static config PARAM
                 os.lseek(file_desc, offset, 0)
             os.close(file_desc)
 
@@ -683,7 +750,7 @@ class ProbackupTest(object):
                 else:
                     return self.output
         except subprocess.CalledProcessError as e:
-            raise ProbackupException(e.output.decode('utf-8'), self.cmd)
+            raise PGProbackupException(e.output.decode('utf-8'), self.cmd)
 
     def run_binary(self, command, asynchronous=False, env=None):
 
@@ -709,7 +776,7 @@ class ProbackupTest(object):
                     ).decode('utf-8')
                 return self.output
         except subprocess.CalledProcessError as e:
-            raise ProbackupException(e.output.decode('utf-8'), command)
+            raise PGProbackupException(e.output.decode('utf-8'), command)
 
     def init_pb(self, backup_dir, options=[], old_binary=False):
 
@@ -1455,7 +1522,7 @@ class ProbackupTest(object):
 
         shutil.rmtree(
             os.path.join(
-                self.tmp_path,
+                self.tests_path,
                 module_name,
                 fname
             ),

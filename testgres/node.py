@@ -772,6 +772,41 @@ class PostgresNode(object):
 
         return self
 
+    def slow_start(self, replica=False):
+
+    # wait for https://github.com/postgrespro/testgres/pull/50
+    #    self.start()
+    #    self.poll_query_until(
+    #       "postgres",
+    #       "SELECT not pg_is_in_recovery()",
+    #       suppress={testgres.NodeConnection})
+        
+        if replica:
+            query = 'SELECT pg_is_in_recovery()'
+        else:
+            query = 'SELECT not pg_is_in_recovery()'
+
+        self.start()
+        while True:
+            try:
+                output = self.safe_psql('template1', query).decode("utf-8").rstrip()
+
+                if output == 't':
+                    break
+
+            except testgres.QueryException as e:
+                if 'database system is starting up' in e.message:
+                    pass
+                elif 'FATAL:  the database system is not accepting connections' in e.message:
+                    pass
+                elif replica and 'Hot standby mode is disabled' in e.message:
+                    raise e
+                else:
+                    raise e
+
+            sleep(0.5)
+        
+    
     def pg_ctl(self, params):
         """
         Invoke pg_ctl with params.
