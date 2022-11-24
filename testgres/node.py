@@ -6,7 +6,10 @@ import psutil
 import subprocess
 import time
 
-from collections import Iterable
+try:
+    from collections.abc import Iterable  # Python 3.3 and higher
+except ImportError:
+    from collections import Iterable  # Python 2
 from shutil import rmtree
 from six import raise_from, iteritems, text_type
 from tempfile import mkstemp, mkdtemp
