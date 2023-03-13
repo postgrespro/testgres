@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/postgrespro/testgres.svg?branch=master)](https://travis-ci.org/postgrespro/testgres)
+[![Build Status](https://travis-ci.com/postgrespro/testgres.svg?branch=master)](https://app.travis-ci.com/github/postgrespro/testgres/branches)
 [![codecov](https://codecov.io/gh/postgrespro/testgres/branch/master/graph/badge.svg)](https://codecov.io/gh/postgrespro/testgres)
 [![PyPI version](https://badge.fury.io/py/testgres.svg)](https://badge.fury.io/py/testgres)
 

@@ -131,8 +131,8 @@ class TestgresTests(unittest.TestCase):
             with get_new_node().init().start() as node0:
                 id0 = node0.execute(query)[0]
 
-        with scoped_config(
-                cache_initdb=True, cached_initdb_unique=True) as config:
+        with scoped_config(cache_initdb=True,
+                           cached_initdb_unique=True) as config:
 
             self.assertTrue(config.cache_initdb)
             self.assertTrue(config.cached_initdb_unique)
@@ -276,8 +276,8 @@ class TestgresTests(unittest.TestCase):
 
             # check feeding input
             node.safe_psql('create table horns (w int)')
-            node.safe_psql(
-                'copy horns from stdin (format csv)', input=b"1\n2\n3\n\\.\n")
+            node.safe_psql('copy horns from stdin (format csv)',
+                           input=b"1\n2\n3\n\\.\n")
             _sum = node.safe_psql('select sum(w) from horns')
             self.assertEqual(_sum, b'6\n')
 
@@ -383,8 +383,8 @@ class TestgresTests(unittest.TestCase):
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
-            with self.assertRaises(
-                    BackupException, msg='Invalid xlog_method "wrong"'):
+            with self.assertRaises(BackupException,
+                                   msg='Invalid xlog_method "wrong"'):
                 node.backup(xlog_method='wrong')
 
     def test_pg_ctl_wait_option(self):
@@ -637,8 +637,8 @@ class TestgresTests(unittest.TestCase):
                 node.poll_query_until(query='create table abc (val int)')
 
             # check None, ok
-            node.poll_query_until(
-                query='create table def()', expected=None)    # returns nothing
+            node.poll_query_until(query='create table def()',
+                                  expected=None)    # returns nothing
 
             # check 0 rows equivalent to expected=None
             node.poll_query_until(
@@ -647,19 +647,19 @@ class TestgresTests(unittest.TestCase):
 
             # check arbitrary expected value, fail
             with self.assertRaises(TimeoutException):
-                node.poll_query_until(
-                    query='select 3',
-                    expected=1,
-                    max_attempts=3,
-                    sleep_time=0.01)
+                node.poll_query_until(query='select 3',
+                                      expected=1,
+                                      max_attempts=3,
+                                      sleep_time=0.01)
 
             # check arbitrary expected value, ok
             node.poll_query_until(query='select 2', expected=2)
 
             # check timeout
             with self.assertRaises(TimeoutException):
-                node.poll_query_until(
-                    query='select 1 > 2', max_attempts=3, sleep_time=0.01)
+                node.poll_query_until(query='select 1 > 2',
+                                      max_attempts=3,
+                                      sleep_time=0.01)
 
             # check ProgrammingError, fail
             with self.assertRaises(testgres.ProgrammingError):
@@ -667,11 +667,10 @@ class TestgresTests(unittest.TestCase):
 
             # check ProgrammingError, ok
             with self.assertRaises(TimeoutException):
-                node.poll_query_until(
-                    query='dummy2',
-                    max_attempts=3,
-                    sleep_time=0.01,
-                    suppress={testgres.ProgrammingError})
+                node.poll_query_until(query='dummy2',
+                                      max_attempts=3,
+                                      sleep_time=0.01,
+                                      suppress={testgres.ProgrammingError})
 
             # check 1 arg, ok
             node.poll_query_until('select true')
@@ -732,14 +731,13 @@ class TestgresTests(unittest.TestCase):
         with get_new_node().init().start() as node:
 
             # initialize pgbench DB and run benchmarks
-            node.pgbench_init(
-                scale=2, foreign_keys=True, options=['-q']).pgbench_run(time=2)
+            node.pgbench_init(scale=2, foreign_keys=True,
+                              options=['-q']).pgbench_run(time=2)
 
             # run TPC-B benchmark
-            proc = node.pgbench(
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                options=['-T3'])
+            proc = node.pgbench(stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
+                                options=['-T3'])
 
             out, _ = proc.communicate()
             out = out.decode('utf-8')
@@ -898,16 +896,22 @@ class TestgresTests(unittest.TestCase):
         a = PgVer('10.0')
         b = PgVer('10')
         c = PgVer('9.6.5')
+        d = PgVer('15.0')
+        e = PgVer('15rc1')
+        f = PgVer('15beta4')
 
-        self.assertTrue(a > b)
+        self.assertTrue(a == b)
         self.assertTrue(b > c)
         self.assertTrue(a > c)
+        self.assertTrue(d > e)
+        self.assertTrue(e > f)
+        self.assertTrue(d > f)
 
         version = get_pg_version()
         with get_new_node() as node:
             self.assertTrue(isinstance(version, six.string_types))
             self.assertTrue(isinstance(node.version, PgVer))
-            self.assertEqual(node.version, str(version))
+            self.assertEqual(node.version, PgVer(version))
 
     def test_child_pids(self):
         master_processes = [

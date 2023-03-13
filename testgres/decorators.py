@@ -50,7 +50,6 @@ def method_decorator(decorator):
     """
     Convert a function decorator into a method decorator.
     """
-
     def _dec(func):
         def _wrapper(self, *args, **kwargs):
             @decorator

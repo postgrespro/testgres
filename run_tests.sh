@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2017, Postgres Professional
+# Copyright (c) 2017-2022 Postgres Professional
 
 set -eux
 
@@ -22,7 +22,7 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 source $VENV_PATH/bin/activate
 
 # install utilities
-$PIP install coverage flake8 psutil Sphinx sphinxcontrib-napoleon
+$PIP install coverage flake8 psutil Sphinx
 
 # install testgres' dependencies
 export PYTHONPATH=$(pwd)

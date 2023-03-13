@@ -16,14 +16,14 @@ class First:
         standbys (:obj:`list` of :class:`.PostgresNode`): the list of standby
             nodes
     """
-
     def __init__(self, sync_num, standbys):
         self.sync_num = sync_num
         self.standbys = standbys
 
     def __str__(self):
-        return u"{} ({})".format(self.sync_num, u", ".join(
-            u"\"{}\"".format(r.name) for r in self.standbys))
+        return u"{} ({})".format(
+            self.sync_num,
+            u", ".join(u"\"{}\"".format(r.name) for r in self.standbys))
 
 
 @six.python_2_unicode_compatible
@@ -39,11 +39,11 @@ class Any:
         standbys (:obj:`list` of :class:`.PostgresNode`): the list of standby
             nodes
     """
-
     def __init__(self, sync_num, standbys):
         self.sync_num = sync_num
         self.standbys = standbys
 
     def __str__(self):
-        return u"ANY {} ({})".format(self.sync_num, u", ".join(
-            u"\"{}\"".format(r.name) for r in self.standbys))
+        return u"ANY {} ({})".format(
+            self.sync_num,
+            u", ".join(u"\"{}\"".format(r.name) for r in self.standbys))

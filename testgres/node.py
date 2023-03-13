@@ -6,7 +6,11 @@ import psutil
 import subprocess
 import time
 
-from collections import Iterable
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
+
 from shutil import rmtree
 from six import raise_from, iteritems, text_type
 from tempfile import mkstemp, mkdtemp
@@ -91,7 +95,6 @@ class ProcessProxy(object):
         process: wrapped psutill.Process object
         ptype: instance of ProcessType
     """
-
     def __init__(self, process, ptype=None):
         self.process = process
         self.ptype = ptype or ProcessType.from_process(process)
@@ -107,7 +110,7 @@ class ProcessProxy(object):
 
 class PostgresNode(object):
     def __init__(self, name=None, port=None, base_dir=None,
-                 host='*', hostname='locahost'):
+                 host='127.0.0.1', hostname='locahost'):
         """
         PostgresNode constructor.
 
@@ -125,11 +128,10 @@ class PostgresNode(object):
         self._master = None
 
         # basic
-        self.name = name or generate_app_name()
-        self.port = port or reserve_port()
-
         self.host = host
         self.hostname = hostname
+        self.name = name or generate_app_name()
+        self.port = port or reserve_port()
 
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
@@ -199,7 +201,6 @@ class PostgresNode(object):
         Returns a list of auxiliary processes.
         Each process is represented by :class:`.ProcessProxy` object.
         """
-
         def is_aux(process):
             return process.ptype != ProcessType.Unknown
 
@@ -340,7 +341,7 @@ class PostgresNode(object):
             "primary_conninfo='{}'\n"
         ).format(options_string(**conninfo))  # yapf: disable
         # Since 12 recovery.conf had disappeared
-        if self.version >= '12':
+        if self.version >= PgVer('12'):
             signal_name = os.path.join(self.data_dir, "standby.signal")
             # cross-python touch(). It is vulnerable to races, but who cares?
             with open(signal_name, 'a'):
@@ -372,7 +373,7 @@ class PostgresNode(object):
 
             line += "primary_slot_name={}\n".format(slot)
 
-        if self.version >= '12':
+        if self.version >= PgVer('12'):
             self.append_conf(line=line)
         else:
             self.append_conf(filename=RECOVERY_CONF_FILE, line=line)
@@ -433,12 +434,11 @@ class PostgresNode(object):
         """
 
         # initialize this PostgreSQL node
-        cached_initdb(
-            data_dir=self.data_dir,
-            logfile=self.utils_log_file,
-            hostname=self.hostname,
-            ssh_key=ssh_key,
-            params=initdb_params)
+        cached_initdb(data_dir=self.data_dir,
+                      logfile=self.utils_log_file,
+                      hostname=self.hostname,
+                      ssh_key=ssh_key,
+                      params=initdb_params)
 
         # initialize default config files
         self.default_conf(**kwargs)
@@ -485,8 +485,8 @@ class PostgresNode(object):
             if allow_streaming:
                 # get auth method for host or local users
                 def get_auth_method(t):
-                    return next((s.split()[-1] for s in lines
-                                 if s.startswith(t)), 'trust')
+                    return next((s.split()[-1]
+                                 for s in lines if s.startswith(t)), 'trust')
 
                 # get auth methods
                 auth_local = get_auth_method('local')
@@ -495,10 +495,10 @@ class PostgresNode(object):
                 new_lines = [
                     u"local\treplication\tall\t\t\t{}\n".format(auth_local),
                     u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
-                    
+
                     u"host\treplication\tall\t0.0.0.0/0\t{}\n".format(auth_host),
-                    u"host\tall\tall\t0.0.0.0/0\t{}\n".format(auth_host),                   
-                    
+                    u"host\tall\tall\t0.0.0.0/0\t{}\n".format(auth_host),
+
                     u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
                 ]  # yapf: disable
 
@@ -525,9 +525,9 @@ class PostgresNode(object):
         # binary replication
         if allow_streaming:
             # select a proper wal_level for PostgreSQL
-            wal_level = 'replica' if self._pg_version >= '9.6' else 'hot_standby'
+            wal_level = 'replica' if self._pg_version >= PgVer('9.6') else 'hot_standby'
 
-            if self._pg_version < '13':
+            if self._pg_version < PgVer('13'):
                 self.append_conf(hot_standby=True,
                                  wal_keep_segments=WAL_KEEP_SEGMENTS,
                                  wal_level=wal_level)  # yapf: disable
@@ -538,7 +538,7 @@ class PostgresNode(object):
 
         # logical replication
         if allow_logical:
-            if self._pg_version < '10':
+            if self._pg_version < PgVer('10'):
                 raise InitNodeException("Logical replication is only "
                                         "available on PostgreSQL 10 and newer")
 
@@ -624,7 +624,7 @@ class PostgresNode(object):
 
         # this one is tricky (blame PG 9.4)
         _params = [get_bin_path("pg_controldata")]
-        _params += ["-D"] if self._pg_version >= '9.5' else []
+        _params += ["-D"] if self._pg_version >= PgVer('9.5') else []
         _params += [self.data_dir]
 
         data = execute_utility(_params, self.utils_log_file)
@@ -766,15 +766,14 @@ class PostgresNode(object):
 
         # for versions below 10 `promote` is asynchronous so we need to wait
         # until it actually becomes writable
-        if self._pg_version < '10':
+        if self._pg_version < PgVer('10'):
             check_query = "SELECT pg_is_in_recovery()"
 
-            self.poll_query_until(
-                query=check_query,
-                expected=False,
-                dbname=dbname,
-                username=username,
-                max_attempts=0)    # infinite
+            self.poll_query_until(query=check_query,
+                                  expected=False,
+                                  dbname=dbname,
+                                  username=username,
+                                  max_attempts=0)    # infinite
 
         # node becomes master itself
         self._master = None
@@ -893,11 +892,10 @@ class PostgresNode(object):
         psql_params.append(dbname)
 
         # start psql process
-        process = subprocess.Popen(
-            psql_params,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
+        process = subprocess.Popen(psql_params,
+                                   stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
 
         # wait until it finishes and get stdout and stderr
         out, err = process.communicate(input=input)
@@ -1052,11 +1050,10 @@ class PostgresNode(object):
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
             try:
-                res = self.execute(
-                    dbname=dbname,
-                    query=query,
-                    username=username,
-                    commit=commit)
+                res = self.execute(dbname=dbname,
+                                   query=query,
+                                   username=username,
+                                   commit=commit)
 
                 if expected is None and res is None:
                     return    # done
@@ -1169,13 +1166,13 @@ class PostgresNode(object):
                 master.restart()
 
         """
-        if self._pg_version >= '9.6':
+        if self._pg_version >= PgVer('9.6'):
             if isinstance(standbys, Iterable):
                 standbys = First(1, standbys)
         else:
             if isinstance(standbys, Iterable):
-                standbys = u", ".join(
-                    u"\"{}\"".format(r.name) for r in standbys)
+                standbys = u", ".join(u"\"{}\"".format(r.name)
+                                      for r in standbys)
             else:
                 raise TestgresException("Feature isn't supported in "
                                         "Postgres 9.5 and below")
@@ -1190,7 +1187,7 @@ class PostgresNode(object):
         if not self.master:
             raise TestgresException("Node doesn't have a master")
 
-        if self._pg_version >= '10':
+        if self._pg_version >= PgVer('10'):
             poll_lsn = "select pg_catalog.pg_current_wal_lsn()::text"
             wait_lsn = "select pg_catalog.pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
         else:
@@ -1204,11 +1201,10 @@ class PostgresNode(object):
                                       username=username)[0][0]  # yapf: disable
 
             # wait until this LSN reaches replica
-            self.poll_query_until(
-                query=wait_lsn.format(lsn),
-                dbname=dbname,
-                username=username,
-                max_attempts=0)    # infinite
+            self.poll_query_until(query=wait_lsn.format(lsn),
+                                  dbname=dbname,
+                                  username=username,
+                                  max_attempts=0)    # infinite
         except Exception as e:
             raise_from(CatchUpException("Failed to catch up", poll_lsn), e)
 
@@ -1224,7 +1220,11 @@ class PostgresNode(object):
         """
         return Publication(name=name, node=self, **kwargs)
 
-    def subscribe(self, publication, name, dbname=None, username=None,
+    def subscribe(self,
+                  publication,
+                  name,
+                  dbname=None,
+                  username=None,
                   **params):
         """
         Create subscription for logical replication

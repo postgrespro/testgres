@@ -24,10 +24,8 @@ from .utils import \
 def cached_initdb(data_dir, logfile=None, hostname='localhost', ssh_key=None, params=None):
     """
     Perform initdb or use cached node files.
-
-    DDD return
     """
-    
+
     def call_initdb(initdb_dir, log=None):
         try:
             _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
