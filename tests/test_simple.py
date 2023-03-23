@@ -9,6 +9,7 @@ import testgres
 import time
 import six
 import unittest
+import psutil
 
 import logging.config
 
@@ -48,6 +49,7 @@ from testgres import \
 # NOTE: those are ugly imports
 from testgres import bound_ports
 from testgres.utils import PgVer
+from testgres.node import ProcessProxy
 
 
 def pg_version_ge(version):
@@ -964,6 +966,18 @@ class TestgresTests(unittest.TestCase):
                 # there should be no walsender after we've stopped replica
                 with self.assertRaises(TestgresException):
                     replica.source_walsender
+
+    def test_child_process_dies(self):
+        # test for FileNotFound exception during child_processes() function
+        with subprocess.Popen(["sleep", "60"]) as process:
+            self.assertEqual(process.poll(), None)
+            # collect list of processes currently running
+            children = psutil.Process(os.getpid()).children()
+            # kill a process, so received children dictionary becomes invalid
+            process.kill()
+            process.wait()
+            # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
+            [ProcessProxy(p) for p in children]
 
 
 if __name__ == '__main__':
