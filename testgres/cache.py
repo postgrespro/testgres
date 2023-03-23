@@ -31,7 +31,7 @@ def cached_initdb(data_dir, logfile=None, hostname='localhost', ssh_key=None, pa
             _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
 
             # DDD return executions code
-            execute_utility(_params + (params or []), log, hostname=hostname)
+            execute_utility(_params + (params or []), log, hostname=hostname, ssh_key=ssh_key)
         except ExecUtilException as e:
             raise_from(InitNodeException("Failed to run initdb"), e)
 

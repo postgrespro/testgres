@@ -436,7 +436,7 @@ class PostgresNode(object):
         # initialize this PostgreSQL node
         cached_initdb(data_dir=self.data_dir,
                       logfile=self.utils_log_file,
-                      hostname=self.hostname,
+                      hostname=hostname,
                       ssh_key=ssh_key,
                       params=initdb_params)
 
