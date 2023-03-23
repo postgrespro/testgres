@@ -70,7 +70,7 @@ def execute_utility(args, logfile=None, hostname='localhost', ssh_key=None):
 
     if hostname != 'localhost':        
         conn = Connection(
-            host="enterprise-15",
+            host="enterprise-14",
             user="dev",
             connect_kwargs={
                 # XXX pass SSH key path
