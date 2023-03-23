@@ -70,19 +70,20 @@ def execute_utility(args, logfile=None, hostname='localhost', ssh_key=None):
 
     if hostname != 'localhost':        
         conn = Connection(
-            "enterprise-14",
+            host="enterprise-15",
+            user="dev",
             connect_kwargs={
                 # XXX pass SSH key path
-                "key_filename": "/mnt/ssh/id_rsa",
+                "key_filename": "/home/dev/.ssh/id_ed25519",
             },
         )
 
         # TODO skip remote ssh run if we are on the localhost.
-        # result = conn.run('hostname', hide=True)
+        #result = conn.run(hostname, hide=True)
         # add logger 
-
+        #
         cmd = ' '.join(args)
-        result = conn.run(cmd, hide=True)        
+        result = conn.run(cmd, hide=True)
         
         return result
         
