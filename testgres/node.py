@@ -110,7 +110,7 @@ class ProcessProxy(object):
 
 class PostgresNode(object):
     def __init__(self, name=None, port=None, base_dir=None,
-                 host='127.0.0.1', hostname='locahost'):
+                 host='127.0.0.1', hostname='locahost', ssh_key=None):
         """
         PostgresNode constructor.
 
@@ -130,6 +130,7 @@ class PostgresNode(object):
         # basic
         self.host = host
         self.hostname = hostname
+        self.ssh_key = ssh_key
         self.name = name or generate_app_name()
         self.port = port or reserve_port()
 
