@@ -6,7 +6,7 @@ except ImportError:
     from distutils.core import setup
 
 # Basic dependencies
-install_requires = ["pg8000", "port-for>=0.4", "six>=1.9.0", "psutil", "fabric"]
+install_requires = ["psycopg2-binary", "port-for>=0.4", "six>=1.9.0", "psutil", "fabric"]
 
 # Add compatibility enum class
 if sys.version_info < (3, 4):

@@ -1,13 +1,8 @@
 # coding: utf-8
 
 # we support both pg8000 and psycopg2
-try:
-    import psycopg2 as pglib
-except ImportError:
-    try:
-        import pg8000 as pglib
-    except ImportError:
-        raise ImportError("You must have psycopg2 or pg8000 modules installed")
+import psycopg2 as pglib
+
 
 from .enums import IsolationLevel
 
