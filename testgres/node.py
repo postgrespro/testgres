@@ -6,6 +6,8 @@ import psutil
 import subprocess
 import time
 
+from os_ops import OsOperations
+
 try:
     from collections.abc import Iterable
 except ImportError:
@@ -110,7 +112,7 @@ class ProcessProxy(object):
 
 class PostgresNode(object):
     def __init__(self, name=None, port=None, base_dir=None,
-                 host='127.0.0.1', hostname='locahost', ssh_key=None):
+                 host='locahost', ssh_key=None, username='dev'):
         """
         PostgresNode constructor.
 
@@ -129,10 +131,10 @@ class PostgresNode(object):
 
         # basic
         self.host = host
-        self.hostname = hostname
         self.ssh_key = ssh_key
         self.name = name or generate_app_name()
         self.port = port or reserve_port()
+        self.os_ops = OsOperations(host, ssh_key, username)
 
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
@@ -255,20 +257,14 @@ class PostgresNode(object):
         if not self._base_dir:
             self._base_dir = mkdtemp(prefix=TMP_NODE)
 
-        # NOTE: it's safe to create a new dir
-        if not os.path.exists(self._base_dir):
-            os.makedirs(self._base_dir)
+        self.os_ops.makedirs(self._base_dir)
 
         return self._base_dir
 
     @property
     def logs_dir(self):
         path = os.path.join(self.base_dir, LOGS_DIR)
-
-        # NOTE: it's safe to create a new dir
-        if not os.path.exists(path):
-            os.makedirs(path)
-
+        self.os_ops.makedirs(path)
         return path
 
     @property
@@ -420,7 +416,7 @@ class PostgresNode(object):
 
         return result
 
-    def init(self, initdb_params=None, hostname='localhost', ssh_key=None, **kwargs):
+    def init(self, initdb_params=None, host='localhost', ssh_key=None, **kwargs):
         """
         Perform initdb for this node.
 
@@ -429,6 +425,8 @@ class PostgresNode(object):
             fsync: should this node use fsync to keep data safe?
             unix_sockets: should we enable UNIX sockets?
             allow_streaming: should this node add a hba entry for replication?
+            host: for remote connection
+            ssh_key: for remote connection
 
         Returns:
             This instance of :class:`.PostgresNode`
@@ -437,7 +435,7 @@ class PostgresNode(object):
         # initialize this PostgreSQL node
         cached_initdb(data_dir=self.data_dir,
                       logfile=self.utils_log_file,
-                      hostname=hostname,
+                      host=host,
                       ssh_key=ssh_key,
                       params=initdb_params)
 
@@ -470,6 +468,7 @@ class PostgresNode(object):
         hba_conf = os.path.join(self.data_dir, HBA_CONF_FILE)
 
         # filter lines in hba file
+        lines = self.os_ops.readlines(hba_conf)
         with io.open(hba_conf, "r+") as conf:
             # get rid of comments and blank lines
             lines = [
@@ -585,10 +584,7 @@ class PostgresNode(object):
             lines.append('{} = {}'.format(option, value))
 
         config_name = os.path.join(self.data_dir, filename)
-        with io.open(config_name, 'a') as conf:
-            for line in lines:
-                conf.write(text_type(line))
-                conf.write(text_type('\n'))
+        self.os_ops.write(config_name, '\n'.join(lines))
 
         return self
 

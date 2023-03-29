@@ -19,6 +19,7 @@ from six import iteritems
 # Add remote host call
 from fabric import Connection
 
+from os_ops import OsOperations
 from .config import testgres_config
 from .exceptions import ExecUtilException
 
@@ -51,7 +52,7 @@ def release_port(port):
     bound_ports.discard(port)
 
 
-def execute_utility(args, logfile=None, hostname='localhost', ssh_key=None):
+def execute_utility(args, logfile=None, host='localhost', ssh_key=None, user='dev'):
     """
     Execute utility wrapper (pg_ctl, pg_dump etc).
 
@@ -60,20 +61,19 @@ def execute_utility(args, logfile=None, hostname='localhost', ssh_key=None):
 
     Args:
         args: utility + arguments (list).
-        host_params : dict {
+        host: remote connection host
+        ssh_key: remote connection ssh_key
+        user: remote connection user
         logfile: path to file to store stdout and stderr.
 
     Returns:
         stdout of executed utility.
     """
-
-
-    if hostname != 'localhost':
+    if host != 'localhost':
         conn = Connection(
-            host=hostname,
-            user="dev",
+            host=host,
+            user=user,
             connect_kwargs={
-                # XXX pass SSH key path
                 "key_filename": ssh_key,
             },
         )
@@ -87,9 +87,8 @@ def execute_utility(args, logfile=None, hostname='localhost', ssh_key=None):
 
         return result
         
-    
     # run utility
-    if os.name == 'nt':
+    elif os.name == 'nt':
         # using output to a temporary file in Windows
         buf = tempfile.NamedTemporaryFile()
 
@@ -146,24 +145,25 @@ def execute_utility(args, logfile=None, hostname='localhost', ssh_key=None):
     return out
 
 
-def get_bin_path(filename):
+def get_bin_path(filename, host='localhost', ssh_key=None):
     """
     Return absolute path to an executable using PG_BIN or PG_CONFIG.
     This function does nothing if 'filename' is already absolute.
     """
+    os_ops = OsOperations(host, ssh_key)
 
     # check if it's already absolute
     if os.path.isabs(filename):
         return filename
 
     # try PG_CONFIG
-    pg_config = os.environ.get("PG_CONFIG")
+    pg_config = os_ops.environ("PG_CONFIG")
     if pg_config:
         bindir = get_pg_config()["BINDIR"]
         return os.path.join(bindir, filename)
 
     # try PG_BIN
-    pg_bin = os.environ.get("PG_BIN")
+    pg_bin = os_ops.environ("PG_BIN")
     if pg_bin:
         return os.path.join(pg_bin, filename)
 

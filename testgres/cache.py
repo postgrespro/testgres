@@ -21,17 +21,17 @@ from .utils import \
     execute_utility
 
 
-def cached_initdb(data_dir, logfile=None, hostname='localhost', ssh_key=None, params=None):
+def cached_initdb(data_dir, logfile=None, host='localhost', ssh_key=None, user='dev', params=None):
     """
     Perform initdb or use cached node files.
     """
 
     def call_initdb(initdb_dir, log=None):
         try:
-            _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
+            _params = [get_bin_path("initdb", host, ssh_key), "-D", initdb_dir, "-N"]
 
             # DDD return executions code
-            execute_utility(_params + (params or []), log, hostname=hostname, ssh_key=ssh_key)
+            execute_utility(_params + (params or []), log, host=host, ssh_key=ssh_key, user=user)
         except ExecUtilException as e:
             raise_from(InitNodeException("Failed to run initdb"), e)
 
