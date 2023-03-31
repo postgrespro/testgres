@@ -60,11 +60,11 @@ def cached_initdb(data_dir, logfile=None, host='localhost', ssh_key=None, user='
                     f.write(generate_system_id())    # overwrite id
 
                 # XXX: build new WAL segment with our system id
-                _params = [get_bin_path("pg_resetwal"), "-D", data_dir, "-f"]
+                _params = [get_bin_path("pg_resetwal", host, ssh_key), "-D", data_dir, "-f"]
 
 
                 # DDD refactor to PostgresNode method and check execute code
-                execute_utility(_params, logfile, hostname=hostname)
+                execute_utility(_params, logfile, host=host, ssh_key=ssh_key)
 
         except ExecUtilException as e:
             msg = "Failed to reset WAL for system id"

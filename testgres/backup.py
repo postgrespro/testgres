@@ -74,7 +74,7 @@ class NodeBackup(object):
         data_dir = os.path.join(self.base_dir, DATA_DIR)
 
         _params = [
-            get_bin_path("pg_basebackup"),
+            get_bin_path("pg_basebackup", node.host, node.ssh_key),
             "-p", str(node.port),
             "-h", node.host,
             "-U", username,

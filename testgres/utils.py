@@ -9,17 +9,12 @@ import port_for
 import subprocess
 import sys
 import tempfile
-import socket
 
 from contextlib import contextmanager
 from packaging.version import Version
-from distutils.spawn import find_executable
 from six import iteritems
 
-# Add remote host call
-from fabric import Connection
-
-from os_ops import OsOperations
+from .os_ops import OsOperations
 from .config import testgres_config
 from .exceptions import ExecUtilException
 
@@ -52,7 +47,7 @@ def release_port(port):
     bound_ports.discard(port)
 
 
-def execute_utility(args, logfile=None, host='localhost', ssh_key=None, user='dev'):
+def execute_utility(args, logfile=None, host='localhost', ssh_key=None, user='dev', wait_exit=False):
     """
     Execute utility wrapper (pg_ctl, pg_dump etc).
 
@@ -69,22 +64,10 @@ def execute_utility(args, logfile=None, host='localhost', ssh_key=None, user='de
     Returns:
         stdout of executed utility.
     """
+
     if host != 'localhost':
-        conn = Connection(
-            host=host,
-            user=user,
-            connect_kwargs={
-                "key_filename": ssh_key,
-            },
-        )
-
-        # TODO skip remote ssh run if we are on the localhost.
-        #result = conn.run(hostname, hide=True)
-        # add logger
-        #
-        cmd = ' '.join(args)
-        result = conn.run(cmd, hide=True)
-
+        os_ops = OsOperations(host, ssh_key, user)
+        result = os_ops.exec_command(' '.join(args), wait_exit=wait_exit)
         return result
         
     # run utility
@@ -159,7 +142,7 @@ def get_bin_path(filename, host='localhost', ssh_key=None):
     # try PG_CONFIG
     pg_config = os_ops.environ("PG_CONFIG")
     if pg_config:
-        bindir = get_pg_config()["BINDIR"]
+        bindir = get_pg_config(host=host, ssh_key=ssh_key)["BINDIR"]
         return os.path.join(bindir, filename)
 
     # try PG_BIN
@@ -167,22 +150,24 @@ def get_bin_path(filename, host='localhost', ssh_key=None):
     if pg_bin:
         return os.path.join(pg_bin, filename)
 
-    pg_config_path = find_executable('pg_config')
+    pg_config_path = os_ops.find_executable('pg_config')
     if pg_config_path:
-        bindir = get_pg_config(pg_config_path)["BINDIR"]
+        bindir = get_pg_config(pg_config_path, host, ssh_key)["BINDIR"]
         return os.path.join(bindir, filename)
 
     return filename
 
 
-def get_pg_config(pg_config_path=None):
+def get_pg_config(pg_config_path=None, host='localhost', ssh_key=None):
     """
     Return output of pg_config (provided that it is installed).
-    NOTE: this fuction caches the result by default (see GlobalConfig).
+    NOTE: this function caches the result by default (see GlobalConfig).
     """
+    os_ops = OsOperations(host, ssh_key)
+
     def cache_pg_config_data(cmd):
         # execute pg_config and get the output
-        out = subprocess.check_output([cmd]).decode('utf-8')
+        out = os_ops.exec_command(cmd)
 
         data = {}
         for line in out.splitlines():
@@ -206,12 +191,12 @@ def get_pg_config(pg_config_path=None):
         return _pg_config_data
 
     # try specified pg_config path or PG_CONFIG
-    pg_config = pg_config_path or os.environ.get("PG_CONFIG")
+    pg_config = pg_config_path or os_ops.environ("PG_CONFIG")
     if pg_config:
         return cache_pg_config_data(pg_config)
 
     # try PG_BIN
-    pg_bin = os.environ.get("PG_BIN")
+    pg_bin = os_ops.environ("PG_BIN")
     if pg_bin:
         cmd = os.path.join(pg_bin, "pg_config")
         return cache_pg_config_data(cmd)
@@ -220,14 +205,15 @@ def get_pg_config(pg_config_path=None):
     return cache_pg_config_data("pg_config")
 
 
-def get_pg_version():
+def get_pg_version(host='localhost', ssh_key=None):
     """
     Return PostgreSQL version provided by postmaster.
     """
 
     # get raw version (e.g. postgres (PostgreSQL) 9.5.7)
-    _params = [get_bin_path('postgres'), '--version']
-    raw_ver = subprocess.check_output(_params).decode('utf-8')
+    _params = [get_bin_path('postgres', host, ssh_key), '--version']
+    os_ops = OsOperations(host, ssh_key)
+    raw_ver = os_ops.exec_command(' '.join(_params)).strip()
 
     # cook version of PostgreSQL
     version = raw_ver.strip().split(' ')[-1] \
@@ -238,7 +224,7 @@ def get_pg_version():
     return version
 
 
-def file_tail(f, num_lines):
+def file_tail(file_path, num_lines, host='localhost', ssh_key=None):
     """
     Get last N lines of a file.
     """
@@ -248,15 +234,15 @@ def file_tail(f, num_lines):
     bufsize = 8192
     buffers = 1
 
-    f.seek(0, os.SEEK_END)
-    end_pos = f.tell()
+    os_ops = OsOperations(host, ssh_key)
+    file_data = os_ops.read(file_path)
+    file_size = len(file_data)
 
     while True:
-        offset = max(0, end_pos - bufsize * buffers)
-        f.seek(offset, os.SEEK_SET)
-        pos = f.tell()
+        offset = max(0, file_size - bufsize * buffers)
+        pos = offset
 
-        lines = f.readlines()
+        lines = file_data[offset:].splitlines()
         cur_lines = len(lines)
 
         if cur_lines > num_lines or pos == 0:

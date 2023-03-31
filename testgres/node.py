@@ -6,7 +6,7 @@ import psutil
 import subprocess
 import time
 
-from os_ops import OsOperations
+from testgres.os_ops import OsOperations
 
 try:
     from collections.abc import Iterable
@@ -14,7 +14,7 @@ except ImportError:
     from collections import Iterable
 
 from shutil import rmtree
-from six import raise_from, iteritems, text_type
+from six import raise_from, iteritems
 from tempfile import mkstemp, mkdtemp
 
 from .enums import \
@@ -121,17 +121,18 @@ class PostgresNode(object):
             port: port to accept connections.
             base_dir: path to node's data directory.
         """
+        # remote
+        self.host = host
+        self.ssh_key = ssh_key
 
         # private
-        self._pg_version = PgVer(get_pg_version())
+        self._pg_version = PgVer(get_pg_version(self.host, self.ssh_key))
         self._should_free_port = port is None
         self._base_dir = base_dir
         self._logger = None
         self._master = None
 
         # basic
-        self.host = host
-        self.ssh_key = ssh_key
         self.name = name or generate_app_name()
         self.port = port or reserve_port()
         self.os_ops = OsOperations(host, ssh_key, username)
@@ -416,7 +417,7 @@ class PostgresNode(object):
 
         return result
 
-    def init(self, initdb_params=None, host='localhost', ssh_key=None, **kwargs):
+    def init(self, initdb_params=None, **kwargs):
         """
         Perform initdb for this node.
 
@@ -435,8 +436,8 @@ class PostgresNode(object):
         # initialize this PostgreSQL node
         cached_initdb(data_dir=self.data_dir,
                       logfile=self.utils_log_file,
-                      host=host,
-                      ssh_key=ssh_key,
+                      host=self.host,
+                      ssh_key=self.ssh_key,
                       params=initdb_params)
 
         # initialize default config files
@@ -469,52 +470,41 @@ class PostgresNode(object):
 
         # filter lines in hba file
         lines = self.os_ops.readlines(hba_conf)
-        with io.open(hba_conf, "r+") as conf:
-            # get rid of comments and blank lines
-            lines = [
-                s for s in conf.readlines()
-                if len(s.strip()) > 0 and not s.startswith('#')
-            ]
+        lines = [s for s in lines if len(s.strip()) > 0 and not s.startswith('#')]
 
-            # write filtered lines
-            conf.seek(0)
-            conf.truncate()
-            conf.writelines(lines)
+        # write filtered lines
+        self.os_ops.write(hba_conf, "".join(lines), truncate=True)
 
-            # replication-related settings
-            if allow_streaming:
-                # get auth method for host or local users
-                def get_auth_method(t):
-                    return next((s.split()[-1]
-                                 for s in lines if s.startswith(t)), 'trust')
+        # replication-related settings
+        if allow_streaming:
+            # get auth method for host or local users
+            def get_auth_method(t):
+                return next((s.split()[-1]
+                             for s in lines if s.startswith(t)), 'trust')
 
-                # get auth methods
-                auth_local = get_auth_method('local')
-                auth_host = get_auth_method('host')
+            # get auth methods
+            auth_local = get_auth_method('local')
+            auth_host = get_auth_method('host')
 
-                new_lines = [
-                    u"local\treplication\tall\t\t\t{}\n".format(auth_local),
-                    u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
+            new_lines = [
+                u"local\treplication\tall\t\t\t{}\n".format(auth_local),
+                u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
 
-                    u"host\treplication\tall\t0.0.0.0/0\t{}\n".format(auth_host),
-                    u"host\tall\tall\t0.0.0.0/0\t{}\n".format(auth_host),
+                u"host\treplication\tall\t0.0.0.0/0\t{}\n".format(auth_host),
+                u"host\tall\tall\t0.0.0.0/0\t{}\n".format(auth_host),
 
-                    u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
-                ]  # yapf: disable
+                u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
+            ]  # yapf: disable
 
-                # write missing lines
-                for line in new_lines:
-                    if line not in lines:
-                        conf.write(line)
+            self.os_ops.write(hba_conf, '\n'.join(new_lines), truncate=True)
 
         # overwrite config file
-        with io.open(postgres_conf, "w") as conf:
-            conf.truncate()
+        self.os_ops.write(postgres_conf, "", truncate=True)
 
         self.append_conf(fsync=fsync,
                          max_worker_processes=MAX_WORKER_PROCESSES,
                          log_statement=log_statement,
-                         listen_addresses=self.host,
+                         listen_addresses="'*'",
                          port=self.port)  # yapf:disable
 
         # common replication settings
@@ -536,21 +526,21 @@ class PostgresNode(object):
                                  wal_keep_size=WAL_KEEP_SIZE,
                                  wal_level=wal_level)  # yapf: disable
 
-        # logical replication
-        if allow_logical:
-            if self._pg_version < PgVer('10'):
-                raise InitNodeException("Logical replication is only "
-                                        "available on PostgreSQL 10 and newer")
+                # logical replication
+                if allow_logical:
+                    if self._pg_version < PgVer('10'):
+                        raise InitNodeException("Logical replication is only "
+                                                "available on PostgreSQL 10 and newer")
 
-            self.append_conf(
-                max_logical_replication_workers=MAX_LOGICAL_REPLICATION_WORKERS,
-                wal_level='logical')
+                    self.append_conf(
+                        max_logical_replication_workers=MAX_LOGICAL_REPLICATION_WORKERS,
+                        wal_level='logical')
 
-        # disable UNIX sockets if asked to
-        if not unix_sockets:
-            self.append_conf(unix_socket_directories='')
+                # disable UNIX sockets if asked to
+                if not unix_sockets:
+                    self.append_conf(unix_socket_directories='')
 
-        return self
+                return self
 
     @method_decorator(positional_args_hack(['filename', 'line']))
     def append_conf(self, line='', filename=PG_CONF_FILE, **kwargs):
@@ -598,7 +588,7 @@ class PostgresNode(object):
 
         try:
             _params = [
-                get_bin_path("pg_ctl"),
+                get_bin_path("pg_ctl", self.host, self.ssh_key),
                 "-D", self.data_dir,
                 "status"
             ]  # yapf: disable
@@ -620,7 +610,7 @@ class PostgresNode(object):
         """
 
         # this one is tricky (blame PG 9.4)
-        _params = [get_bin_path("pg_controldata")]
+        _params = [get_bin_path("pg_controldata", self.host, self.ssh_key)]
         _params += ["-D"] if self._pg_version >= PgVer('9.5') else []
         _params += [self.data_dir]
 
@@ -647,7 +637,7 @@ class PostgresNode(object):
         """
 
         _params = [
-            get_bin_path("pg_ctl"),
+            get_bin_path("pg_ctl", self.host, self.ssh_key),
             "-D", self.data_dir,
             "-l", self.pg_log_file,
             "-w" if wait else '-W',  # --wait or --no-wait
@@ -655,7 +645,7 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            execute_utility(_params, self.utils_log_file)
+            execute_utility(_params, self.utils_log_file, host=self.host, ssh_key=self.ssh_key, wait_exit=False)
         except ExecUtilException as e:
             msg = 'Cannot start node'
             files = self._collect_special_files()
@@ -678,13 +668,13 @@ class PostgresNode(object):
         """
 
         _params = [
-            get_bin_path("pg_ctl"),
+            get_bin_path("pg_ctl", self.host, self.ssh_key),
             "-D", self.data_dir,
             "-w" if wait else '-W',  # --wait or --no-wait
             "stop"
         ] + params  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility(_params, self.utils_log_file, host=self.host, ssh_key=self.ssh_key)
 
         self._maybe_stop_logger()
 
@@ -702,7 +692,7 @@ class PostgresNode(object):
         """
 
         _params = [
-            get_bin_path("pg_ctl"),
+            get_bin_path("pg_ctl", self.host, self.ssh_key),
             "-D", self.data_dir,
             "-l", self.pg_log_file,
             "-w",  # wait
@@ -710,7 +700,7 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            execute_utility(_params, self.utils_log_file)
+            execute_utility(_params, self.utils_log_file, host=self.host, ssh_key=self.ssh_key)
         except ExecUtilException as e:
             msg = 'Cannot restart node'
             files = self._collect_special_files()
@@ -732,12 +722,12 @@ class PostgresNode(object):
         """
 
         _params = [
-            get_bin_path("pg_ctl"),
+            get_bin_path("pg_ctl", self.host, self.ssh_key),
             "-D", self.data_dir,
             "reload"
         ] + params  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility(_params, self.utils_log_file, host=self.host, ssh_key=self.ssh_key)
 
         return self
 
@@ -753,13 +743,13 @@ class PostgresNode(object):
         """
 
         _params = [
-            get_bin_path("pg_ctl"),
+            get_bin_path("pg_ctl", self.host, self.ssh_key),
             "-D", self.data_dir,
             "-w",  # wait
             "promote"
         ]  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility(_params, self.utils_log_file, host=self.host, ssh_key=self.ssh_key)
 
         # for versions below 10 `promote` is asynchronous so we need to wait
         # until it actually becomes writable
@@ -789,12 +779,12 @@ class PostgresNode(object):
         """
 
         _params = [
-            get_bin_path("pg_ctl"),
+            get_bin_path("pg_ctl", self.host, self.ssh_key),
             "-D", self.data_dir,
             "-w"  # wait
         ] + params  # yapf: disable
 
-        return execute_utility(_params, self.utils_log_file)
+        return execute_utility(_params, self.utils_log_file, host=self.host, ssh_key=self.ssh_key)
 
     def free_port(self):
         """
@@ -835,7 +825,7 @@ class PostgresNode(object):
              query=None,
              filename=None,
              dbname=None,
-             username=None,
+             username='dev',
              input=None,
              **variables):
         """
@@ -863,7 +853,7 @@ class PostgresNode(object):
         username = username or default_username()
 
         psql_params = [
-            get_bin_path("psql"),
+            get_bin_path("psql", self.host, self.ssh_key),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
@@ -879,7 +869,7 @@ class PostgresNode(object):
 
         # select query source
         if query:
-            psql_params.extend(("-c", query))
+            psql_params.extend(("-c", f"\"{query}\""))
         elif filename:
             psql_params.extend(("-f", filename))
         else:
@@ -889,14 +879,10 @@ class PostgresNode(object):
         psql_params.append(dbname)
 
         # start psql process
-        process = subprocess.Popen(psql_params,
-                                   stdin=subprocess.PIPE,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+        cmd = ' '.join(psql_params)
+        exit_code, out, err = self.os_ops.exec_command(cmd, verbose=True)
 
-        # wait until it finishes and get stdout and stderr
-        out, err = process.communicate(input=input)
-        return process.returncode, out, err
+        return exit_code, out, err
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def safe_psql(self, query=None, **kwargs):
@@ -967,7 +953,7 @@ class PostgresNode(object):
         filename = filename or tmpfile()
 
         _params = [
-            get_bin_path("pg_dump"),
+            get_bin_path("pg_dump", self.host, self.ssh_key),
             "-p", str(self.port),
             "-h", self.host,
             "-f", filename,
@@ -976,7 +962,7 @@ class PostgresNode(object):
             "-F", format.value
         ]  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility(_params, self.utils_log_file, host=self.host, ssh_key=self.ssh_key)
 
         return filename
 
@@ -995,7 +981,7 @@ class PostgresNode(object):
         username = username or default_username()
 
         _params = [
-            get_bin_path("pg_restore"),
+            get_bin_path("pg_restore", self.host, self.ssh_key),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
@@ -1005,7 +991,7 @@ class PostgresNode(object):
 
         # try pg_restore if dump is binary formate, and psql if not
         try:
-            execute_utility(_params, self.utils_log_name)
+            execute_utility(_params, self.utils_log_name, host=self.host, ssh_key=self.ssh_key)
         except ExecUtilException:
             self.psql(filename=filename, dbname=dbname, username=username)
 
@@ -1265,7 +1251,7 @@ class PostgresNode(object):
         username = username or default_username()
 
         _params = [
-            get_bin_path("pgbench"),
+            get_bin_path("pgbench", self.host, self.ssh_key),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
@@ -1317,7 +1303,7 @@ class PostgresNode(object):
         username = username or default_username()
 
         _params = [
-            get_bin_path("pgbench"),
+            get_bin_path("pgbench", self.host, self.ssh_key),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
@@ -1337,7 +1323,7 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        return execute_utility(_params, self.utils_log_file)
+        return execute_utility(_params, self.utils_log_file, host=self.host, ssh_key=self.ssh_key)
 
     def connect(self,
                 dbname=None,

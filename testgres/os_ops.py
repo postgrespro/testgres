@@ -1,6 +1,8 @@
 import os
-import shutil
+from distutils.spawn import find_executable
 import subprocess
+from contextlib import contextmanager
+from testgres.logger import log
 
 import paramiko
 
@@ -21,100 +23,162 @@ class OsOperations:
         if self.ssh:
             self.ssh.close()
 
+    @contextmanager
+    def ssh_connect(self):
+        if not self.remote:
+            yield None
+        else:
+            with open(self.ssh_key, 'r') as f:
+                key_data = f.read()
+                if 'BEGIN OPENSSH PRIVATE KEY' in key_data:
+                    key = paramiko.Ed25519Key.from_private_key_file(self.ssh_key)
+                else:
+                    key = paramiko.RSAKey.from_private_key_file(self.ssh_key)
+
+            with paramiko.SSHClient() as ssh:
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(self.host, username=self.username, pkey=key)
+                yield ssh
+
     def connect(self):
-        # Check that the ssh key file exists and is a file
-        if not os.path.isfile(self.ssh_key):
-            raise ValueError(f"{self.ssh_key} does not exist or is not a file")
+        with self.ssh_connect() as ssh:
+            return ssh
 
-        # Load the private key with the correct key type
-        with open(self.ssh_key, 'r') as f:
-            key_data = f.read()
-            if 'BEGIN OPENSSH PRIVATE KEY' in key_data:
-                key = paramiko.Ed25519Key.from_private_key_file(self.ssh_key)
+    def exec_command(self, cmd, wait_exit=False, verbose=False):
+        if isinstance(cmd, list):
+            cmd = ' '.join(cmd)
+        log.debug(f"os_ops.exec_command: `{cmd}`; remote={self.remote}")
+        # Source global profile file + execute command
+        cmd = f"source /etc/profile.d/custom.sh; {cmd}"
+        try:
+            if self.remote:
+                with self.ssh_connect() as ssh:
+                    stdin, stdout, stderr = ssh.exec_command(cmd)
+                    exit_status = 0
+                    if wait_exit:
+                        exit_status = stdout.channel.recv_exit_status()
+                    result = stdout.read().decode('utf-8')
+                    error = stderr.read().decode('utf-8')
             else:
-                key = paramiko.RSAKey.from_private_key_file(self.ssh_key)
+                process = subprocess.run(cmd, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                exit_status = process.returncode
+                result = process.stdout
+                error = process.stderr
 
-        # Now use the loaded key in your SSH client code
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(self.host, username=self.username, pkey=key)
-        return ssh
+            if exit_status != 0 or error != '':
+                log.error(f"Problem in executing command: `{cmd}`;\nerror: `{error}`;\nexit_code: {exit_status}")
+                if 'error' in error.lower():
+                    exit(1)
 
-    def makedirs(self, path):
-        if self.remote:
-            # Remove the remote directory
-            stdin, stdout, stderr = self.ssh.exec_command(f'rm -rf {path}')
-            stdout.channel.recv_exit_status()
+            if verbose:
+                return exit_status, result, error
+            else:
+                return result
 
-            # Create the remote directory
-            stdin, stdout, stderr = self.ssh.exec_command(f'mkdir -p {path}')
-            stdout.channel.recv_exit_status()
+        except Exception as e:
+            log.error(f"Unexpected error while executing command `{cmd}`: {e}")
+            return None
+
+    def makedirs(self, path, remove_existing=False):
+        if remove_existing:
+            cmd = f'rm -rf {path} && mkdir -p {path}'
         else:
-            shutil.rmtree(path, ignore_errors=True)
-            os.makedirs(path)
+            cmd = f'mkdir -p {path}'
+        self.exec_command(cmd)
 
-    def write(self, filename, text):
+    def write(self, filename, text, truncate=False):
         if self.remote:
-            command = f"echo '{text}' >> {filename}"
-            stdin, stdout, stderr = self.ssh.exec_command(command)
-            stdout.channel.recv_exit_status()
+            if truncate:
+                # Truncate the file
+                self.exec_command(f"truncate -s 0 {filename}")
+            # Escape single quotes
+            text = text.replace("'", r"'\''")
+            self.exec_command(f"printf '%s\n' '{text}' >> {filename}")
         else:
-            with open(filename, 'a') as file:
+            mode = 'w' if truncate else 'a'
+            with open(filename, mode) as file:
                 file.write(text)
 
     def read(self, filename):
-        if self.remote:
-            stdin, stdout, stderr = self.ssh.exec_command(f'cat {filename}')
-            stdout.channel.recv_exit_status()
-            output = stdout.read().decode().rstrip()
-        else:
-            with open(filename) as file:
-                output = file.read()
-        return output
+        cmd = f'cat {filename}'
+        return self.exec_command(cmd)
 
     def readlines(self, filename):
-        if self.remote:
-            stdin, stdout, stderr = self.ssh.exec_command(f'cat {filename}')
-            stdout.channel.recv_exit_status()
-            output = stdout.read().decode().rstrip()
-        else:
-            with open(filename) as file:
-                output = file.read()
-        return output
+        return self.read(filename).splitlines()
 
     def get_name(self):
-        if self.remote:
-            stdin, stdout, stderr = self.ssh.exec_command('python -c "import os; print(os.name)"')
-            stdout.channel.recv_exit_status()
-            name = stdout.read().decode().strip()
-        else:
-            name = os.name
-        return name
+        cmd = 'python -c "import os; print(os.name)"'
+        return self.exec_command(cmd).strip()
 
     def kill(self, pid, signal):
-        if self.remote:
-            stdin, stdout, stderr = self.ssh.exec_command(f'kill -{signal} {pid}')
-            stdout.channel.recv_exit_status()
-        else:
-            os.kill(pid, signal)
+        cmd = f'kill -{signal} {pid}'
+        self.exec_command(cmd)
 
     def environ(self, var_name):
-        if self.remote:
-            # Get env variable
-            check_command = f"echo ${var_name}"
-            stdin, stdout, stderr = self.ssh.exec_command(check_command)
-            stdout.channel.recv_exit_status()
-            var_val = stdout.read().strip().decode('utf-8')
-        else:
-            var_val = os.environ.get(var_name)
-        return var_val
+        cmd = f"echo ${var_name}"
+        return self.exec_command(cmd).strip()
 
-    def execute(self, cmd):
+    @property
+    def pathsep(self):
+        return ':' if self.get_name() == 'posix' else ';'
+
+    def isfile(self, remote_file):
         if self.remote:
-            stdin, stdout, stderr = self.ssh.exec_command(cmd)
-            stdout.channel.recv_exit_status()
-            result = stdout.read().decode('utf-8')
+            stdout = self.exec_command(f'test -f {remote_file}; echo $?')
+            result = int(stdout.strip())
+            return result == 0
         else:
-            result = subprocess.check_output([cmd]).decode('utf-8')
-        return result
+            return os.path.isfile(remote_file)
+
+    def find_executable(self, executable):
+        if self.remote:
+            search_paths = self.environ('PATH')
+            if not search_paths:
+                return None
+
+            search_paths = search_paths.split(self.pathsep)
+            for path in search_paths:
+                remote_file = os.path.join(path, executable)
+                if self.isfile(remote_file):
+                    return remote_file
+
+            return None
+        else:
+            return find_executable(executable)
+
+    def is_executable(self, file):
+        # Check if the file is executable
+        if self.remote:
+            if not self.exec_command(f"test -x {file} && echo OK") == 'OK\n':
+                return False
+        else:
+            if not os.access(file, os.X_OK):
+                return False
+        return True
+
+    def add_to_path(self, new_path):
+        os_name = self.get_name()
+        if os_name == 'posix':
+            dir_del = ':'
+        elif os_name == 'nt':
+            dir_del = ';'
+        else:
+            raise Exception(f"Unsupported operating system: {os_name}")
+
+        # Check if the directory is already in PATH
+        path = self.environ('PATH')
+        if new_path not in path.split(dir_del):
+            if self.remote:
+                self.exec_command(f"export PATH={new_path}{dir_del}{path}")
+            else:
+                os.environ['PATH'] = f"{new_path}{dir_del}{path}"
+        return dir_del
+
+    def set_env(self, var_name, var_val):
+        # Check if the directory is already in PATH
+        if self.remote:
+            self.exec_command(f"export {var_name}={var_val}")
+        else:
+            os.environ[var_name] = var_val
+
 

@@ -1,16 +1,10 @@
-# coding: utf-8
+from .enums import IsolationLevel
+from .defaults import default_dbname
+from .exceptions import QueryException
+
 
 # we support both pg8000 and psycopg2
 import psycopg2 as pglib
-
-
-from .enums import IsolationLevel
-
-from .defaults import \
-    default_dbname, \
-    default_username
-
-from .exceptions import QueryException
 
 # export some exceptions
 DatabaseError = pglib.DatabaseError
@@ -23,25 +17,14 @@ class NodeConnection(object):
     """
     Transaction wrapper returned by Node
     """
-    def __init__(self,
-                 node,
-                 dbname=None,
-                 username=None,
-                 password=None,
-                 autocommit=False):
-
+    def __init__(self, node, dbname=None, username=None, password=None, autocommit=False):
         # Set default arguments
         dbname = dbname or default_dbname()
-        username = username or default_username()
+        username = username or 'dev'
 
         self._node = node
-
-        self._connection = pglib.connect(database=dbname,
-                                         user=username,
-                                         password=password,
-                                         host=node.host,
-                                         port=node.port)
-
+        self._connection = pglib.connect(database=dbname, user=username, password=password,
+                                         host=node.host, port=node.port)
         self._connection.autocommit = autocommit
         self._cursor = self.connection.cursor()
 
