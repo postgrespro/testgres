@@ -1,5 +1,5 @@
 from .enums import IsolationLevel
-from .defaults import default_dbname
+from .defaults import default_dbname, default_username
 from .exceptions import QueryException
 
 
@@ -20,7 +20,7 @@ class NodeConnection(object):
     def __init__(self, node, dbname=None, username=None, password=None, autocommit=False):
         # Set default arguments
         dbname = dbname or default_dbname()
-        username = username or 'dev'
+        username = username or default_username()
 
         self._node = node
         self._connection = pglib.connect(database=dbname, user=username, password=password,

@@ -14,6 +14,7 @@ from contextlib import contextmanager
 from packaging.version import Version
 from six import iteritems
 
+from defaults import default_username
 from .os_ops import OsOperations
 from .config import testgres_config
 from .exceptions import ExecUtilException
@@ -47,7 +48,7 @@ def release_port(port):
     bound_ports.discard(port)
 
 
-def execute_utility(args, logfile=None, host='localhost', ssh_key=None, user='dev', wait_exit=False):
+def execute_utility(args, logfile=None, host='localhost', ssh_key=None, user=default_username(), wait_exit=False):
     """
     Execute utility wrapper (pg_ctl, pg_dump etc).
 

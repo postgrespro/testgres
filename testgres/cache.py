@@ -10,7 +10,7 @@ from .config import testgres_config
 
 from .consts import XLOG_CONTROL_FILE
 
-from .defaults import generate_system_id
+from .defaults import generate_system_id, default_username
 
 from .exceptions import \
     InitNodeException, \
@@ -21,7 +21,7 @@ from .utils import \
     execute_utility
 
 
-def cached_initdb(data_dir, logfile=None, host='localhost', ssh_key=None, user='dev', params=None):
+def cached_initdb(data_dir, logfile=None, host='localhost', ssh_key=None, user=default_username(), params=None):
     """
     Perform initdb or use cached node files.
     """

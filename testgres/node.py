@@ -112,7 +112,7 @@ class ProcessProxy(object):
 
 class PostgresNode(object):
     def __init__(self, name=None, port=None, base_dir=None,
-                 host='locahost', ssh_key=None, username='dev'):
+                 host='locahost', ssh_key=None, username=default_username()):
         """
         PostgresNode constructor.
 
@@ -487,6 +487,7 @@ class PostgresNode(object):
             auth_host = get_auth_method('host')
 
             new_lines = [
+                "local\tall\tall\t\t\ttrust\n",
                 u"local\treplication\tall\t\t\t{}\n".format(auth_local),
                 u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
 
@@ -496,7 +497,7 @@ class PostgresNode(object):
                 u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
             ]  # yapf: disable
 
-            self.os_ops.write(hba_conf, '\n'.join(new_lines), truncate=True)
+            self.os_ops.write(hba_conf, ''.join(new_lines), truncate=True)
 
         # overwrite config file
         self.os_ops.write(postgres_conf, "", truncate=True)
@@ -504,7 +505,7 @@ class PostgresNode(object):
         self.append_conf(fsync=fsync,
                          max_worker_processes=MAX_WORKER_PROCESSES,
                          log_statement=log_statement,
-                         listen_addresses="'*'",
+                         listen_addresses='*',
                          port=self.port)  # yapf:disable
 
         # common replication settings
@@ -825,7 +826,7 @@ class PostgresNode(object):
              query=None,
              filename=None,
              dbname=None,
-             username='dev',
+             username=default_username(),
              input=None,
              **variables):
         """

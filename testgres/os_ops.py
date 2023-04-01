@@ -1,7 +1,8 @@
 import os
-from distutils.spawn import find_executable
 import subprocess
 from contextlib import contextmanager
+
+from defaults import default_username
 from testgres.logger import log
 
 import paramiko
@@ -9,7 +10,7 @@ import paramiko
 
 class OsOperations:
 
-    def __init__(self, host, ssh_key=None, username='dev'):
+    def __init__(self, host, ssh_key=None, username=default_username()):
         self.host = host
         self.ssh_key = ssh_key
         self.username = username
@@ -49,9 +50,9 @@ class OsOperations:
             cmd = ' '.join(cmd)
         log.debug(f"os_ops.exec_command: `{cmd}`; remote={self.remote}")
         # Source global profile file + execute command
-        cmd = f"source /etc/profile.d/custom.sh; {cmd}"
         try:
             if self.remote:
+                cmd = f"source /etc/profile.d/custom.sh; {cmd}"
                 with self.ssh_connect() as ssh:
                     stdin, stdout, stderr = ssh.exec_command(cmd)
                     exit_status = 0
@@ -60,15 +61,15 @@ class OsOperations:
                     result = stdout.read().decode('utf-8')
                     error = stderr.read().decode('utf-8')
             else:
-                process = subprocess.run(cmd, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                process = subprocess.run(cmd, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                         timeout=60)
                 exit_status = process.returncode
                 result = process.stdout
                 error = process.stderr
 
-            if exit_status != 0 or error != '':
-                log.error(f"Problem in executing command: `{cmd}`;\nerror: `{error}`;\nexit_code: {exit_status}")
-                if 'error' in error.lower():
-                    exit(1)
+            if exit_status != 0 or 'error' in error.lower():
+                log.error(f"Problem in executing command: `{cmd}`\nerror: {error}\nexit_code: {exit_status}")
+                exit(1)
 
             if verbose:
                 return exit_status, result, error
@@ -131,20 +132,17 @@ class OsOperations:
             return os.path.isfile(remote_file)
 
     def find_executable(self, executable):
-        if self.remote:
-            search_paths = self.environ('PATH')
-            if not search_paths:
-                return None
-
-            search_paths = search_paths.split(self.pathsep)
-            for path in search_paths:
-                remote_file = os.path.join(path, executable)
-                if self.isfile(remote_file):
-                    return remote_file
-
+        search_paths = self.environ('PATH')
+        if not search_paths:
             return None
-        else:
-            return find_executable(executable)
+
+        search_paths = search_paths.split(self.pathsep)
+        for path in search_paths:
+            remote_file = os.path.join(path, executable)
+            if self.isfile(remote_file):
+                return remote_file
+
+        return None
 
     def is_executable(self, file):
         # Check if the file is executable
