@@ -45,7 +45,7 @@ class OsOperations:
         with self.ssh_connect() as ssh:
             return ssh
 
-    def exec_command(self, cmd, wait_exit=False, verbose=False):
+    def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False):
         if isinstance(cmd, list):
             cmd = ' '.join(cmd)
         log.debug(f"os_ops.exec_command: `{cmd}`; remote={self.remote}")
@@ -67,6 +67,8 @@ class OsOperations:
                 result = process.stdout
                 error = process.stderr
 
+            if expect_error:
+                raise Exception(result, error)
             if exit_status != 0 or 'error' in error.lower():
                 log.error(f"Problem in executing command: `{cmd}`\nerror: {error}\nexit_code: {exit_status}")
                 exit(1)
@@ -108,7 +110,7 @@ class OsOperations:
         return self.read(filename).splitlines()
 
     def get_name(self):
-        cmd = 'python -c "import os; print(os.name)"'
+        cmd = 'python3 -c "import os; print(os.name)"'
         return self.exec_command(cmd).strip()
 
     def kill(self, pid, signal):
