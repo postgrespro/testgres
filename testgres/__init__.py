@@ -32,7 +32,7 @@ from .enums import \
     ProcessType, \
     DumpFormat
 
-from .node import PostgresNode
+from .node import PostgresNode, NodeApp
 
 from .utils import \
     reserve_port, \
@@ -53,7 +53,7 @@ __all__ = [
     "NodeConnection", "DatabaseError", "InternalError", "ProgrammingError", "OperationalError",
     "TestgresException", "ExecUtilException", "QueryException", "TimeoutException", "CatchUpException", "StartNodeException", "InitNodeException", "BackupException",
     "XLogMethod", "IsolationLevel", "NodeStatus", "ProcessType", "DumpFormat",
-    "PostgresNode",
+    "PostgresNode", "NodeApp",
     "reserve_port", "release_port", "bound_ports", "get_bin_path", "get_pg_config", "get_pg_version",
     "First", "Any",
 ]
