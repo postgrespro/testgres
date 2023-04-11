@@ -1,5 +1,6 @@
 from enum import Enum, IntEnum
 from six import iteritems
+from psutil import NoSuchProcess
 
 
 class XLogMethod(Enum):
@@ -68,11 +69,15 @@ class ProcessType(Enum):
             ],
         }  # yapf: disable
 
+        try:
+            cmdline = ''.join(process.cmdline())
+        except (FileNotFoundError, ProcessLookupError, NoSuchProcess):
+            return ProcessType.Unknown
+
         # we deliberately cut special words and spaces
-        cmdline = ''.join(process.cmdline()) \
-                    .replace('postgres:', '', 1) \
-                    .replace('bgworker:', '', 1) \
-                    .replace(' ', '')
+        cmdline = cmdline.replace('postgres:', '', 1) \
+            .replace('bgworker:', '', 1) \
+            .replace(' ', '')
 
         for ptype in ProcessType:
             if cmdline.startswith(ptype.value.replace(' ', '')):
