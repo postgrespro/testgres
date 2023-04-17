@@ -105,7 +105,6 @@ from .backup import NodeBackup
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
 OperationalError = pglib.OperationalError
-DatabaseError = pglib.DatabaseError
 
 
 class ProcessProxy(object):
@@ -653,7 +652,7 @@ class PostgresNode(object):
 
         return out_dict
 
-    def slow_start(self, replica=False, dbname='template1', username='dev'):
+    def slow_start(self, replica=False, dbname='template1', username=default_username()):
         """
         Starts the PostgreSQL instance and then polls the instance
         until it reaches the expected state (primary or replica). The state is checked
@@ -673,14 +672,12 @@ class PostgresNode(object):
             query = 'SELECT not pg_is_in_recovery()'
         # Call poll_query_until until the expected value is returned
         self.poll_query_until(query=query,
-                              expected=False,
                               dbname=dbname,
                               username=username,
                               suppress={InternalError,
                                         QueryException,
                                         ProgrammingError,
-                                        OperationalError,
-                                        DatabaseError})
+                                        OperationalError})
 
     def start(self, params=[], wait=True):
         """
@@ -970,7 +967,7 @@ class PostgresNode(object):
         return process.returncode, out, err
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
-    def safe_psql(self, query=None, **kwargs):
+    def safe_psql(self, query=None, expect_error=False, **kwargs):
         """
         Execute a query using psql.
 
@@ -980,6 +977,8 @@ class PostgresNode(object):
             dbname: database name to connect to.
             username: database user name.
             input: raw input to be passed.
+            expect_error: if True - fail if we didn't get ret
+                          if False - fail if we got ret
 
             **kwargs are passed to psql().
 
@@ -992,7 +991,12 @@ class PostgresNode(object):
 
         ret, out, err = self.psql(query=query, **kwargs)
         if ret:
-            raise QueryException((err or b'').decode('utf-8'), query)
+            if expect_error:
+                out = (err or b'').decode('utf-8')
+            else:
+                raise QueryException((err or b'').decode('utf-8'), query)
+        elif expect_error:
+            assert False, f"Exception was expected, but query finished successfully: `{query}` "
 
         return out
 
