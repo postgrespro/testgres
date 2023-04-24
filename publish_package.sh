@@ -2,30 +2,15 @@
 
 # Copyright (c) 2017-2022 Postgres Professional
 
-set -eux
+set -eu
 
-
-# choose python version
-echo python version is $PYTHON_VERSION
-VIRTUALENV="virtualenv --python=/usr/bin/python$PYTHON_VERSION"
-PIP="pip$PYTHON_VERSION"
-
-
-# prepare environment
-VENV_PATH=/tmp/testgres_venv
-rm -rf $VENV_PATH
-$VIRTUALENV $VENV_PATH
+venv_path=.venv
+rm -rf "$venv_path"
+virtualenv "$venv_path"
 export VIRTUAL_ENV_DISABLE_PROMPT=1
-source $VENV_PATH/bin/activate
+. "$venv_path"/bin/activate
 
-# install utilities
-$PIP install setuptools twine
-
-# create distribution of the package
-alias python3='python'
-python setup.py sdist bdist_wheel
-
-# upload dist
+pip3 install setuptools twine
+python3 setup.py sdist bdist_wheel
 twine upload dist/*
 
-set +eux
