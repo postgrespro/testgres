@@ -21,7 +21,7 @@ with open('README.md', 'r') as f:
     readme = f.read()
 
 setup(
-    version='1.8.5',
+    version='1.8.6',
     name='testgres',
     packages=['testgres'],
     description='Testing utility for PostgreSQL and its extensions',
