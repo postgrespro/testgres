@@ -115,6 +115,7 @@ class ProcessProxy(object):
         process: wrapped psutill.Process object
         ptype: instance of ProcessType
     """
+
     def __init__(self, process, ptype=None):
         self.process = process
         self.ptype = ptype or ProcessType.from_process(process)
@@ -697,12 +698,12 @@ class PostgresNode(object):
             return self
 
         _params = [
-                      get_bin_path("pg_ctl"),
-                      "-D", self.data_dir,
-                      "-l", self.pg_log_file,
-                      "-w" if wait else '-W',  # --wait or --no-wait
-                      "start"
-                  ] + params  # yapf: disable
+            get_bin_path("pg_ctl"),
+            "-D", self.data_dir,
+            "-l", self.pg_log_file,
+            "-w" if wait else '-W',  # --wait or --no-wait
+            "start"
+        ] + params  # yapf: disable
 
         try:
             execute_utility(_params, self.utils_log_file)
@@ -752,7 +753,7 @@ class PostgresNode(object):
             """
         if self.is_started:
             sig = signal.SIGKILL if os.name != 'nt' else signal.SIGBREAK
-            if someone == None:
+            if someone is None:
                 os.kill(self.pid, sig)
             else:
                 os.kill(self.auxiliary_pids[someone][0], sig)
@@ -1496,10 +1497,10 @@ class PostgresNode(object):
         return sum
 
     def pgbench_table_checksums(self, dbname="postgres",
-                                pgbench_tables = ('pgbench_branches',
-                                                  'pgbench_tellers',
-                                                  'pgbench_accounts',
-                                                  'pgbench_history')
+                                pgbench_tables=('pgbench_branches',
+                                                'pgbench_tellers',
+                                                'pgbench_accounts',
+                                                'pgbench_history')
                                 ):
         return {(table, self.table_checksum(table, dbname))
                 for table in pgbench_tables}
