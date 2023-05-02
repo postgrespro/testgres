@@ -15,6 +15,8 @@ from packaging.version import Version
 from distutils.spawn import find_executable
 from six import iteritems
 
+from fabric import Connection
+
 from .config import testgres_config
 from .exceptions import ExecUtilException
 
@@ -47,7 +49,7 @@ def release_port(port):
     bound_ports.discard(port)
 
 
-def execute_utility(args, logfile=None):
+def execute_utility(args, logfile=None, hostname='localhost', ssh_key=None):
     """
     Execute utility (pg_ctl, pg_dump etc).
 
@@ -58,6 +60,23 @@ def execute_utility(args, logfile=None):
     Returns:
         stdout of executed utility.
     """
+
+    if hostname != 'localhost':        
+        conn = Connection(
+            hostname,
+            connect_kwargs={
+                "key_filename": f"{ssh_key}",
+            },
+        )
+
+        # TODO skip remote ssh run if we are on the localhost.
+        # result = conn.run('hostname', hide=True)
+        # add logger 
+
+        cmd = ' '.join(args)
+        result = conn.run(cmd, hide=True)        
+        
+        return result
 
     # run utility
     if os.name == 'nt':

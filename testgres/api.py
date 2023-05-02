@@ -30,6 +30,7 @@ PostgresNode(name='...', port=..., base_dir='...')
 PostgresNode(name='...', port=..., base_dir='...')
 [(3,)]
 """
+from defaults import default_username
 from .node import PostgresNode
 
 
@@ -37,6 +38,11 @@ def get_new_node(name=None, base_dir=None, **kwargs):
     """
     Simply a wrapper around :class:`.PostgresNode` constructor.
     See :meth:`.PostgresNode.__init__` for details.
+    For remote connection you can add next parameters:
+    host='127.0.0.1',
+    hostname='localhost',
+    ssh_key=None,
+    username=default_username()
     """
     # NOTE: leave explicit 'name' and 'base_dir' for compatibility
     return PostgresNode(name=name, base_dir=base_dir, **kwargs)

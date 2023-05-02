@@ -12,6 +12,7 @@ import psutil
 import subprocess
 import time
 
+from os_ops import OsOperations
 
 try:
     from collections.abc import Iterable
@@ -129,7 +130,8 @@ class ProcessProxy(object):
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, port=None, base_dir=None):
+    def __init__(self, name=None, port=None, base_dir=None,
+                 host='127.0.0.1', hostname='localhost', ssh_key=None, username=default_username()):
         """
         PostgresNode constructor.
 
@@ -147,9 +149,13 @@ class PostgresNode(object):
         self._master = None
 
         # basic
-        self.host = '127.0.0.1'
         self.name = name or generate_app_name()
         self.port = port or reserve_port()
+
+        self.host = host
+        self.hostname = hostname
+        self.ssh_key = ssh_key
+        self.os_ops = OsOperations(host, hostname, ssh_key, username=username)
 
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
@@ -455,9 +461,12 @@ class PostgresNode(object):
         """
 
         # initialize this PostgreSQL node
-        cached_initdb(data_dir=self.data_dir,
-                      logfile=self.utils_log_file,
-                      params=initdb_params)
+        cached_initdb(
+            data_dir=self.data_dir,
+            logfile=self.utils_log_file,
+            hostname=self.hostname,
+            ssh_key=self.ssh_key,
+            params=initdb_params)
 
         # initialize default config files
         self.default_conf(**kwargs)
@@ -514,6 +523,10 @@ class PostgresNode(object):
                 new_lines = [
                     u"local\treplication\tall\t\t\t{}\n".format(auth_local),
                     u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
+
+                    u"host\treplication\tall\t0.0.0.0/0\t{}\n".format(auth_host),
+                    u"host\tall\tall\t0.0.0.0/0\t{}\n".format(auth_host),
+
                     u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
                 ]  # yapf: disable
 

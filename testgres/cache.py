@@ -6,6 +6,7 @@ import os
 from shutil import copytree
 from six import raise_from
 
+from os_ops import OsOperations
 from .config import testgres_config
 
 from .consts import XLOG_CONTROL_FILE
@@ -21,14 +22,16 @@ from .utils import \
     execute_utility
 
 
-def cached_initdb(data_dir, logfile=None, params=None):
+def cached_initdb(data_dir, logfile=None, hostname='localhost', ssh_key=None, params=None):
     """
     Perform initdb or use cached node files.
     """
+    os_ops = OsOperations(hostname=hostname, ssh_key=ssh_key)
+
     def call_initdb(initdb_dir, log=None):
         try:
             _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
-            execute_utility(_params + (params or []), log)
+            execute_utility(_params + (params or []), log, hostname=hostname, ssh_key=ssh_key)
         except ExecUtilException as e:
             raise_from(InitNodeException("Failed to run initdb"), e)
 
@@ -39,13 +42,14 @@ def cached_initdb(data_dir, logfile=None, params=None):
         cached_data_dir = testgres_config.cached_initdb_dir
 
         # Initialize cached initdb
-        if not os.path.exists(cached_data_dir) or \
-           not os.listdir(cached_data_dir):
+
+        if not os_ops.path_exists(cached_data_dir) or \
+           not os_ops.listdir(cached_data_dir):
             call_initdb(cached_data_dir)
 
         try:
             # Copy cached initdb to current data dir
-            copytree(cached_data_dir, data_dir)
+            os_ops.copytree(cached_data_dir, data_dir)
 
             # Assign this node a unique system id if asked to
             if testgres_config.cached_initdb_unique:
@@ -53,12 +57,12 @@ def cached_initdb(data_dir, logfile=None, params=None):
                 # Some users might rely upon unique system ids, but
                 # our initdb caching mechanism breaks this contract.
                 pg_control = os.path.join(data_dir, XLOG_CONTROL_FILE)
-                with io.open(pg_control, "r+b") as f:
-                    f.write(generate_system_id())    # overwrite id
+                system_id = generate_system_id()
+                os_ops.write(pg_control, system_id, truncate=True, binary=True, read_and_write=True)
 
                 # XXX: build new WAL segment with our system id
                 _params = [get_bin_path("pg_resetwal"), "-D", data_dir, "-f"]
-                execute_utility(_params, logfile)
+                execute_utility(_params, logfile, hostname=hostname, ssh_key=ssh_key)
 
         except ExecUtilException as e:
             msg = "Failed to reset WAL for system id"

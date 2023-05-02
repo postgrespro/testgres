@@ -6,6 +6,7 @@ from shutil import rmtree, copytree
 from six import raise_from
 from tempfile import mkdtemp
 
+from os_ops import OsOperations
 from .enums import XLogMethod
 
 from .consts import \
@@ -47,7 +48,7 @@ class NodeBackup(object):
             username: database user name.
             xlog_method: none | fetch | stream (see docs)
         """
-
+        self.os_ops = node.os_ops
         if not node.status():
             raise BackupException('Node must be running')
 
@@ -60,8 +61,8 @@ class NodeBackup(object):
                 raise BackupException(msg)
 
         # Set default arguments
-        username = username or default_username()
-        base_dir = base_dir or mkdtemp(prefix=TMP_BACKUP)
+        username = username or self.os_ops.get_user()
+        base_dir = base_dir or self.os_ops.mkdtemp(prefix=TMP_BACKUP)
 
         # public
         self.original_node = node
@@ -81,7 +82,7 @@ class NodeBackup(object):
             "-D", data_dir,
             "-X", xlog_method.value
         ]  # yapf: disable
-        execute_utility(_params, self.log_file)
+        execute_utility(_params, self.log_file, hostname=node.hostname, ssh_key=node.ssh_key)
 
     def __enter__(self):
         return self
@@ -107,7 +108,7 @@ class NodeBackup(object):
         available = not destroy
 
         if available:
-            dest_base_dir = mkdtemp(prefix=TMP_NODE)
+            dest_base_dir = self.os_ops.mkdtemp(prefix=TMP_NODE)
 
             data1 = os.path.join(self.base_dir, DATA_DIR)
             data2 = os.path.join(dest_base_dir, DATA_DIR)
@@ -185,4 +186,4 @@ class NodeBackup(object):
 
         if self._available:
             self._available = False
-            rmtree(self.base_dir, ignore_errors=True)
+            self.os_ops.rmdirs(self.base_dir, ignore_errors=True)

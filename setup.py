@@ -6,7 +6,7 @@ except ImportError:
     from distutils.core import setup
 
 # Basic dependencies
-install_requires = ["pg8000", "port-for>=0.4", "six>=1.9.0", "psutil"]
+install_requires = ["pg8000", "port-for>=0.4", "six>=1.9.0", "psutil", "fabric"]
 
 # Add compatibility enum class
 if sys.version_info < (3, 4):
@@ -21,7 +21,7 @@ with open('README.md', 'r') as f:
     readme = f.read()
 
 setup(
-    version='1.8.6',
+    version='1.9.0',
     name='testgres',
     packages=['testgres'],
     description='Testing utility for PostgreSQL and its extensions',

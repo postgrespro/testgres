@@ -13,12 +13,15 @@ def default_dbname():
     return 'postgres'
 
 
-def default_username():
+def default_username(os_ops=None):
     """
     Return default username (current user).
     """
-
-    return getpass.getuser()
+    if os_ops:
+        user = os_ops.get_user()
+    else:
+        user = getpass.getuser()
+    return user
 
 
 def generate_app_name():
@@ -29,7 +32,7 @@ def generate_app_name():
     return 'testgres-{}'.format(str(uuid.uuid4()))
 
 
-def generate_system_id():
+def generate_system_id(os_ops=None):
     """
     Generate a new 64-bit unique system identifier for node.
     """
@@ -44,7 +47,10 @@ def generate_system_id():
     system_id = 0
     system_id |= (secs << 32)
     system_id |= (usecs << 12)
-    system_id |= (os.getpid() & 0xFFF)
+    if os_ops:
+        system_id |= (os_ops.get_pid() & 0xFFF)
+    else:
+        system_id |= (os.getpid() & 0xFFF)
 
     # pack ULL in native byte order
     return struct.pack('=Q', system_id)

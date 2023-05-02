@@ -1,4 +1,5 @@
 # coding: utf-8
+from os_ops import OsOperations
 
 # we support both pg8000 and psycopg2
 try:
@@ -41,11 +42,12 @@ class NodeConnection(object):
 
         self._node = node
 
-        self._connection = pglib.connect(database=dbname,
-                                         user=username,
-                                         password=password,
-                                         host=node.host,
-                                         port=node.port)
+        self.os_ops = OsOperations(node.host, node.hostname, node.ssh_key, node.username)
+        self._connection = self.os_ops.db_connect(dbname=dbname,
+                                                  user=username,
+                                                  password=password,
+                                                  host=node.host,
+                                                  port=node.port)
 
         self._connection.autocommit = autocommit
         self._cursor = self.connection.cursor()
@@ -102,17 +104,24 @@ class NodeConnection(object):
         return self
 
     def execute(self, query, *args):
-        self.cursor.execute(query, args)
-
         try:
-            res = self.cursor.fetchall()
+            with self.connection.cursor() as cursor:
+                cursor.execute(query, args)
+                try:
+                    res = cursor.fetchall()
 
-            # pg8000 might return tuples
-            if isinstance(res, tuple):
-                res = [tuple(t) for t in res]
+                    # pg8000 might return tuples
+                    if isinstance(res, tuple):
+                        res = [tuple(t) for t in res]
 
-            return res
-        except Exception:
+                    return res
+                except (pglib.ProgrammingError, pglib.InternalError) as e:
+                    # An error occurred while trying to fetch results (e.g., no results to fetch)
+                    print(f"Error fetching results: {e}")
+                    return None
+        except (pglib.Error, Exception) as e:
+            # Handle other database errors
+            print(f"Error executing query: {e}")
             return None
 
     def close(self):
