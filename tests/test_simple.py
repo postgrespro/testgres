@@ -171,8 +171,8 @@ class TestgresTests(unittest.TestCase):
     def test_double_start(self):
         with get_new_node().init().start() as node:
             # can't start node more than once
-            with self.assertRaises(StartNodeException):
-                node.start()
+            node.start()
+            self.assertTrue(node.is_started)
 
     def test_uninitialized_start(self):
         with get_new_node() as node:
