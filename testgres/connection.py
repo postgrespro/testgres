@@ -42,8 +42,7 @@ class NodeConnection(object):
 
         self._node = node
 
-        self.os_ops = OsOperations(node.host, node.hostname, node.ssh_key, node.username)
-        self._connection = self.os_ops.db_connect(dbname=dbname,
+        self._connection = node.os_ops.db_connect(dbname=dbname,
                                                   user=username,
                                                   password=password,
                                                   host=node.host,

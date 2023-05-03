@@ -55,12 +55,6 @@ class GlobalConfig(object):
     def cached_initdb_dir(self, value):
         self._cached_initdb_dir = value
 
-        # NOTE: assign initial cached dir for initdb
-        if self.os_ops:
-            testgres_config.cached_initdb_dir = self.os_ops.mkdtemp(prefix=TMP_CACHE)
-        else:
-            testgres_config.cached_initdb_dir = mkdtemp(prefix=TMP_CACHE)
-
         if value:
             cached_initdb_dirs.add(value)
         return testgres_config.cached_initdb_dir
@@ -208,3 +202,7 @@ def configure_testgres(**options):
     """
 
     testgres_config.update(options)
+
+
+# NOTE: assign initial cached dir for initdb
+testgres_config.cached_initdb_dir = mkdtemp(prefix=TMP_CACHE)

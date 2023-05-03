@@ -39,7 +39,7 @@ def cached_initdb(data_dir, logfile=None, hostname='localhost', ssh_key=None, pa
         call_initdb(data_dir, logfile)
     else:
         # Fetch cached initdb dir
-        cached_data_dir = testgres_config.cached_initdb_dir
+        cached_data_dir = testgres_config.cached_initdb_dir()
 
         # Initialize cached initdb
 

@@ -262,32 +262,25 @@ class OsOperations:
             user = getpass.getuser()
         return user
 
-    @contextmanager
     def db_connect(self, dbname, user, password=None, host='localhost', port=5432):
         if self.remote:
-            with self.ssh_connect() as ssh:
-                # Set up a local port forwarding on a random port
-                local_port = ssh.forward_remote_port(host, port)
-                conn = pglib.connect(
-                    host=host,
-                    port=local_port,
-                    dbname=dbname,
-                    user=user,
-                    password=password,
-                )
-                try:
-                    yield conn
-                finally:
-                    conn.close()
-                    ssh.close_forwarded_tcp(local_port)
+            local_port = self.ssh.forward_remote_port(host, port)
+            conn = pglib.connect(
+                host=host,
+                port=local_port,
+                dbname=dbname,
+                user=user,
+                password=password,
+            )
         else:
-            with pglib.connect(
+            conn = pglib.connect(
                     host=host,
                     port=port,
                     dbname=dbname,
                     user=user,
                     password=password,
-            ) as conn:
-                yield conn
+            )
+        return conn
+
 
 
