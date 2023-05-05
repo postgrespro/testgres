@@ -875,15 +875,13 @@ class PostgresNode(object):
             self._should_free_port = False
             release_port(self.port)
 
-    def cleanup(self, max_attempts=3, full_clean=testgres_config.node_cleanup_full):
+    def cleanup(self, max_attempts=3):
         """
         Stop node if needed and remove its data/logs directory.
         NOTE: take a look at TestgresConfig.node_cleanup_full.
 
         Args:
             max_attempts: how many times should we try to stop()?
-            full_clean: True - clean all node data
-                        False - clean only data dir, save logs
 
         Returns:
             This instance of :class:`.PostgresNode`.
@@ -892,7 +890,7 @@ class PostgresNode(object):
         self._try_shutdown(max_attempts)
 
         # choose directory to be removed
-        if full_clean:
+        if testgres_config.node_cleanup_full:
             rm_dir = self.base_dir    # everything
         else:
             rm_dir = self.data_dir    # just data, save logs
