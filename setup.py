@@ -11,7 +11,6 @@ install_requires = [
     "port-for>=0.4",
     "six>=1.9.0",
     "psutil",
-    "packaging",
 ]
 
 # Add compatibility enum class
