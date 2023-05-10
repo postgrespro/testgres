@@ -21,12 +21,14 @@ $VIRTUALENV $VENV_PATH
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 source $VENV_PATH/bin/activate
 
-# install utilities
-$PIP install coverage flake8 psutil Sphinx
 
 # install testgres' dependencies
 export PYTHONPATH=$(pwd)
 $PIP install .
+
+
+# install utilities
+$PIP install coverage flake8 psutil Sphinx
 
 # test code quality
 flake8 .
