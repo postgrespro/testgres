@@ -12,7 +12,10 @@ import tempfile
 
 from contextlib import contextmanager
 from packaging.version import Version
-from distutils.spawn import find_executable
+try:
+    from shutil import which as find_executable
+except ImportError:
+    from distutils.spawn import find_executable
 from six import iteritems
 
 from .config import testgres_config
