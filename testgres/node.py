@@ -1593,8 +1593,10 @@ class NodeApp:
             set_replication=False,
             ptrack_enable=False,
             initdb_params=[],
-            pg_options={}):
-
+            pg_options={},
+            checksum=True):
+        if checksum and '--data-checksums' not in initdb_params:
+            initdb_params.append('--data-checksums')
         node = self.make_empty(base_dir)
         node.init(
             initdb_params=initdb_params, allow_streaming=set_replication)
