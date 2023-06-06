@@ -30,7 +30,6 @@ PostgresNode(name='...', port=..., base_dir='...')
 PostgresNode(name='...', port=..., base_dir='...')
 [(3,)]
 """
-from defaults import default_username
 from .node import PostgresNode
 
 

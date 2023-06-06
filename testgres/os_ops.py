@@ -1,4 +1,3 @@
-import base64
 import getpass
 import os
 import shutil
@@ -15,7 +14,7 @@ except ImportError:
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
-from defaults import default_username
+from testgres.defaults import default_username
 from testgres.logger import log
 
 import paramiko

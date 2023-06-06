@@ -1,12 +1,10 @@
 # coding: utf-8
 
-import io
 import os
 
-from shutil import copytree
 from six import raise_from
 
-from os_ops import OsOperations
+from .os_ops import OsOperations
 from .config import testgres_config
 
 from .consts import XLOG_CONTROL_FILE

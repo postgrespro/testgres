@@ -4,9 +4,7 @@ import os
 
 from shutil import rmtree, copytree
 from six import raise_from
-from tempfile import mkdtemp
 
-from os_ops import OsOperations
 from .enums import XLogMethod
 
 from .consts import \

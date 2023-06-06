@@ -1,5 +1,4 @@
 # coding: utf-8
-from os_ops import OsOperations
 
 # we support both pg8000 and psycopg2
 try:
