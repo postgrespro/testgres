@@ -1,6 +1,6 @@
 import datetime
-import getpass
 import os
+import pwd
 import struct
 import uuid
 
@@ -18,7 +18,7 @@ def default_username():
     Return default username (current user).
     """
 
-    return getpass.getuser()
+    return pwd.getpwuid(os.getuid())[0]
 
 
 def generate_app_name():

@@ -27,7 +27,6 @@ $PIP install coverage flake8 psutil Sphinx
 # install testgres' dependencies
 export PYTHONPATH=$(pwd)
 $PIP install .
-
 # test code quality
 flake8 .
 
