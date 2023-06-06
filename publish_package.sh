@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2017-2022 Postgres Professional
-
 set -eux
 
 # prepare environment
@@ -21,3 +19,4 @@ python3 setup.py sdist bdist_wheel
 twine upload dist/*
 
 set +eux
+
