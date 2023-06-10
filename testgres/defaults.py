@@ -1,8 +1,9 @@
 import datetime
-import getpass
 import os
 import struct
 import uuid
+
+from .op_ops.local_ops import LocalOperations
 
 
 def default_dbname():
@@ -13,15 +14,11 @@ def default_dbname():
     return 'postgres'
 
 
-def default_username(os_ops=None):
+def default_username(os_ops=LocalOperations()):
     """
     Return default username (current user).
     """
-    if os_ops:
-        user = os_ops.get_user()
-    else:
-        user = getpass.getuser()
-    return user
+    return os_ops.get_user()
 
 
 def generate_app_name():
@@ -32,7 +29,7 @@ def generate_app_name():
     return 'testgres-{}'.format(str(uuid.uuid4()))
 
 
-def generate_system_id(os_ops=None):
+def generate_system_id(os_ops=LocalOperations()):
     """
     Generate a new 64-bit unique system identifier for node.
     """
@@ -47,10 +44,7 @@ def generate_system_id(os_ops=None):
     system_id = 0
     system_id |= (secs << 32)
     system_id |= (usecs << 12)
-    if os_ops:
-        system_id |= (os_ops.get_pid() & 0xFFF)
-    else:
-        system_id |= (os.getpid() & 0xFFF)
+    system_id |= (os_ops.get_pid() & 0xFFF)
 
     # pack ULL in native byte order
     return struct.pack('=Q', system_id)

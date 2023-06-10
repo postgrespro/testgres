@@ -2,7 +2,6 @@
 
 import os
 
-from shutil import rmtree, copytree
 from six import raise_from
 
 from .enums import XLogMethod
@@ -13,8 +12,6 @@ from .consts import \
     TMP_BACKUP, \
     PG_CONF_FILE, \
     BACKUP_LOG_FILE
-
-from .defaults import default_username
 
 from .exceptions import BackupException
 
@@ -80,7 +77,7 @@ class NodeBackup(object):
             "-D", data_dir,
             "-X", xlog_method.value
         ]  # yapf: disable
-        execute_utility(_params, self.log_file, hostname=node.hostname, ssh_key=node.ssh_key)
+        execute_utility(_params, self.log_file, self.os_ops)
 
     def __enter__(self):
         return self
@@ -113,7 +110,7 @@ class NodeBackup(object):
 
             try:
                 # Copy backup to new data dir
-                copytree(data1, data2)
+                self.os_ops.copytree(data1, data2)
             except Exception as e:
                 raise_from(BackupException('Failed to copy files'), e)
         else:

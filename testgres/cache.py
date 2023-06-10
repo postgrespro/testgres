@@ -4,7 +4,8 @@ import os
 
 from six import raise_from
 
-from .os_ops import OsOperations
+from .op_ops.local_ops import LocalOperations
+from .op_ops.os_ops import OsOperations
 from .config import testgres_config
 
 from .consts import XLOG_CONTROL_FILE
@@ -20,16 +21,15 @@ from .utils import \
     execute_utility
 
 
-def cached_initdb(data_dir, logfile=None, hostname='localhost', ssh_key=None, params=None):
+def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = LocalOperations()):
     """
     Perform initdb or use cached node files.
     """
-    os_ops = OsOperations(hostname=hostname, ssh_key=ssh_key)
 
     def call_initdb(initdb_dir, log=None):
         try:
             _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
-            execute_utility(_params + (params or []), log, hostname=hostname, ssh_key=ssh_key)
+            execute_utility(_params + (params or []), log, os_ops)
         except ExecUtilException as e:
             raise_from(InitNodeException("Failed to run initdb"), e)
 
@@ -42,7 +42,7 @@ def cached_initdb(data_dir, logfile=None, hostname='localhost', ssh_key=None, pa
         # Initialize cached initdb
 
         if not os_ops.path_exists(cached_data_dir) or \
-           not os_ops.listdir(cached_data_dir):
+                not os_ops.listdir(cached_data_dir):
             call_initdb(cached_data_dir)
 
         try:
@@ -60,7 +60,7 @@ def cached_initdb(data_dir, logfile=None, hostname='localhost', ssh_key=None, pa
 
                 # XXX: build new WAL segment with our system id
                 _params = [get_bin_path("pg_resetwal"), "-D", data_dir, "-f"]
-                execute_utility(_params, logfile, hostname=hostname, ssh_key=ssh_key)
+                execute_utility(_params, logfile, os_ops)
 
         except ExecUtilException as e:
             msg = "Failed to reset WAL for system id"

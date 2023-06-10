@@ -6,8 +6,8 @@ import tempfile
 
 from contextlib import contextmanager
 from shutil import rmtree
-from tempfile import mkdtemp
 
+from .op_ops.local_ops import LocalOperations
 from .consts import TMP_CACHE
 
 
@@ -137,12 +137,9 @@ config_stack = []
 
 
 @atexit.register
-def _rm_cached_initdb_dirs(os_ops=None):
+def _rm_cached_initdb_dirs(os_ops=LocalOperations()):
     for d in cached_initdb_dirs:
-        if os_ops:
-            os_ops.rmtree(d, ignore_errors=True)
-        else:
-            rmtree(d, ignore_errors=True)
+        os_ops.rmdirs(d, ignore_errors=True)
 
 
 def push_config(**options):
@@ -205,4 +202,4 @@ def configure_testgres(**options):
 
 
 # NOTE: assign initial cached dir for initdb
-testgres_config.cached_initdb_dir = mkdtemp(prefix=TMP_CACHE)
+testgres_config.cached_initdb_dir = testgres_config.os_ops.mkdtemp(prefix=TMP_CACHE)
