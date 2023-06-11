@@ -28,7 +28,9 @@ class RemoteOperations(OsOperations):
     - ssh (paramiko.SSHClient): SSH connection to the remote system.
     """
 
-    def __init__(self, hostname='localhost', host='127.0.0.1', ssh_key=None, username=None):
+    def __init__(
+        self, hostname="localhost", host="127.0.0.1", ssh_key=None, username=None
+    ):
         super().__init__(username)
         self.hostname = hostname
         self.host = host
@@ -46,9 +48,9 @@ class RemoteOperations(OsOperations):
         if not self.remote:
             yield None
         else:
-            with open(self.ssh_key, 'r') as f:
+            with open(self.ssh_key, "r") as f:
                 key_data = f.read()
-                if 'BEGIN OPENSSH PRIVATE KEY' in key_data:
+                if "BEGIN OPENSSH PRIVATE KEY" in key_data:
                     key = paramiko.Ed25519Key.from_private_key_file(self.ssh_key)
                 else:
                     key = paramiko.RSAKey.from_private_key_file(self.ssh_key)
@@ -63,9 +65,11 @@ class RemoteOperations(OsOperations):
             return ssh
 
     # Command execution
-    def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False, encoding='utf-8'):
+    def exec_command(
+        self, cmd, wait_exit=False, verbose=False, expect_error=False, encoding="utf-8"
+    ):
         if isinstance(cmd, list):
-            cmd = ' '.join(cmd)
+            cmd = " ".join(cmd)
         log.debug(f"os_ops.exec_command: `{cmd}`; remote={self.remote}")
         # Source global profile file + execute command
         try:
@@ -80,8 +84,10 @@ class RemoteOperations(OsOperations):
 
             if expect_error:
                 raise Exception(result, error)
-            if exit_status != 0 or 'error' in error.lower():
-                log.error(f"Problem in executing command: `{cmd}`\nerror: {error}\nexit_code: {exit_status}")
+            if exit_status != 0 or "error" in error.lower():
+                log.error(
+                    f"Problem in executing command: `{cmd}`\nerror: {error}\nexit_code: {exit_status}"
+                )
                 exit(1)
 
             if verbose:
@@ -99,7 +105,7 @@ class RemoteOperations(OsOperations):
         return self.exec_command(cmd).strip()
 
     def find_executable(self, executable):
-        search_paths = self.environ('PATH')
+        search_paths = self.environ("PATH")
         if not search_paths:
             return None
 
@@ -113,17 +119,17 @@ class RemoteOperations(OsOperations):
 
     def is_executable(self, file):
         # Check if the file is executable
-        return self.exec_command(f"test -x {file} && echo OK") == 'OK\n'
+        return self.exec_command(f"test -x {file} && echo OK") == "OK\n"
 
     def add_to_path(self, new_path):
         pathsep = self.pathsep
         # Check if the directory is already in PATH
-        path = self.environ('PATH')
+        path = self.environ("PATH")
         if new_path not in path.split(pathsep):
             if self.remote:
                 self.exec_command(f"export PATH={new_path}{pathsep}{path}")
             else:
-                os.environ['PATH'] = f"{new_path}{pathsep}{path}"
+                os.environ["PATH"] = f"{new_path}{pathsep}{path}"
         return pathsep
 
     def set_env(self, var_name, var_val):
@@ -132,7 +138,7 @@ class RemoteOperations(OsOperations):
 
     # Get environment variables
     def get_user(self):
-        return self.exec_command(f"echo $USER")
+        return self.exec_command("echo $USER")
 
     def get_name(self):
         cmd = 'python3 -c "import os; print(os.name)"'
@@ -141,40 +147,45 @@ class RemoteOperations(OsOperations):
     # Work with dirs
     def makedirs(self, path, remove_existing=False):
         if remove_existing:
-            cmd = f'rm -rf {path} && mkdir -p {path}'
+            cmd = f"rm -rf {path} && mkdir -p {path}"
         else:
-            cmd = f'mkdir -p {path}'
+            cmd = f"mkdir -p {path}"
         return self.exec_command(cmd)
 
     def rmdirs(self, path, ignore_errors=True):
-        cmd = f'rm -rf {path}'
+        cmd = f"rm -rf {path}"
         return self.exec_command(cmd)
 
     def listdir(self, path):
-        result = self.exec_command(f'ls {path}')
+        result = self.exec_command(f"ls {path}")
         return result.splitlines()
 
     def path_exists(self, path):
-        result = self.exec_command(f'test -e {path}; echo $?')
+        result = self.exec_command(f"test -e {path}; echo $?")
         return int(result.strip()) == 0
 
     @property
     def pathsep(self):
         os_name = self.get_name()
-        if os_name == 'posix':
-            pathsep = ':'
-        elif os_name == 'nt':
-            pathsep = ';'
+        if os_name == "posix":
+            pathsep = ":"
+        elif os_name == "nt":
+            pathsep = ";"
         else:
             raise Exception(f"Unsupported operating system: {os_name}")
         return pathsep
 
     def mkdtemp(self, prefix=None):
-        temp_dir = self.exec_command(f'mkdtemp -d {prefix}')
+        temp_dir = self.exec_command(f"mkdtemp -d {prefix}")
         return temp_dir.strip()
 
+    def mkstemp(self, prefix=None):
+        cmd = f"mktemp {prefix}XXXXXX"
+        filename = self.exec_command(cmd).strip()
+        return filename
+
     def copytree(self, src, dst):
-        return self.exec_command(f'cp -r {src} {dst}')
+        return self.exec_command(f"cp -r {src} {dst}")
 
     # Work with files
     def write(self, filename, data, truncate=False, binary=False, read_and_write=False):
@@ -190,11 +201,11 @@ class RemoteOperations(OsOperations):
             read_and_write: If True, the file will be opened with read and write permissions ('r+' option);
                             if False (default), only write permission will be used ('w', 'a', 'wb', or 'ab' option)
         """
-        mode = 'wb' if binary else 'w'
+        mode = "wb" if binary else "w"
         if not truncate:
-            mode = 'a' + mode
+            mode = "a" + mode
         if read_and_write:
-            mode = 'r+' + mode
+            mode = "r+" + mode
 
         with tempfile.NamedTemporaryFile(mode=mode) as tmp_file:
             if isinstance(data, list):
@@ -216,38 +227,38 @@ class RemoteOperations(OsOperations):
 
         This method behaves as the 'touch' command in Unix. It's equivalent to calling 'touch filename' in the shell.
         """
-        self.exec_command(f'touch {filename}')
+        self.exec_command(f"touch {filename}")
 
-    def read(self, filename, encoding='utf-8'):
-        cmd = f'cat {filename}'
+    def read(self, filename, encoding="utf-8"):
+        cmd = f"cat {filename}"
         return self.exec_command(cmd, encoding=encoding)
 
     def readlines(self, filename, num_lines=0, encoding=None):
-        encoding = encoding or 'utf-8'
+        encoding = encoding or "utf-8"
         if num_lines > 0:
-            cmd = f'tail -n {num_lines} {filename}'
+            cmd = f"tail -n {num_lines} {filename}"
             lines = self.exec_command(cmd, encoding)
         else:
             lines = self.read(filename, encoding=encoding).splitlines()
         return lines
 
     def isfile(self, remote_file):
-        stdout = self.exec_command(f'test -f {remote_file}; echo $?')
+        stdout = self.exec_command(f"test -f {remote_file}; echo $?")
         result = int(stdout.strip())
         return result == 0
 
     # Processes control
     def kill(self, pid, signal):
         # Kill the process
-        cmd = f'kill -{signal} {pid}'
+        cmd = f"kill -{signal} {pid}"
         return self.exec_command(cmd)
 
     def get_pid(self):
         # Get current process id
-        return self.exec_command(f"echo $$")
+        return self.exec_command("echo $$")
 
     # Database control
-    def db_connect(self, dbname, user, password=None, host='localhost', port=5432):
+    def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
         local_port = self.ssh.forward_remote_port(host, port)
         conn = pglib.connect(
             host=host,

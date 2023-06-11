@@ -4,8 +4,8 @@ import os
 
 from six import raise_from
 
-from .op_ops.local_ops import LocalOperations
-from .op_ops.os_ops import OsOperations
+from .os_ops.local_ops import LocalOperations
+from .os_ops.os_ops import OsOperations
 from .config import testgres_config
 
 from .consts import XLOG_CONTROL_FILE
@@ -25,6 +25,7 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = Lo
     """
     Perform initdb or use cached node files.
     """
+    testgres_config.os_ops = os_ops
 
     def call_initdb(initdb_dir, log=None):
         try:
@@ -60,7 +61,7 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = Lo
 
                 # XXX: build new WAL segment with our system id
                 _params = [get_bin_path("pg_resetwal"), "-D", data_dir, "-f"]
-                execute_utility(_params, logfile, os_ops)
+                execute_utility(_params, logfile, os_ops=os_ops)
 
         except ExecUtilException as e:
             msg = "Failed to reset WAL for system id"

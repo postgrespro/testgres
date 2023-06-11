@@ -1,9 +1,8 @@
 import datetime
-import os
 import struct
 import uuid
 
-from .op_ops.local_ops import LocalOperations
+from .os_ops.local_ops import LocalOperations
 
 
 def default_dbname():

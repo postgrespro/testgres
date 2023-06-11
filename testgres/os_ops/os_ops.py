@@ -1,18 +1,15 @@
 try:
-    import psycopg2 as pglib
+    import psycopg2 as pglib  # noqa: F401
 except ImportError:
     try:
-        import pg8000 as pglib
+        import pg8000 as pglib  # noqa: F401
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
-from testgres.defaults import default_username
-
 
 class OsOperations:
-
     def __init__(self, username=None):
-        self.hostname = 'localhost'
+        self.hostname = "localhost"
         self.remote = False
         self.ssh = None
         self.username = username
@@ -49,7 +46,7 @@ class OsOperations:
     # Work with dirs
     def makedirs(self, path, remove_existing=False):
         raise NotImplementedError()
-        
+
     def rmdirs(self, path, ignore_errors=True):
         raise NotImplementedError()
 
@@ -95,5 +92,5 @@ class OsOperations:
         raise NotImplementedError()
 
     # Database control
-    def db_connect(self, dbname, user, password=None, host='localhost', port=5432):
+    def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
         raise NotImplementedError()

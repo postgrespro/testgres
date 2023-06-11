@@ -1,20 +1,16 @@
 # coding: utf-8
 
-import io
 import os
 import random
-import shutil
 import signal
 import threading
 from queue import Queue
 
 import psutil
-import subprocess
 import time
 
-from op_ops.local_ops import LocalOperations
-from op_ops.os_ops import OsOperations
-from op_ops.remote_ops import RemoteOperations
+from .os_ops.local_ops import LocalOperations
+from .os_ops.remote_ops import RemoteOperations
 
 try:
     from collections.abc import Iterable
@@ -32,7 +28,6 @@ except ImportError:
 
 from shutil import rmtree
 from six import raise_from, iteritems, text_type
-from tempfile import mkstemp, mkdtemp
 
 from .enums import \
     NodeStatus, \
@@ -96,7 +91,6 @@ from .utils import \
     eprint, \
     get_bin_path, \
     get_pg_version, \
-    file_tail, \
     reserve_port, \
     release_port, \
     execute_utility, \
@@ -163,6 +157,7 @@ class PostgresNode(object):
         else:
             self.os_ops = RemoteOperations(host, hostname, ssh_key)
 
+        testgres_config.os_ops = self.os_ops
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
         self.cleanup_on_bad_exit = testgres_config.node_cleanup_on_bad_exit
@@ -289,7 +284,7 @@ class PostgresNode(object):
             self._base_dir = self.os_ops.mkdtemp(prefix=TMP_NODE)
 
         # NOTE: it's safe to create a new dir
-        if not self.os_ops.exists(self._base_dir):
+        if not self.os_ops.path_exists(self._base_dir):
             self.os_ops.makedirs(self._base_dir)
 
         return self._base_dir
@@ -299,7 +294,7 @@ class PostgresNode(object):
         path = os.path.join(self.base_dir, LOGS_DIR)
 
         # NOTE: it's safe to create a new dir
-        if not self.os_ops.exists(path):
+        if not self.os_ops.path_exists(path):
             self.os_ops.makedirs(path)
 
         return path
@@ -628,7 +623,7 @@ class PostgresNode(object):
                 "-D", self.data_dir,
                 "status"
             ]  # yapf: disable
-            execute_utility(_params, self.utils_log_file)
+            execute_utility(_params, self.utils_log_file, os_ops=self.os_ops)
             return NodeStatus.Running
 
         except ExecUtilException as e:
@@ -650,7 +645,7 @@ class PostgresNode(object):
         _params += ["-D"] if self._pg_version >= PgVer('9.5') else []
         _params += [self.data_dir]
 
-        data = execute_utility(_params, self.utils_log_file)
+        data = execute_utility(_params, self.utils_log_file, os_ops=self.os_ops)
 
         out_dict = {}
 
@@ -713,7 +708,7 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            execute_utility(_params, self.utils_log_file)
+            execute_utility(_params, self.utils_log_file, os_ops=self.os_ops)
         except ExecUtilException as e:
             msg = 'Cannot start node'
             files = self._collect_special_files()
@@ -744,7 +739,7 @@ class PostgresNode(object):
             "stop"
         ] + params  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility(_params, self.utils_log_file, os_ops=self.os_ops)
 
         self._maybe_stop_logger()
         self.is_started = False
@@ -786,7 +781,7 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            execute_utility(_params, self.utils_log_file)
+            execute_utility(_params, self.utils_log_file, os_ops=self.os_ops)
         except ExecUtilException as e:
             msg = 'Cannot restart node'
             files = self._collect_special_files()
@@ -813,7 +808,7 @@ class PostgresNode(object):
             "reload"
         ] + params  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility(_params, self.utils_log_file, os_ops=self.os_ops)
 
         return self
 
@@ -835,7 +830,7 @@ class PostgresNode(object):
             "promote"
         ]  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility(_params, self.utils_log_file, os_ops=self.os_ops)
 
         # for versions below 10 `promote` is asynchronous so we need to wait
         # until it actually becomes writable
@@ -870,7 +865,7 @@ class PostgresNode(object):
             "-w"  # wait
         ] + params  # yapf: disable
 
-        return execute_utility(_params, self.utils_log_file)
+        return execute_utility(_params, self.utils_log_file, os_ops=self.os_ops)
 
     def free_port(self):
         """
@@ -1035,10 +1030,9 @@ class PostgresNode(object):
         # Generate tmpfile or tmpdir
         def tmpfile():
             if format == DumpFormat.Directory:
-                fname = mkdtemp(prefix=TMP_DUMP)
+                fname = self.os_ops.mkdtemp(prefix=TMP_DUMP)
             else:
-                fd, fname = mkstemp(prefix=TMP_DUMP)
-                os.close(fd)
+                fname = self.os_ops.mkstemp(prefix=TMP_DUMP)
             return fname
 
         # Set default arguments
@@ -1056,7 +1050,7 @@ class PostgresNode(object):
             "-F", format.value
         ]  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility(_params, self.utils_log_file, os_ops=self.os_ops)
 
         return filename
 
@@ -1085,7 +1079,7 @@ class PostgresNode(object):
 
         # try pg_restore if dump is binary formate, and psql if not
         try:
-            execute_utility(_params, self.utils_log_name)
+            execute_utility(_params, self.utils_log_name, os_ops=self.os_ops)
         except ExecUtilException:
             self.psql(filename=filename, dbname=dbname, username=username)
 
@@ -1417,7 +1411,7 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        return execute_utility(_params, self.utils_log_file)
+        return execute_utility(_params, self.utils_log_file, os_ops=self.os_ops)
 
     def connect(self,
                 dbname=None,

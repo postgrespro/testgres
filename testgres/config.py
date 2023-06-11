@@ -5,9 +5,8 @@ import copy
 import tempfile
 
 from contextlib import contextmanager
-from shutil import rmtree
 
-from .op_ops.local_ops import LocalOperations
+from .os_ops.local_ops import LocalOperations
 from .consts import TMP_CACHE
 
 
@@ -44,7 +43,7 @@ class GlobalConfig(object):
     _cached_initdb_dir = None
     """ underlying class attribute for cached_initdb_dir property """
 
-    os_ops = None
+    os_ops = LocalOperations()
     """ OsOperation object that allows work on remote host """
     @property
     def cached_initdb_dir(self):
@@ -137,9 +136,9 @@ config_stack = []
 
 
 @atexit.register
-def _rm_cached_initdb_dirs(os_ops=LocalOperations()):
+def _rm_cached_initdb_dirs():
     for d in cached_initdb_dirs:
-        os_ops.rmdirs(d, ignore_errors=True)
+        testgres_config.os_ops.rmdirs(d, ignore_errors=True)
 
 
 def push_config(**options):

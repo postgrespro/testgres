@@ -12,6 +12,9 @@ import tempfile
 
 from contextlib import contextmanager
 from packaging.version import Version
+
+from .os_ops.remote_ops import RemoteOperations
+
 try:
     from shutil import which as find_executable
 except ImportError:
@@ -19,8 +22,8 @@ except ImportError:
 from six import iteritems
 
 from fabric import Connection
-from .op_ops.local_ops import LocalOperations
-from .op_ops.os_ops import OsOperations
+from .os_ops.local_ops import LocalOperations
+from .os_ops.os_ops import OsOperations
 
 from .config import testgres_config
 from .exceptions import ExecUtilException
@@ -59,6 +62,7 @@ def execute_utility(args, logfile=None, os_ops: OsOperations = LocalOperations()
     Execute utility (pg_ctl, pg_dump etc).
 
     Args:
+        os_ops: LocalOperations for local node or RemoteOperations for node that connected by ssh.
         args: utility + arguments (list).
         logfile: path to file to store stdout and stderr.
 
@@ -66,21 +70,20 @@ def execute_utility(args, logfile=None, os_ops: OsOperations = LocalOperations()
         stdout of executed utility.
     """
 
-    if os_ops.hostname != 'localhost':
+    if isinstance(os_ops, RemoteOperations):
         conn = Connection(
             os_ops.hostname,
             connect_kwargs={
                 "key_filename": f"{os_ops.ssh_key}",
             },
         )
-
         # TODO skip remote ssh run if we are on the localhost.
         # result = conn.run('hostname', hide=True)
-        # add logger 
+        # add logger
 
         cmd = ' '.join(args)
-        result = conn.run(cmd, hide=True)        
-        
+        result = conn.run(cmd, hide=True)
+
         return result
 
     # run utility
@@ -173,8 +176,9 @@ def get_bin_path(filename):
 def get_pg_config(pg_config_path=None):
     """
     Return output of pg_config (provided that it is installed).
-    NOTE: this fuction caches the result by default (see GlobalConfig).
+    NOTE: this function caches the result by default (see GlobalConfig).
     """
+
     def cache_pg_config_data(cmd):
         # execute pg_config and get the output
         out = subprocess.check_output([cmd]).decode('utf-8')
