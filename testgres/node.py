@@ -9,9 +9,6 @@ from queue import Queue
 import psutil
 import time
 
-from .os_ops.local_ops import LocalOperations
-from .os_ops.remote_ops import RemoteOperations
-
 try:
     from collections.abc import Iterable
 except ImportError:
@@ -98,6 +95,9 @@ from .utils import \
     clean_on_error
 
 from .backup import NodeBackup
+
+from .operations.local_ops import LocalOperations
+from .operations.remote_ops import RemoteOperations
 
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
@@ -201,7 +201,7 @@ class PostgresNode(object):
 
         if self.status():
             pid_file = os.path.join(self.data_dir, PG_PID_FILE)
-            lines = self.os_ops.readlines(pid_file, num_lines=1)
+            lines = self.os_ops.readlines(pid_file)
             pid = int(lines[0]) if lines else None
             return pid
 
@@ -433,7 +433,8 @@ class PostgresNode(object):
             if not self.os_ops.path_exists(f):
                 continue
 
-            lines = b''.join(self.os_ops.readlines(f, num_lines, encoding='utf-8'))
+            file_lines = self.os_ops.readlines(f, num_lines, binary=True, encoding=None)
+            lines = b''.join(file_lines)
 
             # fill list
             result.append((f, lines))
@@ -498,7 +499,7 @@ class PostgresNode(object):
         ]
 
         # write filtered lines
-        self.os_ops.write(hba_conf_file, lines, truncate=True)
+        self.os_ops.write(hba_conf, lines, truncate=True)
 
         # replication-related settings
         if allow_streaming:
@@ -960,11 +961,9 @@ class PostgresNode(object):
         psql_params.append(dbname)
 
         # start psql process
-        process = self.os_ops.exec_command(psql_params)
+        status_code, out, err = self.os_ops.exec_command(psql_params, shell=False, verbose=True, input=input)
 
-        # wait until it finishes and get stdout and stderr
-        out, err = process.communicate(input=input)
-        return process.returncode, out, err
+        return status_code, out, err
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def safe_psql(self, query=None, expect_error=False, **kwargs):
@@ -1348,7 +1347,7 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        proc = self.os_ops.exec_command(_params, wait_exit=True)
+        proc = self.os_ops.exec_command(_params, stdout=stdout, stderr=stderr, wait_exit=True, shell=False, proc=True)
 
         return proc
 

@@ -13,8 +13,6 @@ import tempfile
 from contextlib import contextmanager
 from packaging.version import Version
 
-from .os_ops.remote_ops import RemoteOperations
-
 try:
     from shutil import which as find_executable
 except ImportError:
@@ -22,8 +20,10 @@ except ImportError:
 from six import iteritems
 
 from fabric import Connection
-from .os_ops.local_ops import LocalOperations
-from .os_ops.os_ops import OsOperations
+
+from .operations.remote_ops import RemoteOperations
+from .operations.local_ops import LocalOperations
+from .operations.os_ops import OsOperations
 
 from .config import testgres_config
 from .exceptions import ExecUtilException

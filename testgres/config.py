@@ -6,8 +6,8 @@ import tempfile
 
 from contextlib import contextmanager
 
-from .os_ops.local_ops import LocalOperations
 from .consts import TMP_CACHE
+from .operations.local_ops import LocalOperations
 
 
 class GlobalConfig(object):

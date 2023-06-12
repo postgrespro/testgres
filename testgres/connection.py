@@ -102,23 +102,15 @@ class NodeConnection(object):
         return self
 
     def execute(self, query, *args):
+        self.cursor.execute(query, args)
         try:
-            with self.connection.cursor() as cursor:
-                cursor.execute(query, args)
-                try:
-                    res = cursor.fetchall()
+            res = self.cursor.fetchall()
+            # pg8000 might return tuples
+            if isinstance(res, tuple):
+                res = [tuple(t) for t in res]
 
-                    # pg8000 might return tuples
-                    if isinstance(res, tuple):
-                        res = [tuple(t) for t in res]
-
-                    return res
-                except (pglib.ProgrammingError, pglib.InternalError) as e:
-                    # An error occurred while trying to fetch results (e.g., no results to fetch)
-                    print(f"Error fetching results: {e}")
-                    return None
-        except (pglib.Error, Exception) as e:
-            # Handle other database errors
+            return res
+        except Exception as e:
             print(f"Error executing query: {e}")
             return None
 

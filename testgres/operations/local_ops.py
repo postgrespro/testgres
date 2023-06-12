@@ -19,18 +19,25 @@ class LocalOperations(OsOperations):
         self.username = username or self.get_user()
 
     # Command execution
-    def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False):
-        if isinstance(cmd, list):
-            cmd = " ".join(cmd)
+    def exec_command(self, cmd, wait_exit=False, verbose=False,
+                     expect_error=False, encoding=None, shell=True, text=False,
+                     input=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE, proc=None):
         log.debug(f"os_ops.exec_command: `{cmd}`; remote={self.remote}")
         # Source global profile file + execute command
         try:
+            if proc:
+                return subprocess.Popen(cmd,
+                                        shell=shell,
+                                        stdin=input or subprocess.PIPE,
+                                        stdout=stdout,
+                                        stderr=stderr)
             process = subprocess.run(
                 cmd,
-                shell=True,
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                input=input,
+                shell=shell,
+                text=text,
+                stdout=stdout,
+                stderr=stderr,
                 timeout=CMD_TIMEOUT_SEC,
             )
             exit_status = process.returncode
@@ -39,11 +46,11 @@ class LocalOperations(OsOperations):
 
             if expect_error:
                 raise Exception(result, error)
-            if exit_status != 0 or "error" in error.lower():
+            if exit_status != 0 or "error" in error.lower().decode(encoding or 'utf-8'):  # Decode error for comparison
                 log.error(
-                    f"Problem in executing command: `{cmd}`\nerror: {error}\nexit_code: {exit_status}"
+                    f"Problem in executing command: `{cmd}`\nerror: {error.decode(encoding or 'utf-8')}\nexit_code: {exit_status}"
+                    # Decode for logging
                 )
-                exit(1)
 
             if verbose:
                 return exit_status, result, error
@@ -152,9 +159,9 @@ class LocalOperations(OsOperations):
         """
         mode = "wb" if binary else "w"
         if not truncate:
-            mode = "a" + mode
+            mode = "ab" if binary else "a"
         if read_and_write:
-            mode = "r+" + mode
+            mode = "r+b" if binary else "r+"
 
         with open(filename, mode) as file:
             if isinstance(data, list):
@@ -174,26 +181,26 @@ class LocalOperations(OsOperations):
         with open(filename, "a"):
             os.utime(filename, None)
 
-    def read(self, filename):
-        with open(filename, "r") as file:
+    def read(self, filename, encoding=None):
+        with open(filename, "r", encoding=encoding) as file:
             return file.read()
 
-    def readlines(self, filename, num_lines=0, encoding=None):
+    def readlines(self, filename, num_lines=0, binary=False, encoding=None):
         """
         Read lines from a local file.
         If num_lines is greater than 0, only the last num_lines lines will be read.
         """
         assert num_lines >= 0
-
+        mode = 'rb' if binary else 'r'
         if num_lines == 0:
-            with open(filename, "r", encoding=encoding) as file:
+            with open(filename, mode, encoding=encoding) as file:  # open in binary mode
                 return file.readlines()
 
         else:
             bufsize = 8192
             buffers = 1
 
-            with open(filename, "r", encoding=encoding) as file:
+            with open(filename, mode, encoding=encoding) as file:  # open in binary mode
                 file.seek(0, os.SEEK_END)
                 end_pos = file.tell()
 
@@ -205,7 +212,7 @@ class LocalOperations(OsOperations):
                     cur_lines = len(lines)
 
                     if cur_lines >= num_lines or pos == 0:
-                        return lines[-num_lines:]
+                        return lines[-num_lines:]  # get last num_lines from lines
 
                     buffers = int(
                         buffers * max(2, int(num_lines / max(cur_lines, 1)))

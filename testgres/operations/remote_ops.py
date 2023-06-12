@@ -1,3 +1,4 @@
+import io
 import os
 import tempfile
 from contextlib import contextmanager
@@ -65,9 +66,9 @@ class RemoteOperations(OsOperations):
             return ssh
 
     # Command execution
-    def exec_command(
-        self, cmd, wait_exit=False, verbose=False, expect_error=False, encoding="utf-8"
-    ):
+    def exec_command(self, cmd, wait_exit=False, verbose=False,
+                     expect_error=False, encoding=None, shell=True, text=False,
+                     input=None, stdout=None, stderr=None, proc=None):
         if isinstance(cmd, list):
             cmd = " ".join(cmd)
         log.debug(f"os_ops.exec_command: `{cmd}`; remote={self.remote}")
@@ -75,20 +76,31 @@ class RemoteOperations(OsOperations):
         try:
             cmd = f"source /etc/profile.d/custom.sh; {cmd}"
             with self.ssh_connect() as ssh:
-                stdin, stdout, stderr = ssh.exec_command(cmd)
+                if input:
+                    # encode input and feed it to stdin
+                    stdin, stdout, stderr = ssh.exec_command(cmd)
+                    stdin.write(input)
+                    stdin.flush()
+                else:
+                    stdin, stdout, stderr = ssh.exec_command(cmd)
                 exit_status = 0
                 if wait_exit:
                     exit_status = stdout.channel.recv_exit_status()
-                result = stdout.read().decode(encoding)
-                error = stderr.read().decode(encoding)
+                if encoding:
+                    result = stdout.read().decode(encoding)
+                    error = stderr.read().decode(encoding)
+                else:
+                    # Save as binary string
+                    result = io.BytesIO(stdout.read()).getvalue()
+                    error = io.BytesIO(stderr.read()).getvalue()
+                error_str = stderr.read()
 
             if expect_error:
                 raise Exception(result, error)
-            if exit_status != 0 or "error" in error.lower():
+            if exit_status != 0 or 'error' in error_str:
                 log.error(
                     f"Problem in executing command: `{cmd}`\nerror: {error}\nexit_code: {exit_status}"
                 )
-                exit(1)
 
             if verbose:
                 return exit_status, result, error
@@ -203,9 +215,9 @@ class RemoteOperations(OsOperations):
         """
         mode = "wb" if binary else "w"
         if not truncate:
-            mode = "a" + mode
+            mode = "ab" if binary else "a"
         if read_and_write:
-            mode = "r+" + mode
+            mode = "r+b" if binary else "r+"
 
         with tempfile.NamedTemporaryFile(mode=mode) as tmp_file:
             if isinstance(data, list):
@@ -229,17 +241,28 @@ class RemoteOperations(OsOperations):
         """
         self.exec_command(f"touch {filename}")
 
-    def read(self, filename, encoding="utf-8"):
+    def read(self, filename, binary=False, encoding=None):
         cmd = f"cat {filename}"
-        return self.exec_command(cmd, encoding=encoding)
+        result = self.exec_command(cmd, encoding=encoding)
 
-    def readlines(self, filename, num_lines=0, encoding=None):
-        encoding = encoding or "utf-8"
+        if not binary and result:
+            result = result.decode(encoding or 'utf-8')
+
+        return result
+
+    def readlines(self, filename, num_lines=0, binary=False, encoding=None):
         if num_lines > 0:
             cmd = f"tail -n {num_lines} {filename}"
-            lines = self.exec_command(cmd, encoding)
         else:
-            lines = self.read(filename, encoding=encoding).splitlines()
+            cmd = f"cat {filename}"
+
+        result = self.exec_command(cmd, encoding=encoding)
+
+        if not binary and result:
+            lines = result.decode(encoding or 'utf-8').splitlines()
+        else:
+            lines = result.splitlines()
+
         return lines
 
     def isfile(self, remote_file):

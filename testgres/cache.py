@@ -4,8 +4,6 @@ import os
 
 from six import raise_from
 
-from .os_ops.local_ops import LocalOperations
-from .os_ops.os_ops import OsOperations
 from .config import testgres_config
 
 from .consts import XLOG_CONTROL_FILE
@@ -19,6 +17,9 @@ from .exceptions import \
 from .utils import \
     get_bin_path, \
     execute_utility
+
+from .operations.local_ops import LocalOperations
+from .operations.os_ops import OsOperations
 
 
 def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = LocalOperations()):
@@ -38,7 +39,7 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = Lo
         call_initdb(data_dir, logfile)
     else:
         # Fetch cached initdb dir
-        cached_data_dir = testgres_config.cached_initdb_dir()
+        cached_data_dir = testgres_config.cached_initdb_dir
 
         # Initialize cached initdb
 

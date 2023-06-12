@@ -2,7 +2,7 @@ import datetime
 import struct
 import uuid
 
-from .os_ops.local_ops import LocalOperations
+from .operations.local_ops import LocalOperations
 
 
 def default_dbname():

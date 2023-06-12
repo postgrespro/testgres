@@ -151,8 +151,6 @@ class TestgresTests(unittest.TestCase):
                 self.assertGreater(id2, id1)
 
     def test_node_exit(self):
-        base_dir = None
-
         with self.assertRaises(QueryException):
             with get_new_node().init() as node:
                 base_dir = node.base_dir
@@ -281,7 +279,7 @@ class TestgresTests(unittest.TestCase):
             node.safe_psql('copy horns from stdin (format csv)',
                            input=b"1\n2\n3\n\\.\n")
             _sum = node.safe_psql('select sum(w) from horns')
-            self.assertEqual(_sum, b'6\n')
+            self.assertEqual(b'6\n', _sum)
 
             # check psql's default args, fails
             with self.assertRaises(QueryException):
@@ -614,7 +612,7 @@ class TestgresTests(unittest.TestCase):
         with get_new_node().init().start() as node:
             node.psql('create role test_user login')
             value = node.safe_psql('select 1', username='test_user')
-            self.assertEqual(value, b'1\n')
+            self.assertEqual(b'1\n', value)
 
     def test_poll_query_until(self):
         with get_new_node() as node:
