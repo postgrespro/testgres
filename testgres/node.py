@@ -152,10 +152,10 @@ class PostgresNode(object):
         self.host = host
         self.hostname = hostname
         self.ssh_key = ssh_key
-        if hostname == 'localhost' or host == '127.0.0.1':
-            self.os_ops = LocalOperations(username=username)
-        else:
+        if hostname != 'localhost' or host != '127.0.0.1':
             self.os_ops = RemoteOperations(host, hostname, ssh_key)
+        else:
+            self.os_ops = LocalOperations(username=username)
 
         testgres_config.os_ops = self.os_ops
         # defaults for __exit__()
