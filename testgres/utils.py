@@ -3,30 +3,18 @@
 from __future__ import division
 from __future__ import print_function
 
-import io
 import os
 import port_for
-import subprocess
 import sys
-import tempfile
 
 from contextlib import contextmanager
 from packaging.version import Version
 
-try:
-    from shutil import which as find_executable
-except ImportError:
-    from distutils.spawn import find_executable
 from six import iteritems
 
-from fabric import Connection
 
-from .operations.remote_ops import RemoteOperations
-from .operations.local_ops import LocalOperations
-from .operations.os_ops import OsOperations
-
-from .config import testgres_config
-from .exceptions import ExecUtilException
+from .config import testgres_config as tconf
+from .logger import log
 
 # rows returned by PG_CONFIG
 _pg_config_data = {}
@@ -57,90 +45,34 @@ def release_port(port):
     bound_ports.discard(port)
 
 
-def execute_utility(args, logfile=None, os_ops: OsOperations = LocalOperations()):
+def execute_utility(args, logfile=None):
     """
     Execute utility (pg_ctl, pg_dump etc).
 
     Args:
-        os_ops: LocalOperations for local node or RemoteOperations for node that connected by ssh.
         args: utility + arguments (list).
         logfile: path to file to store stdout and stderr.
 
     Returns:
         stdout of executed utility.
     """
-
-    if isinstance(os_ops, RemoteOperations):
-        conn = Connection(
-            os_ops.hostname,
-            connect_kwargs={
-                "key_filename": f"{os_ops.ssh_key}",
-            },
-        )
-        # TODO skip remote ssh run if we are on the localhost.
-        # result = conn.run('hostname', hide=True)
-        # add logger
-
-        cmd = ' '.join(args)
-        result = conn.run(cmd, hide=True)
-
-        return result
-
-    # run utility
-    if os.name == 'nt':
-        # using output to a temporary file in Windows
-        buf = tempfile.NamedTemporaryFile()
-
-        process = subprocess.Popen(
-            args,    # util + params
-            stdout=buf,
-            stderr=subprocess.STDOUT)
-        process.communicate()
-
-        # get result
-        buf.file.flush()
-        buf.file.seek(0)
-        out = buf.file.read()
-        buf.close()
-    else:
-        process = subprocess.Popen(
-            args,    # util + params
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT)
-
-        # get result
-        out, _ = process.communicate()
-
-    # decode result
-    out = '' if not out else out.decode('utf-8')
-
-    # format command
     command = u' '.join(args)
+    exit_status, out, error = tconf.os_ops.exec_command(command, verbose=True)
+    # decode result
+    out = '' if not out else out
+    if isinstance(out, bytes):
+        out = out.decode('utf-8')
 
     # write new log entry if possible
     if logfile:
         try:
-            with io.open(logfile, 'a') as file_out:
-                file_out.write(command)
-
-                if out:
-                    # comment-out lines
-                    lines = ('# ' + line for line in out.splitlines(True))
-                    file_out.write(u'\n')
-                    file_out.writelines(lines)
-
-                file_out.write(u'\n')
+            tconf.os_ops.write(filename=logfile, data=command, truncate=True)
+            if out:
+                # comment-out lines
+                lines = [u'\n'] + ['# ' + line for line in out.splitlines()] + [u'\n']
+                tconf.os_ops.write(filename=logfile, data=lines)
         except IOError:
-            pass
-
-    exit_code = process.returncode
-    if exit_code:
-        message = 'Utility exited with non-zero code'
-        raise ExecUtilException(message=message,
-                                command=command,
-                                exit_code=exit_code,
-                                out=out)
-
+            log.warn(f"Problem with writing to logfile `{logfile}` during run command `{command}`")
     return out
 
 
@@ -149,23 +81,22 @@ def get_bin_path(filename):
     Return absolute path to an executable using PG_BIN or PG_CONFIG.
     This function does nothing if 'filename' is already absolute.
     """
-
     # check if it's already absolute
     if os.path.isabs(filename):
         return filename
 
-    # try PG_CONFIG
+    # try PG_CONFIG - get from local machine
     pg_config = os.environ.get("PG_CONFIG")
     if pg_config:
         bindir = get_pg_config()["BINDIR"]
         return os.path.join(bindir, filename)
 
     # try PG_BIN
-    pg_bin = os.environ.get("PG_BIN")
+    pg_bin = tconf.os_ops.environ("PG_BIN")
     if pg_bin:
         return os.path.join(pg_bin, filename)
 
-    pg_config_path = find_executable('pg_config')
+    pg_config_path = tconf.os_ops.find_executable('pg_config')
     if pg_config_path:
         bindir = get_pg_config(pg_config_path)["BINDIR"]
         return os.path.join(bindir, filename)
@@ -181,7 +112,7 @@ def get_pg_config(pg_config_path=None):
 
     def cache_pg_config_data(cmd):
         # execute pg_config and get the output
-        out = subprocess.check_output([cmd]).decode('utf-8')
+        out = tconf.os_ops.exec_command(cmd, encoding='utf-8')
 
         data = {}
         for line in out.splitlines():
@@ -196,7 +127,7 @@ def get_pg_config(pg_config_path=None):
         return data
 
     # drop cache if asked to
-    if not testgres_config.cache_pg_config:
+    if not tconf.cache_pg_config:
         global _pg_config_data
         _pg_config_data = {}
 
@@ -226,7 +157,7 @@ def get_pg_version():
 
     # get raw version (e.g. postgres (PostgreSQL) 9.5.7)
     _params = [get_bin_path('postgres'), '--version']
-    raw_ver = subprocess.check_output(_params).decode('utf-8')
+    raw_ver = tconf.os_ops.exec_command(_params, encoding='utf-8')
 
     # cook version of PostgreSQL
     version = raw_ver.strip().split(' ')[-1] \

@@ -1,6 +1,7 @@
 import pytest
 
-from testgres.operations.remote_ops import RemoteOperations
+from testgres import ExecUtilException
+from testgres import RemoteOperations
 
 
 class TestRemoteOperations:
@@ -31,9 +32,11 @@ class TestRemoteOperations:
         Test exec_command for command execution failure.
         """
         cmd = "nonexistent_command"
-        exit_status, result, error = self.operations.exec_command(cmd, verbose=True, wait_exit=True)
-
-        assert error == b'bash: line 1: nonexistent_command: command not found\n'
+        try:
+            exit_status, result, error = self.operations.exec_command(cmd, verbose=True, wait_exit=True)
+        except ExecUtilException as e:
+            error = e.message
+        assert error == 'Utility exited with non-zero code. Error: bash: line 1: nonexistent_command: command not found\n'
 
     def test_is_executable_true(self):
         """
@@ -82,8 +85,11 @@ class TestRemoteOperations:
             self.operations.makedirs(path)
 
         # Test rmdirs
-        exit_status, result, error = self.operations.rmdirs(path, verbose=True)
-        assert error == b"rm: cannot remove '/root/test_dir': Permission denied\n"
+        try:
+            exit_status, result, error = self.operations.rmdirs(path, verbose=True)
+        except ExecUtilException as e:
+            error = e.message
+        assert error == "Utility exited with non-zero code. Error: rm: cannot remove '/root/test_dir': Permission denied\n"
 
     def test_listdir(self):
         """
@@ -119,11 +125,12 @@ class TestRemoteOperations:
         filename = "/tmp/test_file.txt"
         data = "Hello, world!"
 
+        self.operations.write(filename, data, truncate=True)
         self.operations.write(filename, data)
 
         response = self.operations.read(filename)
 
-        assert response == data
+        assert response == data + data
 
     def test_write_binary_file(self):
         """
@@ -132,7 +139,7 @@ class TestRemoteOperations:
         filename = "/tmp/test_file.bin"
         data = b"\x00\x01\x02\x03"
 
-        self.operations.write(filename, data, binary=True)
+        self.operations.write(filename, data, binary=True, truncate=True)
 
         response = self.operations.read(filename, binary=True)
 

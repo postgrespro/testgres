@@ -13,7 +13,8 @@ install_requires = [
     "psutil",
     "packaging",
     "paramiko",
-    "fabric"
+    "fabric",
+    "sshtunnel"
 ]
 
 # Add compatibility enum class

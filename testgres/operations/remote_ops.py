@@ -2,20 +2,30 @@ import os
 import tempfile
 from typing import Optional
 
+import sshtunnel
+
 import paramiko
 from paramiko import SSHClient
 
-from logger import log
+from testgres.exceptions import ExecUtilException
+from testgres.logger import log
+
 from .os_ops import OsOperations
 from .os_ops import pglib
+
+sshtunnel.SSH_TIMEOUT = 5.0
+sshtunnel.TUNNEL_TIMEOUT = 5.0
+
 
 error_markers = [b'error', b'Permission denied']
 
 
 class RemoteOperations(OsOperations):
-    def __init__(self, hostname="localhost", host="127.0.0.1", ssh_key=None, username=None):
+    def __init__(self, host="127.0.0.1", hostname='localhost', port=None, ssh_key=None, username=None):
         super().__init__(username)
         self.host = host
+        self.hostname = hostname
+        self.port = port
         self.ssh_key = ssh_key
         self.remote = True
         self.ssh = self.ssh_connect()
@@ -57,51 +67,50 @@ class RemoteOperations(OsOperations):
         Args:
         - cmd (str): The command to be executed.
         """
+        if self.ssh is None or not self.ssh.get_transport() or not self.ssh.get_transport().is_active():
+            self.ssh = self.ssh_connect()
+
         if isinstance(cmd, list):
             cmd = " ".join(cmd)
-        try:
-            if input:
-                stdin, stdout, stderr = self.ssh.exec_command(cmd)
-                stdin.write(input.encode("utf-8"))
-                stdin.flush()
-            else:
-                stdin, stdout, stderr = self.ssh.exec_command(cmd)
-            exit_status = 0
-            if wait_exit:
-                exit_status = stdout.channel.recv_exit_status()
+        if input:
+            stdin, stdout, stderr = self.ssh.exec_command(cmd)
+            stdin.write(input)
+            stdin.flush()
+        else:
+            stdin, stdout, stderr = self.ssh.exec_command(cmd)
+        exit_status = 0
+        if wait_exit:
+            exit_status = stdout.channel.recv_exit_status()
 
-            if encoding:
-                result = stdout.read().decode(encoding)
-                error = stderr.read().decode(encoding)
-            else:
-                result = stdout.read()
-                error = stderr.read()
+        if encoding:
+            result = stdout.read().decode(encoding)
+            error = stderr.read().decode(encoding)
+        else:
+            result = stdout.read()
+            error = stderr.read()
 
-            if expect_error:
-                raise Exception(result, error)
+        if expect_error:
+            raise Exception(result, error)
 
-            if encoding:
-                error_found = exit_status != 0 or any(
-                    marker.decode(encoding) in error for marker in error_markers)
-            else:
-                error_found = exit_status != 0 or any(
-                    marker in error for marker in error_markers)
+        if encoding:
+            error_found = exit_status != 0 or any(
+                marker.decode(encoding) in error for marker in error_markers)
+        else:
+            error_found = exit_status != 0 or any(
+                marker in error for marker in error_markers)
 
-            if error_found:
-                log.error(
-                    f"Problem in executing command: `{cmd}`\nerror: {error}\nexit_code: {exit_status}"
-                )
-                if exit_status == 0:
-                    exit_status = 1
+        if error_found:
+            if exit_status == 0:
+                exit_status = 1
+            raise ExecUtilException(message=f"Utility exited with non-zero code. Error: {error.decode(encoding or 'utf-8')}",
+                                    command=cmd,
+                                    exit_code=exit_status,
+                                    out=result)
 
-            if verbose:
-                return exit_status, result, error
-            else:
-                return result
-
-        except Exception as e:
-            log.error(f"Unexpected error while executing command `{cmd}`: {e}")
-            return None
+        if verbose:
+            return exit_status, result, error
+        else:
+            return result
 
     # Environment setup
     def environ(self, var_name: str) -> str:
@@ -111,7 +120,7 @@ class RemoteOperations(OsOperations):
         - var_name (str): The name of the environment variable.
         """
         cmd = f"echo ${var_name}"
-        return self.exec_command(cmd).strip()
+        return self.exec_command(cmd, encoding='utf-8').strip()
 
     def find_executable(self, executable):
         search_paths = self.environ("PATH")
@@ -142,7 +151,7 @@ class RemoteOperations(OsOperations):
                 os.environ["PATH"] = f"{new_path}{pathsep}{path}"
         return pathsep
 
-    def set_env(self, var_name: str, var_val: str) -> None:
+    def set_env(self, var_name: str, var_val: str):
         """
         Set the value of an environment variable.
         Args:
@@ -153,11 +162,11 @@ class RemoteOperations(OsOperations):
 
     # Get environment variables
     def get_user(self):
-        return self.exec_command("echo $USER")
+        return self.exec_command("echo $USER", encoding='utf-8').strip()
 
     def get_name(self):
         cmd = 'python3 -c "import os; print(os.name)"'
-        return self.exec_command(cmd).strip()
+        return self.exec_command(cmd, encoding='utf-8').strip()
 
     # Work with dirs
     def makedirs(self, path, remove_existing=False):
@@ -219,10 +228,19 @@ class RemoteOperations(OsOperations):
         """
         Creates a temporary directory in the remote server.
         Args:
-        prefix (str): The prefix of the temporary directory name.
+        - prefix (str): The prefix of the temporary directory name.
         """
-        temp_dir = self.exec_command(f"mkdtemp -d {prefix}", encoding='utf-8')
-        return temp_dir.strip()
+        if prefix:
+            temp_dir = self.exec_command(f"mktemp -d {prefix}XXXXX", encoding='utf-8')
+        else:
+            temp_dir = self.exec_command("mktemp -d", encoding='utf-8')
+
+        if temp_dir:
+            if not os.path.isabs(temp_dir):
+                temp_dir = os.path.join('/home', self.username, temp_dir.strip())
+            return temp_dir
+        else:
+            raise ExecUtilException("Could not create temporary directory.")
 
     def mkstemp(self, prefix=None):
         cmd = f"mktemp {prefix}XXXXXX"
@@ -230,6 +248,10 @@ class RemoteOperations(OsOperations):
         return filename
 
     def copytree(self, src, dst):
+        if not os.path.isabs(dst):
+            dst = os.path.join('~', dst)
+        if self.isdir(dst):
+            raise FileExistsError(f"Directory {dst} already exists.")
         return self.exec_command(f"cp -r {src} {dst}")
 
     # Work with files
@@ -253,19 +275,39 @@ class RemoteOperations(OsOperations):
         if read_and_write:
             mode = "r+b" if binary else "r+"
 
-        with tempfile.NamedTemporaryFile(mode=mode) as tmp_file:
+        with tempfile.NamedTemporaryFile(mode=mode, delete=False) as tmp_file:
+            if not truncate:
+                with self.ssh_connect() as ssh:
+                    sftp = ssh.open_sftp()
+                    try:
+                        sftp.get(filename, tmp_file.name)
+                        tmp_file.seek(0, os.SEEK_END)
+                    except FileNotFoundError:
+                        pass  # File does not exist yet, we'll create it
+                    sftp.close()
             if isinstance(data, bytes) and not binary:
                 data = data.decode(encoding)
             elif isinstance(data, str) and binary:
                 data = data.encode(encoding)
-
-            tmp_file.write(data)
+            if isinstance(data, list):
+                # ensure each line ends with a newline
+                data = [s if s.endswith('\n') else s + '\n' for s in data]
+                tmp_file.writelines(data)
+            else:
+                tmp_file.write(data)
             tmp_file.flush()
 
             with self.ssh_connect() as ssh:
                 sftp = ssh.open_sftp()
+                remote_directory = os.path.dirname(filename)
+                try:
+                    sftp.stat(remote_directory)
+                except IOError:
+                    sftp.mkdir(remote_directory)
                 sftp.put(tmp_file.name, filename)
                 sftp.close()
+
+            os.remove(tmp_file.name)
 
     def touch(self, filename):
         """
@@ -307,6 +349,15 @@ class RemoteOperations(OsOperations):
         result = int(stdout.strip())
         return result == 0
 
+    def isdir(self, dirname):
+        cmd = f"if [ -d {dirname} ]; then echo True; else echo False; fi"
+        response = self.exec_command(cmd, encoding='utf-8')
+        return response.strip() == "True"
+
+    def remove_file(self, filename):
+        cmd = f"rm {filename}"
+        return self.exec_command(cmd)
+
     # Processes control
     def kill(self, pid, signal):
         # Kill the process
@@ -317,8 +368,14 @@ class RemoteOperations(OsOperations):
         # Get current process id
         return self.exec_command("echo $$")
 
+    def get_remote_children(self, pid):
+        command = f"pgrep -P {pid}"
+        stdin, stdout, stderr = self.ssh.exec_command(command)
+        children = stdout.readlines()
+        return [int(child_pid.strip()) for child_pid in children]
+
     # Database control
-    def db_connect(self, dbname, user, password=None, host="127.0.0.1", hostname="localhost", port=5432):
+    def db_connect(self, dbname, user, password=None, host="127.0.0.1", port=5432):
         """
         Connects to a PostgreSQL database on the remote system.
         Args:
@@ -332,21 +389,19 @@ class RemoteOperations(OsOperations):
         This function establishes a connection to a PostgreSQL database on the remote system using the specified
         parameters. It returns a connection object that can be used to interact with the database.
         """
-        transport = self.ssh.get_transport()
-        local_port = 9090  # or any other available port
+        with sshtunnel.open_tunnel(
+                (host, 22),  # Remote server IP and SSH port
+                ssh_username=self.username,
+                ssh_pkey=self.ssh_key,
+                remote_bind_address=(host, port),  # PostgreSQL server IP and PostgreSQL port
+                local_bind_address=('localhost', port),  # Local machine IP and available port
+        ):
+            conn = pglib.connect(
+                host=host,
+                port=port,
+                dbname=dbname,
+                user=user,
+                password=password
+            )
 
-        transport.open_channel(
-            'direct-tcpip',
-            (hostname, port),
-            (host, local_port)
-        )
-
-        conn = pglib.connect(
-            host=host,
-            port=local_port,
-            database=dbname,
-            user=user,
-            password=password,
-        )
         return conn
-

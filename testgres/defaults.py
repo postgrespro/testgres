@@ -2,7 +2,7 @@ import datetime
 import struct
 import uuid
 
-from .operations.local_ops import LocalOperations
+from .config import testgres_config as tconf
 
 
 def default_dbname():
@@ -13,11 +13,11 @@ def default_dbname():
     return 'postgres'
 
 
-def default_username(os_ops=LocalOperations()):
+def default_username():
     """
     Return default username (current user).
     """
-    return os_ops.get_user()
+    return tconf.os_ops.get_user()
 
 
 def generate_app_name():
@@ -28,7 +28,7 @@ def generate_app_name():
     return 'testgres-{}'.format(str(uuid.uuid4()))
 
 
-def generate_system_id(os_ops=LocalOperations()):
+def generate_system_id():
     """
     Generate a new 64-bit unique system identifier for node.
     """
@@ -43,7 +43,7 @@ def generate_system_id(os_ops=LocalOperations()):
     system_id = 0
     system_id |= (secs << 32)
     system_id |= (usecs << 12)
-    system_id |= (os_ops.get_pid() & 0xFFF)
+    system_id |= (tconf.os_ops.get_pid() & 0xFFF)
 
     # pack ULL in native byte order
     return struct.pack('=Q', system_id)

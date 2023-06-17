@@ -7,6 +7,7 @@ import tempfile
 from contextlib import contextmanager
 
 from .consts import TMP_CACHE
+from .operations.os_ops import OsOperations
 from .operations.local_ops import LocalOperations
 
 
@@ -120,6 +121,11 @@ class GlobalConfig(object):
         """
 
         return copy.copy(self)
+
+    @staticmethod
+    def set_os_ops(os_ops: OsOperations):
+        testgres_config.os_ops = os_ops
+        testgres_config.cached_initdb_dir = os_ops.mkdtemp(prefix=TMP_CACHE)
 
 
 # cached dirs to be removed

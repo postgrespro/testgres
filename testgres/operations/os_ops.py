@@ -15,7 +15,7 @@ class OsOperations:
         self.username = username
 
     # Command execution
-    def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False):
+    def exec_command(self, cmd, **kwargs):
         raise NotImplementedError()
 
     # Environment setup

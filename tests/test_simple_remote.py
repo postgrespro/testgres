@@ -16,7 +16,6 @@ import psutil
 import logging.config
 
 from contextlib import contextmanager
-from shutil import rmtree
 
 from testgres.exceptions import \
     InitNodeException, \
@@ -31,13 +30,13 @@ from testgres.config import \
     TestgresConfig, \
     configure_testgres, \
     scoped_config, \
-    pop_config
+    pop_config, testgres_config
 
 from testgres import \
     NodeStatus, \
     ProcessType, \
     IsolationLevel, \
-    get_new_node
+    get_new_node, RemoteOperations
 
 from testgres import \
     get_bin_path, \
@@ -54,6 +53,12 @@ from testgres.utils import PgVer
 from testgres.node import ProcessProxy
 
 
+os_ops = RemoteOperations(host='172.18.0.3',
+                          username='dev',
+                          ssh_key='/home/vika/Desktop/work/probackup/dev-ee-probackup/container_files/postgres/ssh/id_ed25519')
+testgres_config.set_os_ops(os_ops=os_ops)
+
+
 def pg_version_ge(version):
     cur_ver = PgVer(get_pg_version())
     min_ver = PgVer(version)
@@ -62,16 +67,16 @@ def pg_version_ge(version):
 
 def util_exists(util):
     def good_properties(f):
-        return (os.path.exists(f) and  # noqa: W504
-                os.path.isfile(f) and  # noqa: W504
-                os.access(f, os.X_OK))  # yapf: disable
+        return (os_ops.path_exists(f) and  # noqa: W504
+                os_ops.isfile(f) and  # noqa: W504
+                os_ops.is_executable(f))  # yapf: disable
 
     # try to resolve it
     if good_properties(get_bin_path(util)):
         return True
 
     # check if util is in PATH
-    for path in os.environ["PATH"].split(os.pathsep):
+    for path in os_ops.environ("PATH").split(os_ops.pathsep):
         if good_properties(os.path.join(path, util)):
             return True
 
@@ -81,14 +86,15 @@ def removing(f):
     try:
         yield f
     finally:
-        if os.path.isfile(f):
-            os.remove(f)
-        elif os.path.isdir(f):
-            rmtree(f, ignore_errors=True)
+        if os_ops.isfile(f):
+            os_ops.remove_file(f)
+
+        elif os_ops.isdir(f):
+            os_ops.rmdirs(f, ignore_errors=True)
 
 
 def get_remote_node():
-    return get_new_node(host='172.18.0.3', username='dev', ssh_key='/home/vika/Desktop/work/probackup/dev-ee-probackup/container_files/postgres/ssh/id_ed25519')
+    return get_new_node(host=os_ops.host, username=os_ops.username, ssh_key=os_ops.ssh_key)
 
 
 class TestgresRemoteTests(unittest.TestCase):
@@ -109,14 +115,13 @@ class TestgresRemoteTests(unittest.TestCase):
                 initdb_params=['--auth-local=reject', '--auth-host=reject'])
 
             hba_file = os.path.join(node.data_dir, 'pg_hba.conf')
-            with open(hba_file, 'r') as conf:
-                lines = conf.readlines()
+            lines = os_ops.readlines(hba_file)
 
-                # check number of lines
-                self.assertGreaterEqual(len(lines), 6)
+            # check number of lines
+            self.assertGreaterEqual(len(lines), 6)
 
-                # there should be no trust entries at all
-                self.assertFalse(any('trust' in s for s in lines))
+            # there should be no trust entries at all
+            self.assertFalse(any('trust' in s for s in lines))
 
     def test_double_init(self):
         with get_remote_node().init() as node:
@@ -164,14 +169,14 @@ class TestgresRemoteTests(unittest.TestCase):
                 node.safe_psql('select 1')
 
         # we should save the DB for "debugging"
-        self.assertTrue(os.path.exists(base_dir))
-        rmtree(base_dir, ignore_errors=True)
+        self.assertTrue(os_ops.path_exists(base_dir))
+        os_ops.rmdirs(base_dir, ignore_errors=True)
 
         with get_remote_node().init() as node:
             base_dir = node.base_dir
 
         # should have been removed by default
-        self.assertFalse(os.path.exists(base_dir))
+        self.assertFalse(os_ops.path_exists(base_dir))
 
     def test_double_start(self):
         with get_remote_node().init().start() as node:
@@ -607,9 +612,9 @@ class TestgresRemoteTests(unittest.TestCase):
                 with removing(node1.dump(format=format)) as dump:
                     with get_remote_node().init().start() as node3:
                         if format == 'directory':
-                            self.assertTrue(os.path.isdir(dump))
+                            self.assertTrue(os_ops.isdir(dump))
                         else:
-                            self.assertTrue(os.path.isfile(dump))
+                            self.assertTrue(os_ops.isfile(dump))
                         # restore dump
                         node3.restore(filename=dump)
                         res = node3.execute(query_select)
@@ -986,14 +991,14 @@ class TestgresRemoteTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    if os.environ.get('ALT_CONFIG'):
+    if os_ops.environ('ALT_CONFIG'):
         suite = unittest.TestSuite()
 
         # Small subset of tests for alternative configs (PG_BIN or PG_CONFIG)
-        suite.addTest(TestgresTests('test_pg_config'))
-        suite.addTest(TestgresTests('test_pg_ctl'))
-        suite.addTest(TestgresTests('test_psql'))
-        suite.addTest(TestgresTests('test_replicate'))
+        suite.addTest(TestgresRemoteTests('test_pg_config'))
+        suite.addTest(TestgresRemoteTests('test_pg_ctl'))
+        suite.addTest(TestgresRemoteTests('test_psql'))
+        suite.addTest(TestgresRemoteTests('test_replicate'))
 
         print('Running tests for alternative config:')
         for t in suite:

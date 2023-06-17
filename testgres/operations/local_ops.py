@@ -5,32 +5,66 @@ import subprocess
 import tempfile
 from shutil import rmtree
 
+import psutil
+
+from testgres.exceptions import ExecUtilException
 from testgres.logger import log
 
 from .os_ops import OsOperations
 from .os_ops import pglib
 
+try:
+    from shutil import which as find_executable
+except ImportError:
+    from distutils.spawn import find_executable
+
 CMD_TIMEOUT_SEC = 60
 
 
 class LocalOperations(OsOperations):
-    def __init__(self, username=None):
-        super().__init__()
+    def __init__(self, host='127.0.0.1', hostname='localhost', port=None, username=None):
+        super().__init__(username)
+        self.host = host
+        self.hostname = hostname
+        self.port = port
+        self.ssh_key = None
         self.username = username or self.get_user()
 
     # Command execution
     def exec_command(self, cmd, wait_exit=False, verbose=False,
                      expect_error=False, encoding=None, shell=True, text=False,
                      input=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE, proc=None):
-        log.debug(f"os_ops.exec_command: `{cmd}`; remote={self.remote}")
-        # Source global profile file + execute command
-        try:
+        """
+        Execute a command in a subprocess.
+
+        Args:
+        - cmd: The command to execute.
+        - wait_exit: Whether to wait for the subprocess to exit before returning.
+        - verbose: Whether to return verbose output.
+        - expect_error: Whether to raise an error if the subprocess exits with an error status.
+        - encoding: The encoding to use for decoding the subprocess output.
+        - shell: Whether to use shell when executing the subprocess.
+        - text: Whether to return str instead of bytes for the subprocess output.
+        - input: The input to pass to the subprocess.
+        - stdout: The stdout to use for the subprocess.
+        - stderr: The stderr to use for the subprocess.
+        - proc: The process to use for subprocess creation.
+        :return: The output of the subprocess.
+        """
+        if isinstance(cmd, list):
+            cmd = " ".join(cmd)
+        log.debug(f"Executing command: `{cmd}`")
+
+        if os.name == 'nt':
+            with tempfile.NamedTemporaryFile() as buf:
+                process = subprocess.Popen(cmd, stdout=buf, stderr=subprocess.STDOUT)
+                process.communicate()
+                buf.seek(0)
+                result = buf.read().decode(encoding)
+            return result
+        else:
             if proc:
-                return subprocess.Popen(cmd,
-                                        shell=shell,
-                                        stdin=input or subprocess.PIPE,
-                                        stdout=stdout,
-                                        stderr=stderr)
+                return subprocess.Popen(cmd, shell=shell, stdin=input, stdout=stdout, stderr=stderr)
             process = subprocess.run(
                 cmd,
                 input=input,
@@ -43,41 +77,32 @@ class LocalOperations(OsOperations):
             exit_status = process.returncode
             result = process.stdout
             error = process.stderr
+            found_error = "error" in error.decode(encoding or 'utf-8').lower()
+            if encoding:
+                result = result.decode(encoding)
+                error = error.decode(encoding)
 
             if expect_error:
                 raise Exception(result, error)
-            if exit_status != 0 or "error" in error.lower().decode(encoding or 'utf-8'):  # Decode error for comparison
-                log.error(
-                    f"Problem in executing command: `{cmd}`\nerror: {error.decode(encoding or 'utf-8')}\nexit_code: {exit_status}"
-                    # Decode for logging
-                )
-
+            if exit_status != 0 or found_error:
+                if exit_status == 0:
+                    exit_status = 1
+                raise ExecUtilException(message=f'Utility exited with non-zero code. Error `{error}`',
+                                        command=cmd,
+                                        exit_code=exit_status,
+                                        out=result)
             if verbose:
                 return exit_status, result, error
             else:
                 return result
 
-        except Exception as e:
-            log.error(f"Unexpected error while executing command `{cmd}`: {e}")
-            return None
-
     # Environment setup
     def environ(self, var_name):
         cmd = f"echo ${var_name}"
-        return self.exec_command(cmd).strip()
+        return self.exec_command(cmd, encoding='utf-8').strip()
 
     def find_executable(self, executable):
-        search_paths = self.environ("PATH")
-        if not search_paths:
-            return None
-
-        search_paths = search_paths.split(self.pathsep)
-        for path in search_paths:
-            remote_file = os.path.join(path, executable)
-            if self.isfile(remote_file):
-                return remote_file
-
-        return None
+        return find_executable(executable)
 
     def is_executable(self, file):
         # Check if the file is executable
@@ -157,6 +182,9 @@ class LocalOperations(OsOperations):
             read_and_write: If True, the file will be opened with read and write permissions ('r+' option);
                             if False (default), only write permission will be used ('w', 'a', 'wb', or 'ab' option)
         """
+        # If it is a bytes str or list
+        if isinstance(data, bytes) or isinstance(data, list) and all(isinstance(item, bytes) for item in data):
+            binary = True
         mode = "wb" if binary else "w"
         if not truncate:
             mode = "ab" if binary else "a"
@@ -221,6 +249,12 @@ class LocalOperations(OsOperations):
     def isfile(self, remote_file):
         return os.path.isfile(remote_file)
 
+    def isdir(self, dirname):
+        return os.path.isdir(dirname)
+
+    def remove_file(self, filename):
+        return os.remove(filename)
+
     # Processes control
     def kill(self, pid, signal):
         # Kill the process
@@ -230,6 +264,9 @@ class LocalOperations(OsOperations):
     def get_pid(self):
         # Get current process id
         return os.getpid()
+
+    def get_remote_children(self, pid):
+        return psutil.Process(pid).children()
 
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):

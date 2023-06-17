@@ -252,34 +252,34 @@ class TestgresTests(unittest.TestCase):
 
             # check returned values (1 arg)
             res = node.psql('select 1')
-            self.assertEqual(res, (0, b'1\n', b''))
+            self.assertEqual((0, b'1\n', b''), res)
 
             # check returned values (2 args)
             res = node.psql('postgres', 'select 2')
-            self.assertEqual(res, (0, b'2\n', b''))
+            self.assertEqual((0, b'2\n', b''), res)
 
             # check returned values (named)
             res = node.psql(query='select 3', dbname='postgres')
-            self.assertEqual(res, (0, b'3\n', b''))
+            self.assertEqual((0, b'3\n', b''), res)
 
             # check returned values (1 arg)
             res = node.safe_psql('select 4')
-            self.assertEqual(res, b'4\n')
+            self.assertEqual(b'4\n', res)
 
             # check returned values (2 args)
             res = node.safe_psql('postgres', 'select 5')
-            self.assertEqual(res, b'5\n')
+            self.assertEqual(b'5\n', res)
 
             # check returned values (named)
             res = node.safe_psql(query='select 6', dbname='postgres')
-            self.assertEqual(res, b'6\n')
+            self.assertEqual(b'6\n', res)
 
             # check feeding input
             node.safe_psql('create table horns (w int)')
             node.safe_psql('copy horns from stdin (format csv)',
                            input=b"1\n2\n3\n\\.\n")
             _sum = node.safe_psql('select sum(w) from horns')
-            self.assertEqual(b'6\n', _sum)
+            self.assertEqual(_sum, b'6\n')
 
             # check psql's default args, fails
             with self.assertRaises(QueryException):

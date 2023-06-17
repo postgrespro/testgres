@@ -37,7 +37,7 @@ class NodeConnection(object):
 
         # Set default arguments
         dbname = dbname or default_dbname()
-        username = username or default_username(node.os_ops)
+        username = username or default_username()
 
         self._node = node
 
