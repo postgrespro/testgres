@@ -52,7 +52,7 @@ class LocalOperations(OsOperations):
         :return: The output of the subprocess.
         """
         if isinstance(cmd, list):
-            cmd = " ".join(cmd)
+            cmd = ' '.join(item.decode('utf-8') if isinstance(item, bytes) else item for item in cmd)
         log.debug(f"Executing command: `{cmd}`")
 
         if os.name == 'nt':
@@ -98,8 +98,7 @@ class LocalOperations(OsOperations):
 
     # Environment setup
     def environ(self, var_name):
-        cmd = f"echo ${var_name}"
-        return self.exec_command(cmd, encoding='utf-8').strip()
+        return os.environ.get(var_name)
 
     def find_executable(self, executable):
         return find_executable(executable)
@@ -107,17 +106,6 @@ class LocalOperations(OsOperations):
     def is_executable(self, file):
         # Check if the file is executable
         return os.access(file, os.X_OK)
-
-    def add_to_path(self, new_path):
-        pathsep = self.pathsep
-        # Check if the directory is already in PATH
-        path = self.environ("PATH")
-        if new_path not in path.split(pathsep):
-            if self.remote:
-                self.exec_command(f"export PATH={new_path}{pathsep}{path}")
-            else:
-                os.environ["PATH"] = f"{new_path}{pathsep}{path}"
-        return pathsep
 
     def set_env(self, var_name, var_val):
         # Check if the directory is already in PATH
@@ -128,8 +116,7 @@ class LocalOperations(OsOperations):
         return getpass.getuser()
 
     def get_name(self):
-        cmd = 'python3 -c "import os; print(os.name)"'
-        return self.exec_command(cmd).strip()
+        return os.name
 
     # Work with dirs
     def makedirs(self, path, remove_existing=False):

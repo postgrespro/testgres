@@ -29,9 +29,6 @@ class OsOperations:
         # Check if the file is executable
         raise NotImplementedError()
 
-    def add_to_path(self, new_path):
-        raise NotImplementedError()
-
     def set_env(self, var_name, var_val):
         # Check if the directory is already in PATH
         raise NotImplementedError()

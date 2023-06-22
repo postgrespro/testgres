@@ -45,7 +45,7 @@ def release_port(port):
     bound_ports.discard(port)
 
 
-def execute_utility(args, logfile=None):
+def execute_utility(args, logfile=None, verbose=False):
     """
     Execute utility (pg_ctl, pg_dump etc).
 
@@ -56,24 +56,28 @@ def execute_utility(args, logfile=None):
     Returns:
         stdout of executed utility.
     """
-    command = u' '.join(args)
-    exit_status, out, error = tconf.os_ops.exec_command(command, verbose=True)
+    exit_status, out, error = tconf.os_ops.exec_command(args, verbose=True)
     # decode result
     out = '' if not out else out
     if isinstance(out, bytes):
         out = out.decode('utf-8')
+    if isinstance(error, bytes):
+        error = error.decode('utf-8')
 
     # write new log entry if possible
     if logfile:
         try:
-            tconf.os_ops.write(filename=logfile, data=command, truncate=True)
+            tconf.os_ops.write(filename=logfile, data=args, truncate=True)
             if out:
                 # comment-out lines
                 lines = [u'\n'] + ['# ' + line for line in out.splitlines()] + [u'\n']
                 tconf.os_ops.write(filename=logfile, data=lines)
         except IOError:
-            log.warn(f"Problem with writing to logfile `{logfile}` during run command `{command}`")
-    return out
+            log.warn(f"Problem with writing to logfile `{logfile}` during run command `{args}`")
+    if verbose:
+        return exit_status, out, error
+    else:
+        return out
 
 
 def get_bin_path(filename):

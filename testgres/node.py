@@ -625,9 +625,11 @@ class PostgresNode(object):
                 "-D", self.data_dir,
                 "status"
             ]  # yapf: disable
-            out = execute_utility(_params, self.utils_log_file)
-            if 'no server running' in out:
+            status_code, out, err = execute_utility(_params, self.utils_log_file, verbose=True)
+            if 'does not exist' in err:
                 return NodeStatus.Uninitialized
+            elif'no server running' in out:
+                return NodeStatus.Stopped
             return NodeStatus.Running
 
         except ExecUtilException as e:
@@ -712,14 +714,17 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            execute_utility(_params, self.utils_log_file)
+            exit_status, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
+            if 'does not exist' in error:
+                raise Exception
+            if 'server started' in out:
+                self.is_started = True
         except Exception as e:
             msg = 'Cannot start node'
             files = self._collect_special_files()
             raise_from(StartNodeException(msg, files), e)
 
         self._maybe_start_logger()
-        self.is_started = True
         return self
 
     def stop(self, params=[], wait=True):

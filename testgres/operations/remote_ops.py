@@ -20,6 +20,22 @@ sshtunnel.TUNNEL_TIMEOUT = 5.0
 error_markers = [b'error', b'Permission denied']
 
 
+class PsUtilProcessProxy:
+    def __init__(self, ssh, pid):
+        self.ssh = ssh
+        self.pid = pid
+
+    def kill(self):
+        command = f"kill {self.pid}"
+        self.ssh.exec_command(command)
+
+    def cmdline(self):
+        command = f"ps -p {self.pid} -o cmd --no-headers"
+        stdin, stdout, stderr = self.ssh.exec_command(command)
+        cmdline = stdout.read().decode('utf-8').strip()
+        return cmdline.split()
+
+
 class RemoteOperations(OsOperations):
     def __init__(self, host="127.0.0.1", hostname='localhost', port=None, ssh_key=None, username=None):
         super().__init__(username)
@@ -71,7 +87,7 @@ class RemoteOperations(OsOperations):
             self.ssh = self.ssh_connect()
 
         if isinstance(cmd, list):
-            cmd = " ".join(cmd)
+            cmd = ' '.join(item.decode('utf-8') if isinstance(item, bytes) else item for item in cmd)
         if input:
             stdin, stdout, stderr = self.ssh.exec_command(cmd)
             stdin.write(input)
@@ -139,17 +155,6 @@ class RemoteOperations(OsOperations):
         # Check if the file is executable
         is_exec = self.exec_command(f"test -x {file} && echo OK")
         return is_exec == b"OK\n"
-
-    def add_to_path(self, new_path):
-        pathsep = self.pathsep
-        # Check if the directory is already in PATH
-        path = self.environ("PATH")
-        if new_path not in path.split(pathsep):
-            if self.remote:
-                self.exec_command(f"export PATH={new_path}{pathsep}{path}")
-            else:
-                os.environ["PATH"] = f"{new_path}{pathsep}{path}"
-        return pathsep
 
     def set_env(self, var_name: str, var_val: str):
         """
@@ -243,9 +248,17 @@ class RemoteOperations(OsOperations):
             raise ExecUtilException("Could not create temporary directory.")
 
     def mkstemp(self, prefix=None):
-        cmd = f"mktemp {prefix}XXXXXX"
-        filename = self.exec_command(cmd).strip()
-        return filename
+        if prefix:
+            temp_dir = self.exec_command(f"mktemp {prefix}XXXXX", encoding='utf-8')
+        else:
+            temp_dir = self.exec_command("mktemp", encoding='utf-8')
+
+        if temp_dir:
+            if not os.path.isabs(temp_dir):
+                temp_dir = os.path.join('/home', self.username, temp_dir.strip())
+            return temp_dir
+        else:
+            raise ExecUtilException("Could not create temporary directory.")
 
     def copytree(self, src, dst):
         if not os.path.isabs(dst):
@@ -291,7 +304,7 @@ class RemoteOperations(OsOperations):
                 data = data.encode(encoding)
             if isinstance(data, list):
                 # ensure each line ends with a newline
-                data = [s if s.endswith('\n') else s + '\n' for s in data]
+                data = [(s if isinstance(s, str) else s.decode('utf-8')).rstrip('\n') + '\n' for s in data]
                 tmp_file.writelines(data)
             else:
                 tmp_file.write(data)
@@ -351,8 +364,8 @@ class RemoteOperations(OsOperations):
 
     def isdir(self, dirname):
         cmd = f"if [ -d {dirname} ]; then echo True; else echo False; fi"
-        response = self.exec_command(cmd, encoding='utf-8')
-        return response.strip() == "True"
+        response = self.exec_command(cmd)
+        return response.strip() == b"True"
 
     def remove_file(self, filename):
         cmd = f"rm {filename}"
@@ -366,16 +379,16 @@ class RemoteOperations(OsOperations):
 
     def get_pid(self):
         # Get current process id
-        return self.exec_command("echo $$")
+        return int(self.exec_command("echo $$", encoding='utf-8'))
 
     def get_remote_children(self, pid):
         command = f"pgrep -P {pid}"
         stdin, stdout, stderr = self.ssh.exec_command(command)
         children = stdout.readlines()
-        return [int(child_pid.strip()) for child_pid in children]
+        return [PsUtilProcessProxy(self.ssh, int(child_pid.strip())) for child_pid in children]
 
     # Database control
-    def db_connect(self, dbname, user, password=None, host="127.0.0.1", port=5432):
+    def db_connect(self, dbname, user, password=None, host="127.0.0.1", port=5432, ssh_key=None):
         """
         Connects to a PostgreSQL database on the remote system.
         Args:
@@ -389,19 +402,26 @@ class RemoteOperations(OsOperations):
         This function establishes a connection to a PostgreSQL database on the remote system using the specified
         parameters. It returns a connection object that can be used to interact with the database.
         """
-        with sshtunnel.open_tunnel(
-                (host, 22),  # Remote server IP and SSH port
-                ssh_username=self.username,
-                ssh_pkey=self.ssh_key,
-                remote_bind_address=(host, port),  # PostgreSQL server IP and PostgreSQL port
-                local_bind_address=('localhost', port),  # Local machine IP and available port
-        ):
+        tunnel = sshtunnel.open_tunnel(
+            (host, 22),  # Remote server IP and SSH port
+            ssh_username=user or self.username,
+            ssh_pkey=ssh_key or self.ssh_key,
+            remote_bind_address=(host, port),  # PostgreSQL server IP and PostgreSQL port
+            local_bind_address=('localhost', port)  # Local machine IP and available port
+        )
+
+        tunnel.start()
+
+        try:
             conn = pglib.connect(
-                host=host,
-                port=port,
+                host=host,  # change to 'localhost' because we're connecting through a local ssh tunnel
+                port=tunnel.local_bind_port,  # use the local bind port set up by the tunnel
                 dbname=dbname,
-                user=user,
+                user=user or self.username,
                 password=password
             )
 
-        return conn
+            return conn
+        except Exception as e:
+            tunnel.stop()
+            raise e
