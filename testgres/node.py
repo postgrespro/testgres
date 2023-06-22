@@ -519,8 +519,8 @@ class PostgresNode(object):
                 u"local\treplication\tall\t\t\t{}\n".format(auth_local),
                 u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
                 u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host),
-                u"host\treplication\t{}\t{}/24\t\t{}\n".format(self.os_ops.username, subnet_base, auth_host),
-                u"host\tall\t{}\t{}/24\t\t{}\n".format(self.os_ops.username, subnet_base, auth_host)
+                u"host\treplication\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
+                u"host\tall\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host)
             ]  # yapf: disable
 
             # write missing lines
@@ -790,7 +790,9 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            execute_utility(_params, self.utils_log_file)
+            error_code, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
+            if 'could not start server' in error:
+                raise ExecUtilException
         except ExecUtilException as e:
             msg = 'Cannot restart node'
             files = self._collect_special_files()

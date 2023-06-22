@@ -214,4 +214,4 @@ class Subscription(object):
                 username=username or self.pub.username,
                 max_attempts=LOGICAL_REPL_MAX_CATCHUP_ATTEMPTS)
         except Exception as e:
-            raise_from(CatchUpException("Failed to catch up", query), e)
+            raise_from(CatchUpException("Failed to catch up"), e)

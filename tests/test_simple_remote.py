@@ -6,7 +6,6 @@ import re
 import subprocess
 import tempfile
 
-
 import testgres
 import time
 import six
@@ -138,6 +137,7 @@ class TestgresRemoteTests(unittest.TestCase):
     @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
     @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_init_unique_system_id(self):
+        # FAIL
         # this function exists in PostgreSQL 9.6+
         query = 'select system_identifier from pg_control_system()'
 
@@ -291,7 +291,7 @@ class TestgresRemoteTests(unittest.TestCase):
             node.safe_psql('copy horns from stdin (format csv)',
                            input=b"1\n2\n3\n\\.\n")
             _sum = node.safe_psql('select sum(w) from horns')
-            self.assertEqual(b'6\n', _sum)
+            self.assertEqual(_sum, b'6\n')
 
             # check psql's default args, fails
             with self.assertRaises(QueryException):
@@ -688,6 +688,7 @@ class TestgresRemoteTests(unittest.TestCase):
             node.poll_query_until('select true')
 
     def test_logging(self):
+        # FAIL
         logfile = tempfile.NamedTemporaryFile('w', delete=True)
 
         log_conf = {
@@ -747,14 +748,11 @@ class TestgresRemoteTests(unittest.TestCase):
                               options=['-q']).pgbench_run(time=2)
 
             # run TPC-B benchmark
-            proc = node.pgbench(stdout=subprocess.PIPE,
+            out = node.pgbench(stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
                                 options=['-T3'])
 
-            out, _ = proc.communicate()
-            out = out.decode('utf-8')
-
-            self.assertTrue('tps' in out)
+            self.assertTrue(b'tps = ' in out)
 
     def test_pg_config(self):
         # check same instances
@@ -764,7 +762,6 @@ class TestgresRemoteTests(unittest.TestCase):
 
         # save right before config change
         c1 = get_pg_config()
-
         # modify setting for this scope
         with scoped_config(cache_pg_config=False) as config:
 
@@ -819,12 +816,16 @@ class TestgresRemoteTests(unittest.TestCase):
             node.init(unix_sockets=False, allow_streaming=True)
             node.start()
 
-            node.execute('select 1')
-            node.safe_psql('select 1')
+            res_exec = node.execute('select 1')
+            res_psql = node.safe_psql('select 1')
+            self.assertEqual(res_exec, [(1,)])
+            self.assertEqual(res_psql, b'1\n')
 
             with node.replicate().start() as r:
-                r.execute('select 1')
-                r.safe_psql('select 1')
+                res_exec = r.execute('select 1')
+                res_psql = r.safe_psql('select 1')
+                self.assertEqual(res_exec, [(1,)])
+                self.assertEqual(res_psql, b'1\n')
 
     def test_auto_name(self):
         with get_remote_node().init(allow_streaming=True).start() as m:

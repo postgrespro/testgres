@@ -1,5 +1,6 @@
 import os
 import tempfile
+import time
 from typing import Optional
 
 import sshtunnel
@@ -46,10 +47,28 @@ class RemoteOperations(OsOperations):
         self.remote = True
         self.ssh = self.ssh_connect()
         self.username = username or self.get_user()
+        self.tunnel = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_tunnel()
+        if getattr(self, 'ssh', None):
+            self.ssh.close()
 
     def __del__(self):
-        if self.ssh:
+        if getattr(self, 'ssh', None):
             self.ssh.close()
+
+    def close_tunnel(self):
+        if getattr(self, 'tunnel', None):
+            self.tunnel.stop(force=True)
+            start_time = time.time()
+            while self.tunnel.is_active:
+                if time.time() - start_time > sshtunnel.TUNNEL_TIMEOUT:
+                    break
+                time.sleep(0.5)
 
     def ssh_connect(self) -> Optional[SSHClient]:
         if not self.remote:
@@ -402,7 +421,8 @@ class RemoteOperations(OsOperations):
         This function establishes a connection to a PostgreSQL database on the remote system using the specified
         parameters. It returns a connection object that can be used to interact with the database.
         """
-        tunnel = sshtunnel.open_tunnel(
+        self.close_tunnel()
+        self.tunnel = sshtunnel.open_tunnel(
             (host, 22),  # Remote server IP and SSH port
             ssh_username=user or self.username,
             ssh_pkey=ssh_key or self.ssh_key,
@@ -410,12 +430,12 @@ class RemoteOperations(OsOperations):
             local_bind_address=('localhost', port)  # Local machine IP and available port
         )
 
-        tunnel.start()
+        self.tunnel.start()
 
         try:
             conn = pglib.connect(
                 host=host,  # change to 'localhost' because we're connecting through a local ssh tunnel
-                port=tunnel.local_bind_port,  # use the local bind port set up by the tunnel
+                port=self.tunnel.local_bind_port,  # use the local bind port set up by the tunnel
                 dbname=dbname,
                 user=user or self.username,
                 password=password
@@ -423,5 +443,5 @@ class RemoteOperations(OsOperations):
 
             return conn
         except Exception as e:
-            tunnel.stop()
+            self.tunnel.stop()
             raise e
