@@ -8,7 +8,6 @@ from shutil import rmtree
 import psutil
 
 from testgres.exceptions import ExecUtilException
-from testgres.logger import log
 
 from .os_ops import OsOperations
 from .os_ops import pglib
@@ -53,7 +52,6 @@ class LocalOperations(OsOperations):
         """
         if isinstance(cmd, list):
             cmd = ' '.join(item.decode('utf-8') if isinstance(item, bytes) else item for item in cmd)
-        log.debug(f"Executing command: `{cmd}`")
 
         if os.name == 'nt':
             with tempfile.NamedTemporaryFile() as buf:
@@ -252,7 +250,7 @@ class LocalOperations(OsOperations):
         # Get current process id
         return os.getpid()
 
-    def get_remote_children(self, pid):
+    def get_process_children(self, pid):
         return psutil.Process(pid).children()
 
     # Database control

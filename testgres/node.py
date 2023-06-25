@@ -245,7 +245,7 @@ class PostgresNode(object):
         """
 
         # get a list of postmaster's children
-        children = self.os_ops.get_remote_children(self.pid)
+        children = self.os_ops.get_process_children(self.pid)
 
         return [ProcessProxy(p) for p in children]
 

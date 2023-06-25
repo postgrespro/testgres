@@ -35,7 +35,8 @@ from testgres import \
     NodeStatus, \
     ProcessType, \
     IsolationLevel, \
-    get_new_node, RemoteOperations
+    get_new_node, \
+    RemoteOperations
 
 from testgres import \
     get_bin_path, \
@@ -54,7 +55,7 @@ from testgres.node import ProcessProxy
 
 os_ops = RemoteOperations(host='172.18.0.3',
                           username='dev',
-                          ssh_key='/home/vika/Desktop/work/probackup/dev-ee-probackup/container_files/postgres/ssh/id_ed25519')
+                          ssh_key='../../container_files/postgres/ssh/id_ed25519')
 testgres_config.set_os_ops(os_ops=os_ops)
 
 
@@ -92,8 +93,8 @@ def removing(f):
             os_ops.rmdirs(f, ignore_errors=True)
 
 
-def get_remote_node():
-    return get_new_node(host=os_ops.host, username=os_ops.username, ssh_key=os_ops.ssh_key)
+def get_remote_node(name=None):
+    return get_new_node(name=name, host=os_ops.host, username=os_ops.username, ssh_key=os_ops.ssh_key)
 
 
 class TestgresRemoteTests(unittest.TestCase):
@@ -696,7 +697,7 @@ class TestgresRemoteTests(unittest.TestCase):
             'handlers': {
                 'file': {
                     'class': 'logging.FileHandler',
-                    'filename': logfile.name,
+                    'filename': logfile,
                     'formatter': 'base_format',
                     'level': logging.DEBUG,
                 },
@@ -717,7 +718,7 @@ class TestgresRemoteTests(unittest.TestCase):
         with scoped_config(use_python_logging=True):
             node_name = 'master'
 
-            with get_new_node(name=node_name) as master:
+            with get_remote_node(name=node_name) as master:
                 master.init().start()
 
                 # execute a dummy query a few times
@@ -729,7 +730,7 @@ class TestgresRemoteTests(unittest.TestCase):
                 time.sleep(0.1)
 
                 # check that master's port is found
-                with open(logfile.name, 'r') as log:
+                with open(logfile, 'r') as log:
                     lines = log.readlines()
                     self.assertTrue(any(node_name in s for s in lines))
 

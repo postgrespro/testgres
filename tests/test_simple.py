@@ -151,6 +151,8 @@ class TestgresTests(unittest.TestCase):
                 self.assertGreater(id2, id1)
 
     def test_node_exit(self):
+        base_dir = None
+
         with self.assertRaises(QueryException):
             with get_new_node().init() as node:
                 base_dir = node.base_dir
@@ -252,27 +254,27 @@ class TestgresTests(unittest.TestCase):
 
             # check returned values (1 arg)
             res = node.psql('select 1')
-            self.assertEqual((0, b'1\n', b''), res)
+            self.assertEqual(res, (0, b'1\n', b''))
 
             # check returned values (2 args)
             res = node.psql('postgres', 'select 2')
-            self.assertEqual((0, b'2\n', b''), res)
+            self.assertEqual(res, (0, b'2\n', b''))
 
             # check returned values (named)
             res = node.psql(query='select 3', dbname='postgres')
-            self.assertEqual((0, b'3\n', b''), res)
+            self.assertEqual(res, (0, b'3\n', b''))
 
             # check returned values (1 arg)
             res = node.safe_psql('select 4')
-            self.assertEqual(b'4\n', res)
+            self.assertEqual(res, b'4\n')
 
             # check returned values (2 args)
             res = node.safe_psql('postgres', 'select 5')
-            self.assertEqual(b'5\n', res)
+            self.assertEqual(res, b'5\n')
 
             # check returned values (named)
             res = node.safe_psql(query='select 6', dbname='postgres')
-            self.assertEqual(b'6\n', res)
+            self.assertEqual(res, b'6\n')
 
             # check feeding input
             node.safe_psql('create table horns (w int)')
@@ -612,7 +614,7 @@ class TestgresTests(unittest.TestCase):
         with get_new_node().init().start() as node:
             node.psql('create role test_user login')
             value = node.safe_psql('select 1', username='test_user')
-            self.assertEqual(b'1\n', value)
+            self.assertEqual(value, b'1\n')
 
     def test_poll_query_until(self):
         with get_new_node() as node:

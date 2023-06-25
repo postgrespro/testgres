@@ -12,9 +12,8 @@ from packaging.version import Version
 
 from six import iteritems
 
-
+from .exceptions import ExecUtilException
 from .config import testgres_config as tconf
-from .logger import log
 
 # rows returned by PG_CONFIG
 _pg_config_data = {}
@@ -73,7 +72,7 @@ def execute_utility(args, logfile=None, verbose=False):
                 lines = [u'\n'] + ['# ' + line for line in out.splitlines()] + [u'\n']
                 tconf.os_ops.write(filename=logfile, data=lines)
         except IOError:
-            log.warn(f"Problem with writing to logfile `{logfile}` during run command `{args}`")
+            raise ExecUtilException(f"Problem with writing to logfile `{logfile}` during run command `{args}`")
     if verbose:
         return exit_status, out, error
     else:

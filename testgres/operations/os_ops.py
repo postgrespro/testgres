@@ -88,6 +88,9 @@ class OsOperations:
         # Get current process id
         raise NotImplementedError()
 
+    def get_process_children(self, pid):
+        raise NotImplementedError()
+
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
         raise NotImplementedError()

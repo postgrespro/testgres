@@ -9,7 +9,6 @@ import paramiko
 from paramiko import SSHClient
 
 from testgres.exceptions import ExecUtilException
-from testgres.logger import log
 
 from .os_ops import OsOperations
 from .os_ops import pglib
@@ -90,9 +89,9 @@ class RemoteOperations(OsOperations):
                     key = paramiko.RSAKey.from_private_key_file(self.ssh_key)
                 return key
         except FileNotFoundError:
-            log.error(f"No such file or directory: '{self.ssh_key}'")
+            raise ExecUtilException(message=f"No such file or directory: '{self.ssh_key}'")
         except Exception as e:
-            log.error(f"An error occurred while reading the ssh key: {e}")
+            ExecUtilException(message=f"An error occurred while reading the ssh key: {e}")
 
     def exec_command(self, cmd: str, wait_exit=False, verbose=False, expect_error=False,
                      encoding=None, shell=True, text=False, input=None, stdout=None,
@@ -400,7 +399,7 @@ class RemoteOperations(OsOperations):
         # Get current process id
         return int(self.exec_command("echo $$", encoding='utf-8'))
 
-    def get_remote_children(self, pid):
+    def get_process_children(self, pid):
         command = f"pgrep -P {pid}"
         stdin, stdout, stderr = self.ssh.exec_command(command)
         children = stdout.readlines()
@@ -414,8 +413,7 @@ class RemoteOperations(OsOperations):
         - dbname (str): The name of the database to connect to.
         - user (str): The username for the database connection.
         - password (str, optional): The password for the database connection. Defaults to None.
-        - host (str, optional): The IP address of the remote system. Defaults to "127.0.0.1".
-        - hostname (str, optional): The hostname of the remote system. Defaults to "localhost".
+        - host (str, optional): The IP address of the remote system. Defaults to "localhost".
         - port (int, optional): The port number of the PostgreSQL service. Defaults to 5432.
 
         This function establishes a connection to a PostgreSQL database on the remote system using the specified
@@ -444,4 +442,4 @@ class RemoteOperations(OsOperations):
             return conn
         except Exception as e:
             self.tunnel.stop()
-            raise e
+            raise ExecUtilException("Could not create db tunnel.")

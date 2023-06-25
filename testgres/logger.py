@@ -5,21 +5,6 @@ import select
 import threading
 import time
 
-# create logger
-log = logging.getLogger('Testgres')
-
-if not log.handlers:
-    log.setLevel(logging.WARN)
-    # create console handler and set level to debug
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.WARN)
-    # create formatter
-    formatter = logging.Formatter('\n%(asctime)s - %(name)s[%(levelname)s]: %(message)s')
-    # add formatter to ch
-    ch.setFormatter(formatter)
-    # add ch to logger
-    log.addHandler(ch)
-
 
 class TestgresLogger(threading.Thread):
     """

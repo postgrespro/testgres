@@ -11,7 +11,7 @@ class TestRemoteOperations:
         self.operations = RemoteOperations(
             host="172.18.0.3",
             username="dev",
-            ssh_key='/home/vika/Desktop/work/probackup/dev-ee-probackup/container_files/postgres/ssh/id_ed25519'
+            ssh_key='../../container_files/postgres/ssh/id_ed25519'
         )
 
         yield
