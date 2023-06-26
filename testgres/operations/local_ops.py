@@ -84,7 +84,7 @@ class LocalOperations(OsOperations):
             if exit_status != 0 or found_error:
                 if exit_status == 0:
                     exit_status = 1
-                raise ExecUtilException(message=f'Utility exited with non-zero code. Error `{error}`',
+                raise ExecUtilException(message='Utility exited with non-zero code. Error `{}`'.format(error),
                                         command=cmd,
                                         exit_code=exit_status,
                                         out=result)
@@ -138,7 +138,7 @@ class LocalOperations(OsOperations):
         elif os_name == "nt":
             pathsep = ";"
         else:
-            raise Exception(f"Unsupported operating system: {os_name}")
+            raise Exception("Unsupported operating system: {}".format(os_name))
         return pathsep
 
     def mkdtemp(self, prefix=None):
@@ -242,7 +242,7 @@ class LocalOperations(OsOperations):
     # Processes control
     def kill(self, pid, signal):
         # Kill the process
-        cmd = f"kill -{signal} {pid}"
+        cmd = "kill -{} {}".format(signal, pid)
         return self.exec_command(cmd)
 
     def get_pid(self):

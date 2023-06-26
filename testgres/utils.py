@@ -72,7 +72,7 @@ def execute_utility(args, logfile=None, verbose=False):
                 lines = [u'\n'] + ['# ' + line for line in out.splitlines()] + [u'\n']
                 tconf.os_ops.write(filename=logfile, data=lines)
         except IOError:
-            raise ExecUtilException(f"Problem with writing to logfile `{logfile}` during run command `{args}`")
+            raise ExecUtilException("Problem with writing to logfile `{}` during run command `{}`".format(logfile, args))
     if verbose:
         return exit_status, out, error
     else:

@@ -1006,7 +1006,7 @@ class PostgresNode(object):
             else:
                 raise QueryException(err or b'', query)
         elif expect_error:
-            assert False, f"Exception was expected, but query finished successfully: `{query}` "
+            assert False, "Exception was expected, but query finished successfully: `{}` ".format(query)
 
         return out
 

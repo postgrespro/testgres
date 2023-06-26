@@ -111,7 +111,7 @@ class NodeConnection(object):
 
             return res
         except Exception as e:
-            print(f"Error executing query: {e}")
+            print("Error executing query: {}".format(e))
             return None
 
     def close(self):

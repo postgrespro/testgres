@@ -26,11 +26,11 @@ class PsUtilProcessProxy:
         self.pid = pid
 
     def kill(self):
-        command = f"kill {self.pid}"
+        command = "kill {}".format(self.pid)
         self.ssh.exec_command(command)
 
     def cmdline(self):
-        command = f"ps -p {self.pid} -o cmd --no-headers"
+        command = "ps -p {} -o cmd --no-headers".format(self.pid)
         stdin, stdout, stderr = self.ssh.exec_command(command)
         cmdline = stdout.read().decode('utf-8').strip()
         return cmdline.split()
@@ -84,9 +84,9 @@ class RemoteOperations(OsOperations):
                     key = paramiko.RSAKey.from_private_key_file(self.ssh_key)
                 return key
         except FileNotFoundError:
-            raise ExecUtilException(message=f"No such file or directory: '{self.ssh_key}'")
+            raise ExecUtilException(message="No such file or directory: '{}'".format(self.ssh_key))
         except Exception as e:
-            ExecUtilException(message=f"An error occurred while reading the ssh key: {e}")
+            ExecUtilException(message="An error occurred while reading the ssh key: {}".format(e))
 
     def exec_command(self, cmd: str, wait_exit=False, verbose=False, expect_error=False,
                      encoding=None, shell=True, text=False, input=None, stdout=None,
@@ -131,7 +131,7 @@ class RemoteOperations(OsOperations):
         if error_found:
             if exit_status == 0:
                 exit_status = 1
-            raise ExecUtilException(message=f"Utility exited with non-zero code. Error: {error.decode(encoding or 'utf-8')}",
+            raise ExecUtilException(message="Utility exited with non-zero code. Error: {}".format(error.decode(encoding or 'utf-8')),
                                     command=cmd,
                                     exit_code=exit_status,
                                     out=result)
@@ -148,7 +148,7 @@ class RemoteOperations(OsOperations):
         Args:
         - var_name (str): The name of the environment variable.
         """
-        cmd = f"echo ${var_name}"
+        cmd = "echo ${}".format(var_name)
         return self.exec_command(cmd, encoding='utf-8').strip()
 
     def find_executable(self, executable):
@@ -166,7 +166,7 @@ class RemoteOperations(OsOperations):
 
     def is_executable(self, file):
         # Check if the file is executable
-        is_exec = self.exec_command(f"test -x {file} && echo OK")
+        is_exec = self.exec_command("test -x {} && echo OK".format(file))
         return is_exec == b"OK\n"
 
     def set_env(self, var_name: str, var_val: str):
@@ -176,7 +176,7 @@ class RemoteOperations(OsOperations):
         - var_name (str): The name of the environment variable.
         - var_val (str): The value to be set for the environment variable.
         """
-        return self.exec_command(f"export {var_name}={var_val}")
+        return self.exec_command("export {}={}".format(var_name, var_val))
 
     # Get environment variables
     def get_user(self):
@@ -195,12 +195,12 @@ class RemoteOperations(OsOperations):
         - remove_existing (bool): If True, the existing directory at the path will be removed.
         """
         if remove_existing:
-            cmd = f"rm -rf {path} && mkdir -p {path}"
+            cmd = "rm -rf {} && mkdir -p {}".format(path, path)
         else:
-            cmd = f"mkdir -p {path}"
+            cmd = "mkdir -p {}".format(path)
         exit_status, result, error = self.exec_command(cmd, verbose=True)
         if exit_status != 0:
-            raise Exception(f"Couldn't create dir {path} because of error {error}")
+            raise Exception("Couldn't create dir {} because of error {}".format(path, error))
         return result
 
     def rmdirs(self, path, verbose=False, ignore_errors=True):
@@ -211,7 +211,7 @@ class RemoteOperations(OsOperations):
         - verbose (bool): If True, return exit status, result, and error.
         - ignore_errors (bool): If True, do not raise error if directory does not exist.
         """
-        cmd = f"rm -rf {path}"
+        cmd = "rm -rf {}".format(path)
         exit_status, result, error = self.exec_command(cmd, verbose=True)
         if verbose:
             return exit_status, result, error
@@ -224,11 +224,11 @@ class RemoteOperations(OsOperations):
         Args:
         path (str): The path to the directory.
         """
-        result = self.exec_command(f"ls {path}")
+        result = self.exec_command("ls {}".format(path))
         return result.splitlines()
 
     def path_exists(self, path):
-        result = self.exec_command(f"test -e {path}; echo $?", encoding='utf-8')
+        result = self.exec_command("test -e {}; echo $?".format(path), encoding='utf-8')
         return int(result.strip()) == 0
 
     @property
@@ -239,7 +239,7 @@ class RemoteOperations(OsOperations):
         elif os_name == "nt":
             pathsep = ";"
         else:
-            raise Exception(f"Unsupported operating system: {os_name}")
+            raise Exception("Unsupported operating system: {}".format(os_name))
         return pathsep
 
     def mkdtemp(self, prefix=None):
@@ -249,7 +249,7 @@ class RemoteOperations(OsOperations):
         - prefix (str): The prefix of the temporary directory name.
         """
         if prefix:
-            temp_dir = self.exec_command(f"mktemp -d {prefix}XXXXX", encoding='utf-8')
+            temp_dir = self.exec_command("mktemp -d {}XXXXX".format(prefix), encoding='utf-8')
         else:
             temp_dir = self.exec_command("mktemp -d", encoding='utf-8')
 
@@ -262,7 +262,7 @@ class RemoteOperations(OsOperations):
 
     def mkstemp(self, prefix=None):
         if prefix:
-            temp_dir = self.exec_command(f"mktemp {prefix}XXXXX", encoding='utf-8')
+            temp_dir = self.exec_command("mktemp {}XXXXX".format(prefix), encoding='utf-8')
         else:
             temp_dir = self.exec_command("mktemp", encoding='utf-8')
 
@@ -277,8 +277,8 @@ class RemoteOperations(OsOperations):
         if not os.path.isabs(dst):
             dst = os.path.join('~', dst)
         if self.isdir(dst):
-            raise FileExistsError(f"Directory {dst} already exists.")
-        return self.exec_command(f"cp -r {src} {dst}")
+            raise FileExistsError("Directory {} already exists.".format(dst))
+        return self.exec_command("cp -r {} {}".format(src, dst))
 
     # Work with files
     def write(self, filename, data, truncate=False, binary=False, read_and_write=False, encoding='utf-8'):
@@ -344,10 +344,10 @@ class RemoteOperations(OsOperations):
 
         This method behaves as the 'touch' command in Unix. It's equivalent to calling 'touch filename' in the shell.
         """
-        self.exec_command(f"touch {filename}")
+        self.exec_command("touch {}".format(filename))
 
     def read(self, filename, binary=False, encoding=None):
-        cmd = f"cat {filename}"
+        cmd = "cat {}".format(filename)
         result = self.exec_command(cmd, encoding=encoding)
 
         if not binary and result:
@@ -357,9 +357,9 @@ class RemoteOperations(OsOperations):
 
     def readlines(self, filename, num_lines=0, binary=False, encoding=None):
         if num_lines > 0:
-            cmd = f"tail -n {num_lines} {filename}"
+            cmd = "tail -n {} {}".format(num_lines, filename)
         else:
-            cmd = f"cat {filename}"
+            cmd = "cat {}".format(filename)
 
         result = self.exec_command(cmd, encoding=encoding)
 
@@ -371,23 +371,23 @@ class RemoteOperations(OsOperations):
         return lines
 
     def isfile(self, remote_file):
-        stdout = self.exec_command(f"test -f {remote_file}; echo $?")
+        stdout = self.exec_command("test -f {}; echo $?".format(remote_file))
         result = int(stdout.strip())
         return result == 0
 
     def isdir(self, dirname):
-        cmd = f"if [ -d {dirname} ]; then echo True; else echo False; fi"
+        cmd = "if [ -d {} ]; then echo True; else echo False; fi".format(dirname)
         response = self.exec_command(cmd)
         return response.strip() == b"True"
 
     def remove_file(self, filename):
-        cmd = f"rm {filename}"
+        cmd = "rm {}".format(filename)
         return self.exec_command(cmd)
 
     # Processes control
     def kill(self, pid, signal):
         # Kill the process
-        cmd = f"kill -{signal} {pid}"
+        cmd = "kill -{} {}".format(signal, pid)
         return self.exec_command(cmd)
 
     def get_pid(self):
@@ -395,7 +395,7 @@ class RemoteOperations(OsOperations):
         return int(self.exec_command("echo $$", encoding='utf-8'))
 
     def get_process_children(self, pid):
-        command = f"pgrep -P {pid}"
+        command = "pgrep -P {}".format(pid)
         stdin, stdout, stderr = self.ssh.exec_command(command)
         children = stdout.readlines()
         return [PsUtilProcessProxy(self.ssh, int(child_pid.strip())) for child_pid in children]
@@ -437,4 +437,4 @@ class RemoteOperations(OsOperations):
             return conn
         except Exception as e:
             self.tunnel.stop()
-            raise ExecUtilException("Could not create db tunnel.")
+            raise ExecUtilException("Could not create db tunnel. {}".format(e))
