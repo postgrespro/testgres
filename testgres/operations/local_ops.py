@@ -7,9 +7,9 @@ from shutil import rmtree
 
 import psutil
 
-from testgres.exceptions import ExecUtilException
+from ..exceptions import ExecUtilException
 
-from .os_ops import OsOperations
+from .os_ops import OsOperations, ConnectionParams
 from .os_ops import pglib
 
 try:
@@ -21,13 +21,12 @@ CMD_TIMEOUT_SEC = 60
 
 
 class LocalOperations(OsOperations):
-    def __init__(self, host='127.0.0.1', hostname='localhost', port=None, username=None):
-        super().__init__(username)
-        self.host = host
-        self.hostname = hostname
-        self.port = port
+    def __init__(self, conn_params: ConnectionParams = ConnectionParams()):
+        super().__init__(conn_params.username)
+        self.conn_params = conn_params
+        self.host = conn_params.host
         self.ssh_key = None
-        self.username = username or self.get_user()
+        self.username = conn_params.username or self.get_user()
 
     # Command execution
     def exec_command(self, cmd, wait_exit=False, verbose=False,

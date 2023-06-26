@@ -7,11 +7,16 @@ except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
 
+class ConnectionParams:
+    def __init__(self, host='127.0.0.1', ssh_key=None, username=None):
+        self.host = host
+        self.ssh_key = ssh_key
+        self.username = username
+
+
 class OsOperations:
     def __init__(self, username=None):
-        self.hostname = "localhost"
-        self.remote = False
-        self.ssh = None
+        self.ssh_key = None
         self.username = username
 
     # Command execution

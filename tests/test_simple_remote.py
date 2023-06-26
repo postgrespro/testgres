@@ -50,12 +50,12 @@ from testgres import \
 # NOTE: those are ugly imports
 from testgres import bound_ports
 from testgres.utils import PgVer
-from testgres.node import ProcessProxy
+from testgres.node import ProcessProxy, ConnectionParams
 
-
-os_ops = RemoteOperations(host='172.18.0.3',
-                          username='dev',
-                          ssh_key='../../container_files/postgres/ssh/id_ed25519')
+conn_params = ConnectionParams(host="172.18.0.3",
+                               username="dev",
+                               ssh_key='../../container_files/postgres/ssh/id_ed25519')
+os_ops = RemoteOperations(conn_params)
 testgres_config.set_os_ops(os_ops=os_ops)
 
 
@@ -94,7 +94,7 @@ def removing(f):
 
 
 def get_remote_node(name=None):
-    return get_new_node(name=name, host=os_ops.host, username=os_ops.username, ssh_key=os_ops.ssh_key)
+    return get_new_node(name=name, conn_params=conn_params)
 
 
 class TestgresRemoteTests(unittest.TestCase):

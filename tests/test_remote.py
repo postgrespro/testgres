@@ -2,20 +2,19 @@ import pytest
 
 from testgres import ExecUtilException
 from testgres import RemoteOperations
+from testgres import ConnectionParams
 
 
 class TestRemoteOperations:
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self):
-        self.operations = RemoteOperations(
-            host="172.18.0.3",
-            username="dev",
-            ssh_key='../../container_files/postgres/ssh/id_ed25519'
-        )
+        conn_params = ConnectionParams(host="172.18.0.3",
+                                       username="dev",
+                                       ssh_key='../../container_files/postgres/ssh/id_ed25519')
+        self.operations = RemoteOperations(conn_params)
 
         yield
-
         self.operations.__del__()
 
     def test_exec_command_success(self):

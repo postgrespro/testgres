@@ -8,9 +8,9 @@ import sshtunnel
 import paramiko
 from paramiko import SSHClient
 
-from testgres.exceptions import ExecUtilException
+from ..exceptions import ExecUtilException
 
-from .os_ops import OsOperations
+from .os_ops import OsOperations, ConnectionParams
 from .os_ops import pglib
 
 sshtunnel.SSH_TIMEOUT = 5.0
@@ -37,15 +37,13 @@ class PsUtilProcessProxy:
 
 
 class RemoteOperations(OsOperations):
-    def __init__(self, host="127.0.0.1", hostname='localhost', port=None, ssh_key=None, username=None):
-        super().__init__(username)
-        self.host = host
-        self.hostname = hostname
-        self.port = port
-        self.ssh_key = ssh_key
-        self.remote = True
+    def __init__(self, conn_params: ConnectionParams):
+        super().__init__(conn_params.username)
+        self.conn_params = conn_params
+        self.host = conn_params.host
+        self.ssh_key = conn_params.ssh_key
         self.ssh = self.ssh_connect()
-        self.username = username or self.get_user()
+        self.username = conn_params.username or self.get_user()
         self.tunnel = None
 
     def __enter__(self):
@@ -70,14 +68,11 @@ class RemoteOperations(OsOperations):
                 time.sleep(0.5)
 
     def ssh_connect(self) -> Optional[SSHClient]:
-        if not self.remote:
-            return None
-        else:
-            key = self._read_ssh_key()
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(self.host, username=self.username, pkey=key)
-            return ssh
+        key = self._read_ssh_key()
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(self.host, username=self.username, pkey=key)
+        return ssh
 
     def _read_ssh_key(self):
         try:

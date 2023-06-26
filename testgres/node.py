@@ -94,6 +94,7 @@ from .utils import \
 
 from .backup import NodeBackup
 
+from .operations.os_ops import ConnectionParams
 from .operations.local_ops import LocalOperations
 from .operations.remote_ops import RemoteOperations
 
@@ -125,8 +126,7 @@ class ProcessProxy(object):
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, port=None, base_dir=None,
-                 host='127.0.0.1', hostname='localhost', ssh_key=None, username=default_username(), os_ops=None):
+    def __init__(self, name=None, port=None, base_dir=None, conn_params: ConnectionParams = ConnectionParams()):
         """
         PostgresNode constructor.
 
@@ -146,17 +146,14 @@ class PostgresNode(object):
         # basic
         self.name = name or generate_app_name()
 
-        if os_ops:
-            self.os_ops = os_ops
-        elif ssh_key:
-            self.os_ops = RemoteOperations(host=host, hostname=hostname, ssh_key=ssh_key, username=username)
+        if conn_params.ssh_key:
+            self.os_ops = RemoteOperations(conn_params)
         else:
-            self.os_ops = LocalOperations(host=host, hostname=hostname, username=username)
+            self.os_ops = LocalOperations(conn_params)
 
-        self.port = self.os_ops.port or reserve_port()
+        self.port = port or reserve_port()
 
         self.host = self.os_ops.host
-        self.hostname = self.os_ops.hostname
         self.ssh_key = self.os_ops.ssh_key
 
         testgres_config.os_ops = self.os_ops
@@ -628,7 +625,7 @@ class PostgresNode(object):
             status_code, out, err = execute_utility(_params, self.utils_log_file, verbose=True)
             if 'does not exist' in err:
                 return NodeStatus.Uninitialized
-            elif'no server running' in out:
+            elif 'no server running' in out:
                 return NodeStatus.Stopped
             return NodeStatus.Running
 
