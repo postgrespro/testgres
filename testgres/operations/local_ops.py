@@ -60,27 +60,26 @@ class LocalOperations(OsOperations):
                 result = buf.read().decode(encoding)
             return result
         else:
-            if proc:
-                return subprocess.Popen(cmd, shell=shell, stdin=input, stdout=stdout, stderr=stderr)
-            process = subprocess.run(
+            process = subprocess.Popen(
                 cmd,
-                input=input,
                 shell=shell,
-                text=text,
                 stdout=stdout,
                 stderr=stderr,
-                timeout=CMD_TIMEOUT_SEC,
             )
+            if proc:
+                return process
+            result, error = process.communicate(input)
             exit_status = process.returncode
-            result = process.stdout
-            error = process.stderr
+
             found_error = "error" in error.decode(encoding or 'utf-8').lower()
+
             if encoding:
                 result = result.decode(encoding)
                 error = error.decode(encoding)
 
             if expect_error:
                 raise Exception(result, error)
+
             if exit_status != 0 or found_error:
                 if exit_status == 0:
                     exit_status = 1
