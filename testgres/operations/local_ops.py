@@ -1,6 +1,7 @@
 import getpass
 import os
 import shutil
+import stat
 import subprocess
 import tempfile
 from shutil import rmtree
@@ -8,8 +9,7 @@ from shutil import rmtree
 import psutil
 
 from ..exceptions import ExecUtilException
-
-from .os_ops import OsOperations, ConnectionParams
+from .os_ops import ConnectionParams, OsOperations
 from .os_ops import pglib
 
 try:
@@ -18,20 +18,24 @@ except ImportError:
     from distutils.spawn import find_executable
 
 CMD_TIMEOUT_SEC = 60
+error_markers = [b'error', b'Permission denied', b'fatal']
 
 
 class LocalOperations(OsOperations):
-    def __init__(self, conn_params: ConnectionParams = ConnectionParams()):
-        super().__init__(conn_params.username)
+    def __init__(self, conn_params=None):
+        if conn_params is None:
+            conn_params = ConnectionParams()
+        super(LocalOperations, self).__init__(conn_params.username)
         self.conn_params = conn_params
         self.host = conn_params.host
         self.ssh_key = None
+        self.remote = False
         self.username = conn_params.username or self.get_user()
 
     # Command execution
     def exec_command(self, cmd, wait_exit=False, verbose=False,
-                     expect_error=False, encoding=None, shell=True, text=False,
-                     input=None, stdout=subprocess.PIPE, stderr=subprocess.PIPE, proc=None):
+                     expect_error=False, encoding=None, shell=False, text=False,
+                     input=None, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, proc=None):
         """
         Execute a command in a subprocess.
 
@@ -49,9 +53,6 @@ class LocalOperations(OsOperations):
         - proc: The process to use for subprocess creation.
         :return: The output of the subprocess.
         """
-        if isinstance(cmd, list):
-            cmd = ' '.join(item.decode('utf-8') if isinstance(item, bytes) else item for item in cmd)
-
         if os.name == 'nt':
             with tempfile.NamedTemporaryFile() as buf:
                 process = subprocess.Popen(cmd, stdout=buf, stderr=subprocess.STDOUT)
@@ -71,7 +72,7 @@ class LocalOperations(OsOperations):
             result, error = process.communicate(input)
             exit_status = process.returncode
 
-            found_error = "error" in error.decode(encoding or 'utf-8').lower()
+            error_found = exit_status != 0 or any(marker in error for marker in error_markers)
 
             if encoding:
                 result = result.decode(encoding)
@@ -80,7 +81,7 @@ class LocalOperations(OsOperations):
             if expect_error:
                 raise Exception(result, error)
 
-            if exit_status != 0 or found_error:
+            if exit_status != 0 or error_found:
                 if exit_status == 0:
                     exit_status = 1
                 raise ExecUtilException(message='Utility exited with non-zero code. Error `{}`'.format(error),
@@ -101,7 +102,7 @@ class LocalOperations(OsOperations):
 
     def is_executable(self, file):
         # Check if the file is executable
-        return os.access(file, os.X_OK)
+        return os.stat(file).st_mode & stat.S_IXUSR
 
     def set_env(self, var_name, var_val):
         # Check if the directory is already in PATH
@@ -116,9 +117,12 @@ class LocalOperations(OsOperations):
 
     # Work with dirs
     def makedirs(self, path, remove_existing=False):
-        if remove_existing and os.path.exists(path):
-            shutil.rmtree(path)
-        os.makedirs(path, exist_ok=True)
+        if remove_existing:
+            shutil.rmtree(path, ignore_errors=True)
+        try:
+            os.makedirs(path)
+        except FileExistsError:
+            pass
 
     def rmdirs(self, path, ignore_errors=True):
         return rmtree(path, ignore_errors=ignore_errors)
@@ -141,7 +145,7 @@ class LocalOperations(OsOperations):
         return pathsep
 
     def mkdtemp(self, prefix=None):
-        return tempfile.mkdtemp(prefix=prefix)
+        return tempfile.mkdtemp(prefix='{}'.format(prefix))
 
     def mkstemp(self, prefix=None):
         fd, filename = tempfile.mkstemp(prefix=prefix)

@@ -17,7 +17,7 @@ sshtunnel.SSH_TIMEOUT = 5.0
 sshtunnel.TUNNEL_TIMEOUT = 5.0
 
 
-error_markers = [b'error', b'Permission denied']
+error_markers = [b'error', b'Permission denied', b'fatal']
 
 
 class PsUtilProcessProxy:
@@ -43,6 +43,7 @@ class RemoteOperations(OsOperations):
         self.host = conn_params.host
         self.ssh_key = conn_params.ssh_key
         self.ssh = self.ssh_connect()
+        self.remote = True
         self.username = conn_params.username or self.get_user()
         self.tunnel = None
 
@@ -89,7 +90,7 @@ class RemoteOperations(OsOperations):
             ExecUtilException(message="An error occurred while reading the ssh key: {}".format(e))
 
     def exec_command(self, cmd: str, wait_exit=False, verbose=False, expect_error=False,
-                     encoding=None, shell=True, text=False, input=None, stdout=None,
+                     encoding=None, shell=True, text=False, input=None, stdin=None, stdout=None,
                      stderr=None, proc=None):
         """
         Execute a command in the SSH session.
@@ -131,7 +132,11 @@ class RemoteOperations(OsOperations):
         if error_found:
             if exit_status == 0:
                 exit_status = 1
-            raise ExecUtilException(message="Utility exited with non-zero code. Error: {}".format(error.decode(encoding or 'utf-8')),
+            if encoding:
+                message = "Utility exited with non-zero code. Error: {}".format(error.decode(encoding))
+            else:
+                message = b"Utility exited with non-zero code. Error: " + error
+            raise ExecUtilException(message=message,
                                     command=cmd,
                                     exit_code=exit_status,
                                     out=result)
@@ -429,7 +434,7 @@ class RemoteOperations(OsOperations):
             conn = pglib.connect(
                 host=host,  # change to 'localhost' because we're connecting through a local ssh tunnel
                 port=self.tunnel.local_bind_port,  # use the local bind port set up by the tunnel
-                dbname=dbname,
+                database=dbname,
                 user=user or self.username,
                 password=password
             )

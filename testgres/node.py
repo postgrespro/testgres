@@ -3,6 +3,7 @@
 import os
 import random
 import signal
+import subprocess
 import threading
 from queue import Queue
 
@@ -714,14 +715,13 @@ class PostgresNode(object):
             exit_status, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
             if 'does not exist' in error:
                 raise Exception
-            if 'server started' in out:
-                self.is_started = True
         except Exception as e:
             msg = 'Cannot start node'
             files = self._collect_special_files()
             raise_from(StartNodeException(msg, files), e)
 
         self._maybe_start_logger()
+        self.is_started = True
         return self
 
     def stop(self, params=[], wait=True):
@@ -958,7 +958,10 @@ class PostgresNode(object):
 
         # select query source
         if query:
-            psql_params.extend(("-c", '"{}"'.format(query)))
+            if self.os_ops.remote:
+                psql_params.extend(("-c", '"{}"'.format(query)))
+            else:
+                psql_params.extend(("-c", query))
         elif filename:
             psql_params.extend(("-f", filename))
         else:
@@ -966,11 +969,20 @@ class PostgresNode(object):
 
         # should be the last one
         psql_params.append(dbname)
+        if not self.os_ops.remote:
+            # start psql process
+            process = subprocess.Popen(psql_params,
+                                       stdin=subprocess.PIPE,
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE)
 
-        # start psql process
-        status_code, out, err = self.os_ops.exec_command(psql_params, verbose=True, input=input)
+            # wait until it finishes and get stdout and stderr
+            out, err = process.communicate(input=input)
+            return process.returncode, out, err
+        else:
+            status_code, out, err = self.os_ops.exec_command(psql_params, verbose=True, input=input)
 
-        return status_code, out, err
+            return status_code, out, err
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def safe_psql(self, query=None, expect_error=False, **kwargs):
@@ -1002,9 +1014,9 @@ class PostgresNode(object):
             err = e.message
         if ret:
             if expect_error:
-                out = err or b''
+                out = (err or b'').decode('utf-8')
             else:
-                raise QueryException(err or b'', query)
+                raise QueryException((err or b'').decode('utf-8'), query)
         elif expect_error:
             assert False, "Exception was expected, but query finished successfully: `{}` ".format(query)
 
@@ -1529,18 +1541,18 @@ class PostgresNode(object):
                                          Defaults to an empty set.
         """
         # parse postgresql.auto.conf
-        auto_conf_file = os.path.join(self.data_dir, config)
-        raw_content = self.os_ops.read(auto_conf_file)
+        path = os.path.join(self.data_dir, config)
 
+        lines = self.os_ops.readlines(path)
         current_options = {}
         current_directives = []
-        for line in raw_content.splitlines():
+        for line in lines:
 
             # ignore comments
             if line.startswith('#'):
                 continue
 
-            if line == '':
+            if line.strip() == '':
                 continue
 
             if line.startswith('include'):
@@ -1570,7 +1582,7 @@ class PostgresNode(object):
         for directive in current_directives:
             auto_conf += directive + "\n"
 
-        self.os_ops.write(auto_conf_file, auto_conf)
+        self.os_ops.write(path, auto_conf, truncate=True)
 
 
 class NodeApp:

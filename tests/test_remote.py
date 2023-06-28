@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from testgres import ExecUtilException
@@ -9,9 +11,10 @@ class TestRemoteOperations:
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self):
-        conn_params = ConnectionParams(host="172.18.0.3",
-                                       username="dev",
-                                       ssh_key='../../container_files/postgres/ssh/id_ed25519')
+        conn_params = ConnectionParams(host=os.getenv('RDBMS_TESTPOOL1_HOST') or '172.18.0.3',
+                                       username='dev',
+                                       ssh_key=os.getenv(
+                                           'RDBMS_TESTPOOL_SSHKEY') or '../../container_files/postgres/ssh/id_ed25519')
         self.operations = RemoteOperations(conn_params)
 
         yield
@@ -35,7 +38,7 @@ class TestRemoteOperations:
             exit_status, result, error = self.operations.exec_command(cmd, verbose=True, wait_exit=True)
         except ExecUtilException as e:
             error = e.message
-        assert error == 'Utility exited with non-zero code. Error: bash: line 1: nonexistent_command: command not found\n'
+        assert error == b'Utility exited with non-zero code. Error: bash: line 1: nonexistent_command: command not found\n'
 
     def test_is_executable_true(self):
         """
@@ -62,7 +65,7 @@ class TestRemoteOperations:
         cmd = "pwd"
         pwd = self.operations.exec_command(cmd, wait_exit=True, encoding='utf-8').strip()
 
-        path = f"{pwd}/test_dir"
+        path = "{}/test_dir".format(pwd)
 
         # Test makedirs
         self.operations.makedirs(path)
@@ -88,7 +91,7 @@ class TestRemoteOperations:
             exit_status, result, error = self.operations.rmdirs(path, verbose=True)
         except ExecUtilException as e:
             error = e.message
-        assert error == "Utility exited with non-zero code. Error: rm: cannot remove '/root/test_dir': Permission denied\n"
+        assert error == b"Utility exited with non-zero code. Error: rm: cannot remove '/root/test_dir': Permission denied\n"
 
     def test_listdir(self):
         """

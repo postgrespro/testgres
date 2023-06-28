@@ -52,9 +52,10 @@ from testgres import bound_ports
 from testgres.utils import PgVer
 from testgres.node import ProcessProxy, ConnectionParams
 
-conn_params = ConnectionParams(host="172.18.0.3",
-                               username="dev",
-                               ssh_key='../../container_files/postgres/ssh/id_ed25519')
+conn_params = ConnectionParams(host=os.getenv('RDBMS_TESTPOOL1_HOST') or '172.18.0.3',
+                               username='dev',
+                               ssh_key=os.getenv(
+                                   'RDBMS_TESTPOOL_SSHKEY') or '../../container_files/postgres/ssh/id_ed25519')
 os_ops = RemoteOperations(conn_params)
 testgres_config.set_os_ops(os_ops=os_ops)
 
@@ -148,14 +149,12 @@ class TestgresRemoteTests(unittest.TestCase):
 
         with scoped_config(cache_initdb=True,
                            cached_initdb_unique=True) as config:
-
             self.assertTrue(config.cache_initdb)
             self.assertTrue(config.cached_initdb_unique)
 
             # spawn two nodes; ids must be different
             with get_remote_node().init().start() as node1, \
                     get_remote_node().init().start() as node2:
-
                 id1 = node1.execute(query)[0]
                 id2 = node2.execute(query)[0]
 
@@ -197,10 +196,10 @@ class TestgresRemoteTests(unittest.TestCase):
 
             # restart, ok
             res = node.execute('select 1')
-            self.assertEqual(res, [(1, )])
+            self.assertEqual(res, [(1,)])
             node.restart()
             res = node.execute('select 2')
-            self.assertEqual(res, [(2, )])
+            self.assertEqual(res, [(2,)])
 
             # restart, fail
             with self.assertRaises(StartNodeException):
@@ -262,7 +261,6 @@ class TestgresRemoteTests(unittest.TestCase):
 
     def test_psql(self):
         with get_remote_node().init().start() as node:
-
             # check returned values (1 arg)
             res = node.psql('select 1')
             self.assertEqual(res, (0, b'1\n', b''))
@@ -306,7 +304,6 @@ class TestgresRemoteTests(unittest.TestCase):
 
     def test_transactions(self):
         with get_remote_node().init().start() as node:
-
             with node.connect() as con:
                 con.begin()
                 con.execute('create table test(val int)')
@@ -316,12 +313,12 @@ class TestgresRemoteTests(unittest.TestCase):
                 con.begin()
                 con.execute('insert into test values (2)')
                 res = con.execute('select * from test order by val asc')
-                self.assertListEqual(res, [(1, ), (2, )])
+                self.assertListEqual(res, [(1,), (2,)])
                 con.rollback()
 
                 con.begin()
                 res = con.execute('select * from test')
-                self.assertListEqual(res, [(1, )])
+                self.assertListEqual(res, [(1,)])
                 con.rollback()
 
                 con.begin()
@@ -330,7 +327,6 @@ class TestgresRemoteTests(unittest.TestCase):
 
     def test_control_data(self):
         with get_remote_node() as node:
-
             # node is not initialized yet
             with self.assertRaises(ExecUtilException):
                 node.get_control_data()
@@ -344,7 +340,6 @@ class TestgresRemoteTests(unittest.TestCase):
 
     def test_backup_simple(self):
         with get_remote_node() as master:
-
             # enable streaming for backups
             master.init(allow_streaming=True)
 
@@ -361,7 +356,7 @@ class TestgresRemoteTests(unittest.TestCase):
             with master.backup(xlog_method='stream') as backup:
                 with backup.spawn_primary().start() as slave:
                     res = slave.execute('select * from test order by i asc')
-                    self.assertListEqual(res, [(1, ), (2, ), (3, ), (4, )])
+                    self.assertListEqual(res, [(1,), (2,), (3,), (4,)])
 
     def test_backup_multiple(self):
         with get_remote_node() as node:
@@ -369,13 +364,11 @@ class TestgresRemoteTests(unittest.TestCase):
 
             with node.backup(xlog_method='fetch') as backup1, \
                     node.backup(xlog_method='fetch') as backup2:
-
                 self.assertNotEqual(backup1.base_dir, backup2.base_dir)
 
             with node.backup(xlog_method='fetch') as backup:
                 with backup.spawn_primary('node1', destroy=False) as node1, \
                         backup.spawn_primary('node2', destroy=False) as node2:
-
                     self.assertNotEqual(node1.base_dir, node2.base_dir)
 
     def test_backup_exhaust(self):
@@ -383,7 +376,6 @@ class TestgresRemoteTests(unittest.TestCase):
             node.init(allow_streaming=True).start()
 
             with node.backup(xlog_method='fetch') as backup:
-
                 # exhaust backup by creating new node
                 with backup.spawn_primary():
                     pass
@@ -418,7 +410,7 @@ class TestgresRemoteTests(unittest.TestCase):
 
             with node.replicate().start() as replica:
                 res = replica.execute('select 1')
-                self.assertListEqual(res, [(1, )])
+                self.assertListEqual(res, [(1,)])
 
                 node.execute('create table test (val int)', commit=True)
 
@@ -512,7 +504,7 @@ class TestgresRemoteTests(unittest.TestCase):
             node1.safe_psql('insert into test2 values (\'a\'), (\'b\')')
             sub.catchup()
             res = node2.execute('select * from test2')
-            self.assertListEqual(res, [('a', ), ('b', )])
+            self.assertListEqual(res, [('a',), ('b',)])
 
             # drop subscription
             sub.drop()
@@ -530,12 +522,12 @@ class TestgresRemoteTests(unittest.TestCase):
 
             # explicitely add table
             with self.assertRaises(ValueError):
-                pub.add_tables([])    # fail
+                pub.add_tables([])  # fail
             pub.add_tables(['test2'])
             node1.safe_psql('insert into test2 values (\'c\')')
             sub.catchup()
             res = node2.execute('select * from test2')
-            self.assertListEqual(res, [('a', ), ('b', )])
+            self.assertListEqual(res, [('a',), ('b',)])
 
     @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_catchup(self):
@@ -619,7 +611,7 @@ class TestgresRemoteTests(unittest.TestCase):
                         # restore dump
                         node3.restore(filename=dump)
                         res = node3.execute(query_select)
-                        self.assertListEqual(res, [(1, ), (2, )])
+                        self.assertListEqual(res, [(1,), (2,)])
 
     def test_users(self):
         with get_remote_node().init().start() as node:
@@ -651,7 +643,7 @@ class TestgresRemoteTests(unittest.TestCase):
 
             # check None, ok
             node.poll_query_until(query='create table def()',
-                                  expected=None)    # returns nothing
+                                  expected=None)  # returns nothing
 
             # check 0 rows equivalent to expected=None
             node.poll_query_until(
@@ -697,7 +689,7 @@ class TestgresRemoteTests(unittest.TestCase):
             'handlers': {
                 'file': {
                     'class': 'logging.FileHandler',
-                    'filename': logfile,
+                    'filename': logfile.name,
                     'formatter': 'base_format',
                     'level': logging.DEBUG,
                 },
@@ -708,7 +700,7 @@ class TestgresRemoteTests(unittest.TestCase):
                 },
             },
             'root': {
-                'handlers': ('file', ),
+                'handlers': ('file',),
                 'level': 'DEBUG',
             },
         }
@@ -730,7 +722,7 @@ class TestgresRemoteTests(unittest.TestCase):
                 time.sleep(0.1)
 
                 # check that master's port is found
-                with open(logfile, 'r') as log:
+                with open(logfile.name, 'r') as log:
                     lines = log.readlines()
                     self.assertTrue(any(node_name in s for s in lines))
 
@@ -743,7 +735,6 @@ class TestgresRemoteTests(unittest.TestCase):
     @unittest.skipUnless(util_exists('pgbench'), 'might be missing')
     def test_pgbench(self):
         with get_remote_node().init().start() as node:
-
             # initialize pgbench DB and run benchmarks
             node.pgbench_init(scale=2, foreign_keys=True,
                               options=['-q']).pgbench_run(time=2)
@@ -764,7 +755,6 @@ class TestgresRemoteTests(unittest.TestCase):
         c1 = get_pg_config()
         # modify setting for this scope
         with scoped_config(cache_pg_config=False) as config:
-
             # sanity check for value
             self.assertFalse(config.cache_pg_config)
 
@@ -796,7 +786,6 @@ class TestgresRemoteTests(unittest.TestCase):
             self.assertEqual(c1.cached_initdb_dir, d1)
 
             with scoped_config(cached_initdb_dir=d2) as c2:
-
                 stack_size = len(testgres.config.config_stack)
 
                 # try to break a stack
@@ -830,7 +819,6 @@ class TestgresRemoteTests(unittest.TestCase):
     def test_auto_name(self):
         with get_remote_node().init(allow_streaming=True).start() as m:
             with m.replicate().start() as r:
-
                 # check that nodes are running
                 self.assertTrue(m.status())
                 self.assertTrue(r.status())
