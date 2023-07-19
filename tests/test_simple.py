@@ -902,7 +902,7 @@ class TestgresTests(unittest.TestCase):
         e = PgVer('15rc1')
         f = PgVer('15beta4')
         g = PgVer('15.2beta4')
-        h = PgVer('15.2biha')
+        h = PgVer('15.2-biha')
 
         self.assertTrue(a == b)
         self.assertTrue(b > c)
