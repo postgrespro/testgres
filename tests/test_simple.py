@@ -901,6 +901,10 @@ class TestgresTests(unittest.TestCase):
         d = PgVer('15.0')
         e = PgVer('15rc1')
         f = PgVer('15beta4')
+        h = PgVer('15.3biha')
+        i = PgVer('15.3')
+        g = PgVer('15.3.1bihabeta1')
+        k = PgVer('15.3.1')
 
         self.assertTrue(a == b)
         self.assertTrue(b > c)
@@ -908,6 +912,10 @@ class TestgresTests(unittest.TestCase):
         self.assertTrue(d > e)
         self.assertTrue(e > f)
         self.assertTrue(d > f)
+        self.assertTrue(h > f)
+        self.assertTrue(h == i)
+        self.assertTrue(g == k)
+        self.assertTrue(g > h)
 
         version = get_pg_version()
         with get_new_node() as node:

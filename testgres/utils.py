@@ -11,7 +11,8 @@ import sys
 import tempfile
 
 from contextlib import contextmanager
-from packaging.version import Version
+from packaging.version import Version, InvalidVersion
+import re
 try:
     from shutil import which as find_executable
 except ImportError:
@@ -27,8 +28,15 @@ _pg_config_data = {}
 # ports used by nodes
 bound_ports = set()
 
+
 # re-export version type
-PgVer = Version
+class PgVer(Version):
+    def __init__(self, version: str) -> None:
+        try:
+            super().__init__(version)
+        except InvalidVersion:
+            version = re.sub(r"[a-zA-Z].*", "", version)
+            super().__init__(version)
 
 
 def reserve_port():
