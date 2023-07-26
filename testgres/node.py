@@ -659,7 +659,7 @@ class PostgresNode(object):
 
         return out_dict
 
-    def slow_start(self, replica=False, dbname='template1', username=default_username()):
+    def slow_start(self, replica=False, dbname='template1', username=default_username(), max_attempts=0):
         """
         Starts the PostgreSQL instance and then polls the instance
         until it reaches the expected state (primary or replica). The state is checked
@@ -670,6 +670,7 @@ class PostgresNode(object):
                username:
                replica: If True, waits for the instance to be in recovery (i.e., replica mode).
                         If False, waits for the instance to be in primary mode. Default is False.
+               max_attempts:
         """
         self.start()
 
@@ -684,7 +685,8 @@ class PostgresNode(object):
                               suppress={InternalError,
                                         QueryException,
                                         ProgrammingError,
-                                        OperationalError})
+                                        OperationalError},
+                              max_attempts=max_attempts)
 
     def start(self, params=[], wait=True):
         """
@@ -719,7 +721,6 @@ class PostgresNode(object):
             msg = 'Cannot start node'
             files = self._collect_special_files()
             raise_from(StartNodeException(msg, files), e)
-
         self._maybe_start_logger()
         self.is_started = True
         return self
@@ -1139,9 +1140,9 @@ class PostgresNode(object):
         # sanity checks
         assert max_attempts >= 0
         assert sleep_time > 0
-
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
+            print(f"Pooling {attempts}")
             try:
                 res = self.execute(dbname=dbname,
                                    query=query,
