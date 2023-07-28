@@ -530,7 +530,7 @@ class PostgresNode(object):
         self.append_conf(fsync=fsync,
                          max_worker_processes=MAX_WORKER_PROCESSES,
                          log_statement=log_statement,
-                         listen_addresses='*',
+                         listen_addresses=self.host,
                          port=self.port)  # yapf:disable
 
         # common replication settings
