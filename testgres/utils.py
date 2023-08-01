@@ -87,9 +87,12 @@ def get_bin_path(filename):
     # check if it's already absolute
     if os.path.isabs(filename):
         return filename
+    if tconf.os_ops.remote:
+        pg_config = os.environ.get("PG_CONFIG_REMOTE") or os.environ.get("PG_CONFIG")
+    else:
+        # try PG_CONFIG - get from local machine
+        pg_config = os.environ.get("PG_CONFIG")
 
-    # try PG_CONFIG - get from local machine
-    pg_config = os.environ.get("PG_CONFIG")
     if pg_config:
         bindir = get_pg_config()["BINDIR"]
         return os.path.join(bindir, filename)
@@ -139,7 +142,11 @@ def get_pg_config(pg_config_path=None):
         return _pg_config_data
 
     # try specified pg_config path or PG_CONFIG
-    pg_config = pg_config_path or os.environ.get("PG_CONFIG")
+    if tconf.os_ops.remote:
+        pg_config = pg_config_path or os.environ.get("PG_CONFIG_REMOTE") or os.environ.get("PG_CONFIG")
+    else:
+        # try PG_CONFIG - get from local machine
+        pg_config = pg_config_path or os.environ.get("PG_CONFIG")
     if pg_config:
         return cache_pg_config_data(pg_config)
 

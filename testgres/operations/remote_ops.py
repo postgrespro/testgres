@@ -17,7 +17,7 @@ sshtunnel.SSH_TIMEOUT = 5.0
 sshtunnel.TUNNEL_TIMEOUT = 5.0
 
 
-error_markers = [b'error', b'Permission denied', b'fatal']
+error_markers = [b'error', b'Permission denied', b'fatal', b'No such file or directory']
 
 
 class PsUtilProcessProxy:
@@ -203,7 +203,10 @@ class RemoteOperations(OsOperations):
             cmd = "rm -rf {} && mkdir -p {}".format(path, path)
         else:
             cmd = "mkdir -p {}".format(path)
-        exit_status, result, error = self.exec_command(cmd, verbose=True)
+        try:
+            exit_status, result, error = self.exec_command(cmd, verbose=True)
+        except ExecUtilException as e:
+            raise Exception("Couldn't create dir {} because of error {}".format(path, e.message))
         if exit_status != 0:
             raise Exception("Couldn't create dir {} because of error {}".format(path, error))
         return result

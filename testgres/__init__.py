@@ -1,4 +1,4 @@
-from .api import get_new_node
+from .api import get_new_node, get_remote_node
 from .backup import NodeBackup
 
 from .config import \
@@ -52,6 +52,7 @@ from .operations.remote_ops import RemoteOperations
 
 __all__ = [
     "get_new_node",
+    "get_remote_node",
     "NodeBackup",
     "TestgresConfig", "configure_testgres", "scoped_config", "push_config", "pop_config",
     "NodeConnection", "DatabaseError", "InternalError", "ProgrammingError", "OperationalError",

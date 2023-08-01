@@ -173,6 +173,33 @@ with testgres.get_new_node().init() as master:
 Note that `default_conf()` is called by `init()` function; both of them overwrite
 the configuration file, which means that they should be called before `append_conf()`.
 
+### Remote mode
+Testgres supports the creation of PostgreSQL nodes on a remote host. This is useful when you want to run distributed tests involving multiple nodes spread across different machines.
+
+To use this feature, you need to use the RemoteOperations class.
+Here is an example of how you might set this up:
+
+```python
+from testgres import ConnectionParams, RemoteOperations, TestgresConfig, get_remote_node
+
+# Set up connection params
+conn_params = ConnectionParams(
+    host='your_host',  # replace with your host
+    username='user_name',  # replace with your username
+    ssh_key='path_to_ssh_key'  # replace with your SSH key path
+)
+os_ops = RemoteOperations(conn_params)
+
+# Add remote testgres config before test
+TestgresConfig.set_os_ops(os_ops=os_ops)
+
+# Proceed with your test
+def test_basic_query(self):
+    with get_remote_node(conn_params=conn_params) as node:
+        node.init().start()
+        res = node.execute('SELECT 1')
+        self.assertEqual(res, [(1,)])
+```
 
 ## Authors
 

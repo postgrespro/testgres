@@ -146,8 +146,9 @@ class PostgresNode(object):
 
         # basic
         self.name = name or generate_app_name()
-
-        if conn_params.ssh_key:
+        if testgres_config.os_ops:
+            self.os_ops = testgres_config.os_ops
+        elif conn_params.ssh_key:
             self.os_ops = RemoteOperations(conn_params)
         else:
             self.os_ops = LocalOperations(conn_params)
@@ -157,7 +158,6 @@ class PostgresNode(object):
         self.host = self.os_ops.host
         self.ssh_key = self.os_ops.ssh_key
 
-        testgres_config.os_ops = self.os_ops
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
         self.cleanup_on_bad_exit = testgres_config.node_cleanup_on_bad_exit
