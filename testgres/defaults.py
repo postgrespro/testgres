@@ -1,8 +1,8 @@
 import datetime
-import getpass
-import os
 import struct
 import uuid
+
+from .config import testgres_config as tconf
 
 
 def default_dbname():
@@ -17,8 +17,7 @@ def default_username():
     """
     Return default username (current user).
     """
-
-    return getpass.getuser()
+    return tconf.os_ops.get_user()
 
 
 def generate_app_name():
@@ -44,7 +43,7 @@ def generate_system_id():
     system_id = 0
     system_id |= (secs << 32)
     system_id |= (usecs << 12)
-    system_id |= (os.getpid() & 0xFFF)
+    system_id |= (tconf.os_ops.get_pid() & 0xFFF)
 
     # pack ULL in native byte order
     return struct.pack('=Q', system_id)

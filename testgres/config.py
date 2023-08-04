@@ -5,10 +5,10 @@ import copy
 import tempfile
 
 from contextlib import contextmanager
-from shutil import rmtree
-from tempfile import mkdtemp
 
 from .consts import TMP_CACHE
+from .operations.os_ops import OsOperations
+from .operations.local_ops import LocalOperations
 
 
 class GlobalConfig(object):
@@ -43,6 +43,9 @@ class GlobalConfig(object):
 
     _cached_initdb_dir = None
     """ underlying class attribute for cached_initdb_dir property """
+
+    os_ops = LocalOperations()
+    """ OsOperation object that allows work on remote host """
     @property
     def cached_initdb_dir(self):
         """ path to a temp directory for cached initdb. """
@@ -54,6 +57,7 @@ class GlobalConfig(object):
 
         if value:
             cached_initdb_dirs.add(value)
+        return testgres_config.cached_initdb_dir
 
     @property
     def temp_dir(self):
@@ -118,6 +122,11 @@ class GlobalConfig(object):
 
         return copy.copy(self)
 
+    @staticmethod
+    def set_os_ops(os_ops: OsOperations):
+        testgres_config.os_ops = os_ops
+        testgres_config.cached_initdb_dir = os_ops.mkdtemp(prefix=TMP_CACHE)
+
 
 # cached dirs to be removed
 cached_initdb_dirs = set()
@@ -135,7 +144,7 @@ config_stack = []
 @atexit.register
 def _rm_cached_initdb_dirs():
     for d in cached_initdb_dirs:
-        rmtree(d, ignore_errors=True)
+        testgres_config.os_ops.rmdirs(d, ignore_errors=True)
 
 
 def push_config(**options):
@@ -198,4 +207,4 @@ def configure_testgres(**options):
 
 
 # NOTE: assign initial cached dir for initdb
-testgres_config.cached_initdb_dir = mkdtemp(prefix=TMP_CACHE)
+testgres_config.cached_initdb_dir = testgres_config.os_ops.mkdtemp(prefix=TMP_CACHE)

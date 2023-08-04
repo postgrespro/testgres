@@ -40,3 +40,15 @@ def get_new_node(name=None, base_dir=None, **kwargs):
     """
     # NOTE: leave explicit 'name' and 'base_dir' for compatibility
     return PostgresNode(name=name, base_dir=base_dir, **kwargs)
+
+
+def get_remote_node(name=None, conn_params=None):
+    """
+    Simply a wrapper around :class:`.PostgresNode` constructor for remote node.
+    See :meth:`.PostgresNode.__init__` for details.
+    For remote connection you can add the next parameter:
+    conn_params = ConnectionParams(host='127.0.0.1',
+                                   ssh_key=None,
+                                   username=default_username())
+    """
+    return get_new_node(name=name, conn_params=conn_params)

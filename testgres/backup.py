@@ -2,9 +2,7 @@
 
 import os
 
-from shutil import rmtree, copytree
 from six import raise_from
-from tempfile import mkdtemp
 
 from .enums import XLogMethod
 
@@ -14,8 +12,6 @@ from .consts import \
     TMP_BACKUP, \
     PG_CONF_FILE, \
     BACKUP_LOG_FILE
-
-from .defaults import default_username
 
 from .exceptions import BackupException
 
@@ -47,7 +43,7 @@ class NodeBackup(object):
             username: database user name.
             xlog_method: none | fetch | stream (see docs)
         """
-
+        self.os_ops = node.os_ops
         if not node.status():
             raise BackupException('Node must be running')
 
@@ -60,8 +56,8 @@ class NodeBackup(object):
                 raise BackupException(msg)
 
         # Set default arguments
-        username = username or default_username()
-        base_dir = base_dir or mkdtemp(prefix=TMP_BACKUP)
+        username = username or self.os_ops.get_user()
+        base_dir = base_dir or self.os_ops.mkdtemp(prefix=TMP_BACKUP)
 
         # public
         self.original_node = node
@@ -107,14 +103,14 @@ class NodeBackup(object):
         available = not destroy
 
         if available:
-            dest_base_dir = mkdtemp(prefix=TMP_NODE)
+            dest_base_dir = self.os_ops.mkdtemp(prefix=TMP_NODE)
 
             data1 = os.path.join(self.base_dir, DATA_DIR)
             data2 = os.path.join(dest_base_dir, DATA_DIR)
 
             try:
                 # Copy backup to new data dir
-                copytree(data1, data2)
+                self.os_ops.copytree(data1, data2)
             except Exception as e:
                 raise_from(BackupException('Failed to copy files'), e)
         else:
@@ -143,7 +139,7 @@ class NodeBackup(object):
 
         # Build a new PostgresNode
         NodeClass = self.original_node.__class__
-        with clean_on_error(NodeClass(name=name, base_dir=base_dir)) as node:
+        with clean_on_error(NodeClass(name=name, base_dir=base_dir, conn_params=self.original_node.os_ops.conn_params)) as node:
 
             # New nodes should always remove dir tree
             node._should_rm_dirs = True
@@ -185,4 +181,4 @@ class NodeBackup(object):
 
         if self._available:
             self._available = False
-            rmtree(self.base_dir, ignore_errors=True)
+            self.os_ops.rmdirs(self.base_dir, ignore_errors=True)

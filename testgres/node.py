@@ -1,17 +1,13 @@
 # coding: utf-8
 
-import io
 import os
 import random
-import shutil
 import signal
+import subprocess
 import threading
 from queue import Queue
 
-import psutil
-import subprocess
 import time
-
 
 try:
     from collections.abc import Iterable
@@ -27,9 +23,7 @@ except ImportError:
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
-from shutil import rmtree
 from six import raise_from, iteritems, text_type
-from tempfile import mkstemp, mkdtemp
 
 from .enums import \
     NodeStatus, \
@@ -93,7 +87,6 @@ from .utils import \
     eprint, \
     get_bin_path, \
     get_pg_version, \
-    file_tail, \
     reserve_port, \
     release_port, \
     execute_utility, \
@@ -101,6 +94,10 @@ from .utils import \
     clean_on_error
 
 from .backup import NodeBackup
+
+from .operations.os_ops import ConnectionParams
+from .operations.local_ops import LocalOperations
+from .operations.remote_ops import RemoteOperations
 
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
@@ -130,7 +127,7 @@ class ProcessProxy(object):
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, port=None, base_dir=None):
+    def __init__(self, name=None, port=None, base_dir=None, conn_params: ConnectionParams = ConnectionParams()):
         """
         PostgresNode constructor.
 
@@ -148,9 +145,18 @@ class PostgresNode(object):
         self._master = None
 
         # basic
-        self.host = '127.0.0.1'
         self.name = name or generate_app_name()
+        if testgres_config.os_ops:
+            self.os_ops = testgres_config.os_ops
+        elif conn_params.ssh_key:
+            self.os_ops = RemoteOperations(conn_params)
+        else:
+            self.os_ops = LocalOperations(conn_params)
+
         self.port = port or reserve_port()
+
+        self.host = self.os_ops.host
+        self.ssh_key = self.os_ops.ssh_key
 
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
@@ -195,8 +201,9 @@ class PostgresNode(object):
 
         if self.status():
             pid_file = os.path.join(self.data_dir, PG_PID_FILE)
-            with io.open(pid_file) as f:
-                return int(f.readline())
+            lines = self.os_ops.readlines(pid_file)
+            pid = int(lines[0]) if lines else None
+            return pid
 
         # for clarity
         return 0
@@ -236,7 +243,7 @@ class PostgresNode(object):
         """
 
         # get a list of postmaster's children
-        children = psutil.Process(self.pid).children()
+        children = self.os_ops.get_process_children(self.pid)
 
         return [ProcessProxy(p) for p in children]
 
@@ -274,11 +281,11 @@ class PostgresNode(object):
     @property
     def base_dir(self):
         if not self._base_dir:
-            self._base_dir = mkdtemp(prefix=TMP_NODE)
+            self._base_dir = self.os_ops.mkdtemp(prefix=TMP_NODE)
 
         # NOTE: it's safe to create a new dir
-        if not os.path.exists(self._base_dir):
-            os.makedirs(self._base_dir)
+        if not self.os_ops.path_exists(self._base_dir):
+            self.os_ops.makedirs(self._base_dir)
 
         return self._base_dir
 
@@ -287,8 +294,8 @@ class PostgresNode(object):
         path = os.path.join(self.base_dir, LOGS_DIR)
 
         # NOTE: it's safe to create a new dir
-        if not os.path.exists(path):
-            os.makedirs(path)
+        if not self.os_ops.path_exists(path):
+            self.os_ops.makedirs(path)
 
         return path
 
@@ -365,9 +372,7 @@ class PostgresNode(object):
         # Since 12 recovery.conf had disappeared
         if self.version >= PgVer('12'):
             signal_name = os.path.join(self.data_dir, "standby.signal")
-            # cross-python touch(). It is vulnerable to races, but who cares?
-            with open(signal_name, 'a'):
-                os.utime(signal_name, None)
+            self.os_ops.touch(signal_name)
         else:
             line += "standby_mode=on\n"
 
@@ -425,19 +430,14 @@ class PostgresNode(object):
 
         for f, num_lines in files:
             # skip missing files
-            if not os.path.exists(f):
+            if not self.os_ops.path_exists(f):
                 continue
 
-            with io.open(f, "rb") as _f:
-                if num_lines > 0:
-                    # take last N lines of file
-                    lines = b''.join(file_tail(_f, num_lines)).decode('utf-8')
-                else:
-                    # read whole file
-                    lines = _f.read().decode('utf-8')
+            file_lines = self.os_ops.readlines(f, num_lines, binary=True, encoding=None)
+            lines = b''.join(file_lines)
 
-                # fill list
-                result.append((f, lines))
+            # fill list
+            result.append((f, lines))
 
         return result
 
@@ -456,9 +456,11 @@ class PostgresNode(object):
         """
 
         # initialize this PostgreSQL node
-        cached_initdb(data_dir=self.data_dir,
-                      logfile=self.utils_log_file,
-                      params=initdb_params)
+        cached_initdb(
+            data_dir=self.data_dir,
+            logfile=self.utils_log_file,
+            os_ops=self.os_ops,
+            params=initdb_params)
 
         # initialize default config files
         self.default_conf(**kwargs)
@@ -489,43 +491,41 @@ class PostgresNode(object):
         hba_conf = os.path.join(self.data_dir, HBA_CONF_FILE)
 
         # filter lines in hba file
-        with io.open(hba_conf, "r+") as conf:
-            # get rid of comments and blank lines
-            lines = [
-                s for s in conf.readlines()
-                if len(s.strip()) > 0 and not s.startswith('#')
-            ]
+        # get rid of comments and blank lines
+        hba_conf_file = self.os_ops.readlines(hba_conf)
+        lines = [
+            s for s in hba_conf_file
+            if len(s.strip()) > 0 and not s.startswith('#')
+        ]
 
-            # write filtered lines
-            conf.seek(0)
-            conf.truncate()
-            conf.writelines(lines)
+        # write filtered lines
+        self.os_ops.write(hba_conf, lines, truncate=True)
 
-            # replication-related settings
-            if allow_streaming:
-                # get auth method for host or local users
-                def get_auth_method(t):
-                    return next((s.split()[-1]
-                                 for s in lines if s.startswith(t)), 'trust')
+        # replication-related settings
+        if allow_streaming:
+            # get auth method for host or local users
+            def get_auth_method(t):
+                return next((s.split()[-1]
+                             for s in lines if s.startswith(t)), 'trust')
 
-                # get auth methods
-                auth_local = get_auth_method('local')
-                auth_host = get_auth_method('host')
+            # get auth methods
+            auth_local = get_auth_method('local')
+            auth_host = get_auth_method('host')
+            subnet_base = ".".join(self.os_ops.host.split('.')[:-1] + ['0'])
 
-                new_lines = [
-                    u"local\treplication\tall\t\t\t{}\n".format(auth_local),
-                    u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
-                    u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host)
-                ]  # yapf: disable
+            new_lines = [
+                u"local\treplication\tall\t\t\t{}\n".format(auth_local),
+                u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
+                u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host),
+                u"host\treplication\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
+                u"host\tall\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host)
+            ]  # yapf: disable
 
-                # write missing lines
-                for line in new_lines:
-                    if line not in lines:
-                        conf.write(line)
+            # write missing lines
+            self.os_ops.write(hba_conf, new_lines)
 
         # overwrite config file
-        with io.open(postgres_conf, "w") as conf:
-            conf.truncate()
+        self.os_ops.write(postgres_conf, '', truncate=True)
 
         self.append_conf(fsync=fsync,
                          max_worker_processes=MAX_WORKER_PROCESSES,
@@ -595,15 +595,17 @@ class PostgresNode(object):
                 value = 'on' if value else 'off'
             elif not str(value).replace('.', '', 1).isdigit():
                 value = "'{}'".format(value)
-
-            # format a new config line
-            lines.append('{} = {}'.format(option, value))
+            if value == '*':
+                lines.append("{} = '*'".format(option))
+            else:
+                # format a new config line
+                lines.append('{} = {}'.format(option, value))
 
         config_name = os.path.join(self.data_dir, filename)
-        with io.open(config_name, 'a') as conf:
-            for line in lines:
-                conf.write(text_type(line))
-                conf.write(text_type('\n'))
+        conf_text = ''
+        for line in lines:
+            conf_text += text_type(line) + '\n'
+        self.os_ops.write(config_name, conf_text)
 
         return self
 
@@ -621,7 +623,11 @@ class PostgresNode(object):
                 "-D", self.data_dir,
                 "status"
             ]  # yapf: disable
-            execute_utility(_params, self.utils_log_file)
+            status_code, out, err = execute_utility(_params, self.utils_log_file, verbose=True)
+            if 'does not exist' in err:
+                return NodeStatus.Uninitialized
+            elif 'no server running' in out:
+                return NodeStatus.Stopped
             return NodeStatus.Running
 
         except ExecUtilException as e:
@@ -653,7 +659,7 @@ class PostgresNode(object):
 
         return out_dict
 
-    def slow_start(self, replica=False, dbname='template1', username=default_username()):
+    def slow_start(self, replica=False, dbname='template1', username=default_username(), max_attempts=0):
         """
         Starts the PostgreSQL instance and then polls the instance
         until it reaches the expected state (primary or replica). The state is checked
@@ -664,6 +670,7 @@ class PostgresNode(object):
                username:
                replica: If True, waits for the instance to be in recovery (i.e., replica mode).
                         If False, waits for the instance to be in primary mode. Default is False.
+               max_attempts:
         """
         self.start()
 
@@ -678,7 +685,8 @@ class PostgresNode(object):
                               suppress={InternalError,
                                         QueryException,
                                         ProgrammingError,
-                                        OperationalError})
+                                        OperationalError},
+                              max_attempts=max_attempts)
 
     def start(self, params=[], wait=True):
         """
@@ -706,12 +714,13 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            execute_utility(_params, self.utils_log_file)
-        except ExecUtilException as e:
+            exit_status, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
+            if 'does not exist' in error:
+                raise Exception
+        except Exception as e:
             msg = 'Cannot start node'
             files = self._collect_special_files()
             raise_from(StartNodeException(msg, files), e)
-
         self._maybe_start_logger()
         self.is_started = True
         return self
@@ -779,7 +788,9 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            execute_utility(_params, self.utils_log_file)
+            error_code, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
+            if 'could not start server' in error:
+                raise ExecUtilException
         except ExecUtilException as e:
             msg = 'Cannot restart node'
             files = self._collect_special_files()
@@ -895,7 +906,7 @@ class PostgresNode(object):
         else:
             rm_dir = self.data_dir    # just data, save logs
 
-        rmtree(rm_dir, ignore_errors=True)
+        self.os_ops.rmdirs(rm_dir, ignore_errors=True)
 
         return self
 
@@ -948,7 +959,10 @@ class PostgresNode(object):
 
         # select query source
         if query:
-            psql_params.extend(("-c", query))
+            if self.os_ops.remote:
+                psql_params.extend(("-c", '"{}"'.format(query)))
+            else:
+                psql_params.extend(("-c", query))
         elif filename:
             psql_params.extend(("-f", filename))
         else:
@@ -956,16 +970,20 @@ class PostgresNode(object):
 
         # should be the last one
         psql_params.append(dbname)
+        if not self.os_ops.remote:
+            # start psql process
+            process = subprocess.Popen(psql_params,
+                                       stdin=subprocess.PIPE,
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE)
 
-        # start psql process
-        process = subprocess.Popen(psql_params,
-                                   stdin=subprocess.PIPE,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+            # wait until it finishes and get stdout and stderr
+            out, err = process.communicate(input=input)
+            return process.returncode, out, err
+        else:
+            status_code, out, err = self.os_ops.exec_command(psql_params, verbose=True, input=input)
 
-        # wait until it finishes and get stdout and stderr
-        out, err = process.communicate(input=input)
-        return process.returncode, out, err
+            return status_code, out, err
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def safe_psql(self, query=None, expect_error=False, **kwargs):
@@ -989,15 +1007,19 @@ class PostgresNode(object):
 
         # force this setting
         kwargs['ON_ERROR_STOP'] = 1
-
-        ret, out, err = self.psql(query=query, **kwargs)
+        try:
+            ret, out, err = self.psql(query=query, **kwargs)
+        except ExecUtilException as e:
+            ret = e.exit_code
+            out = e.out
+            err = e.message
         if ret:
             if expect_error:
                 out = (err or b'').decode('utf-8')
             else:
                 raise QueryException((err or b'').decode('utf-8'), query)
         elif expect_error:
-            assert False, f"Exception was expected, but query finished successfully: `{query}` "
+            assert False, "Exception was expected, but query finished successfully: `{}` ".format(query)
 
         return out
 
@@ -1031,10 +1053,9 @@ class PostgresNode(object):
         # Generate tmpfile or tmpdir
         def tmpfile():
             if format == DumpFormat.Directory:
-                fname = mkdtemp(prefix=TMP_DUMP)
+                fname = self.os_ops.mkdtemp(prefix=TMP_DUMP)
             else:
-                fd, fname = mkstemp(prefix=TMP_DUMP)
-                os.close(fd)
+                fname = self.os_ops.mkstemp(prefix=TMP_DUMP)
             return fname
 
         # Set default arguments
@@ -1119,9 +1140,9 @@ class PostgresNode(object):
         # sanity checks
         assert max_attempts >= 0
         assert sleep_time > 0
-
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
+            print(f"Pooling {attempts}")
             try:
                 res = self.execute(dbname=dbname,
                                    query=query,
@@ -1350,7 +1371,7 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        proc = subprocess.Popen(_params, stdout=stdout, stderr=stderr)
+        proc = self.os_ops.exec_command(_params, stdout=stdout, stderr=stderr, wait_exit=True, proc=True)
 
         return proc
 
@@ -1523,18 +1544,16 @@ class PostgresNode(object):
         # parse postgresql.auto.conf
         path = os.path.join(self.data_dir, config)
 
-        with open(path, 'r') as f:
-            raw_content = f.read()
-
+        lines = self.os_ops.readlines(path)
         current_options = {}
         current_directives = []
-        for line in raw_content.splitlines():
+        for line in lines:
 
             # ignore comments
             if line.startswith('#'):
                 continue
 
-            if line == '':
+            if line.strip() == '':
                 continue
 
             if line.startswith('include'):
@@ -1564,22 +1583,22 @@ class PostgresNode(object):
         for directive in current_directives:
             auto_conf += directive + "\n"
 
-        with open(path, 'wt') as f:
-            f.write(auto_conf)
+        self.os_ops.write(path, auto_conf, truncate=True)
 
 
 class NodeApp:
 
-    def __init__(self, test_path, nodes_to_cleanup):
+    def __init__(self, test_path, nodes_to_cleanup, os_ops=LocalOperations()):
         self.test_path = test_path
         self.nodes_to_cleanup = nodes_to_cleanup
+        self.os_ops = os_ops
 
     def make_empty(
             self,
             base_dir=None):
         real_base_dir = os.path.join(self.test_path, base_dir)
-        shutil.rmtree(real_base_dir, ignore_errors=True)
-        os.makedirs(real_base_dir)
+        self.os_ops.rmdirs(real_base_dir, ignore_errors=True)
+        self.os_ops.makedirs(real_base_dir)
 
         node = PostgresNode(base_dir=real_base_dir)
         node.should_rm_dirs = True
@@ -1602,27 +1621,24 @@ class NodeApp:
             initdb_params=initdb_params, allow_streaming=set_replication)
 
         # set major version
-        with open(os.path.join(node.data_dir, 'PG_VERSION')) as f:
-            node.major_version_str = str(f.read().rstrip())
-            node.major_version = float(node.major_version_str)
+        pg_version_file = self.os_ops.read(os.path.join(node.data_dir, 'PG_VERSION'))
+        node.major_version_str = str(pg_version_file.rstrip())
+        node.major_version = float(node.major_version_str)
 
-        # Sane default parameters
-        options = {}
-        options['max_connections'] = 100
-        options['shared_buffers'] = '10MB'
-        options['fsync'] = 'off'
-
-        options['wal_level'] = 'logical'
-        options['hot_standby'] = 'off'
-
-        options['log_line_prefix'] = '%t [%p]: [%l-1] '
-        options['log_statement'] = 'none'
-        options['log_duration'] = 'on'
-        options['log_min_duration_statement'] = 0
-        options['log_connections'] = 'on'
-        options['log_disconnections'] = 'on'
-        options['restart_after_crash'] = 'off'
-        options['autovacuum'] = 'off'
+        # Set default parameters
+        options = {'max_connections': 100,
+                   'shared_buffers': '10MB',
+                   'fsync': 'off',
+                   'wal_level': 'logical',
+                   'hot_standby': 'off',
+                   'log_line_prefix': '%t [%p]: [%l-1] ',
+                   'log_statement': 'none',
+                   'log_duration': 'on',
+                   'log_min_duration_statement': 0,
+                   'log_connections': 'on',
+                   'log_disconnections': 'on',
+                   'restart_after_crash': 'off',
+                   'autovacuum': 'off'}
 
         # Allow replication in pg_hba.conf
         if set_replication:

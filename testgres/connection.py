@@ -41,11 +41,11 @@ class NodeConnection(object):
 
         self._node = node
 
-        self._connection = pglib.connect(database=dbname,
-                                         user=username,
-                                         password=password,
-                                         host=node.host,
-                                         port=node.port)
+        self._connection = node.os_ops.db_connect(dbname=dbname,
+                                                  user=username,
+                                                  password=password,
+                                                  host=node.host,
+                                                  port=node.port)
 
         self._connection.autocommit = autocommit
         self._cursor = self.connection.cursor()
@@ -103,16 +103,15 @@ class NodeConnection(object):
 
     def execute(self, query, *args):
         self.cursor.execute(query, args)
-
         try:
             res = self.cursor.fetchall()
-
             # pg8000 might return tuples
             if isinstance(res, tuple):
                 res = [tuple(t) for t in res]
 
             return res
-        except Exception:
+        except Exception as e:
+            print("Error executing query: {}".format(e))
             return None
 
     def close(self):

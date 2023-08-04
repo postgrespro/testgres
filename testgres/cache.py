@@ -1,9 +1,7 @@
 # coding: utf-8
 
-import io
 import os
 
-from shutil import copytree
 from six import raise_from
 
 from .config import testgres_config
@@ -20,12 +18,16 @@ from .utils import \
     get_bin_path, \
     execute_utility
 
+from .operations.local_ops import LocalOperations
+from .operations.os_ops import OsOperations
 
-def cached_initdb(data_dir, logfile=None, params=None):
+
+def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = LocalOperations()):
     """
     Perform initdb or use cached node files.
     """
-    def call_initdb(initdb_dir, log=None):
+
+    def call_initdb(initdb_dir, log=logfile):
         try:
             _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
             execute_utility(_params + (params or []), log)
@@ -39,13 +41,14 @@ def cached_initdb(data_dir, logfile=None, params=None):
         cached_data_dir = testgres_config.cached_initdb_dir
 
         # Initialize cached initdb
-        if not os.path.exists(cached_data_dir) or \
-           not os.listdir(cached_data_dir):
+
+        if not os_ops.path_exists(cached_data_dir) or \
+                not os_ops.listdir(cached_data_dir):
             call_initdb(cached_data_dir)
 
         try:
             # Copy cached initdb to current data dir
-            copytree(cached_data_dir, data_dir)
+            os_ops.copytree(cached_data_dir, data_dir)
 
             # Assign this node a unique system id if asked to
             if testgres_config.cached_initdb_unique:
@@ -53,8 +56,8 @@ def cached_initdb(data_dir, logfile=None, params=None):
                 # Some users might rely upon unique system ids, but
                 # our initdb caching mechanism breaks this contract.
                 pg_control = os.path.join(data_dir, XLOG_CONTROL_FILE)
-                with io.open(pg_control, "r+b") as f:
-                    f.write(generate_system_id())    # overwrite id
+                system_id = generate_system_id()
+                os_ops.write(pg_control, system_id, truncate=True, binary=True, read_and_write=True)
 
                 # XXX: build new WAL segment with our system id
                 _params = [get_bin_path("pg_resetwal"), "-D", data_dir, "-f"]

@@ -1,4 +1,4 @@
-from .api import get_new_node
+from .api import get_new_node, get_remote_node
 from .backup import NodeBackup
 
 from .config import \
@@ -46,8 +46,13 @@ from .standby import \
     First, \
     Any
 
+from .operations.os_ops import OsOperations, ConnectionParams
+from .operations.local_ops import LocalOperations
+from .operations.remote_ops import RemoteOperations
+
 __all__ = [
     "get_new_node",
+    "get_remote_node",
     "NodeBackup",
     "TestgresConfig", "configure_testgres", "scoped_config", "push_config", "pop_config",
     "NodeConnection", "DatabaseError", "InternalError", "ProgrammingError", "OperationalError",
@@ -56,4 +61,5 @@ __all__ = [
     "PostgresNode", "NodeApp",
     "reserve_port", "release_port", "bound_ports", "get_bin_path", "get_pg_config", "get_pg_version",
     "First", "Any",
+    "OsOperations", "LocalOperations", "RemoteOperations", "ConnectionParams"
 ]
