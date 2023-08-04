@@ -4,7 +4,6 @@ import shutil
 import stat
 import subprocess
 import tempfile
-from shutil import rmtree
 
 import psutil
 
@@ -14,8 +13,11 @@ from .os_ops import pglib
 
 try:
     from shutil import which as find_executable
+    from shutil import rmtree
 except ImportError:
     from distutils.spawn import find_executable
+    from distutils import rmtree
+
 
 CMD_TIMEOUT_SEC = 60
 error_markers = [b'error', b'Permission denied', b'fatal']
