@@ -198,9 +198,12 @@ class LocalOperations(OsOperations):
         with open(filename, "a"):
             os.utime(filename, None)
 
-    def read(self, filename, encoding=None):
-        with open(filename, "r", encoding=encoding) as file:
-            return file.read()
+    def read(self, filename, encoding=None, binary=False):
+        mode = "rb" if binary else "r"
+        with open(filename, mode) as file:
+            if binary:
+                return file.read()
+            return file.read().decode(encoding or 'utf-8')
 
     def readlines(self, filename, num_lines=0, binary=False, encoding=None):
         """
