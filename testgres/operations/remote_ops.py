@@ -40,6 +40,9 @@ class PsUtilProcessProxy:
 
 class RemoteOperations(OsOperations):
     def __init__(self, conn_params: ConnectionParams):
+        if os.name != "posix":
+            raise EnvironmentError("Remote operations are supported only on Linux!")
+
         super().__init__(conn_params.username)
         self.conn_params = conn_params
         self.host = conn_params.host

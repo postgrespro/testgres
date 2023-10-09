@@ -201,9 +201,12 @@ class LocalOperations(OsOperations):
     def read(self, filename, encoding=None, binary=False):
         mode = "rb" if binary else "r"
         with open(filename, mode) as file:
+            content = file.read()
             if binary:
-                return file.read()
-            return file.read().decode(encoding or 'utf-8')
+                return content
+            if isinstance(content, bytes):
+                return content.decode(encoding or 'utf-8')
+            return content
 
     def readlines(self, filename, num_lines=0, binary=False, encoding=None):
         """

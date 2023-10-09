@@ -176,7 +176,7 @@ the configuration file, which means that they should be called before `append_co
 ### Remote mode
 Testgres supports the creation of PostgreSQL nodes on a remote host. This is useful when you want to run distributed tests involving multiple nodes spread across different machines.
 
-To use this feature, you need to use the RemoteOperations class.
+To use this feature, you need to use the RemoteOperations class. This feature is only supported with Linux.
 Here is an example of how you might set this up:
 
 ```python
