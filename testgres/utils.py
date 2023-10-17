@@ -118,11 +118,13 @@ def get_bin_path(filename):
     return filename
 
 
-def get_pg_config(pg_config_path=None):
+def get_pg_config(pg_config_path=None, os_ops=None):
     """
     Return output of pg_config (provided that it is installed).
     NOTE: this function caches the result by default (see GlobalConfig).
     """
+    if os_ops:
+        tconf.os_ops = os_ops
 
     def cache_pg_config_data(cmd):
         # execute pg_config and get the output
@@ -146,7 +148,7 @@ def get_pg_config(pg_config_path=None):
         _pg_config_data = {}
 
     # return cached data
-    if _pg_config_data:
+    if not pg_config_path and _pg_config_data:
         return _pg_config_data
 
     # try specified pg_config path or PG_CONFIG
