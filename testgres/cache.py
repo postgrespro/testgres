@@ -57,7 +57,9 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = Lo
                 # our initdb caching mechanism breaks this contract.
                 pg_control = os.path.join(data_dir, XLOG_CONTROL_FILE)
                 system_id = generate_system_id()
-                os_ops.write(pg_control, system_id, truncate=True, binary=True, read_and_write=True)
+                cur_pg_control = os_ops.read(pg_control, binary=True)
+                new_pg_control = system_id + cur_pg_control[len(system_id):]
+                os_ops.write(pg_control, new_pg_control, truncate=True, binary=True, read_and_write=True)
 
                 # XXX: build new WAL segment with our system id
                 _params = [get_bin_path("pg_resetwal"), "-D", data_dir, "-f"]

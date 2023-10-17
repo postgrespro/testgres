@@ -12,7 +12,6 @@ install_requires = [
     "six>=1.9.0",
     "psutil",
     "packaging",
-    "paramiko",
     "fabric",
     "sshtunnel"
 ]
@@ -30,7 +29,7 @@ with open('README.md', 'r') as f:
     readme = f.read()
 
 setup(
-    version='1.9.0',
+    version='1.9.1',
     name='testgres',
     packages=['testgres', 'testgres.operations'],
     description='Testing utility for PostgreSQL and its extensions',

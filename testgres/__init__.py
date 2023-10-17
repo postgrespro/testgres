@@ -46,6 +46,8 @@ from .standby import \
     First, \
     Any
 
+from .config import testgres_config
+
 from .operations.os_ops import OsOperations, ConnectionParams
 from .operations.local_ops import LocalOperations
 from .operations.remote_ops import RemoteOperations
@@ -53,7 +55,7 @@ from .operations.remote_ops import RemoteOperations
 __all__ = [
     "get_new_node",
     "get_remote_node",
-    "NodeBackup",
+    "NodeBackup", "testgres_config",
     "TestgresConfig", "configure_testgres", "scoped_config", "push_config", "pop_config",
     "NodeConnection", "DatabaseError", "InternalError", "ProgrammingError", "OperationalError",
     "TestgresException", "ExecUtilException", "QueryException", "TimeoutException", "CatchUpException", "StartNodeException", "InitNodeException", "BackupException",

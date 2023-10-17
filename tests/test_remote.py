@@ -17,9 +17,6 @@ class TestRemoteOperations:
                                            'RDBMS_TESTPOOL_SSHKEY') or '../../container_files/postgres/ssh/id_ed25519')
         self.operations = RemoteOperations(conn_params)
 
-        yield
-        self.operations.__del__()
-
     def test_exec_command_success(self):
         """
         Test exec_command for successful command execution.

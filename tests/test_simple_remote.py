@@ -135,7 +135,6 @@ class TestgresRemoteTests(unittest.TestCase):
     @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
     @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_init_unique_system_id(self):
-        # FAIL
         # this function exists in PostgreSQL 9.6+
         query = 'select system_identifier from pg_control_system()'
 
