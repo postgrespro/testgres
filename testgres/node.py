@@ -1371,7 +1371,7 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        proc = self.os_ops.exec_command(_params, stdout=stdout, stderr=stderr, wait_exit=True, proc=True)
+        proc = self.os_ops.exec_command(_params, stdout=stdout, stderr=stderr, wait_exit=True, get_process=True)
 
         return proc
 

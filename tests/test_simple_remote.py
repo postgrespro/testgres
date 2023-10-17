@@ -735,9 +735,10 @@ class TestgresRemoteTests(unittest.TestCase):
                               options=['-q']).pgbench_run(time=2)
 
             # run TPC-B benchmark
-            out = node.pgbench(stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT,
-                               options=['-T3'])
+            proc = node.pgbench(stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
+                                options=['-T3'])
+            out = proc.communicate()[0]
             self.assertTrue(b'tps = ' in out)
 
     def test_pg_config(self):
