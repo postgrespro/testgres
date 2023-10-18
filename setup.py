@@ -11,9 +11,7 @@ install_requires = [
     "port-for>=0.4",
     "six>=1.9.0",
     "psutil",
-    "packaging",
-    "fabric",
-    "sshtunnel"
+    "packaging"
 ]
 
 # Add compatibility enum class
@@ -29,7 +27,7 @@ with open('README.md', 'r') as f:
     readme = f.read()
 
 setup(
-    version='1.9.1',
+    version='1.9.2',
     name='testgres',
     packages=['testgres', 'testgres.operations'],
     description='Testing utility for PostgreSQL and its extensions',

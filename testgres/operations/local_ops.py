@@ -18,7 +18,6 @@ except ImportError:
     from distutils.spawn import find_executable
     from distutils import rmtree
 
-
 CMD_TIMEOUT_SEC = 60
 error_markers = [b'error', b'Permission denied', b'fatal']
 
@@ -37,7 +36,8 @@ class LocalOperations(OsOperations):
     # Command execution
     def exec_command(self, cmd, wait_exit=False, verbose=False,
                      expect_error=False, encoding=None, shell=False, text=False,
-                     input=None, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, proc=None):
+                     input=None, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                     get_process=None, timeout=None):
         """
         Execute a command in a subprocess.
 
@@ -69,9 +69,14 @@ class LocalOperations(OsOperations):
                 stdout=stdout,
                 stderr=stderr,
             )
-            if proc:
+            if get_process:
                 return process
-            result, error = process.communicate(input)
+
+            try:
+                result, error = process.communicate(input, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
             exit_status = process.returncode
 
             error_found = exit_status != 0 or any(marker in error for marker in error_markers)

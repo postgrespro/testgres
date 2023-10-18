@@ -32,7 +32,16 @@ class ExecUtilException(TestgresException):
         if self.out:
             msg.append(u'----\n{}'.format(self.out))
 
-        return six.text_type('\n').join(msg)
+        return self.convert_and_join(msg)
+
+    @staticmethod
+    def convert_and_join(msg_list):
+        # Convert each byte element in the list to str
+        str_list = [six.text_type(item, 'utf-8') if isinstance(item, bytes) else six.text_type(item) for item in
+                    msg_list]
+
+        # Join the list into a single string with the specified delimiter
+        return six.text_type('\n').join(str_list)
 
 
 @six.python_2_unicode_compatible
