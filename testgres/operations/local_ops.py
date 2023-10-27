@@ -117,7 +117,7 @@ class LocalOperations(OsOperations):
 
     # Get environment variables
     def get_user(self):
-        return getpass.getuser()
+        return self.username or getpass.getuser()
 
     def get_name(self):
         return os.name

@@ -659,7 +659,7 @@ class PostgresNode(object):
 
         return out_dict
 
-    def slow_start(self, replica=False, dbname='template1', username=default_username(), max_attempts=0):
+    def slow_start(self, replica=False, dbname='template1', username=None, max_attempts=0):
         """
         Starts the PostgreSQL instance and then polls the instance
         until it reaches the expected state (primary or replica). The state is checked
@@ -672,6 +672,8 @@ class PostgresNode(object):
                         If False, waits for the instance to be in primary mode. Default is False.
                max_attempts:
         """
+        if not username:
+            username = default_username()
         self.start()
 
         if replica:
