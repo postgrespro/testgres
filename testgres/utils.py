@@ -179,8 +179,11 @@ def get_pg_version():
     _params = [get_bin_path('postgres'), '--version']
     raw_ver = tconf.os_ops.exec_command(_params, encoding='utf-8')
 
+    # Remove "(Homebrew)" if present
+    raw_ver = raw_ver.replace('(Homebrew)', '').strip()
+
     # cook version of PostgreSQL
-    version = raw_ver.strip().split(' ')[-1] \
+    version = raw_ver.split(' ')[-1] \
                      .partition('devel')[0] \
                      .partition('beta')[0] \
                      .partition('rc')[0]
