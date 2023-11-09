@@ -132,14 +132,12 @@ class ProbackupApp:
     def init(self, options=None, old_binary=False, skip_log_directory=False, expect_error=False, use_backup_dir=True):
         if options is None:
             options = []
-        return self.run([
-                     'init',
-                 ] + options,
-                 old_binary=old_binary,
-                 skip_log_directory=skip_log_directory,
-                 expect_error=expect_error,
-                 use_backup_dir=use_backup_dir
-                 )
+        return self.run(['init', ] + options,
+                        old_binary=old_binary,
+                        skip_log_directory=skip_log_directory,
+                        expect_error=expect_error,
+                        use_backup_dir=use_backup_dir
+                        )
 
     def add_instance(self, instance, node, old_binary=False, options=None, expect_error=False):
         if options is None:
@@ -535,7 +533,6 @@ class ProbackupApp:
                         break
 
                 if tli > 0:
-                    timeline_data = None
                     for timeline in instance_timelines:
                         if timeline['tli'] == tli:
                             return timeline
@@ -664,7 +661,7 @@ class ProbackupApp:
                 archive_command += ' --remote-proto=ssh --remote-host=localhost'
 
             if init_params.archive_compress and compress:
-                archive_command += ' --compress-algorithm='+init_params.archive_compress
+                archive_command += ' --compress-algorithm=' + init_params.archive_compress
 
             if overwrite:
                 archive_command += ' --overwrite'

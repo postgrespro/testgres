@@ -191,10 +191,7 @@ class GDBobj:
                 continue
             if line.startswith('*stopped,reason="breakpoint-hit"'):
                 continue
-            if (
-                    line.startswith('*stopped,reason="exited') or
-                    line == '*stopped\n'
-            ):
+            if line.startswith('*stopped,reason="exited') or line == '*stopped\n':
                 self.quit()
                 return
 

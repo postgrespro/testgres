@@ -8,14 +8,16 @@ import sys
 import testgres
 
 try:
-    import lz4.frame
+    import lz4.frame  # noqa: F401
+
     HAVE_LZ4 = True
 except ImportError as e:
     HAVE_LZ4 = False
     LZ4_error = e
 
 try:
-    import zstd
+    import zstd  # noqa: F401
+
     HAVE_ZSTD = True
 except ImportError as e:
     HAVE_ZSTD = False
@@ -28,8 +30,8 @@ try:
         cache_initdb=False,
         cached_initdb_dir=False,
         node_cleanup_full=delete_logs)
-except:
-    pass
+except Exception as e:
+    print("Can't configure testgres: {0}".format(e))
 
 
 class Init(object):
@@ -46,7 +48,7 @@ class Init(object):
         version = self._pg_config['VERSION'].rstrip('develalphabetapre')
         parts = [*version.split(' ')[1].split('.'), '0', '0'][:3]
         parts[0] = re.match(r'\d+', parts[0]).group()
-        self.pg_config_version = reduce(lambda v, x: v*100+int(x), parts, 0)
+        self.pg_config_version = reduce(lambda v, x: v * 100 + int(x), parts, 0)
 
         test_env = os.environ.copy()
         envs_list = [
@@ -133,10 +135,7 @@ class Init(object):
 
         self.probackup_old_path = None
         if 'PGPROBACKUPBIN_OLD' in test_env:
-            if (
-                    os.path.isfile(test_env['PGPROBACKUPBIN_OLD']) and
-                    os.access(test_env['PGPROBACKUPBIN_OLD'], os.X_OK)
-            ):
+            if (os.path.isfile(test_env['PGPROBACKUPBIN_OLD']) and os.access(test_env['PGPROBACKUPBIN_OLD'], os.X_OK)):
                 self.probackup_old_path = test_env['PGPROBACKUPBIN_OLD']
             else:
                 if self.verbose:
@@ -166,8 +165,7 @@ class Init(object):
                                                    ).group(0)
 
         self.remote = test_env.get('PGPROBACKUP_SSH_REMOTE', None) == 'ON'
-        self.ptrack = test_env.get('PG_PROBACKUP_PTRACK', None) == 'ON' and \
-                        self.pg_config_version >= 110000
+        self.ptrack = test_env.get('PG_PROBACKUP_PTRACK', None) == 'ON' and self.pg_config_version >= 110000
 
         self.paranoia = test_env.get('PG_PROBACKUP_PARANOIA', None) == 'ON'
         env_compress = test_env.get('ARCHIVE_COMPRESSION', None)
@@ -199,5 +197,6 @@ class Init(object):
 
     def test_env(self):
         return self._test_env.copy()
+
 
 init_params = Init()
