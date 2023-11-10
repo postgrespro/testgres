@@ -4,7 +4,7 @@ Utilities for accessing pg_probackup backup data on file system.
 import os
 import shutil
 
-from plugins.probackup.init_helpers import init_params
+from testgres.plugins.probackup.init_helpers import init_params
 
 
 class TestBackupDir:

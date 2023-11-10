@@ -73,7 +73,8 @@ class Init(object):
         test_env['LC_TIME'] = 'C'
         self._test_env = test_env
 
-        helpers_path = os.path.dirname(os.path.realpath(__file__))
+        # Get the directory from which the script was executed
+        helpers_path = os.getcwd()
         self.tests_source_path = os.path.abspath(
             os.path.join(helpers_path, os.pardir)
         )
