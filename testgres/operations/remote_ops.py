@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 import tempfile
+import platform
 
 # we support both pg8000 and psycopg2
 try:
@@ -42,7 +43,8 @@ class PsUtilProcessProxy:
 
 class RemoteOperations(OsOperations):
     def __init__(self, conn_params: ConnectionParams):
-        if os.name != "posix":
+
+        if not platform.system().lower() == "linux":
             raise EnvironmentError("Remote operations are supported only on Linux!")
 
         super().__init__(conn_params.username)
@@ -76,16 +78,14 @@ class RemoteOperations(OsOperations):
             print("No active tunnel to close.")
 
     def add_known_host(self, host):
-        cmd = 'ssh-keyscan -H %s >> /home/%s/.ssh/known_hosts' % (host, os.getlogin())
+        known_hosts_path = os.path.expanduser("~/.ssh/known_hosts")
+        cmd = 'ssh-keyscan -H %s >> %s' % (host, known_hosts_path)
+
         try:
-            subprocess.check_call(
-                cmd,
-                shell=True,
-            )
+            subprocess.check_call(cmd, shell=True)
             logging.info("Successfully added %s to known_hosts." % host)
         except subprocess.CalledProcessError as e:
-            raise ExecUtilException(message="Failed to add %s to known_hosts. Error: %s" % (host, str(e)), command=cmd,
-                                    exit_code=e.returncode, out=e.stderr)
+            raise Exception("Failed to add %s to known_hosts. Error: %s" % (host, str(e)))
 
     def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False,
                      encoding=None, shell=True, text=False, input=None, stdin=None, stdout=None,
