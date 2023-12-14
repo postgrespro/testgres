@@ -1,4 +1,3 @@
-import locale
 import logging
 import os
 import subprocess
@@ -15,12 +14,7 @@ except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
 from ..exceptions import ExecUtilException
-
-from .os_ops import OsOperations, ConnectionParams
-
-ConsoleEncoding = locale.getdefaultlocale()[1]
-if not ConsoleEncoding:
-    ConsoleEncoding = 'UTF-8'
+from .os_ops import OsOperations, ConnectionParams, get_default_encoding
 
 error_markers = [b'error', b'Permission denied', b'fatal', b'No such file or directory']
 
@@ -36,7 +30,7 @@ class PsUtilProcessProxy:
 
     def cmdline(self):
         command = "ps -p {} -o cmd --no-headers".format(self.pid)
-        stdin, stdout, stderr = self.ssh.exec_command(command, verbose=True, encoding=ConsoleEncoding)
+        stdin, stdout, stderr = self.ssh.exec_command(command, verbose=True, encoding=get_default_encoding())
         cmdline = stdout.strip()
         return cmdline.split()
 
@@ -145,7 +139,7 @@ class RemoteOperations(OsOperations):
         - var_name (str): The name of the environment variable.
         """
         cmd = "echo ${}".format(var_name)
-        return self.exec_command(cmd, encoding=ConsoleEncoding).strip()
+        return self.exec_command(cmd, encoding=get_default_encoding()).strip()
 
     def find_executable(self, executable):
         search_paths = self.environ("PATH")
@@ -176,11 +170,11 @@ class RemoteOperations(OsOperations):
 
     # Get environment variables
     def get_user(self):
-        return self.exec_command("echo $USER", encoding=ConsoleEncoding).strip()
+        return self.exec_command("echo $USER", encoding=get_default_encoding()).strip()
 
     def get_name(self):
         cmd = 'python3 -c "import os; print(os.name)"'
-        return self.exec_command(cmd, encoding=ConsoleEncoding).strip()
+        return self.exec_command(cmd, encoding=get_default_encoding()).strip()
 
     # Work with dirs
     def makedirs(self, path, remove_existing=False):
@@ -227,7 +221,7 @@ class RemoteOperations(OsOperations):
         return result.splitlines()
 
     def path_exists(self, path):
-        result = self.exec_command("test -e {}; echo $?".format(path), encoding=ConsoleEncoding)
+        result = self.exec_command("test -e {}; echo $?".format(path), encoding=get_default_encoding())
         return int(result.strip()) == 0
 
     @property
@@ -264,9 +258,9 @@ class RemoteOperations(OsOperations):
 
     def mkstemp(self, prefix=None):
         if prefix:
-            temp_dir = self.exec_command("mktemp {}XXXXX".format(prefix), encoding=ConsoleEncoding)
+            temp_dir = self.exec_command("mktemp {}XXXXX".format(prefix), encoding=get_default_encoding())
         else:
-            temp_dir = self.exec_command("mktemp", encoding=ConsoleEncoding)
+            temp_dir = self.exec_command("mktemp", encoding=get_default_encoding())
 
         if temp_dir:
             if not os.path.isabs(temp_dir):
@@ -283,7 +277,9 @@ class RemoteOperations(OsOperations):
         return self.exec_command("cp -r {} {}".format(src, dst))
 
     # Work with files
-    def write(self, filename, data, truncate=False, binary=False, read_and_write=False, encoding=ConsoleEncoding):
+    def write(self, filename, data, truncate=False, binary=False, read_and_write=False, encoding=None):
+        if not encoding:
+            encoding = get_default_encoding()
         mode = "wb" if binary else "w"
         if not truncate:
             mode = "ab" if binary else "a"
@@ -302,7 +298,7 @@ class RemoteOperations(OsOperations):
                 data = data.encode(encoding)
 
             if isinstance(data, list):
-                data = [(s if isinstance(s, str) else s.decode(ConsoleEncoding)).rstrip('\n') + '\n' for s in data]
+                data = [(s if isinstance(s, str) else s.decode(get_default_encoding())).rstrip('\n') + '\n' for s in data]
                 tmp_file.writelines(data)
             else:
                 tmp_file.write(data)
@@ -334,7 +330,7 @@ class RemoteOperations(OsOperations):
         result = self.exec_command(cmd, encoding=encoding)
 
         if not binary and result:
-            result = result.decode(encoding or ConsoleEncoding)
+            result = result.decode(encoding or get_default_encoding())
 
         return result
 
@@ -347,7 +343,7 @@ class RemoteOperations(OsOperations):
         result = self.exec_command(cmd, encoding=encoding)
 
         if not binary and result:
-            lines = result.decode(encoding or ConsoleEncoding).splitlines()
+            lines = result.decode(encoding or get_default_encoding()).splitlines()
         else:
             lines = result.splitlines()
 
@@ -375,7 +371,7 @@ class RemoteOperations(OsOperations):
 
     def get_pid(self):
         # Get current process id
-        return int(self.exec_command("echo $$", encoding=ConsoleEncoding))
+        return int(self.exec_command("echo $$", encoding=get_default_encoding()))
 
     def get_process_children(self, pid):
         command = ["ssh", "-i", self.ssh_key, f"{self.username}@{self.host}", f"pgrep -P {pid}"]

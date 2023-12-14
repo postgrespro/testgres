@@ -27,7 +27,7 @@ with open('README.md', 'r') as f:
     readme = f.read()
 
 setup(
-    version='1.9.2',
+    version='1.9.3',
     name='testgres',
     packages=['testgres', 'testgres.operations'],
     description='Testing utility for PostgreSQL and its extensions',
@@ -35,8 +35,8 @@ setup(
     long_description=readme,
     long_description_content_type='text/markdown',
     license='PostgreSQL',
-    author='Ildar Musin',
-    author_email='zildermann@gmail.com',
+    author='Postgres Professional',
+    author_email='testgres@postgrespro.ru',
     keywords=['test', 'testing', 'postgresql'],
     install_requires=install_requires,
     classifiers=[],

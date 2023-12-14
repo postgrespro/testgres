@@ -8,8 +8,7 @@ import tempfile
 import psutil
 
 from ..exceptions import ExecUtilException
-from .os_ops import ConnectionParams, OsOperations
-from .os_ops import pglib
+from .os_ops import ConnectionParams, OsOperations, pglib, get_default_encoding
 
 try:
     from shutil import which as find_executable
@@ -20,6 +19,12 @@ except ImportError:
 
 CMD_TIMEOUT_SEC = 60
 error_markers = [b'error', b'Permission denied', b'fatal']
+
+
+def has_errors(output):
+    if isinstance(output, str):
+        output = output.encode(get_default_encoding())
+    return any(marker in output for marker in error_markers)
 
 
 class LocalOperations(OsOperations):
@@ -33,7 +38,38 @@ class LocalOperations(OsOperations):
         self.remote = False
         self.username = conn_params.username or self.get_user()
 
-    # Command execution
+    @staticmethod
+    def _run_command(cmd, shell, input, timeout, encoding, temp_file=None):
+        """Execute a command and return the process."""
+        if temp_file is not None:
+            stdout = temp_file
+            stderr = subprocess.STDOUT
+        else:
+            stdout = subprocess.PIPE
+            stderr = subprocess.PIPE
+
+        process = subprocess.Popen(
+            cmd,
+            shell=shell,
+            stdin=subprocess.PIPE if input is not None else None,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+        try:
+            return process.communicate(input=input.encode(encoding) if input else None, timeout=timeout), process
+        except subprocess.TimeoutExpired:
+            process.kill()
+            raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
+
+    @staticmethod
+    def _raise_exec_exception(message, command, exit_code, output):
+        """Raise an ExecUtilException."""
+        raise ExecUtilException(message=message.format(output),
+                                command=command,
+                                exit_code=exit_code,
+                                out=output)
+
     def exec_command(self, cmd, wait_exit=False, verbose=False,
                      expect_error=False, encoding=None, shell=False, text=False,
                      input=None, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -56,16 +92,15 @@ class LocalOperations(OsOperations):
         :return: The output of the subprocess.
         """
         if os.name == 'nt':
-            with tempfile.NamedTemporaryFile() as buf:
-                process = subprocess.Popen(cmd, stdout=buf, stderr=subprocess.STDOUT)
-                process.communicate()
-                buf.seek(0)
-                result = buf.read().decode(encoding)
-            return result
+            return self._exec_command_windows(cmd, wait_exit=wait_exit, verbose=verbose,
+                                              expect_error=expect_error, encoding=encoding, shell=shell, text=text,
+                                              input=input, stdin=stdin, stdout=stdout, stderr=stderr,
+                                              get_process=get_process, timeout=timeout)
         else:
             process = subprocess.Popen(
                 cmd,
                 shell=shell,
+                stdin=stdin,
                 stdout=stdout,
                 stderr=stderr,
             )
@@ -79,7 +114,7 @@ class LocalOperations(OsOperations):
                 raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
             exit_status = process.returncode
 
-            error_found = exit_status != 0 or any(marker in error for marker in error_markers)
+            error_found = exit_status != 0 or has_errors(error)
 
             if encoding:
                 result = result.decode(encoding)
@@ -91,14 +126,49 @@ class LocalOperations(OsOperations):
             if exit_status != 0 or error_found:
                 if exit_status == 0:
                     exit_status = 1
-                raise ExecUtilException(message='Utility exited with non-zero code. Error `{}`'.format(error),
-                                        command=cmd,
-                                        exit_code=exit_status,
-                                        out=result)
+                self._raise_exec_exception('Utility exited with non-zero code. Error `{}`', cmd, exit_status, result)
             if verbose:
                 return exit_status, result, error
             else:
                 return result
+
+    @staticmethod
+    def _process_output(process, encoding, temp_file=None):
+        """Process the output of a command."""
+        if temp_file is not None:
+            temp_file.seek(0)
+            output = temp_file.read()
+        else:
+            output = process.stdout.read()
+
+        if encoding:
+            output = output.decode(encoding)
+
+        return output
+
+    def _exec_command_windows(self, cmd, wait_exit=False, verbose=False,
+                              expect_error=False, encoding=None, shell=False, text=False,
+                              input=None, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              get_process=None, timeout=None):
+        with tempfile.NamedTemporaryFile(mode='w+b') as temp_file:
+            _, process = self._run_command(cmd, shell, input, timeout, encoding, temp_file)
+            if get_process:
+                return process
+            output = self._process_output(process, encoding, temp_file)
+
+            if process.returncode != 0 or has_errors(output):
+                if process.returncode == 0:
+                    process.returncode = 1
+                if expect_error:
+                    if verbose:
+                        return process.returncode, output, output
+                    else:
+                        return output
+                else:
+                    self._raise_exec_exception('Utility exited with non-zero code. Error `{}`', cmd, process.returncode,
+                                               output)
+
+            return (process.returncode, output, output) if verbose else output
 
     # Environment setup
     def environ(self, var_name):
@@ -210,7 +280,7 @@ class LocalOperations(OsOperations):
             if binary:
                 return content
             if isinstance(content, bytes):
-                return content.decode(encoding or 'utf-8')
+                return content.decode(encoding or get_default_encoding())
             return content
 
     def readlines(self, filename, num_lines=0, binary=False, encoding=None):
