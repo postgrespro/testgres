@@ -141,7 +141,7 @@ class TestgresTests(unittest.TestCase):
             node.cleanup()
             node.init().start().execute('select 1')
 
-    @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
+    @unittest.skipUnless(util_exists('pg_resetwal.exe' if os.name == 'nt' else 'pg_resetwal'), 'pgbench might be missing')
     @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_init_unique_system_id(self):
         # this function exists in PostgreSQL 9.6+
@@ -747,7 +747,7 @@ class TestgresTests(unittest.TestCase):
                 master.restart()
                 self.assertTrue(master._logger.is_alive())
 
-    @unittest.skipUnless(util_exists('pgbench'), 'might be missing')
+    @unittest.skipUnless(util_exists('pgbench.exe' if os.name == 'nt' else 'pgbench'), 'pgbench might be missing')
     def test_pgbench(self):
         with get_new_node().init().start() as node:
 

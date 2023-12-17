@@ -39,23 +39,30 @@ class LocalOperations(OsOperations):
         self.username = conn_params.username or self.get_user()
 
     @staticmethod
-    def _run_command(cmd, shell, input, timeout, encoding, temp_file=None):
+    def _run_command(cmd, shell, input, stdin, stdout, stderr, timeout, encoding, temp_file=None, get_process=None):
         """Execute a command and return the process."""
         if temp_file is not None:
-            stdout = temp_file
-            stderr = subprocess.STDOUT
+            stdout = stdout or temp_file
+            stderr = stderr or subprocess.STDOUT
         else:
-            stdout = subprocess.PIPE
-            stderr = subprocess.PIPE
+            stdout = stdout or subprocess.PIPE
+            stderr = stderr or subprocess.PIPE
 
         process = subprocess.Popen(
             cmd,
             shell=shell,
-            stdin=subprocess.PIPE if input is not None else None,
+            stdin=stdin or subprocess.PIPE if input is not None else None,
             stdout=stdout,
             stderr=stderr,
         )
-        return process
+
+        if get_process:
+            return None, process
+        try:
+            return process.communicate(input=input.encode(encoding) if input else None, timeout=timeout), process
+        except subprocess.TimeoutExpired:
+            process.kill()
+            raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
 
     @staticmethod
     def _raise_exec_exception(message, command, exit_code, output):
@@ -67,7 +74,7 @@ class LocalOperations(OsOperations):
 
     def exec_command(self, cmd, wait_exit=False, verbose=False,
                      expect_error=False, encoding=None, shell=False, text=False,
-                     input=None, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                     input=None, stdin=None, stdout=None, stderr=None,
                      get_process=None, timeout=None):
         """
         Execute a command in a subprocess.
@@ -143,29 +150,27 @@ class LocalOperations(OsOperations):
 
     def _exec_command_windows(self, cmd, wait_exit=False, verbose=False,
                               expect_error=False, encoding=None, shell=False, text=False,
-                              input=None, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              input=None, stdin=None, stdout=None, stderr=None,
                               get_process=None, timeout=None):
         with tempfile.NamedTemporaryFile(mode='w+b') as temp_file:
-            process = self._run_command(cmd, shell, input, timeout, encoding, temp_file)
-            try:
-                output = process.communicate(input=input.encode(encoding) if input else None, timeout=timeout)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
+            _, process = self._run_command(cmd, shell, input, stdin, stdout, stderr, timeout, encoding, temp_file, get_process)
+            if get_process:
+                return process
+            result = self._process_output(process, encoding, temp_file)
 
-            if process.returncode != 0 or has_errors(output):
+            if process.returncode != 0 or has_errors(result):
                 if process.returncode == 0:
                     process.returncode = 1
                 if expect_error:
                     if verbose:
-                        return process.returncode, output, output
+                        return process.returncode, result, result
                     else:
-                        return output
+                        return result
                 else:
                     self._raise_exec_exception('Utility exited with non-zero code. Error `{}`', cmd, process.returncode,
-                                               output)
+                                               result)
 
-            return (process.returncode, output, output) if verbose else output
+            return (process.returncode, result, result) if verbose else result
 
     # Environment setup
     def environ(self, var_name):

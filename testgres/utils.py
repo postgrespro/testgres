@@ -13,7 +13,7 @@ import re
 
 from six import iteritems
 
-from helpers.port_manager import PortManager
+from .helpers.port_manager import PortManager
 from .exceptions import ExecUtilException
 from .config import testgres_config as tconf
 
