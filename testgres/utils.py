@@ -4,8 +4,6 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import random
-import socket
 
 import sys
 
@@ -13,9 +11,9 @@ from contextlib import contextmanager
 from packaging.version import Version, InvalidVersion
 import re
 
-from port_for import PortForException
 from six import iteritems
 
+from helpers.port_manager import PortManager
 from .exceptions import ExecUtilException
 from .config import testgres_config as tconf
 
@@ -40,47 +38,11 @@ def reserve_port():
     """
     Generate a new port and add it to 'bound_ports'.
     """
-    port = select_random(exclude_ports=bound_ports)
+    port_mng = PortManager()
+    port = port_mng.find_free_port(exclude_ports=bound_ports)
     bound_ports.add(port)
 
     return port
-
-
-def select_random(
-        ports=None,
-        exclude_ports=None,
-) -> int:
-    """
-    Return random unused port number.
-    Standard function from port_for does not work on Windows because of error
-    'port_for.exceptions.PortForException: Can't select a port'
-    We should update it.
-    """
-    if ports is None:
-        ports = set(range(1024, 65535))
-
-    if exclude_ports is None:
-        exclude_ports = set()
-
-    ports.difference_update(set(exclude_ports))
-
-    sampled_ports = random.sample(tuple(ports), min(len(ports), 100))
-
-    for port in sampled_ports:
-        if is_port_free(port):
-            return port
-
-    raise PortForException("Can't select a port")
-
-
-def is_port_free(port: int) -> bool:
-    """Check if a port is free to use."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            s.bind(("", port))
-            return True
-        except OSError:
-            return False
 
 
 def release_port(port):

@@ -55,12 +55,7 @@ class LocalOperations(OsOperations):
             stdout=stdout,
             stderr=stderr,
         )
-
-        try:
-            return process.communicate(input=input.encode(encoding) if input else None, timeout=timeout), process
-        except subprocess.TimeoutExpired:
-            process.kill()
-            raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
+        return process
 
     @staticmethod
     def _raise_exec_exception(message, command, exit_code, output):
@@ -151,10 +146,12 @@ class LocalOperations(OsOperations):
                               input=None, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               get_process=None, timeout=None):
         with tempfile.NamedTemporaryFile(mode='w+b') as temp_file:
-            _, process = self._run_command(cmd, shell, input, timeout, encoding, temp_file)
-            if get_process:
-                return process
-            output = self._process_output(process, encoding, temp_file)
+            process = self._run_command(cmd, shell, input, timeout, encoding, temp_file)
+            try:
+                output = process.communicate(input=input.encode(encoding) if input else None, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
 
             if process.returncode != 0 or has_errors(output):
                 if process.returncode == 0:

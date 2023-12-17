@@ -11,10 +11,9 @@ class TestRemoteOperations:
 
     @pytest.fixture(scope="function", autouse=True)
     def setup(self):
-        conn_params = ConnectionParams(host=os.getenv('RDBMS_TESTPOOL1_HOST') or '172.18.0.3',
-                                       username='dev',
-                                       ssh_key=os.getenv(
-                                           'RDBMS_TESTPOOL_SSHKEY') or '../../container_files/postgres/ssh/id_ed25519')
+        conn_params = ConnectionParams(host=os.getenv('RDBMS_TESTPOOL1_HOST') or '127.0.0.1',
+                                       username=os.getenv('USER'),
+                                       ssh_key=os.getenv('RDBMS_TESTPOOL_SSHKEY'))
         self.operations = RemoteOperations(conn_params)
 
     def test_exec_command_success(self):
@@ -41,7 +40,7 @@ class TestRemoteOperations:
         """
         Test is_executable for an existing executable.
         """
-        cmd = "postgres"
+        cmd = os.getenv('PG_CONFIG')
         response = self.operations.is_executable(cmd)
 
         assert response is True

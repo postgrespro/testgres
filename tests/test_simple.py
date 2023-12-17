@@ -763,6 +763,8 @@ class TestgresTests(unittest.TestCase):
             out, _ = proc.communicate()
             out = out.decode('utf-8')
 
+            proc.stdout.close()
+
             self.assertTrue('tps' in out)
 
     def test_pg_config(self):

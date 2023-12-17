@@ -52,10 +52,9 @@ from testgres import bound_ports
 from testgres.utils import PgVer
 from testgres.node import ProcessProxy, ConnectionParams
 
-conn_params = ConnectionParams(host=os.getenv('RDBMS_TESTPOOL1_HOST') or '172.18.0.3',
-                               username='dev',
-                               ssh_key=os.getenv(
-                                   'RDBMS_TESTPOOL_SSHKEY') or '../../container_files/postgres/ssh/id_ed25519')
+conn_params = ConnectionParams(host=os.getenv('RDBMS_TESTPOOL1_HOST') or '127.0.0.1',
+                               username=os.getenv('USER'),
+                               ssh_key=os.getenv('RDBMS_TESTPOOL_SSHKEY'))
 os_ops = RemoteOperations(conn_params)
 testgres_config.set_os_ops(os_ops=os_ops)
 
