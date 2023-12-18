@@ -29,7 +29,7 @@ with open('README.md', 'r') as f:
 setup(
     version='1.9.3',
     name='testgres',
-    packages=['testgres', 'testgres.operations'],
+    packages=['testgres', 'testgres.operations', 'testgres.helpers'],
     description='Testing utility for PostgreSQL and its extensions',
     url='https://github.com/postgrespro/testgres',
     long_description=readme,

@@ -623,8 +623,8 @@ class PostgresNode(object):
                 "-D", self.data_dir,
                 "status"
             ]  # yapf: disable
-            status_code, out, err = execute_utility(_params, self.utils_log_file, verbose=True)
-            if 'does not exist' in err:
+            status_code, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
+            if error and 'does not exist' in error:
                 return NodeStatus.Uninitialized
             elif 'no server running' in out:
                 return NodeStatus.Stopped
@@ -717,7 +717,7 @@ class PostgresNode(object):
 
         try:
             exit_status, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
-            if 'does not exist' in error:
+            if error and 'does not exist' in error:
                 raise Exception
         except Exception as e:
             msg = 'Cannot start node'
@@ -791,7 +791,7 @@ class PostgresNode(object):
 
         try:
             error_code, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
-            if 'could not start server' in error:
+            if error and 'could not start server' in error:
                 raise ExecUtilException
         except ExecUtilException as e:
             msg = 'Cannot restart node'

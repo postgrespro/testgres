@@ -22,9 +22,11 @@ error_markers = [b'error', b'Permission denied', b'fatal']
 
 
 def has_errors(output):
-    if isinstance(output, str):
-        output = output.encode(get_default_encoding())
-    return any(marker in output for marker in error_markers)
+    if output:
+        if isinstance(output, str):
+            output = output.encode(get_default_encoding())
+        return any(marker in output for marker in error_markers)
+    return False
 
 
 class LocalOperations(OsOperations):
@@ -39,32 +41,6 @@ class LocalOperations(OsOperations):
         self.username = conn_params.username or self.get_user()
 
     @staticmethod
-    def _run_command(cmd, shell, input, stdin, stdout, stderr, timeout, encoding, temp_file=None, get_process=None):
-        """Execute a command and return the process."""
-        if temp_file is not None:
-            stdout = stdout or temp_file
-            stderr = stderr or subprocess.STDOUT
-        else:
-            stdout = stdout or subprocess.PIPE
-            stderr = stderr or subprocess.PIPE
-
-        process = subprocess.Popen(
-            cmd,
-            shell=shell,
-            stdin=stdin or subprocess.PIPE if input is not None else None,
-            stdout=stdout,
-            stderr=stderr,
-        )
-
-        if get_process:
-            return None, process
-        try:
-            return process.communicate(input=input.encode(encoding) if input else None, timeout=timeout), process
-        except subprocess.TimeoutExpired:
-            process.kill()
-            raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
-
-    @staticmethod
     def _raise_exec_exception(message, command, exit_code, output):
         """Raise an ExecUtilException."""
         raise ExecUtilException(message=message.format(output),
@@ -72,105 +48,72 @@ class LocalOperations(OsOperations):
                                 exit_code=exit_code,
                                 out=output)
 
-    def exec_command(self, cmd, wait_exit=False, verbose=False,
-                     expect_error=False, encoding=None, shell=False, text=False,
-                     input=None, stdin=None, stdout=None, stderr=None,
-                     get_process=None, timeout=None):
-        """
-        Execute a command in a subprocess.
+    @staticmethod
+    def _process_output(encoding, temp_file_path):
+        """Process the output of a command from a temporary file."""
+        with open(temp_file_path, 'rb') as temp_file:
+            output = temp_file.read()
+            if encoding:
+                output = output.decode(encoding)
+            return output, None  # In Windows stderr writing in stdout
 
-        Args:
-        - cmd: The command to execute.
-        - wait_exit: Whether to wait for the subprocess to exit before returning.
-        - verbose: Whether to return verbose output.
-        - expect_error: Whether to raise an error if the subprocess exits with an error status.
-        - encoding: The encoding to use for decoding the subprocess output.
-        - shell: Whether to use shell when executing the subprocess.
-        - text: Whether to return str instead of bytes for the subprocess output.
-        - input: The input to pass to the subprocess.
-        - stdout: The stdout to use for the subprocess.
-        - stderr: The stderr to use for the subprocess.
-        - proc: The process to use for subprocess creation.
-        :return: The output of the subprocess.
-        """
-        if os.name == 'nt':
-            return self._exec_command_windows(cmd, wait_exit=wait_exit, verbose=verbose,
-                                              expect_error=expect_error, encoding=encoding, shell=shell, text=text,
-                                              input=input, stdin=stdin, stdout=stdout, stderr=stderr,
-                                              get_process=get_process, timeout=timeout)
-        else:
+    def _run_command(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
+        """Execute a command and return the process and its output."""
+        if os.name == 'nt' and stdout is None:  # Windows
+            with tempfile.NamedTemporaryFile(mode='w+b', delete=False) as temp_file:
+                stdout = temp_file
+                stderr = subprocess.STDOUT
+                process = subprocess.Popen(
+                    cmd,
+                    shell=shell,
+                    stdin=stdin or subprocess.PIPE if input is not None else None,
+                    stdout=stdout,
+                    stderr=stderr,
+                )
+                if get_process:
+                    return process, None, None
+                temp_file_path = temp_file.name
+
+            # Wait process finished
+            process.wait()
+
+            output, error = self._process_output(encoding, temp_file_path)
+            return process, output, error
+        else:  # Other OS
             process = subprocess.Popen(
                 cmd,
                 shell=shell,
-                stdin=stdin,
-                stdout=stdout,
-                stderr=stderr,
+                stdin=stdin or subprocess.PIPE if input is not None else None,
+                stdout=stdout or subprocess.PIPE,
+                stderr=stderr or subprocess.PIPE,
             )
             if get_process:
-                return process
-
+                return process, None, None
             try:
-                result, error = process.communicate(input, timeout=timeout)
+                output, error = process.communicate(input=input.encode(encoding) if input else None, timeout=timeout)
+                if encoding:
+                    output = output.decode(encoding)
+                    error = error.decode(encoding)
+                return process, output, error
             except subprocess.TimeoutExpired:
                 process.kill()
                 raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
-            exit_status = process.returncode
 
-            error_found = exit_status != 0 or has_errors(error)
+    def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False, encoding=None, shell=False,
+                     text=False, input=None, stdin=None, stdout=None, stderr=None, get_process=False, timeout=None):
+        """
+        Execute a command in a subprocess and handle the output based on the provided parameters.
+        """
+        process, output, error = self._run_command(cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding)
+        if get_process:
+            return process
+        if process.returncode != 0 or (has_errors(error) and not expect_error):
+            self._raise_exec_exception('Utility exited with non-zero code. Error `{}`', cmd, process.returncode, error)
 
-            if encoding:
-                result = result.decode(encoding)
-                error = error.decode(encoding)
-
-            if expect_error:
-                raise Exception(result, error)
-
-            if exit_status != 0 or error_found:
-                if exit_status == 0:
-                    exit_status = 1
-                self._raise_exec_exception('Utility exited with non-zero code. Error `{}`', cmd, exit_status, result)
-            if verbose:
-                return exit_status, result, error
-            else:
-                return result
-
-    @staticmethod
-    def _process_output(process, encoding, temp_file=None):
-        """Process the output of a command."""
-        if temp_file is not None:
-            temp_file.seek(0)
-            output = temp_file.read()
+        if verbose:
+            return process.returncode, output, error
         else:
-            output = process.stdout.read()
-
-        if encoding:
-            output = output.decode(encoding)
-
-        return output
-
-    def _exec_command_windows(self, cmd, wait_exit=False, verbose=False,
-                              expect_error=False, encoding=None, shell=False, text=False,
-                              input=None, stdin=None, stdout=None, stderr=None,
-                              get_process=None, timeout=None):
-        with tempfile.NamedTemporaryFile(mode='w+b') as temp_file:
-            _, process = self._run_command(cmd, shell, input, stdin, stdout, stderr, timeout, encoding, temp_file, get_process)
-            if get_process:
-                return process
-            result = self._process_output(process, encoding, temp_file)
-
-            if process.returncode != 0 or has_errors(result):
-                if process.returncode == 0:
-                    process.returncode = 1
-                if expect_error:
-                    if verbose:
-                        return process.returncode, result, result
-                    else:
-                        return result
-                else:
-                    self._raise_exec_exception('Utility exited with non-zero code. Error `{}`', cmd, process.returncode,
-                                               result)
-
-            return (process.returncode, result, result) if verbose else result
+            return output
 
     # Environment setup
     def environ(self, var_name):

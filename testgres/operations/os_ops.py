@@ -81,7 +81,7 @@ class OsOperations:
     def touch(self, filename):
         raise NotImplementedError()
 
-    def read(self, filename):
+    def read(self, filename, encoding, binary):
         raise NotImplementedError()
 
     def readlines(self, filename):
