@@ -1,3 +1,5 @@
+import locale
+
 try:
     import psycopg2 as pglib  # noqa: F401
 except ImportError:
@@ -12,6 +14,10 @@ class ConnectionParams:
         self.host = host
         self.ssh_key = ssh_key
         self.username = username
+
+
+def get_default_encoding():
+    return locale.getdefaultlocale()[1] or 'UTF-8'
 
 
 class OsOperations:
@@ -75,7 +81,7 @@ class OsOperations:
     def touch(self, filename):
         raise NotImplementedError()
 
-    def read(self, filename):
+    def read(self, filename, encoding, binary):
         raise NotImplementedError()
 
     def readlines(self, filename):

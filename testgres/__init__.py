@@ -52,6 +52,8 @@ from .operations.os_ops import OsOperations, ConnectionParams
 from .operations.local_ops import LocalOperations
 from .operations.remote_ops import RemoteOperations
 
+from .helpers.port_manager import PortManager
+
 __all__ = [
     "get_new_node",
     "get_remote_node",
@@ -62,6 +64,6 @@ __all__ = [
     "XLogMethod", "IsolationLevel", "NodeStatus", "ProcessType", "DumpFormat",
     "PostgresNode", "NodeApp",
     "reserve_port", "release_port", "bound_ports", "get_bin_path", "get_pg_config", "get_pg_version",
-    "First", "Any",
+    "First", "Any", "PortManager",
     "OsOperations", "LocalOperations", "RemoteOperations", "ConnectionParams"
 ]

@@ -74,6 +74,24 @@ def util_exists(util):
             return True
 
 
+def rm_carriage_returns(out):
+    """
+    In Windows we have additional '\r' symbols in output.
+    Let's get rid of them.
+    """
+    if os.name == 'nt':
+        if isinstance(out, (int, float, complex)):
+            return out
+        elif isinstance(out, tuple):
+            return tuple(rm_carriage_returns(item) for item in out)
+        elif isinstance(out, bytes):
+            return out.replace(b'\r', b'')
+        else:
+            return out.replace('\r', '')
+    else:
+        return out
+
+
 @contextmanager
 def removing(f):
     try:
@@ -123,7 +141,7 @@ class TestgresTests(unittest.TestCase):
             node.cleanup()
             node.init().start().execute('select 1')
 
-    @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
+    @unittest.skipUnless(util_exists('pg_resetwal.exe' if os.name == 'nt' else 'pg_resetwal'), 'pgbench might be missing')
     @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_init_unique_system_id(self):
         # this function exists in PostgreSQL 9.6+
@@ -254,34 +272,34 @@ class TestgresTests(unittest.TestCase):
 
             # check returned values (1 arg)
             res = node.psql('select 1')
-            self.assertEqual(res, (0, b'1\n', b''))
+            self.assertEqual(rm_carriage_returns(res), (0, b'1\n', b''))
 
             # check returned values (2 args)
             res = node.psql('postgres', 'select 2')
-            self.assertEqual(res, (0, b'2\n', b''))
+            self.assertEqual(rm_carriage_returns(res), (0, b'2\n', b''))
 
             # check returned values (named)
             res = node.psql(query='select 3', dbname='postgres')
-            self.assertEqual(res, (0, b'3\n', b''))
+            self.assertEqual(rm_carriage_returns(res), (0, b'3\n', b''))
 
             # check returned values (1 arg)
             res = node.safe_psql('select 4')
-            self.assertEqual(res, b'4\n')
+            self.assertEqual(rm_carriage_returns(res), b'4\n')
 
             # check returned values (2 args)
             res = node.safe_psql('postgres', 'select 5')
-            self.assertEqual(res, b'5\n')
+            self.assertEqual(rm_carriage_returns(res), b'5\n')
 
             # check returned values (named)
             res = node.safe_psql(query='select 6', dbname='postgres')
-            self.assertEqual(res, b'6\n')
+            self.assertEqual(rm_carriage_returns(res), b'6\n')
 
             # check feeding input
             node.safe_psql('create table horns (w int)')
             node.safe_psql('copy horns from stdin (format csv)',
                            input=b"1\n2\n3\n\\.\n")
             _sum = node.safe_psql('select sum(w) from horns')
-            self.assertEqual(_sum, b'6\n')
+            self.assertEqual(rm_carriage_returns(_sum), b'6\n')
 
             # check psql's default args, fails
             with self.assertRaises(QueryException):
@@ -455,7 +473,7 @@ class TestgresTests(unittest.TestCase):
                     master.safe_psql(
                         'insert into abc select generate_series(1, 1000000)')
                     res = standby1.safe_psql('select count(*) from abc')
-                    self.assertEqual(res, b'1000000\n')
+                    self.assertEqual(rm_carriage_returns(res), b'1000000\n')
 
     @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_replication(self):
@@ -589,7 +607,7 @@ class TestgresTests(unittest.TestCase):
                 # make standby becomes writable master
                 replica.safe_psql('insert into abc values (1)')
                 res = replica.safe_psql('select * from abc')
-                self.assertEqual(res, b'1\n')
+                self.assertEqual(rm_carriage_returns(res), b'1\n')
 
     def test_dump(self):
         query_create = 'create table test as select generate_series(1, 2) as val'
@@ -614,6 +632,7 @@ class TestgresTests(unittest.TestCase):
         with get_new_node().init().start() as node:
             node.psql('create role test_user login')
             value = node.safe_psql('select 1', username='test_user')
+            value = rm_carriage_returns(value)
             self.assertEqual(value, b'1\n')
 
     def test_poll_query_until(self):
@@ -728,7 +747,7 @@ class TestgresTests(unittest.TestCase):
                 master.restart()
                 self.assertTrue(master._logger.is_alive())
 
-    @unittest.skipUnless(util_exists('pgbench'), 'might be missing')
+    @unittest.skipUnless(util_exists('pgbench.exe' if os.name == 'nt' else 'pgbench'), 'pgbench might be missing')
     def test_pgbench(self):
         with get_new_node().init().start() as node:
 
@@ -743,6 +762,8 @@ class TestgresTests(unittest.TestCase):
 
             out, _ = proc.communicate()
             out = out.decode('utf-8')
+
+            proc.stdout.close()
 
             self.assertTrue('tps' in out)
 
@@ -977,7 +998,9 @@ class TestgresTests(unittest.TestCase):
 
     def test_child_process_dies(self):
         # test for FileNotFound exception during child_processes() function
-        with subprocess.Popen(["sleep", "60"]) as process:
+        cmd = ["timeout", "60"] if os.name == 'nt' else ["sleep", "60"]
+
+        with subprocess.Popen(cmd, shell=True) as process:  # shell=True might be needed on Windows
             self.assertEqual(process.poll(), None)
             # collect list of processes currently running
             children = psutil.Process(os.getpid()).children()

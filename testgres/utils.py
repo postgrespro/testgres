@@ -4,7 +4,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import port_for
+
 import sys
 
 from contextlib import contextmanager
@@ -13,6 +13,7 @@ import re
 
 from six import iteritems
 
+from .helpers.port_manager import PortManager
 from .exceptions import ExecUtilException
 from .config import testgres_config as tconf
 
@@ -37,8 +38,8 @@ def reserve_port():
     """
     Generate a new port and add it to 'bound_ports'.
     """
-
-    port = port_for.select_random(exclude_ports=bound_ports)
+    port_mng = PortManager()
+    port = port_mng.find_free_port(exclude_ports=bound_ports)
     bound_ports.add(port)
 
     return port
@@ -80,7 +81,8 @@ def execute_utility(args, logfile=None, verbose=False):
                 lines = [u'\n'] + ['# ' + line for line in out.splitlines()] + [u'\n']
                 tconf.os_ops.write(filename=logfile, data=lines)
         except IOError:
-            raise ExecUtilException("Problem with writing to logfile `{}` during run command `{}`".format(logfile, args))
+            raise ExecUtilException(
+                "Problem with writing to logfile `{}` during run command `{}`".format(logfile, args))
     if verbose:
         return exit_status, out, error
     else:
