@@ -110,8 +110,7 @@ class NodeConnection(object):
                 res = [tuple(t) for t in res]
 
             return res
-        except Exception as e:
-            print("Error executing query: {}".format(e))
+        except Exception:
             return None
 
     def close(self):
