@@ -127,7 +127,7 @@ class ProcessProxy(object):
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, port=None, base_dir=None, conn_params: ConnectionParams = ConnectionParams()):
+    def __init__(self, name=None, port=None, base_dir=None, conn_params: ConnectionParams = ConnectionParams(), bin_dir=None, prefix=None):
         """
         PostgresNode constructor.
 
@@ -135,12 +135,15 @@ class PostgresNode(object):
             name: node's application name.
             port: port to accept connections.
             base_dir: path to node's data directory.
+            bin_dir: path to node's binary directory.
         """
 
         # private
-        self._pg_version = PgVer(get_pg_version())
+        self._pg_version = PgVer(get_pg_version(bin_dir))
         self._should_free_port = port is None
         self._base_dir = base_dir
+        self._bin_dir = bin_dir
+        self._prefix = prefix
         self._logger = None
         self._master = None
 
@@ -281,13 +284,19 @@ class PostgresNode(object):
     @property
     def base_dir(self):
         if not self._base_dir:
-            self._base_dir = self.os_ops.mkdtemp(prefix=TMP_NODE)
+            self._base_dir = self.os_ops.mkdtemp(prefix=self._prefix or TMP_NODE)
 
         # NOTE: it's safe to create a new dir
         if not self.os_ops.path_exists(self._base_dir):
             self.os_ops.makedirs(self._base_dir)
 
         return self._base_dir
+
+    @property
+    def bin_dir(self):
+        if not self._bin_dir:
+            self._bin_dir = os.path.dirname(get_bin_path("pg_config"))
+        return self._bin_dir
 
     @property
     def logs_dir(self):
@@ -441,7 +450,7 @@ class PostgresNode(object):
 
         return result
 
-    def init(self, initdb_params=None, **kwargs):
+    def init(self, initdb_params=None, cached=True, **kwargs):
         """
         Perform initdb for this node.
 
@@ -460,7 +469,9 @@ class PostgresNode(object):
             data_dir=self.data_dir,
             logfile=self.utils_log_file,
             os_ops=self.os_ops,
-            params=initdb_params)
+            params=initdb_params,
+            bin_path=self.bin_dir,
+            cached=False)
 
         # initialize default config files
         self.default_conf(**kwargs)
@@ -619,7 +630,7 @@ class PostgresNode(object):
 
         try:
             _params = [
-                get_bin_path("pg_ctl"),
+                self._get_bin_path('pg_ctl'),
                 "-D", self.data_dir,
                 "status"
             ]  # yapf: disable
@@ -645,7 +656,7 @@ class PostgresNode(object):
         """
 
         # this one is tricky (blame PG 9.4)
-        _params = [get_bin_path("pg_controldata")]
+        _params = [self._get_bin_path("pg_controldata")]
         _params += ["-D"] if self._pg_version >= PgVer('9.5') else []
         _params += [self.data_dir]
 
@@ -708,7 +719,7 @@ class PostgresNode(object):
             return self
 
         _params = [
-            get_bin_path("pg_ctl"),
+            self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-l", self.pg_log_file,
             "-w" if wait else '-W',  # --wait or --no-wait
@@ -742,7 +753,7 @@ class PostgresNode(object):
             return self
 
         _params = [
-            get_bin_path("pg_ctl"),
+            self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-w" if wait else '-W',  # --wait or --no-wait
             "stop"
@@ -782,7 +793,7 @@ class PostgresNode(object):
         """
 
         _params = [
-            get_bin_path("pg_ctl"),
+            self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-l", self.pg_log_file,
             "-w",  # wait
@@ -814,7 +825,7 @@ class PostgresNode(object):
         """
 
         _params = [
-            get_bin_path("pg_ctl"),
+            self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "reload"
         ] + params  # yapf: disable
@@ -835,7 +846,7 @@ class PostgresNode(object):
         """
 
         _params = [
-            get_bin_path("pg_ctl"),
+            self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-w",  # wait
             "promote"
@@ -871,7 +882,7 @@ class PostgresNode(object):
         """
 
         _params = [
-            get_bin_path("pg_ctl"),
+            self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-w"  # wait
         ] + params  # yapf: disable
@@ -945,7 +956,7 @@ class PostgresNode(object):
         username = username or default_username()
 
         psql_params = [
-            get_bin_path("psql"),
+            self._get_bin_path("psql"),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
@@ -1066,7 +1077,7 @@ class PostgresNode(object):
         filename = filename or tmpfile()
 
         _params = [
-            get_bin_path("pg_dump"),
+            self._get_bin_path("pg_dump"),
             "-p", str(self.port),
             "-h", self.host,
             "-f", filename,
@@ -1094,7 +1105,7 @@ class PostgresNode(object):
         username = username or default_username()
 
         _params = [
-            get_bin_path("pg_restore"),
+            self._get_bin_path("pg_restore"),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
@@ -1364,7 +1375,7 @@ class PostgresNode(object):
         username = username or default_username()
 
         _params = [
-            get_bin_path("pgbench"),
+            self._get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
@@ -1416,7 +1427,7 @@ class PostgresNode(object):
         username = username or default_username()
 
         _params = [
-            get_bin_path("pgbench"),
+            self._get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username,
@@ -1586,6 +1597,43 @@ class PostgresNode(object):
             auto_conf += directive + "\n"
 
         self.os_ops.write(path, auto_conf, truncate=True)
+
+    def upgrade_from(self, old_node):
+        """
+        Upgrade this node from an old node using pg_upgrade.
+
+        Args:
+            old_node: An instance of PostgresNode representing the old node.
+        """
+        if not os.path.exists(old_node.data_dir):
+            raise Exception("Old node must be initialized")
+
+        if not os.path.exists(self.data_dir):
+            self.init()
+
+        pg_upgrade_binary = self._get_bin_path("pg_upgrade")
+
+        if not os.path.exists(pg_upgrade_binary):
+            raise Exception("pg_upgrade does not exist in the new node's binary path")
+
+        upgrade_command = [
+            pg_upgrade_binary,
+            "--old-bindir", old_node.bin_dir,
+            "--new-bindir", self.bin_dir,
+            "--old-datadir", old_node.data_dir,
+            "--new-datadir", self.data_dir,
+            "--old-port", str(old_node.port),
+            "--new-port", str(self.port),
+        ]
+
+        return self.os_ops.exec_command(upgrade_command)
+
+    def _get_bin_path(self, filename):
+        if self.bin_dir:
+            bin_path = os.path.join(self.bin_dir, filename)
+        else:
+            bin_path = get_bin_path(filename)
+        return bin_path
 
 
 class NodeApp:
