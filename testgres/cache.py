@@ -22,19 +22,20 @@ from .operations.local_ops import LocalOperations
 from .operations.os_ops import OsOperations
 
 
-def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = LocalOperations()):
+def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = LocalOperations(), bin_path=None, cached=True):
     """
     Perform initdb or use cached node files.
     """
 
     def call_initdb(initdb_dir, log=logfile):
         try:
-            _params = [get_bin_path("initdb"), "-D", initdb_dir, "-N"]
+            initdb_path = os.path.join(bin_path, 'initdb') if bin_path else get_bin_path("initdb")
+            _params = [initdb_path, "-D", initdb_dir, "-N"]
             execute_utility(_params + (params or []), log)
         except ExecUtilException as e:
             raise_from(InitNodeException("Failed to run initdb"), e)
 
-    if params or not testgres_config.cache_initdb:
+    if params or not testgres_config.cache_initdb or not cached:
         call_initdb(data_dir, logfile)
     else:
         # Fetch cached initdb dir

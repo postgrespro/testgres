@@ -1010,6 +1010,19 @@ class TestgresTests(unittest.TestCase):
             # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
             [ProcessProxy(p) for p in children]
 
+    def test_upgrade_node(self):
+        old_bin_dir = os.path.dirname(get_bin_path("pg_config"))
+        new_bin_dir = os.path.dirname(get_bin_path("pg_config"))
+        node_old = get_new_node(prefix='node_old', bin_dir=old_bin_dir)
+        node_old.init()
+        node_old.start()
+        node_old.stop()
+        node_new = get_new_node(prefix='node_new', bin_dir=new_bin_dir)
+        node_new.init(cached=False)
+        res = node_new.upgrade_from(old_node=node_old)
+        node_new.start()
+        self.assertTrue(b'Upgrade Complete' in res)
+
 
 if __name__ == '__main__':
     if os.environ.get('ALT_CONFIG'):
