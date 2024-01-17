@@ -43,8 +43,10 @@ class Init(object):
 
         self._pg_config = testgres.get_pg_config()
         self.is_enterprise = self._pg_config.get('PGPRO_EDITION', None) == 'enterprise'
+        self.is_shardman = self._pg_config.get('PGPRO_EDITION', None) == 'shardman'
         self.is_pgpro = 'PGPRO_EDITION' in self._pg_config
         self.is_nls_enabled = 'enable-nls' in self._pg_config['CONFIGURE']
+        self.is_lz4_enabled = '-llz4' in self._pg_config['LIBS']
         version = self._pg_config['VERSION'].rstrip('develalphabetapre')
         parts = [*version.split(' ')[1].split('.'), '0', '0'][:3]
         parts[0] = re.match(r'\d+', parts[0]).group()
@@ -80,7 +82,7 @@ class Init(object):
             self.tmp_path = tmp_path
         else:
             self.tmp_path = os.path.abspath(
-                os.path.join(self.source_path, tmp_path or 'tmp_dirs')
+                os.path.join(self.source_path, tmp_path or os.path.join('tests', 'tmp_dirs'))
             )
 
         os.makedirs(self.tmp_path, exist_ok=True)
@@ -188,6 +190,12 @@ class Init(object):
         else:
             self.compress_suffix = ''
             self.archive_compress = False
+
+        cfs_compress = test_env.get('PG_PROBACKUP_CFS_COMPRESS', None)
+        if cfs_compress:
+            self.cfs_compress = cfs_compress.lower()
+        else:
+            self.cfs_compress = self.archive_compress
 
         os.environ["PGAPPNAME"] = "pg_probackup"
         self.delete_logs = delete_logs
