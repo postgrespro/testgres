@@ -74,16 +74,13 @@ class Init(object):
         self._test_env = test_env
 
         # Get the directory from which the script was executed
-        helpers_path = os.getcwd()
-        self.tests_source_path = os.path.abspath(
-            os.path.join(helpers_path, os.pardir)
-        )
+        self.source_path = os.getcwd()
         tmp_path = test_env.get('PGPROBACKUP_TMP_DIR')
         if tmp_path and os.path.isabs(tmp_path):
             self.tmp_path = tmp_path
         else:
             self.tmp_path = os.path.abspath(
-                os.path.join(self.tests_source_path, tmp_path or 'tmp_dirs')
+                os.path.join(self.source_path, tmp_path or 'tmp_dirs')
             )
 
         os.makedirs(self.tmp_path, exist_ok=True)
@@ -110,8 +107,7 @@ class Init(object):
                     self.probackup_path = probackup_path_tmp
 
         if not self.probackup_path:
-            probackup_path_tmp = os.path.abspath(os.path.join(
-                self.tests_source_path, '../pg_probackup'))
+            probackup_path_tmp = self.source_path
 
             if os.path.isfile(probackup_path_tmp):
                 if not os.access(probackup_path_tmp, os.X_OK):
