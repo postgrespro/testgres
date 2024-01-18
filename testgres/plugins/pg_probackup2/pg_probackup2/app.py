@@ -17,7 +17,7 @@ from .init_helpers import init_params
 
 warning = """
 Wrong splint in show_pb
-Original Header:
+Original Header:f
 {header}
 Original Body:
 {body}
@@ -139,14 +139,12 @@ class ProbackupApp:
     def init(self, options=None, old_binary=False, skip_log_directory=False, expect_error=False, use_backup_dir=True):
         if options is None:
             options = []
-        return self.run([
-                     'init',
-                 ] + options,
-                 old_binary=old_binary,
-                 skip_log_directory=skip_log_directory,
-                 expect_error=expect_error,
-                 use_backup_dir=use_backup_dir
-                 )
+        return self.run(['init'] + options,
+                        old_binary=old_binary,
+                        skip_log_directory=skip_log_directory,
+                        expect_error=expect_error,
+                        use_backup_dir=use_backup_dir
+                        )
 
     def add_instance(self, instance, node, old_binary=False, options=None, expect_error=False):
         if options is None:
@@ -545,7 +543,6 @@ class ProbackupApp:
                         break
 
                 if tli > 0:
-                    timeline_data = None
                     for timeline in instance_timelines:
                         if timeline['tli'] == tli:
                             return timeline
@@ -674,7 +671,7 @@ class ProbackupApp:
                 archive_command += ' --remote-proto=ssh --remote-host=localhost'
 
             if init_params.archive_compress and compress:
-                archive_command += ' --compress-algorithm='+init_params.archive_compress
+                archive_command += ' --compress-algorithm=' + init_params.archive_compress
 
             if overwrite:
                 archive_command += ' --overwrite'
@@ -758,8 +755,8 @@ if os.environ.get('PG_PROBACKUP_S3_TEST', os.environ.get('PROBACKUP_S3_TYPE_FULL
     if root not in sys.path:
         sys.path.append(root)
     from pg_probackup2.storage.s3_backup import S3TestBackupDir
+
     fs_backup_class = S3TestBackupDir
 
     def build_backup_dir(self, backup='backup'):
         return fs_backup_class(rel_path=self.rel_path, backup=backup)
-

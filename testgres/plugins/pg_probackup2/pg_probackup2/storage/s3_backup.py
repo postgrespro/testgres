@@ -6,12 +6,11 @@ import minio
 from minio import Minio
 from minio.deleteobjects import DeleteObject
 import urllib3
+from .fs_backup import TestBackupDir
 
 root = os.path.realpath(os.path.join(os.path.dirname(__file__), '../..'))
 if root not in sys.path:
     sys.path.append(root)
-
-from .fs_backup import TestBackupDir
 
 # Should fail if either of env vars does not exist
 host = os.environ['PG_PROBACKUP_S3_HOST']
