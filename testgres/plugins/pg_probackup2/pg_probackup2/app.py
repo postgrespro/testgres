@@ -1,10 +1,17 @@
+import contextlib
+import importlib
 import json
 import os
 import re
 import subprocess
+import sys
+import threading
+import time
 import unittest
 
-from .storage.fs_backup import TestBackupDir
+import testgres
+
+from .storage.fs_backup import TestBackupDir, FSTestBackupDir
 from .gdb import GDBobj
 from .init_helpers import init_params
 
@@ -271,14 +278,14 @@ class ProbackupApp:
         # we need to break on wait_wal_lsn in pg_stop_backup
         gdb.run_until_break()
         if backup_type == 'page':
-            self.test_class.switch_wal_segment(master)
+            self.switch_wal_segment(master)
         if '--stream' not in options:
             gdb.continue_execution_until_break()
-        self.test_class.switch_wal_segment(master)
+        self.switch_wal_segment(master)
         gdb.continue_execution_until_exit()
 
-        output = self.test_class.read_pb_log()
-        self.test_class.unlink_pg_log()
+        output = self.read_pb_log()
+        self.unlink_pg_log()
         parsed_output = re.compile(r'Backup \S+ completed').search(output)
         assert parsed_output, f"Expected: `Backup 'backup_id' completed`, but found `{output}`"
         backup_id = parsed_output[0].split(' ')[1]
@@ -693,3 +700,66 @@ class ProbackupApp:
         options['archive_command'] = archive_command
 
         node.set_auto_conf(options)
+
+    def switch_wal_segment(self, node, sleep_seconds=1, and_tx=False):
+        """
+        Execute pg_switch_wal() in given node
+
+        Args:
+            node: an instance of PostgresNode or NodeConnection class
+        """
+        if isinstance(node, testgres.PostgresNode):
+            with node.connect('postgres') as con:
+                if and_tx:
+                    con.execute('select txid_current()')
+                lsn = con.execute('select pg_switch_wal()')[0][0]
+        else:
+            lsn = node.execute('select pg_switch_wal()')[0][0]
+
+        if sleep_seconds > 0:
+            time.sleep(sleep_seconds)
+        return lsn
+
+    @contextlib.contextmanager
+    def switch_wal_after(self, node, seconds, and_tx=True):
+        tm = threading.Timer(seconds, self.switch_wal_segment, [node, 0, and_tx])
+        tm.start()
+        try:
+            yield
+        finally:
+            tm.cancel()
+            tm.join()
+
+    def read_pb_log(self):
+        with open(os.path.join(self.pb_log_path, 'pg_probackup.log')) as fl:
+            return fl.read()
+
+    def unlink_pg_log(self):
+        os.unlink(os.path.join(self.pb_log_path, 'pg_probackup.log'))
+
+    def load_backup_class(fs_type):
+        fs_type = os.environ.get('PROBACKUP_FS_TYPE')
+        implementation = f"{__package__}.fs_backup.FSTestBackupDir"
+        if fs_type:
+            implementation = fs_type
+
+        print("Using ", implementation)
+        module_name, class_name = implementation.rsplit(sep='.', maxsplit=1)
+
+        module = importlib.import_module(module_name)
+
+        return getattr(module, class_name)
+
+
+# Local or S3 backup
+fs_backup_class = FSTestBackupDir
+if os.environ.get('PG_PROBACKUP_S3_TEST', os.environ.get('PROBACKUP_S3_TYPE_FULL_TEST')):
+    root = os.path.realpath(os.path.join(os.path.dirname(__file__), '../..'))
+    if root not in sys.path:
+        sys.path.append(root)
+    from pg_probackup2.storage.s3_backup import S3TestBackupDir
+    fs_backup_class = S3TestBackupDir
+
+    def build_backup_dir(self, backup='backup'):
+        return fs_backup_class(rel_path=self.rel_path, backup=backup)
+
