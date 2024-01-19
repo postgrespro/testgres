@@ -747,6 +747,10 @@ class ProbackupApp:
 
         return getattr(module, class_name)
 
+    @staticmethod
+    def build_backup_dir(rel_path, backup='backup'):
+        return fs_backup_class(rel_path=rel_path, backup=backup)
+
 
 # Local or S3 backup
 fs_backup_class = FSTestBackupDir
@@ -758,5 +762,3 @@ if os.environ.get('PG_PROBACKUP_S3_TEST', os.environ.get('PROBACKUP_S3_TYPE_FULL
 
     fs_backup_class = S3TestBackupDir
 
-    def build_backup_dir(self, backup='backup'):
-        return fs_backup_class(rel_path=self.rel_path, backup=backup)

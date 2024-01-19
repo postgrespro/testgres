@@ -2,9 +2,8 @@ import os
 import shutil
 import unittest
 import testgres
-from pg_probackup2.app import ProbackupApp
+from pg_probackup2.app import ProbackupApp, build_backup_dir
 from pg_probackup2.init_helpers import Init, init_params
-from pg_probackup2.app import build_backup_dir
 
 
 class TestUtils:
@@ -40,7 +39,7 @@ class ProbackupTest(unittest.TestCase):
         self.pb_log_path = os.path.join(self.test_path, "pb_log")
 
     def setup_backup_dir(self):
-        self.backup_dir = build_backup_dir(self, 'backup')
+        self.backup_dir = build_backup_dir(self.rel_path, 'backup')
         self.backup_dir.cleanup()
 
     def setup_probackup(self):

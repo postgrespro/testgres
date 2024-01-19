@@ -77,6 +77,7 @@ class Init(object):
 
         # Get the directory from which the script was executed
         self.source_path = os.getcwd()
+        self.pgdata_path = test_env.get('PGPROBACKUP_PGDATA_DIR')
         tmp_path = test_env.get('PGPROBACKUP_TMP_DIR')
         if tmp_path and os.path.isabs(tmp_path):
             self.tmp_path = tmp_path
