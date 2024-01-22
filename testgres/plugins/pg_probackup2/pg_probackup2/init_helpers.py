@@ -201,6 +201,10 @@ class Init(object):
         os.environ["PGAPPNAME"] = "pg_probackup"
         self.delete_logs = delete_logs
 
+        self.backup_rel_path = test_env.get('PGPROBACKUP_BACKUPS_TMP_DIR', None)
+        if self.backup_rel_path and not os.path.isabs(self.backup_rel_path):
+            raise Exception("PGPROBACKUP_BACKUPS_TMP_DIR should be an absolute path")
+
     def test_env(self):
         return self._test_env.copy()
 
