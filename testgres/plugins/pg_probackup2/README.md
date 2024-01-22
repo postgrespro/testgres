@@ -35,7 +35,7 @@ python my_tests.py
 
 ### Examples
 
-Here is an example of what you can do with `testgres-pg_probackup2`:
+Here is an example of what you can do with `testgres_pg_probackup2`:
 
 ```python
 # You can see full script here plugins/pg_probackup2/pg_probackup2/tests/basic_test.py

@@ -2,8 +2,8 @@ import os
 import shutil
 import unittest
 import testgres
-from pg_probackup2.app import ProbackupApp, build_backup_dir
-from pg_probackup2.init_helpers import Init, init_params
+from testgres_pg_probackup2.app import ProbackupApp, build_backup_dir
+from testgres_pg_probackup2.init_helpers import Init, init_params
 
 
 class TestUtils:
