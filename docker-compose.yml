@@ -1,2 +1,4 @@
-tests:
+version: '3.8'
+services:
+  tests:
     build: .

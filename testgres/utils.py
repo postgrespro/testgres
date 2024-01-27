@@ -172,24 +172,28 @@ def get_pg_config(pg_config_path=None, os_ops=None):
     return cache_pg_config_data("pg_config")
 
 
-def get_pg_version():
+def get_pg_version(bin_dir=None):
     """
     Return PostgreSQL version provided by postmaster.
     """
 
-    # get raw version (e.g. postgres (PostgreSQL) 9.5.7)
-    _params = [get_bin_path('postgres'), '--version']
+    # Get raw version (e.g., postgres (PostgreSQL) 9.5.7)
+    postgres_path = os.path.join(bin_dir, 'postgres') if bin_dir else get_bin_path('postgres')
+    _params = [postgres_path, '--version']
     raw_ver = tconf.os_ops.exec_command(_params, encoding='utf-8')
 
-    # Remove "(Homebrew)" if present
-    raw_ver = raw_ver.replace('(Homebrew)', '').strip()
+    return parse_pg_version(raw_ver)
 
-    # cook version of PostgreSQL
-    version = raw_ver.strip().split(' ')[-1] \
+
+def parse_pg_version(version_out):
+    # Generalize removal of system-specific suffixes (anything in parentheses)
+    raw_ver = re.sub(r'\([^)]*\)', '', version_out).strip()
+
+    # Cook version of PostgreSQL
+    version = raw_ver.split(' ')[-1] \
                      .partition('devel')[0] \
                      .partition('beta')[0] \
                      .partition('rc')[0]
-
     return version
 
 

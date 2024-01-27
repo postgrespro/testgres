@@ -44,7 +44,7 @@ class LocalOperations(OsOperations):
     def _raise_exec_exception(message, command, exit_code, output):
         """Raise an ExecUtilException."""
         raise ExecUtilException(message=message.format(output),
-                                command=command,
+                                command=' '.join(command) if isinstance(command, list) else command,
                                 exit_code=exit_code,
                                 out=output)
 

@@ -48,7 +48,7 @@ from testgres import \
 
 # NOTE: those are ugly imports
 from testgres import bound_ports
-from testgres.utils import PgVer
+from testgres.utils import PgVer, parse_pg_version
 from testgres.node import ProcessProxy
 
 
@@ -1009,6 +1009,29 @@ class TestgresTests(unittest.TestCase):
             process.wait()
             # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
             [ProcessProxy(p) for p in children]
+
+    def test_upgrade_node(self):
+        old_bin_dir = os.path.dirname(get_bin_path("pg_config"))
+        new_bin_dir = os.path.dirname(get_bin_path("pg_config"))
+        node_old = get_new_node(prefix='node_old', bin_dir=old_bin_dir)
+        node_old.init()
+        node_old.start()
+        node_old.stop()
+        node_new = get_new_node(prefix='node_new', bin_dir=new_bin_dir)
+        node_new.init(cached=False)
+        res = node_new.upgrade_from(old_node=node_old)
+        node_new.start()
+        self.assertTrue(b'Upgrade Complete' in res)
+
+    def test_parse_pg_version(self):
+        # Linux Mint
+        assert parse_pg_version("postgres (PostgreSQL) 15.5 (Ubuntu 15.5-1.pgdg22.04+1)") == "15.5"
+        # Linux Ubuntu
+        assert parse_pg_version("postgres (PostgreSQL) 12.17") == "12.17"
+        # Windows
+        assert parse_pg_version("postgres (PostgreSQL) 11.4") == "11.4"
+        # Macos
+        assert parse_pg_version("postgres (PostgreSQL) 14.9 (Homebrew)") == "14.9"
 
 
 if __name__ == '__main__':
