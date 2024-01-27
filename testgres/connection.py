@@ -102,14 +102,19 @@ class NodeConnection(object):
         return self
 
     def execute(self, query, *args):
-        self.cursor.execute(query, args)
         try:
-            res = self.cursor.fetchall()
-            # pg8000 might return tuples
-            if isinstance(res, tuple):
-                res = [tuple(t) for t in res]
+            self.cursor.execute(query, args)
+            # fetchall works only with select
+            if query.strip().lower().startswith("select"):
+                res = self.cursor.fetchall()
+                # pg8000 might return tuples
+                if isinstance(res, tuple):
+                    res = [tuple(t) for t in res]
+                return res
+            else:
+                # For INSERT/UPDATE/DELETE return number of rows
+                return self.cursor.rowcount
 
-            return res
         except Exception as e:
             print("Error executing query: {}".format(e))
             return None
