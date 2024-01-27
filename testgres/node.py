@@ -1153,30 +1153,48 @@ class PostgresNode(object):
         # sanity checks
         assert max_attempts >= 0
         assert sleep_time > 0
+
+        # check that polling is not longer than 1 hour
+        start_time = time.time()
+        one_hour_in_seconds = 3600
+
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
-            print(f"Pooling {attempts}")
+            current_time = time.time()
+            if current_time - start_time > one_hour_in_seconds:
+                raise TimeoutException('Function execution exceeded 1 hour')
+
+            print(f"Polling {attempts}")
             try:
-                res = self.execute(dbname=dbname,
-                                   query=query,
-                                   username=username,
-                                   commit=commit)
+                res = self.execute(dbname=dbname, query=query, username=username, commit=commit)
 
-                if expected is None and res is None:
-                    return    # done
+                if not (any(query.strip().lower().startswith(cmd) for cmd in
+                   ["select", "show", "fetch"]) or "returning" in query.lower()):
+                    if res == expected:
+                        return  # done
+                    elif res is None:
+                        raise QueryException('Query returned None', query)
+                    elif res > -1 and expected is True:
+                        return  # done, assuming non-select query was successful
+                    elif res == -1 and expected is False:
+                        return  # done, assuming non-select query affected no rows
 
-                if res is None:
-                    raise QueryException('Query returned None', query)
+                else:
+                    if res == expected:
+                        return  # done
 
-                # result set is not empty
-                if len(res):
-                    if len(res[0]) == 0:
-                        raise QueryException('Query returned 0 columns', query)
-                    if res[0][0] == expected:
-                        return    # done
-                # empty result set is considered as None
-                elif expected is None:
-                    return    # done
+                    if res is None:
+                        raise QueryException('Query returned None', query)
+
+                    # result set is not empty
+                    if len(res):
+                        if len(res[0]) == 0:
+                            raise QueryException('Query returned 0 columns', query)
+                        if res[0][0] == expected:
+                            return  # done
+                    # empty result set is considered as None
+                    elif expected is None:
+                        return  # done
 
             except tuple(suppress or []):
                 pass    # we're suppressing them

@@ -102,15 +102,25 @@ class NodeConnection(object):
         return self
 
     def execute(self, query, *args):
-        self.cursor.execute(query, args)
         try:
-            res = self.cursor.fetchall()
-            # pg8000 might return tuples
-            if isinstance(res, tuple):
-                res = [tuple(t) for t in res]
+            self.cursor.execute(query, args)
+            # fetchall works only with the next queries
+            if any(query.strip().lower().startswith(cmd) for cmd in
+                   ["select", "show", "fetch"]) or "returning" in query.lower():
+                res = self.cursor.fetchall()
+                # pg8000 might return tuples
+                if isinstance(res, tuple):
+                    res = [tuple(t) for t in res]
+                return res
+            else:
+                # For others return number of rows
+                return self.cursor.rowcount
 
-            return res
-        except Exception:
+        except pglib.errors.DuplicateTable as e:
+            print("Error executing query: {}".format(e))
+            return None
+        except QueryException as e:
+            print("Error executing query: {}".format(e))
             return None
 
     def close(self):
