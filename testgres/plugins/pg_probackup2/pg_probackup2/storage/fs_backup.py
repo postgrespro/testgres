@@ -42,8 +42,11 @@ class FSTestBackupDir(TestBackupDir):
 
     """ Backup directory. Usually created by running pg_probackup init -B <path>"""
 
-    def __init__(self, *, rel_path, backup):
-        self.path = os.path.join(init_params.tmp_path, rel_path, backup)
+    def __init__(self, *, path, backup):
+        if os.path.isabs(path):
+            self.path = os.path.join(path, backup)
+        else:
+            self.path = os.path.join(init_params.tmp_path, path, backup)
         self.pb_args = ('-B', self.path)
 
     def list_instance_backups(self, instance):
