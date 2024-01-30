@@ -37,6 +37,9 @@ class ProbackupException(Exception):
         return '\n ERROR: {0}\n CMD: {1}'.format(repr(self.message), self.cmd)
 
 
+# Local or S3 backup
+fs_backup_class = FSTestBackupDir
+
 class ProbackupApp:
 
     def __init__(self, test_class: unittest.TestCase,
@@ -746,17 +749,6 @@ class ProbackupApp:
         module = importlib.import_module(module_name)
 
         return getattr(module, class_name)
-
-
-# Local or S3 backup
-fs_backup_class = FSTestBackupDir
-if os.environ.get('PG_PROBACKUP_S3_TEST', os.environ.get('PROBACKUP_S3_TYPE_FULL_TEST')):
-    root = os.path.realpath(os.path.join(os.path.dirname(__file__), '../..'))
-    if root not in sys.path:
-        sys.path.append(root)
-    from pg_probackup2.storage.s3_backup import S3TestBackupDir
-
-    fs_backup_class = S3TestBackupDir
 
     def build_backup_dir(self, backup='backup'):
         return fs_backup_class(rel_path=self.rel_path, backup=backup)
