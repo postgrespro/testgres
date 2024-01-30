@@ -52,6 +52,7 @@ class Init(object):
         parts[0] = re.match(r'\d+', parts[0]).group()
         self.pg_config_version = reduce(lambda v, x: v * 100 + int(x), parts, 0)
 
+        os.environ['LANGUAGE'] = 'en'   # set default locale language to en. All messages will use this locale
         test_env = os.environ.copy()
         envs_list = [
             'LANGUAGE',
