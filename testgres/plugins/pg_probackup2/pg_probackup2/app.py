@@ -4,7 +4,6 @@ import json
 import os
 import re
 import subprocess
-import sys
 import threading
 import time
 import unittest
@@ -37,8 +36,9 @@ class ProbackupException(Exception):
         return '\n ERROR: {0}\n CMD: {1}'.format(repr(self.message), self.cmd)
 
 
-# Local or S3 backup
+# Local backup control
 fs_backup_class = FSTestBackupDir
+
 
 class ProbackupApp:
 
