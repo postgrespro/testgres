@@ -192,15 +192,13 @@ class ProbackupApp:
 
         return self.run(cmd + options, old_binary=old_binary, expect_error=expect_error)
 
-    def del_instance(self, instance, old_binary=False, expect_error=False):
-
-        return self.run([
-            'del-instance',
-            '--instance={0}'.format(instance),
-        ],
-            old_binary=old_binary,
-            expect_error=expect_error
-        )
+    def del_instance(self, instance, options=None, old_binary=False, expect_error=False):
+        if options is None:
+            options = []
+        cmd = ['del-instance', '--instance={0}'.format(instance)] + options
+        return self.run(cmd,
+                        old_binary=old_binary,
+                        expect_error=expect_error)
 
     def backup_node(
             self, instance, node, data_dir=False,
