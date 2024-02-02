@@ -104,13 +104,13 @@ class NodeConnection(object):
     def execute(self, query, *args):
         self.cursor.execute(query, args)
         try:
-            res = self.cursor.fetchall()
             # pg8000 might return tuples
-            if isinstance(res, tuple):
-                res = [tuple(t) for t in res]
-
+            res = [tuple(t) for t in self.cursor.fetchall()]
             return res
-        except Exception:
+        except ProgrammingError:
+            return None
+        except Exception as e:
+            print("Error executing query: {}\n {}".format(repr(e), query))
             return None
 
     def close(self):
