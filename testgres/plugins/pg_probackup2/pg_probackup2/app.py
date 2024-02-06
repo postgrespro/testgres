@@ -4,7 +4,6 @@ import json
 import os
 import re
 import subprocess
-import sys
 import threading
 import time
 import unittest
@@ -35,6 +34,10 @@ class ProbackupException(Exception):
 
     def __str__(self):
         return '\n ERROR: {0}\n CMD: {1}'.format(repr(self.message), self.cmd)
+
+
+# Local backup control
+fs_backup_class = FSTestBackupDir
 
 
 class ProbackupApp:
@@ -189,15 +192,13 @@ class ProbackupApp:
 
         return self.run(cmd + options, old_binary=old_binary, expect_error=expect_error)
 
-    def del_instance(self, instance, old_binary=False, expect_error=False):
-
-        return self.run([
-            'del-instance',
-            '--instance={0}'.format(instance),
-        ],
-            old_binary=old_binary,
-            expect_error=expect_error
-        )
+    def del_instance(self, instance, options=None, old_binary=False, expect_error=False):
+        if options is None:
+            options = []
+        cmd = ['del-instance', '--instance={0}'.format(instance)] + options
+        return self.run(cmd,
+                        old_binary=old_binary,
+                        expect_error=expect_error)
 
     def backup_node(
             self, instance, node, data_dir=False,
@@ -746,17 +747,6 @@ class ProbackupApp:
         module = importlib.import_module(module_name)
 
         return getattr(module, class_name)
-
-
-# Local or S3 backup
-fs_backup_class = FSTestBackupDir
-if os.environ.get('PG_PROBACKUP_S3_TEST', os.environ.get('PROBACKUP_S3_TYPE_FULL_TEST')):
-    root = os.path.realpath(os.path.join(os.path.dirname(__file__), '../..'))
-    if root not in sys.path:
-        sys.path.append(root)
-    from pg_probackup2.storage.s3_backup import S3TestBackupDir
-
-    fs_backup_class = S3TestBackupDir
 
     def build_backup_dir(self, backup='backup'):
         return fs_backup_class(rel_path=self.rel_path, backup=backup)
