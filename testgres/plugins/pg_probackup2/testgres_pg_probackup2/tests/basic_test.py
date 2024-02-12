@@ -2,7 +2,7 @@ import os
 import shutil
 import unittest
 import testgres
-from testgres_pg_probackup2.app import ProbackupApp, build_backup_dir
+from testgres_pg_probackup2.app import ProbackupApp
 from testgres_pg_probackup2.init_helpers import Init, init_params
 
 
@@ -35,13 +35,11 @@ class ProbackupTest(unittest.TestCase):
     def setup_test_paths(self):
         self.rel_path = os.path.join(self.module_name, self.fname)
         self.test_path = os.path.join(init_params.tmp_path, self.rel_path)
-        if os.path.exists(self.test_path):
-            shutil.rmtree(self.test_path)
         os.makedirs(self.test_path)
         self.pb_log_path = os.path.join(self.test_path, "pb_log")
 
     def setup_backup_dir(self):
-        self.backup_dir = build_backup_dir(init_params.backup_rel_path or self.rel_path, 'backup')
+        self.backup_dir = ProbackupApp.build_backup_dir(self, 'backup')
         self.backup_dir.cleanup()
 
     def setup_probackup(self):
@@ -52,7 +50,8 @@ class ProbackupTest(unittest.TestCase):
     def tearDown(self):
         if os.path.exists(self.test_path):
             shutil.rmtree(self.test_path)
-        self.backup_dir.cleanup()
+        tmp_path = self.test_path.replace(str(self.rel_path), '')
+        shutil.rmtree(tmp_path)
 
 
 class BasicTest(ProbackupTest):

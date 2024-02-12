@@ -27,6 +27,7 @@ $PIP install coverage flake8 psutil Sphinx
 # install testgres' dependencies
 export PYTHONPATH=$(pwd)
 $PIP install .
+$PIP install testgres/plugins/pg_probackup2
 
 # test code quality
 flake8 .
@@ -38,22 +39,21 @@ rm -f $COVERAGE_FILE
 
 
 # run tests (PATH)
-time coverage run -a tests/test_simple.py
+time coverage run -a testgres/plugins/pg_probackup2/testgres_pg_probackup2/tests/basic_test.py
 
 
 # run tests (PG_BIN)
 time \
 	PG_BIN=$(dirname $(which pg_config)) \
 	ALT_CONFIG=1 \
-	coverage run -a tests/test_simple.py
+	coverage run -a testgres/plugins/pg_probackup2/testgres_pg_probackup2/tests/basic_test.py
 
 
 # run tests (PG_CONFIG)
 time \
 	PG_CONFIG=$(which pg_config) \
 	ALT_CONFIG=1 \
-	coverage run -a tests/test_simple.py
-
+	coverage run -a testgres/plugins/pg_probackup2/testgres_pg_probackup2/tests/basic_test.py
 
 # show coverage
 coverage report
