@@ -16,22 +16,14 @@ The package requires testgres~=1.9.3.
 
 ## Usage
 
-### Environment
+### Environment variables
 
-> Note: by default testgres runs `initdb`, `pg_ctl`, `psql` provided by `PATH`.
+| Variable | Required | Default value | Description |
+| - | - | - | - |
+| PGPROBACKUP_TMP_DIR | No | tmp_dirs | The root of the temporary directory hierarchy where tests store data and logs. Relative paths start from the `tests` directory. |
+| PG_PROBACKUP_TEST_BACKUP_DIR_PREFIX | No | Temporary test hierarchy | Prefix of the test backup directories. Must be an absolute path. Use this variable to store test backups in a location other than the temporary test hierarchy. |
 
-There are several ways to specify a custom postgres installation:
-
-* export `PG_CONFIG` environment variable pointing to the `pg_config` executable;
-* export `PG_BIN` environment variable pointing to the directory with executable files.
-
-Example:
-
-```bash
-export PG_BIN=$HOME/pg/bin
-python my_tests.py
-```
-
+See [Testgres](https://github.com/postgrespro/testgres/tree/master#environment) on how to configure a custom Postgres installation using `PG_CONFIG` and `PG_BIN` environment variables.
 
 ### Examples
 
