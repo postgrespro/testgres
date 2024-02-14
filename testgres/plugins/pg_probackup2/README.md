@@ -20,7 +20,7 @@ The package requires testgres~=1.9.3.
 
 | Variable | Required | Default value | Description |
 | - | - | - | - |
-| PGPROBACKUP_TMP_DIR | No | tmp_dirs | The root of the temporary directory hierarchy where tests store data and logs. Relative paths start from the `tests` directory. |
+| PGPROBACKUP_TMP_DIR | No | tests/tmp_dirs | The root of the temporary directory hierarchy where tests store data and logs. Relative paths start from the current working directory. |
 | PG_PROBACKUP_TEST_BACKUP_DIR_PREFIX | No | Temporary test hierarchy | Prefix of the test backup directories. Must be an absolute path. Use this variable to store test backups in a location other than the temporary test hierarchy. |
 
 See [Testgres](https://github.com/postgrespro/testgres/tree/master#environment) on how to configure a custom Postgres installation using `PG_CONFIG` and `PG_BIN` environment variables.
