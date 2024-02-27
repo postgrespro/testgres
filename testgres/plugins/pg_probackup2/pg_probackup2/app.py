@@ -762,5 +762,16 @@ class ProbackupApp:
             cmd = cmd + ['--wal-file-path={0}'.format(wal_file_path)]
         return self.run(cmd + options, expect_error=expect_error)
 
+    def archive_get(self, instance, wal_file_name, wal_file_path, options=None, expect_error=False):
+        if options is None:
+            options = []
+        cmd = [
+            'archive-get',
+            '--instance={0}'.format(instance),
+            '--wal-file-name={0}'.format(wal_file_name),
+            '--wal-file-path={0}'.format(wal_file_path),
+        ]
+        return self.run(cmd + options, expect_error=expect_error)
+
     def build_backup_dir(self, backup='backup'):
         return fs_backup_class(rel_path=self.rel_path, backup=backup)
