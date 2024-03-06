@@ -1,6 +1,7 @@
 import contextlib
 import importlib
 import json
+import logging
 import os
 import re
 import subprocess
@@ -101,6 +102,7 @@ class ProbackupApp:
             print(self.test_class.cmd)
 
         cmdline = [binary_path, *command]
+        logging.info(' '.join(cmdline))
         if gdb is True:
             # general test flow for using GDBObj
             return GDBobj(cmdline, self.test_class)
