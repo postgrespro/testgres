@@ -661,7 +661,7 @@ class ProbackupApp:
             options['archive_mode'] = 'on'
 
         if custom_archive_command is None:
-            archive_command = " ".join([f'"{init_params.probackup_path}"',
+            archive_command = " ".join(['exec', f'"{init_params.probackup_path}"',
                                         'archive-push', *self.backup_dir.pb_args])
             if os.name == "nt":
                 archive_command = archive_command.replace("\\", "\\\\")
