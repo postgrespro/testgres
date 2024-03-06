@@ -663,7 +663,11 @@ class ProbackupApp:
         if custom_archive_command is None:
             archive_command = " ".join([f'"{init_params.probackup_path}"',
                                         'archive-push', *self.backup_dir.pb_args])
-            if os.name == "nt":
+            if os.name == 'posix':
+                # Dash produces a core dump when it gets a SIGQUIT from its
+                # child process so replace the shell with pg_probackup
+                archive_command = 'exec ' + archive_command
+            elif os.name == "nt":
                 archive_command = archive_command.replace("\\", "\\\\")
             archive_command += f' --instance={instance}'
 
