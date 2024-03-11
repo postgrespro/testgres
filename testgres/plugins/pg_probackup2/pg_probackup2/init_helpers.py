@@ -148,21 +148,24 @@ class Init(object):
             [self.probackup_path, "--version"],
             stderr=subprocess.STDOUT,
         ).decode('utf-8')
-        self.probackup_version = re.search(r"\d+\.\d+\.\d+",
-                                           probackup_version_output
-                                           ).group(0)
-        compressions = re.search(r"\(compressions: ([^)]*)\)",
-                                 probackup_version_output).group(1)
-        self.probackup_compressions = {s.strip() for s in compressions.split(',')}
+        match = re.search(r"\d+\.\d+\.\d+",
+                          probackup_version_output)
+        self.probackup_version = match.group(0) if match else None
+        match = re.search(r"\(compressions: ([^)]*)\)", probackup_version_output)
+        compressions = match.group(1) if match else None
+        if compressions:
+            self.probackup_compressions = {s.strip() for s in compressions.split(',')}
+        else:
+            self.probackup_compressions = []
 
         if self.probackup_old_path:
             old_probackup_version_output = subprocess.check_output(
                 [self.probackup_old_path, "--version"],
                 stderr=subprocess.STDOUT,
             ).decode('utf-8')
-            self.old_probackup_version = re.search(r"\d+\.\d+\.\d+",
-                                                   old_probackup_version_output
-                                                   ).group(0)
+            match = re.search(r"\d+\.\d+\.\d+",
+                              old_probackup_version_output)
+            self.old_probackup_version = match.group(0) if match else None
 
         self.remote = test_env.get('PGPROBACKUP_SSH_REMOTE', None) == 'ON'
         self.ptrack = test_env.get('PG_PROBACKUP_PTRACK', None) == 'ON' and self.pg_config_version >= 110000
@@ -202,7 +205,6 @@ class Init(object):
         self.delete_logs = delete_logs
 
         # s3 params
-        self.s3_config_file = test_env.get('PG_PROBACKUP_S3_CONFIG_FILE')
         self.s3_type = test_env.get('PG_PROBACKUP_S3_TEST')
 
     def test_env(self):
