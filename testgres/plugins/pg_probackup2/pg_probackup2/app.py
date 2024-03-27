@@ -1,6 +1,7 @@
 import contextlib
 import importlib
 import json
+import logging
 import os
 import re
 import subprocess
@@ -43,14 +44,14 @@ fs_backup_class = FSTestBackupDir
 class ProbackupApp:
 
     def __init__(self, test_class: unittest.TestCase,
-                 pg_node, pb_log_path, test_env, auto_compress_alg, backup_dir):
+                 pg_node, pb_log_path, test_env, auto_compress_alg, backup_dir, probackup_path=None):
         self.test_class = test_class
         self.pg_node = pg_node
         self.pb_log_path = pb_log_path
         self.test_env = test_env
         self.auto_compress_alg = auto_compress_alg
         self.backup_dir = backup_dir
-        self.probackup_path = init_params.probackup_path
+        self.probackup_path = probackup_path or init_params.probackup_path
         self.probackup_old_path = init_params.probackup_old_path
         self.remote = init_params.remote
         self.verbose = init_params.verbose
@@ -97,8 +98,8 @@ class ProbackupApp:
             strcommand += ' -j 1'
 
         self.test_class.cmd = binary_path + ' ' + strcommand
-        if self.verbose:
-            print(self.test_class.cmd)
+        logging.info(self.test_class.cmd.replace(self.probackup_path, self.probackup_path.split('/')[-1])
+                     .replace('/'.join(self.backup_dir.path.split('/')[0:-2]), '..'))
 
         cmdline = [binary_path, *command]
         if gdb is True:
