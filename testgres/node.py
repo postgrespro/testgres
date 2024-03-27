@@ -751,7 +751,7 @@ class PostgresNode(object):
         """
         if not self.is_started:
             return self
-
+        print("Остановка ноды\n")
         _params = [
             self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
@@ -1155,7 +1155,7 @@ class PostgresNode(object):
         assert sleep_time > 0
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
-            print(f"Pooling {attempts}")
+            print(f"Запуск ноды. Попытка {attempts+1}\n")
             try:
                 res = self.execute(dbname=dbname,
                                    query=query,

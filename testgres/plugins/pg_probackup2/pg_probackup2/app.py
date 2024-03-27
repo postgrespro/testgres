@@ -1,6 +1,7 @@
 import contextlib
 import importlib
 import json
+import logging
 import os
 import re
 import subprocess
@@ -43,14 +44,14 @@ fs_backup_class = FSTestBackupDir
 class ProbackupApp:
 
     def __init__(self, test_class: unittest.TestCase,
-                 pg_node, pb_log_path, test_env, auto_compress_alg, backup_dir):
+                 pg_node, pb_log_path, test_env, auto_compress_alg, backup_dir, probackup_path=None):
         self.test_class = test_class
         self.pg_node = pg_node
         self.pb_log_path = pb_log_path
         self.test_env = test_env
         self.auto_compress_alg = auto_compress_alg
         self.backup_dir = backup_dir
-        self.probackup_path = init_params.probackup_path
+        self.probackup_path = probackup_path or init_params.probackup_path
         self.probackup_old_path = init_params.probackup_old_path
         self.remote = init_params.remote
         self.verbose = init_params.verbose
@@ -58,7 +59,7 @@ class ProbackupApp:
         self.test_class.output = None
 
     def run(self, command, gdb=False, old_binary=False, return_id=True, env=None,
-            skip_log_directory=False, expect_error=False, use_backup_dir=True):
+            skip_log_directory=False, expect_error=False, use_backup_dir=True, silent=False):
         """
         Run pg_probackup
         backup_dir: target directory for making backup
@@ -97,8 +98,9 @@ class ProbackupApp:
             strcommand += ' -j 1'
 
         self.test_class.cmd = binary_path + ' ' + strcommand
-        if self.verbose:
-            print(self.test_class.cmd)
+        if not silent:
+            logging.info(self.test_class.cmd.replace(self.probackup_path, self.probackup_path.split('/')[-1])
+                         .replace('/'.join(self.backup_dir.path.split('/')[0:-2]), '..'))
 
         cmdline = [binary_path, *command]
         if gdb is True:
@@ -207,7 +209,8 @@ class ProbackupApp:
             old_binary=False, return_id=True, no_remote=False,
             env=None,
             expect_error=False,
-            sync=False
+            sync=False,
+            silent=False
     ):
         if options is None:
             options = []
@@ -247,7 +250,7 @@ class ProbackupApp:
             cmd_list += ['--no-sync']
 
         return self.run(cmd_list + options, gdb, old_binary, return_id, env=env,
-                        expect_error=expect_error)
+                        expect_error=expect_error, silent=silent)
 
     def backup_replica_node(self, instance, node, data_dir=False, *,
                             master, backup_type='full', datname=False,
@@ -394,7 +397,8 @@ class ProbackupApp:
             options=None, as_text=False, as_json=True, old_binary=False,
             env=None,
             expect_error=False,
-            gdb=False
+            gdb=False,
+            silent=False
     ):
 
         if options is None:
@@ -417,12 +421,12 @@ class ProbackupApp:
         if as_text:
             # You should print it when calling as_text=true
             return self.run(cmd_list + options, old_binary=old_binary, env=env,
-                            expect_error=expect_error, gdb=gdb)
+                            expect_error=expect_error, gdb=gdb, silent=silent)
 
         # get show result as list of lines
         if as_json:
             text_json = str(self.run(cmd_list + options, old_binary=old_binary, env=env,
-                                     expect_error=expect_error, gdb=gdb))
+                                     expect_error=expect_error, gdb=gdb, silent=silent))
             try:
                 if expect_error:
                     return text_json
