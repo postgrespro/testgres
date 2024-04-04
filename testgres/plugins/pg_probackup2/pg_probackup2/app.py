@@ -149,13 +149,19 @@ class ProbackupApp:
                         use_backup_dir=use_backup_dir
                         )
 
-    def add_instance(self, instance, node, old_binary=False, options=None, expect_error=False):
+    def add_instance(self, instance, node, old_binary=False, options=None, expect_error=False, datname=False):
         if options is None:
             options = []
+
+        if not datname:
+            datname = 'postgres'
+
         cmd = [
             'add-instance',
             '--instance={0}'.format(instance),
-            '-D', node.data_dir
+            '-D', node.data_dir,
+            '--pgport', '%i' % node.port,
+            '--pgdatabase', datname
         ]
 
         # don`t forget to kill old_binary after remote ssh release
