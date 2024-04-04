@@ -1033,6 +1033,14 @@ class TestgresTests(unittest.TestCase):
         # Macos
         assert parse_pg_version("postgres (PostgreSQL) 14.9 (Homebrew)") == "14.9"
 
+    def test_the_same_port(self):
+        with get_new_node() as node:
+            node.init().start()
+
+            with get_new_node() as node2:
+                node2.port = node.port
+                node2.init().start()
+
 
 if __name__ == '__main__':
     if os.environ.get('ALT_CONFIG'):

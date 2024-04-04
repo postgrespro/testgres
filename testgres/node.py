@@ -726,14 +726,30 @@ class PostgresNode(object):
             "start"
         ] + params  # yapf: disable
 
-        try:
-            exit_status, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
-            if error and 'does not exist' in error:
-                raise Exception
-        except Exception as e:
-            msg = 'Cannot start node'
-            files = self._collect_special_files()
-            raise_from(StartNodeException(msg, files), e)
+        startup_retries = 5
+        while True:
+            try:
+                exit_status, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
+                if error and 'does not exist' in error:
+                    raise Exception
+            except Exception as e:
+                files = self._collect_special_files()
+                if any(len(file) > 1 and 'Is another postmaster already '
+                                         'running on port' in file[1].decode() for
+                       file in files):
+                    print("Detected an issue with connecting to port {0}. "
+                          "Trying another port after a 5-second sleep...".format(self.port))
+                    self.port = reserve_port()
+                    options = {}
+                    options['port'] = str(self.port)
+                    self.set_auto_conf(options)
+                    startup_retries -= 1
+                    time.sleep(5)
+                    continue
+
+                msg = 'Cannot start node'
+                raise_from(StartNodeException(msg, files), e)
+            break
         self._maybe_start_logger()
         self.is_started = True
         return self
