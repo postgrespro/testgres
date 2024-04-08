@@ -204,7 +204,9 @@ class Init(object):
         os.environ["PGAPPNAME"] = "pg_probackup"
         self.delete_logs = delete_logs
 
-        self.major_version = int(self.probackup_version.split('.')[0])
+        self.major_version = 0
+        if self.probackup_version.split('.')[0].isdigit:
+            self.major_version = int(self.probackup_version.split('.')[0])
 
     def test_env(self):
         return self._test_env.copy()
