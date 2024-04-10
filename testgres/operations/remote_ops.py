@@ -47,10 +47,13 @@ class RemoteOperations(OsOperations):
         self.conn_params = conn_params
         self.host = conn_params.host
         self.ssh_key = conn_params.ssh_key
+        self.port = conn_params.port
         if self.ssh_key:
             self.ssh_cmd = ["-i", self.ssh_key]
         else:
             self.ssh_cmd = []
+        if self.port:
+            self.ssh_cmd = ["-p", self.port]
         self.remote = True
         self.username = conn_params.username or self.get_user()
         self.add_known_host(self.host)
