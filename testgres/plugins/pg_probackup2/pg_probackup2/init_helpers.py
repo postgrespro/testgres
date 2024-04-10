@@ -204,6 +204,12 @@ class Init(object):
         os.environ["PGAPPNAME"] = "pg_probackup"
         self.delete_logs = delete_logs
 
+        if self.probackup_version.split('.')[0].isdigit():
+            self.major_version = int(self.probackup_version.split('.')[0])
+        else:
+            print('Can\'t process pg_probackup version \"{}\": the major version is expected to be a number'.format(self.probackup_version))
+            sys.exit(1)
+
     def test_env(self):
         return self._test_env.copy()
 
