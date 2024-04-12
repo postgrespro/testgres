@@ -48,15 +48,13 @@ class RemoteOperations(OsOperations):
         self.host = conn_params.host
         self.ssh_key = conn_params.ssh_key
         self.port = conn_params.port
+        self.ssh_cmd = ["-o StrictHostKeyChecking=no"]
         if self.ssh_key:
-            self.ssh_cmd = ["-i", self.ssh_key]
-        else:
-            self.ssh_cmd = []
+            self.ssh_cmd += ["-i", self.ssh_key]
         if self.port:
-            self.ssh_cmd = ["-p", self.port]
+            self.ssh_cmd += ["-p", self.port]
         self.remote = True
         self.username = conn_params.username or self.get_user()
-        self.add_known_host(self.host)
         self.tunnel_process = None
 
     def __enter__(self):
@@ -79,16 +77,6 @@ class RemoteOperations(OsOperations):
             del self.tunnel_process
         else:
             print("No active tunnel to close.")
-
-    def add_known_host(self, host):
-        known_hosts_path = os.path.expanduser("~/.ssh/known_hosts")
-        cmd = 'ssh-keyscan -H %s >> %s' % (host, known_hosts_path)
-
-        try:
-            subprocess.check_call(cmd, shell=True)
-            logging.info("Successfully added %s to known_hosts." % host)
-        except subprocess.CalledProcessError as e:
-            raise Exception("Failed to add %s to known_hosts. Error: %s" % (host, str(e)))
 
     def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False,
                      encoding=None, shell=True, text=False, input=None, stdin=None, stdout=None,
