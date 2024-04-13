@@ -16,6 +16,7 @@ except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
 from ..exceptions import ExecUtilException
+from ..utils import reserve_port
 from .os_ops import OsOperations, ConnectionParams, get_default_encoding
 
 error_markers = [b'error', b'Permission denied', b'fatal', b'No such file or directory']

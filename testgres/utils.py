@@ -74,6 +74,8 @@ def execute_utility(args, logfile=None, verbose=False):
 
     # write new log entry if possible
     if logfile:
+        if not tconf.os_ops.path_exists(logfile):
+            tconf.os_ops.touch(logfile)
         try:
             tconf.os_ops.write(filename=logfile, data=args, truncate=True)
             if out:
