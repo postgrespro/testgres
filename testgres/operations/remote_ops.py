@@ -50,10 +50,10 @@ class RemoteOperations(OsOperations):
         self.ssh_key = conn_params.ssh_key
         self.port = conn_params.port
         self.ssh_cmd = ["-o StrictHostKeyChecking=no"]
-        if self.ssh_key:
-            self.ssh_cmd += ["-i", self.ssh_key]
         if self.port:
             self.ssh_cmd += ["-p", self.port]
+        if self.ssh_key:
+            self.ssh_cmd += ["-i", self.ssh_key]
         self.remote = True
         self.username = conn_params.username or self.get_user()
         self.tunnel_process = None
@@ -285,6 +285,7 @@ class RemoteOperations(OsOperations):
             mode = "r+b" if binary else "r+"
 
         with tempfile.NamedTemporaryFile(mode=mode, delete=False) as tmp_file:
+            # Because in scp we set up port using -P option instead -p
             scp_ssh_cmd = ['-P' if x == '-p' else x for x in self.ssh_cmd]
 
             if not truncate:
@@ -304,12 +305,11 @@ class RemoteOperations(OsOperations):
                 tmp_file.write(data)
 
             tmp_file.flush()
-            # Because in scp we set up port using -P option
             scp_cmd = ['scp'] + scp_ssh_cmd + [tmp_file.name, f"{self.username}@{self.host}:{filename}"]
             subprocess.run(scp_cmd, check=True)
-
             remote_directory = os.path.dirname(filename)
-            mkdir_cmd = ['ssh'] + scp_ssh_cmd + [f"{self.username}@{self.host}", f"mkdir -p {remote_directory}"]
+
+            mkdir_cmd = ['ssh'] + self.ssh_cmd + [f"{self.username}@{self.host}", f'mkdir -p {remote_directory}']
             subprocess.run(mkdir_cmd, check=True)
 
             os.remove(tmp_file.name)
@@ -387,9 +387,10 @@ class RemoteOperations(OsOperations):
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
         """
-         Established SSH tunnel and Connects to a PostgreSQL
+        Establish SSH tunnel and connect to a PostgreSQL database.
         """
-        self.establish_ssh_tunnel(local_port=reserve_port(), remote_port=5432)
+        self.establish_ssh_tunnel(local_port=port, remote_port=self.conn_params.port)
+
         try:
             conn = pglib.connect(
                 host=host,
@@ -398,6 +399,11 @@ class RemoteOperations(OsOperations):
                 user=user,
                 password=password,
             )
+            print("Database connection established successfully.")
             return conn
         except Exception as e:
-            raise Exception(f"Could not connect to the database. Error: {e}")
+            print(f"Error connecting to the database: {str(e)}")
+            if self.tunnel_process:
+                self.tunnel_process.terminate()
+                print("SSH tunnel closed due to connection failure.")
+            raise
