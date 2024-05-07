@@ -33,7 +33,8 @@ class NodeBackup(object):
                  node,
                  base_dir=None,
                  username=None,
-                 xlog_method=XLogMethod.fetch):
+                 xlog_method=XLogMethod.fetch,
+                 options=None):
         """
         Create a new backup.
 
@@ -43,6 +44,8 @@ class NodeBackup(object):
             username: database user name.
             xlog_method: none | fetch | stream (see docs)
         """
+        if not options:
+            options = []
         self.os_ops = node.os_ops
         if not node.status():
             raise BackupException('Node must be running')
@@ -77,6 +80,7 @@ class NodeBackup(object):
             "-D", data_dir,
             "-X", xlog_method.value
         ]  # yapf: disable
+        _params += options
         execute_utility(_params, self.log_file)
 
     def __enter__(self):
