@@ -1371,7 +1371,7 @@ class PostgresNode(object):
                 username=None,
                 stdout=None,
                 stderr=None,
-                options=[]):
+                options=None):
         """
         Spawn a pgbench process.
 
@@ -1385,6 +1385,8 @@ class PostgresNode(object):
         Returns:
             Process created by subprocess.Popen.
         """
+        if options is None:
+            options = []
 
         # Set default arguments
         dbname = dbname or default_dbname()
@@ -1403,6 +1405,29 @@ class PostgresNode(object):
         proc = self.os_ops.exec_command(_params, stdout=stdout, stderr=stderr, wait_exit=True, get_process=True)
 
         return proc
+
+    def pgbench_with_wait(self,
+                          dbname=None,
+                          username=None,
+                          stdout=None,
+                          stderr=None,
+                          options=None):
+        """
+        Do pgbench command and wait.
+
+        Args:
+            dbname: database name to connect to.
+            username: database user name.
+            stdout: stdout file to be used by Popen.
+            stderr: stderr file to be used by Popen.
+            options: additional options for pgbench (list).
+        """
+        if options is None:
+            options = []
+
+        with self.pgbench(dbname, username, stdout, stderr, options) as pgbench:
+            pgbench.wait()
+        return
 
     def pgbench_init(self, **kwargs):
         """
