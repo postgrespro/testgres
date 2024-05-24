@@ -1,8 +1,9 @@
-import logging
 import os
+import socket
 import subprocess
 import tempfile
 import platform
+import time
 
 from ..utils import reserve_port
 
@@ -50,10 +51,10 @@ class RemoteOperations(OsOperations):
         self.ssh_key = conn_params.ssh_key
         self.port = conn_params.port
         self.ssh_cmd = ["-o StrictHostKeyChecking=no"]
-        if self.port:
-            self.ssh_cmd += ["-p", self.port]
         if self.ssh_key:
             self.ssh_cmd += ["-i", self.ssh_key]
+        if self.port:
+            self.ssh_cmd += ["-p", self.port]
         self.remote = True
         self.username = conn_params.username or self.get_user()
         self.tunnel_process = None
@@ -64,17 +65,36 @@ class RemoteOperations(OsOperations):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close_ssh_tunnel()
 
+    @staticmethod
+    def is_port_open(host, port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)  # Таймаут для попытки соединения
+            try:
+                sock.connect((host, port))
+                return True
+            except socket.error:
+                return False
+
     def establish_ssh_tunnel(self, local_port, remote_port):
         """
         Establish an SSH tunnel from a local port to a remote PostgreSQL port.
         """
         ssh_cmd = ['-N', '-L', f"{local_port}:localhost:{remote_port}"]
         self.tunnel_process = self.exec_command(ssh_cmd, get_process=True, timeout=300)
+        timeout = 10
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if self.is_port_open('localhost', local_port):
+                print("SSH tunnel established.")
+                return
+            time.sleep(0.5)
+        raise Exception("Failed to establish SSH tunnel within the timeout period.")
 
     def close_ssh_tunnel(self):
-        if hasattr(self, 'tunnel_process'):
+        if self.tunnel_process:
             self.tunnel_process.terminate()
             self.tunnel_process.wait()
+            print("SSH tunnel closed.")
             del self.tunnel_process
         else:
             print("No active tunnel to close.")
@@ -240,9 +260,9 @@ class RemoteOperations(OsOperations):
         - prefix (str): The prefix of the temporary directory name.
         """
         if prefix:
-            command = ["ssh"] + self.ssh_cmd + [f"{self.username}@{self.host}", f"mktemp -d {prefix}XXXXX"]
+            command = ["ssh" +  f"{self.username}@{self.host}"] + self.ssh_cmd + [f"mktemp -d {prefix}XXXXX"]
         else:
-            command = ["ssh"] + self.ssh_cmd + [f"{self.username}@{self.host}", "mktemp -d"]
+            command = ["ssh", f"{self.username}@{self.host}"] + self.ssh_cmd + ["mktemp -d"]
 
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
@@ -285,7 +305,7 @@ class RemoteOperations(OsOperations):
             mode = "r+b" if binary else "r+"
 
         with tempfile.NamedTemporaryFile(mode=mode, delete=False) as tmp_file:
-            # Because in scp we set up port using -P option instead -p
+            # Because in scp we set up port using -P option
             scp_ssh_cmd = ['-P' if x == '-p' else x for x in self.ssh_cmd]
 
             if not truncate:
@@ -307,9 +327,9 @@ class RemoteOperations(OsOperations):
             tmp_file.flush()
             scp_cmd = ['scp'] + scp_ssh_cmd + [tmp_file.name, f"{self.username}@{self.host}:{filename}"]
             subprocess.run(scp_cmd, check=True)
-            remote_directory = os.path.dirname(filename)
 
-            mkdir_cmd = ['ssh'] + self.ssh_cmd + [f"{self.username}@{self.host}", f'mkdir -p {remote_directory}']
+            remote_directory = os.path.dirname(filename)
+            mkdir_cmd = ['ssh', f"{self.username}@{self.host}"] + self.ssh_cmd + [f"mkdir -p {remote_directory}"]
             subprocess.run(mkdir_cmd, check=True)
 
             os.remove(tmp_file.name)
@@ -374,7 +394,7 @@ class RemoteOperations(OsOperations):
         return int(self.exec_command("echo $$", encoding=get_default_encoding()))
 
     def get_process_children(self, pid):
-        command = ["ssh"] + self.ssh_cmd + [f"{self.username}@{self.host}", f"pgrep -P {pid}"]
+        command = ["ssh", f"{self.username}@{self.host}"] + self.ssh_cmd + [f"pgrep -P {pid}"]
 
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
@@ -389,15 +409,16 @@ class RemoteOperations(OsOperations):
         """
         Establish SSH tunnel and connect to a PostgreSQL database.
         """
-        self.establish_ssh_tunnel(local_port=port, remote_port=self.conn_params.port)
-
+        local_port = reserve_port()
+        self.establish_ssh_tunnel(local_port=local_port, remote_port=port)
         try:
             conn = pglib.connect(
                 host=host,
-                port=port,
+                port=local_port,
                 database=dbname,
                 user=user,
                 password=password,
+                timeout=10
             )
             print("Database connection established successfully.")
             return conn

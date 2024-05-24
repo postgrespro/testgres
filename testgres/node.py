@@ -529,7 +529,8 @@ class PostgresNode(object):
                 u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
                 u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host),
                 u"host\treplication\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
-                u"host\tall\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host)
+                u"host\tall\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
+                u"host\tall\tall\tall\t{}\n".format(auth_host)
             ]  # yapf: disable
 
             # write missing lines
