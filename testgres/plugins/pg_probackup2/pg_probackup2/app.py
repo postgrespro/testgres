@@ -119,10 +119,7 @@ class ProbackupApp:
                 env=env
             ).decode('utf-8', errors='replace')
             if command[0] == 'backup' and return_id:
-                # return backup ID
-                for line in self.test_class.output.splitlines():
-                    if 'INFO: Backup' and 'completed' in line:
-                        result = line.split()[2]
+                result = self.get_backup_id()
             else:
                 result = self.test_class.output
             if expect_error is True:
@@ -138,6 +135,19 @@ class ProbackupApp:
                 return self.test_class.output
             else:
                 raise ProbackupException(self.test_class.output, self.test_class.cmd)
+
+    def get_backup_id(self):
+        if init_params.major_version > 2:
+            pattern = re.compile(r"Backup (.*) completed successfully.")
+            for line in self.test_class.output.splitlines():
+                match = pattern.search(line)
+                if match:
+                    return match.group(1)
+        else:
+            for line in self.test_class.output.splitlines():
+                if 'INFO: Backup' and 'completed' in line:
+                    return line.split()[2]
+        return None
 
     def init(self, options=None, old_binary=False, skip_log_directory=False, expect_error=False, use_backup_dir=True):
         if options is None:
