@@ -58,6 +58,7 @@ class RemoteOperations(OsOperations):
         self.remote = True
         self.username = conn_params.username or self.get_user()
         self.tunnel_process = None
+        self.tunnel_port = None
 
     def __enter__(self):
         return self
@@ -410,6 +411,7 @@ class RemoteOperations(OsOperations):
         Establish SSH tunnel and connect to a PostgreSQL database.
         """
         local_port = reserve_port()
+        self.tunnel_port = local_port
         self.establish_ssh_tunnel(local_port=local_port, remote_port=port)
         try:
             conn = pglib.connect(
