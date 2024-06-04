@@ -76,11 +76,14 @@ class RemoteOperations(OsOperations):
             except socket.error:
                 return False
 
-    def establish_ssh_tunnel(self, local_port, remote_port):
+    def establish_ssh_tunnel(self, local_port, remote_port, host):
         """
         Establish an SSH tunnel from a local port to a remote PostgreSQL port.
         """
-        ssh_cmd = ['-N', '-L', f"{local_port}:localhost:{remote_port}"]
+        if host != 'localhost':
+            ssh_cmd = ['-N', '-L', f"localhost:{local_port}:{host}:{remote_port}"]
+        else:
+            ssh_cmd = ['-N', '-L', f"{local_port}:{host}:{remote_port}"]
         self.tunnel_process = self.exec_command(ssh_cmd, get_process=True, timeout=300)
         timeout = 10
         start_time = time.time()
@@ -412,10 +415,10 @@ class RemoteOperations(OsOperations):
         """
         local_port = reserve_port()
         self.tunnel_port = local_port
-        self.establish_ssh_tunnel(local_port=local_port, remote_port=port)
+        self.establish_ssh_tunnel(local_port=local_port, remote_port=port, host=host)
         try:
             conn = pglib.connect(
-                host=host,
+                host='localhost',
                 port=local_port,
                 database=dbname,
                 user=user,
