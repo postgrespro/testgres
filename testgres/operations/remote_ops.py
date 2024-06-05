@@ -4,8 +4,6 @@ import subprocess
 import tempfile
 import platform
 
-from ..utils import reserve_port
-
 # we support both pg8000 and psycopg2
 try:
     import psycopg2 as pglib
@@ -394,7 +392,7 @@ class RemoteOperations(OsOperations):
         """
          Established SSH tunnel and Connects to a PostgreSQL
         """
-        self.establish_ssh_tunnel(local_port=reserve_port(), remote_port=5432)
+        self.establish_ssh_tunnel(local_port=port, remote_port=5432)
         try:
             conn = pglib.connect(
                 host=host,
