@@ -52,8 +52,8 @@ class RemoteOperations(OsOperations):
         if self.port:
             self.ssh_cmd += ["-p", self.port]
         self.remote = True
-        self.username = conn_params.username or self.get_user()
-        self.ssh_dest = f"{self.username}@{self.host}" if self.username else "{self.host}"
+        self.username = conn_params.username
+        self.ssh_dest = f"{self.username}@{self.host}" if self.username else self.host
         self.add_known_host(self.host)
         self.tunnel_process = None
         self.tunnel_port = None
@@ -169,10 +169,6 @@ class RemoteOperations(OsOperations):
         - var_val (str): The value to be set for the environment variable.
         """
         return self.exec_command("export {}={}".format(var_name, var_val))
-
-    # Get environment variables
-    def get_user(self):
-        return self.exec_command("echo $USER", encoding=get_default_encoding()).strip()
 
     def get_name(self):
         cmd = 'python3 -c "import os; print(os.name)"'
