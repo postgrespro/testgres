@@ -45,9 +45,8 @@ class OsOperations:
         # Check if the directory is already in PATH
         raise NotImplementedError()
 
-    # Get environment variables
     def get_user(self):
-        raise NotImplementedError()
+        return self.username
 
     def get_name(self):
         raise NotImplementedError()

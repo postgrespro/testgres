@@ -1,8 +1,8 @@
-import logging
+import getpass
 import os
+import platform
 import subprocess
 import tempfile
-import platform
 
 # we support both pg8000 and psycopg2
 try:
@@ -52,7 +52,8 @@ class RemoteOperations(OsOperations):
         if self.port:
             self.ssh_args += ["-p", self.port]
         self.remote = True
-        self.username = conn_params.username or self.get_user()
+        self.username = conn_params.username or getpass.getuser()
+        self.ssh_dest = f"{self.username}@{self.host}" if conn_params.username else self.host
         self.add_known_host(self.host)
         self.tunnel_process = None
 
@@ -97,9 +98,9 @@ class RemoteOperations(OsOperations):
         """
         ssh_cmd = []
         if isinstance(cmd, str):
-            ssh_cmd = ['ssh', f"{self.username}@{self.host}"] + self.ssh_args + [cmd]
+            ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [cmd]
         elif isinstance(cmd, list):
-            ssh_cmd = ['ssh', f"{self.username}@{self.host}"] + self.ssh_args + cmd
+            ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + cmd
         process = subprocess.Popen(ssh_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if get_process:
             return process
@@ -174,10 +175,6 @@ class RemoteOperations(OsOperations):
         """
         return self.exec_command("export {}={}".format(var_name, var_val))
 
-    # Get environment variables
-    def get_user(self):
-        return self.exec_command("echo $USER", encoding=get_default_encoding()).strip()
-
     def get_name(self):
         cmd = 'python3 -c "import os; print(os.name)"'
         return self.exec_command(cmd, encoding=get_default_encoding()).strip()
@@ -248,9 +245,9 @@ class RemoteOperations(OsOperations):
         - prefix (str): The prefix of the temporary directory name.
         """
         if prefix:
-            command = ["ssh"] + self.ssh_args + [f"{self.username}@{self.host}", f"mktemp -d {prefix}XXXXX"]
+            command = ["ssh"] + self.ssh_args + [self.ssh_dest, f"mktemp -d {prefix}XXXXX"]
         else:
-            command = ["ssh"] + self.ssh_args + [f"{self.username}@{self.host}", "mktemp -d"]
+            command = ["ssh"] + self.ssh_args + [self.ssh_dest, "mktemp -d"]
 
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
@@ -296,7 +293,7 @@ class RemoteOperations(OsOperations):
             # For scp the port is specified by a "-P" option
             scp_args = ['-P' if x == '-p' else x for x in self.ssh_args]
             if not truncate:
-                scp_cmd = ['scp'] + scp_args + [f"{self.username}@{self.host}:{filename}", tmp_file.name]
+                scp_cmd = ['scp'] + scp_args + [f"{self.ssh_dest}:{filename}", tmp_file.name]
                 subprocess.run(scp_cmd, check=False)  # The file might not exist yet
                 tmp_file.seek(0, os.SEEK_END)
 
@@ -312,11 +309,11 @@ class RemoteOperations(OsOperations):
                 tmp_file.write(data)
 
             tmp_file.flush()
-            scp_cmd = ['scp'] + scp_args + [tmp_file.name, f"{self.username}@{self.host}:{filename}"]
+            scp_cmd = ['scp'] + scp_args + [tmp_file.name, f"{self.ssh_dest}:{filename}"]
             subprocess.run(scp_cmd, check=True)
 
             remote_directory = os.path.dirname(filename)
-            mkdir_cmd = ['ssh'] + self.ssh_args + [f"{self.username}@{self.host}", f"mkdir -p {remote_directory}"]
+            mkdir_cmd = ['ssh'] + self.ssh_args + [self.ssh_dest, f"mkdir -p {remote_directory}"]
             subprocess.run(mkdir_cmd, check=True)
 
             os.remove(tmp_file.name)
@@ -381,7 +378,7 @@ class RemoteOperations(OsOperations):
         return int(self.exec_command("echo $$", encoding=get_default_encoding()))
 
     def get_process_children(self, pid):
-        command = ["ssh"] + self.ssh_args + [f"{self.username}@{self.host}", f"pgrep -P {pid}"]
+        command = ["ssh"] + self.ssh_args + [self.ssh_dest, f"pgrep -P {pid}"]
 
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
