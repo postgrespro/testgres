@@ -5,8 +5,6 @@ import tempfile
 import platform
 import time
 
-from ..utils import reserve_port
-
 # we support both pg8000 and psycopg2
 try:
     import psycopg2 as pglib
@@ -17,7 +15,6 @@ except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
 from ..exceptions import ExecUtilException
-from ..utils import reserve_port
 from .os_ops import OsOperations, ConnectionParams, get_default_encoding
 
 error_markers = [b'error', b'Permission denied', b'fatal', b'No such file or directory']
@@ -75,24 +72,6 @@ class RemoteOperations(OsOperations):
                 return True
             except socket.error:
                 return False
-
-    def establish_ssh_tunnel(self, local_port, remote_port, host):
-        """
-        Establish an SSH tunnel from a local port to a remote PostgreSQL port.
-        """
-        if host != 'localhost':
-            ssh_cmd = ['-N', '-L', f"localhost:{local_port}:{host}:{remote_port}"]
-        else:
-            ssh_cmd = ['-N', '-L', f"{local_port}:{host}:{remote_port}"]
-        self.tunnel_process = self.exec_command(ssh_cmd, get_process=True, timeout=300)
-        timeout = 10
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            if self.is_port_open('localhost', local_port):
-                print("SSH tunnel established.")
-                return
-            time.sleep(0.5)
-        raise Exception("Failed to establish SSH tunnel within the timeout period.")
 
     def close_ssh_tunnel(self):
         if self.tunnel_process:
@@ -410,26 +389,11 @@ class RemoteOperations(OsOperations):
 
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
-        """
-        Establish SSH tunnel and connect to a PostgreSQL database.
-        """
-        local_port = reserve_port()
-        self.tunnel_port = local_port
-        self.establish_ssh_tunnel(local_port=local_port, remote_port=port, host=host)
-        try:
-            conn = pglib.connect(
-                host='localhost',
-                port=local_port,
-                database=dbname,
-                user=user,
-                password=password,
-                timeout=10
-            )
-            print("Database connection established successfully.")
-            return conn
-        except Exception as e:
-            print(f"Error connecting to the database: {str(e)}")
-            if self.tunnel_process:
-                self.tunnel_process.terminate()
-                print("SSH tunnel closed due to connection failure.")
-            raise
+        conn = pglib.connect(
+            host=host,
+            port=port,
+            database=dbname,
+            user=user,
+            password=password,
+        )
+        return conn
