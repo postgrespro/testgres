@@ -56,6 +56,7 @@ class ProbackupApp:
         self.verbose = init_params.verbose
         self.archive_compress = init_params.archive_compress
         self.test_class.output = None
+        self.execution_time = None
 
     def run(self, command, gdb=False, old_binary=False, return_id=True, env=None,
             skip_log_directory=False, expect_error=False, use_backup_dir=True):
@@ -113,16 +114,17 @@ class ProbackupApp:
                 cmdline = ['gdbserver'] + ['localhost:' + str(gdb_port)] + cmdline
                 print("pg_probackup gdb suspended, waiting gdb connection on localhost:{0}".format(gdb_port))
 
+            start_time = time.time()
             self.test_class.output = subprocess.check_output(
                 cmdline,
                 stderr=subprocess.STDOUT,
                 env=env
             ).decode('utf-8', errors='replace')
+            end_time = time.time()
+            self.execution_time = end_time - start_time
+
             if command[0] == 'backup' and return_id:
-                # return backup ID
-                for line in self.test_class.output.splitlines():
-                    if 'INFO: Backup' and 'completed' in line:
-                        result = line.split()[2]
+                result = self.get_backup_id()
             else:
                 result = self.test_class.output
             if expect_error is True:
@@ -138,6 +140,19 @@ class ProbackupApp:
                 return self.test_class.output
             else:
                 raise ProbackupException(self.test_class.output, self.test_class.cmd)
+
+    def get_backup_id(self):
+        if init_params.major_version > 2:
+            pattern = re.compile(r"Backup (.*) completed successfully.")
+            for line in self.test_class.output.splitlines():
+                match = pattern.search(line)
+                if match:
+                    return match.group(1)
+        else:
+            for line in self.test_class.output.splitlines():
+                if 'INFO: Backup' and 'completed' in line:
+                    return line.split()[2]
+        return None
 
     def init(self, options=None, old_binary=False, skip_log_directory=False, expect_error=False, use_backup_dir=True):
         if options is None:

@@ -3,7 +3,10 @@ import socket
 import subprocess
 import tempfile
 import platform
+<<<<<<< HEAD
 import time
+=======
+>>>>>>> master
 
 # we support both pg8000 and psycopg2
 try:
