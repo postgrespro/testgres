@@ -1,4 +1,6 @@
 import locale
+import subprocess
+import sys
 
 try:
     import psycopg2 as pglib  # noqa: F401
@@ -44,9 +46,11 @@ class OsOperations:
         # Check if the directory is already in PATH
         raise NotImplementedError()
 
-    # Get environment variables
     def get_user(self):
-        raise NotImplementedError()
+        if sys.platform.startswith('linux'):
+            return subprocess.run(['id', '-nu'], capture_output=True, text=True).stdout.rstrip()
+        else:
+            raise NotImplementedError()
 
     def get_name(self):
         raise NotImplementedError()
