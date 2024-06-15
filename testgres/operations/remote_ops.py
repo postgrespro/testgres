@@ -93,7 +93,7 @@ class RemoteOperations(OsOperations):
         """
         ssh_cmd = []
         if isinstance(cmd, str):
-            ssh_cmd = ['ssh'] + self.ssh_args + [self.ssh_dest + cmd]
+            ssh_cmd = ['ssh'] + self.ssh_args + [self.ssh_dest, cmd]
         elif isinstance(cmd, list):
             ssh_cmd = ['ssh'] + self.ssh_args + [self.ssh_dest] + cmd
         process = subprocess.Popen(ssh_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -286,10 +286,10 @@ class RemoteOperations(OsOperations):
 
         with tempfile.NamedTemporaryFile(mode=mode, delete=False) as tmp_file:
             # Because in scp we set up port using -P option
-            scp_ssh_cmd = ['-P' if x == '-p' else x for x in self.ssh_cmd]
+            scp_args = ['-P' if x == '-p' else x for x in self.ssh_args]
 
             if not truncate:
-                scp_cmd = ['scp'] + self.ssh_args + [f"{self.ssh_dest}:{filename}", tmp_file.name]
+                scp_cmd = ['scp'] + scp_args + [f"{self.ssh_dest}:{filename}", tmp_file.name]
                 subprocess.run(scp_cmd, check=False)  # The file might not exist yet
                 tmp_file.seek(0, os.SEEK_END)
 
@@ -305,7 +305,7 @@ class RemoteOperations(OsOperations):
                 tmp_file.write(data)
 
             tmp_file.flush()
-            scp_cmd = ['scp'] + self.ssh_args + [tmp_file.name, f"{self.ssh_dest}:{filename}"]
+            scp_cmd = ['scp'] + scp_args + [tmp_file.name, f"{self.ssh_dest}:{filename}"]
             subprocess.run(scp_cmd, check=True)
 
             remote_directory = os.path.dirname(filename)
