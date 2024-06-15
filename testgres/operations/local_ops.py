@@ -130,10 +130,6 @@ class LocalOperations(OsOperations):
         # Check if the directory is already in PATH
         os.environ[var_name] = var_val
 
-    # Get environment variables
-    def get_user(self):
-        return self.username or getpass.getuser()
-
     def get_name(self):
         return os.name
 
