@@ -38,7 +38,6 @@ class LocalOperations(OsOperations):
         self.host = conn_params.host
         self.ssh_key = None
         self.remote = False
-        self.username = conn_params.username or self.get_user()
 
     @staticmethod
     def _raise_exec_exception(message, command, exit_code, output):

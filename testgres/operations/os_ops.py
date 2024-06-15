@@ -24,7 +24,7 @@ def get_default_encoding():
 class OsOperations:
     def __init__(self, username=None):
         self.ssh_key = None
-        self.username = username
+        self.username = username or self.get_user()
 
     # Command execution
     def exec_command(self, cmd, **kwargs):

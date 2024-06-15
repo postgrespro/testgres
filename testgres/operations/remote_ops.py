@@ -52,8 +52,7 @@ class RemoteOperations(OsOperations):
         if self.port:
             self.ssh_args += ["-p", self.port]
         self.remote = True
-        self.username = conn_params.username
-        self.ssh_dest = f"{self.username}@{self.host}" if self.username else self.host
+        self.ssh_dest = f"{self.username}@{self.host}" if conn_params.username else self.host
         self.add_known_host(self.host)
         self.tunnel_process = None
         self.tunnel_port = None
