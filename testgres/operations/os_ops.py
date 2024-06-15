@@ -24,7 +24,7 @@ def get_default_encoding():
 class OsOperations:
     def __init__(self, username=None):
         self.ssh_key = None
-        self.username = username or self.get_user()
+        self.username = username or getpass.getuser()
 
     # Command execution
     def exec_command(self, cmd, **kwargs):
@@ -46,7 +46,7 @@ class OsOperations:
         raise NotImplementedError()
 
     def get_user(self):
-        return getpass.getuser()
+        return self.username
 
     def get_name(self):
         raise NotImplementedError()

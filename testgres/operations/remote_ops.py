@@ -1,3 +1,4 @@
+import getpass
 import os
 import socket
 import subprocess
@@ -52,6 +53,7 @@ class RemoteOperations(OsOperations):
         if self.port:
             self.ssh_args += ["-p", self.port]
         self.remote = True
+        self.username = conn_params.username or getpass.getuser()
         self.ssh_dest = f"{self.username}@{self.host}" if conn_params.username else self.host
         self.add_known_host(self.host)
         self.tunnel_process = None

@@ -63,7 +63,6 @@ from .decorators import \
 
 from .defaults import \
     default_dbname, \
-    default_username, \
     generate_app_name
 
 from .exceptions import \
@@ -158,7 +157,6 @@ class PostgresNode(object):
 
         self.host = self.os_ops.host
         self.port = port or reserve_port()
-        self.username = self.os_ops.username
         self.ssh_key = self.os_ops.ssh_key
 
         # defaults for __exit__()
@@ -692,7 +690,7 @@ class PostgresNode(object):
         # Call poll_query_until until the expected value is returned
         self.poll_query_until(query=query,
                               dbname=dbname,
-                              username=username or self.username,
+                              username=username or self.os_ops.username,
                               suppress={InternalError,
                                         QueryException,
                                         ProgrammingError,
@@ -971,7 +969,7 @@ class PostgresNode(object):
             self._get_bin_path("psql"),
             "-p", str(self.port),
             "-h", self.host,
-            "-U", username or self.username,
+            "-U", username or self.os_ops.username,
             "-X",  # no .psqlrc
             "-A",  # unaligned output
             "-t",  # print rows only
@@ -1090,7 +1088,7 @@ class PostgresNode(object):
             "-p", str(self.port),
             "-h", self.host,
             "-f", filename,
-            "-U", username or self.username,
+            "-U", username or self.os_ops.username,
             "-d", dbname or default_dbname(),
             "-F", format.value
         ]  # yapf: disable
@@ -1111,7 +1109,7 @@ class PostgresNode(object):
 
         # Set default arguments
         dbname = dbname or default_dbname()
-        username = username or self.username
+        username = username or self.os_ops.username
 
         _params = [
             self._get_bin_path("pg_restore"),
@@ -1387,7 +1385,7 @@ class PostgresNode(object):
             self._get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
-            "-U", username or self.username
+            "-U", username or self.os_ops.username
         ] + options  # yapf: disable
 
         # should be the last one
@@ -1460,7 +1458,7 @@ class PostgresNode(object):
             self._get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
-            "-U", username or self.username
+            "-U", username or self.os_ops.username
         ] + options  # yapf: disable
 
         for key, value in iteritems(kwargs):
