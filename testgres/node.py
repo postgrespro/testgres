@@ -63,7 +63,6 @@ from .decorators import \
 
 from .defaults import \
     default_dbname, \
-    default_username, \
     generate_app_name
 
 from .exceptions import \
@@ -156,9 +155,8 @@ class PostgresNode(object):
         else:
             self.os_ops = LocalOperations(conn_params)
 
-        self.port = port or reserve_port()
-
         self.host = self.os_ops.host
+        self.port = port or reserve_port()
         self.ssh_key = self.os_ops.ssh_key
 
         # defaults for __exit__()
@@ -685,8 +683,6 @@ class PostgresNode(object):
                         If False, waits for the instance to be in primary mode. Default is False.
                max_attempts:
         """
-        if not username:
-            username = default_username()
         self.start()
 
         if replica:
@@ -696,7 +692,7 @@ class PostgresNode(object):
         # Call poll_query_until until the expected value is returned
         self.poll_query_until(query=query,
                               dbname=dbname,
-                              username=username,
+                              username=username or self.os_ops.username,
                               suppress={InternalError,
                                         QueryException,
                                         ProgrammingError,
@@ -969,15 +965,13 @@ class PostgresNode(object):
             >>> psql(query='select 3', ON_ERROR_STOP=1)
         """
 
-        # Set default arguments
         dbname = dbname or default_dbname()
-        username = username or default_username()
 
         psql_params = [
             self._get_bin_path("psql"),
             "-p", str(self.port),
             "-h", self.host,
-            "-U", username,
+            "-U", username or self.os_ops.username,
             "-X",  # no .psqlrc
             "-A",  # unaligned output
             "-t",  # print rows only
@@ -1089,9 +1083,6 @@ class PostgresNode(object):
                 fname = self.os_ops.mkstemp(prefix=TMP_DUMP)
             return fname
 
-        # Set default arguments
-        dbname = dbname or default_dbname()
-        username = username or default_username()
         filename = filename or tmpfile()
 
         _params = [
@@ -1099,8 +1090,8 @@ class PostgresNode(object):
             "-p", str(self.port),
             "-h", self.host,
             "-f", filename,
-            "-U", username,
-            "-d", dbname,
+            "-U", username or self.os_ops.username,
+            "-d", dbname or default_dbname(),
             "-F", format.value
         ]  # yapf: disable
 
@@ -1120,7 +1111,7 @@ class PostgresNode(object):
 
         # Set default arguments
         dbname = dbname or default_dbname()
-        username = username or default_username()
+        username = username or self.os_ops.username
 
         _params = [
             self._get_bin_path("pg_restore"),
@@ -1390,15 +1381,13 @@ class PostgresNode(object):
         if options is None:
             options = []
 
-        # Set default arguments
         dbname = dbname or default_dbname()
-        username = username or default_username()
 
         _params = [
             self._get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
-            "-U", username,
+            "-U", username or self.os_ops.username
         ] + options  # yapf: disable
 
         # should be the last one
@@ -1465,15 +1454,13 @@ class PostgresNode(object):
             >>> pgbench_run(time=10)
         """
 
-        # Set default arguments
         dbname = dbname or default_dbname()
-        username = username or default_username()
 
         _params = [
             self._get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
-            "-U", username,
+            "-U", username or self.os_ops.username
         ] + options  # yapf: disable
 
         for key, value in iteritems(kwargs):

@@ -1,3 +1,4 @@
+import getpass
 import locale
 
 try:
@@ -24,7 +25,7 @@ def get_default_encoding():
 class OsOperations:
     def __init__(self, username=None):
         self.ssh_key = None
-        self.username = username
+        self.username = username or getpass.getuser()
 
     # Command execution
     def exec_command(self, cmd, **kwargs):
@@ -45,9 +46,8 @@ class OsOperations:
         # Check if the directory is already in PATH
         raise NotImplementedError()
 
-    # Get environment variables
     def get_user(self):
-        raise NotImplementedError()
+        return self.username
 
     def get_name(self):
         raise NotImplementedError()
