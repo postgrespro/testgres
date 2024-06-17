@@ -388,6 +388,7 @@ class ProbackupApp:
             backup_mode, source_pgdata, destination_node,
             options=None,
             remote_host='localhost',
+            remote_port=None,
             expect_error=False,
             gdb=False
     ):
@@ -401,7 +402,9 @@ class ProbackupApp:
             '--destination-pgdata={0}'.format(destination_node.data_dir)
         ]
         if self.remote:
-            cmd_list += ['--remote-proto=ssh', '--remote-host=%s' % remote_host]
+            cmd_list += [f'--remote-proto=ssh', '--remote-host={remote_host}']
+            if remote_port:
+                cmd_list.append(f'--remote-port={remote_port}')
         if self.verbose:
             cmd_list += [
                 '--log-level-file=VERBOSE',
