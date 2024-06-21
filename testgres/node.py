@@ -1687,12 +1687,13 @@ class NodeApp:
 
     def make_empty(
             self,
+            port=None,
             base_dir=None):
         real_base_dir = os.path.join(self.test_path, base_dir)
         self.os_ops.rmdirs(real_base_dir, ignore_errors=True)
         self.os_ops.makedirs(real_base_dir)
 
-        node = PostgresNode(base_dir=real_base_dir)
+        node = PostgresNode(port=port, base_dir=real_base_dir)
         node.should_rm_dirs = True
         self.nodes_to_cleanup.append(node)
 
@@ -1700,6 +1701,7 @@ class NodeApp:
 
     def make_simple(
             self,
+            port=None,
             base_dir=None,
             set_replication=False,
             ptrack_enable=False,
