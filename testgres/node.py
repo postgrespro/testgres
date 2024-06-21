@@ -126,7 +126,7 @@ class ProcessProxy(object):
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, port=None, base_dir=None, conn_params: ConnectionParams = ConnectionParams(), bin_dir=None, prefix=None):
+    def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(), bin_dir=None, prefix=None):
         """
         PostgresNode constructor.
 
@@ -527,7 +527,9 @@ class PostgresNode(object):
                 u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
                 u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host),
                 u"host\treplication\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
-                u"host\tall\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host)
+                u"host\tall\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
+                u"host\tall\tall\tall\t{}\n".format(auth_host),
+                u"host\treplication\tall\tall\t{}\n".format(auth_host)
             ]  # yapf: disable
 
             # write missing lines
@@ -1670,20 +1672,28 @@ class PostgresNode(object):
 
 class NodeApp:
 
-    def __init__(self, test_path, nodes_to_cleanup, os_ops=LocalOperations()):
-        self.test_path = test_path
-        self.nodes_to_cleanup = nodes_to_cleanup
+    def __init__(self, test_path=None, nodes_to_cleanup=None, os_ops=LocalOperations()):
+        print('ALEXEY in nodeapp init', test_path)
+        if test_path:
+            if os.path.isabs(test_path):
+                self.test_path = test_path
+            else:
+                self.test_path = os.path.join(os_ops.cwd(), test_path)
+        else:
+            self.test_path = os_ops.cwd()
+        print('ALEXEY in nodeapp resulting test path', self.test_path)
+        self.nodes_to_cleanup = nodes_to_cleanup if nodes_to_cleanup else []
         self.os_ops = os_ops
 
     def make_empty(
             self,
-            port=None,
-            base_dir=None):
+            base_dir=None,
+            port=None):
         real_base_dir = os.path.join(self.test_path, base_dir)
         self.os_ops.rmdirs(real_base_dir, ignore_errors=True)
         self.os_ops.makedirs(real_base_dir)
 
-        node = PostgresNode(port=port, base_dir=real_base_dir)
+        node = PostgresNode(base_dir=real_base_dir, port=port)
         node.should_rm_dirs = True
         self.nodes_to_cleanup.append(node)
 
@@ -1691,8 +1701,8 @@ class NodeApp:
 
     def make_simple(
             self,
-            port=None,
             base_dir=None,
+            port=None,
             set_replication=False,
             ptrack_enable=False,
             initdb_params=[],
@@ -1700,7 +1710,7 @@ class NodeApp:
             checksum=True):
         if checksum and '--data-checksums' not in initdb_params:
             initdb_params.append('--data-checksums')
-        node = self.make_empty(base_dir)
+        node = self.make_empty(base_dir, port)
         node.init(
             initdb_params=initdb_params, allow_streaming=set_replication)
 
