@@ -126,7 +126,7 @@ class ProcessProxy(object):
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, port=None, base_dir=None, conn_params: ConnectionParams = ConnectionParams(), bin_dir=None, prefix=None):
+    def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(), bin_dir=None, prefix=None):
         """
         PostgresNode constructor.
 
@@ -1687,13 +1687,13 @@ class NodeApp:
 
     def make_empty(
             self,
-            port=None,
-            base_dir=None):
+            base_dir=None,
+            port=None):
         real_base_dir = os.path.join(self.test_path, base_dir)
         self.os_ops.rmdirs(real_base_dir, ignore_errors=True)
         self.os_ops.makedirs(real_base_dir)
 
-        node = PostgresNode(port=port, base_dir=real_base_dir)
+        node = PostgresNode(base_dir=real_base_dir, port=port)
         node.should_rm_dirs = True
         self.nodes_to_cleanup.append(node)
 
@@ -1701,8 +1701,8 @@ class NodeApp:
 
     def make_simple(
             self,
-            port=None,
             base_dir=None,
+            port=None,
             set_replication=False,
             ptrack_enable=False,
             initdb_params=[],
@@ -1710,7 +1710,7 @@ class NodeApp:
             checksum=True):
         if checksum and '--data-checksums' not in initdb_params:
             initdb_params.append('--data-checksums')
-        node = self.make_empty(base_dir)
+        node = self.make_empty(base_dir, port)
         node.init(
             initdb_params=initdb_params, allow_streaming=set_replication)
 
