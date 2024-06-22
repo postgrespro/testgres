@@ -402,7 +402,7 @@ class ProbackupApp:
             '--destination-pgdata={0}'.format(destination_node.data_dir)
         ]
         if self.remote:
-            cmd_list += [f'--remote-proto=ssh', '--remote-host={remote_host}']
+            cmd_list += ['--remote-proto=ssh', f'--remote-host={remote_host}']
             if remote_port:
                 cmd_list.append(f'--remote-port={remote_port}')
         if self.verbose:
