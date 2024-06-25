@@ -44,11 +44,13 @@ class RemoteOperations(OsOperations):
         super().__init__(conn_params.username)
         self.conn_params = conn_params
         self.host = conn_params.host
+        self.port = conn_params.port
         self.ssh_key = conn_params.ssh_key
+        self.ssh_args = []
         if self.ssh_key:
-            self.ssh_cmd = ["-i", self.ssh_key]
-        else:
-            self.ssh_cmd = []
+            self.ssh_args += ["-i", self.ssh_key]
+        if self.port:
+            self.ssh_args += ["-p", self.port]
         self.remote = True
         self.username = conn_params.username or self.get_user()
         self.add_known_host(self.host)
@@ -95,9 +97,9 @@ class RemoteOperations(OsOperations):
         """
         ssh_cmd = []
         if isinstance(cmd, str):
-            ssh_cmd = ['ssh', f"{self.username}@{self.host}"] + self.ssh_cmd + [cmd]
+            ssh_cmd = ['ssh', f"{self.username}@{self.host}"] + self.ssh_args + [cmd]
         elif isinstance(cmd, list):
-            ssh_cmd = ['ssh', f"{self.username}@{self.host}"] + self.ssh_cmd + cmd
+            ssh_cmd = ['ssh', f"{self.username}@{self.host}"] + self.ssh_args + cmd
         process = subprocess.Popen(ssh_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if get_process:
             return process
@@ -246,9 +248,9 @@ class RemoteOperations(OsOperations):
         - prefix (str): The prefix of the temporary directory name.
         """
         if prefix:
-            command = ["ssh"] + self.ssh_cmd + [f"{self.username}@{self.host}", f"mktemp -d {prefix}XXXXX"]
+            command = ["ssh"] + self.ssh_args + [f"{self.username}@{self.host}", f"mktemp -d {prefix}XXXXX"]
         else:
-            command = ["ssh"] + self.ssh_cmd + [f"{self.username}@{self.host}", "mktemp -d"]
+            command = ["ssh"] + self.ssh_args + [f"{self.username}@{self.host}", "mktemp -d"]
 
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
@@ -291,8 +293,10 @@ class RemoteOperations(OsOperations):
             mode = "r+b" if binary else "r+"
 
         with tempfile.NamedTemporaryFile(mode=mode, delete=False) as tmp_file:
+            # For scp the port is specified by a "-P" option
+            scp_args = ['-P' if x == '-p' else x for x in self.ssh_args]
             if not truncate:
-                scp_cmd = ['scp'] + self.ssh_cmd + [f"{self.username}@{self.host}:{filename}", tmp_file.name]
+                scp_cmd = ['scp'] + scp_args + [f"{self.username}@{self.host}:{filename}", tmp_file.name]
                 subprocess.run(scp_cmd, check=False)  # The file might not exist yet
                 tmp_file.seek(0, os.SEEK_END)
 
@@ -308,11 +312,11 @@ class RemoteOperations(OsOperations):
                 tmp_file.write(data)
 
             tmp_file.flush()
-            scp_cmd = ['scp'] + self.ssh_cmd + [tmp_file.name, f"{self.username}@{self.host}:{filename}"]
+            scp_cmd = ['scp'] + scp_args + [tmp_file.name, f"{self.username}@{self.host}:{filename}"]
             subprocess.run(scp_cmd, check=True)
 
             remote_directory = os.path.dirname(filename)
-            mkdir_cmd = ['ssh'] + self.ssh_cmd + [f"{self.username}@{self.host}", f"mkdir -p {remote_directory}"]
+            mkdir_cmd = ['ssh'] + self.ssh_args + [f"{self.username}@{self.host}", f"mkdir -p {remote_directory}"]
             subprocess.run(mkdir_cmd, check=True)
 
             os.remove(tmp_file.name)
@@ -377,7 +381,7 @@ class RemoteOperations(OsOperations):
         return int(self.exec_command("echo $$", encoding=get_default_encoding()))
 
     def get_process_children(self, pid):
-        command = ["ssh"] + self.ssh_cmd + [f"{self.username}@{self.host}", f"pgrep -P {pid}"]
+        command = ["ssh"] + self.ssh_args + [f"{self.username}@{self.host}", f"pgrep -P {pid}"]
 
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
