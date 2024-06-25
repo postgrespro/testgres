@@ -10,8 +10,9 @@ except ImportError:
 
 
 class ConnectionParams:
-    def __init__(self, host='127.0.0.1', ssh_key=None, username=None):
+    def __init__(self, host='127.0.0.1', port=None, ssh_key=None, username=None):
         self.host = host
+        self.port = port
         self.ssh_key = ssh_key
         self.username = username
 
