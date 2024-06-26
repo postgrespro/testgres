@@ -45,8 +45,8 @@ class RemoteOperations(OsOperations):
         super().__init__(conn_params.username)
         self.conn_params = conn_params
         self.host = conn_params.host
-        self.ssh_key = conn_params.ssh_key
         self.port = conn_params.port
+        self.ssh_key = conn_params.ssh_key
         self.ssh_args = []
         if self.ssh_key:
             self.ssh_args += ["-i", self.ssh_key]
@@ -286,7 +286,7 @@ class RemoteOperations(OsOperations):
             mode = "r+b" if binary else "r+"
 
         with tempfile.NamedTemporaryFile(mode=mode, delete=False) as tmp_file:
-            # Because in scp we set up port using -P option
+            # For scp the port is specified by a "-P" option
             scp_args = ['-P' if x == '-p' else x for x in self.ssh_args]
 
             if not truncate:
