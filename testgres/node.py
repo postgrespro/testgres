@@ -1641,7 +1641,7 @@ class PostgresNode(object):
 
         self.os_ops.write(path, auto_conf, truncate=True)
 
-    def upgrade_from(self, old_node):
+    def upgrade_from(self, old_node, options=None):
         """
         Upgrade this node from an old node using pg_upgrade.
 
@@ -1653,6 +1653,9 @@ class PostgresNode(object):
 
         if not os.path.exists(self.data_dir):
             self.init()
+
+        if not options:
+            options = []
 
         pg_upgrade_binary = self._get_bin_path("pg_upgrade")
 
@@ -1668,6 +1671,7 @@ class PostgresNode(object):
             "--old-port", str(old_node.port),
             "--new-port", str(self.port),
         ]
+        upgrade_command += options
 
         return self.os_ops.exec_command(upgrade_command)
 
