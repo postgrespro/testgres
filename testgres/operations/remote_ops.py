@@ -1,8 +1,11 @@
-import logging
 import os
+import socket
 import subprocess
 import tempfile
 import platform
+import time
+
+from ..utils import reserve_port
 
 # we support both pg8000 and psycopg2
 try:
@@ -14,6 +17,7 @@ except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
 from ..exceptions import ExecUtilException
+from ..utils import reserve_port
 from .os_ops import OsOperations, ConnectionParams, get_default_encoding
 
 error_markers = [b'error', b'Permission denied', b'fatal', b'No such file or directory']
@@ -46,6 +50,7 @@ class RemoteOperations(OsOperations):
         self.host = conn_params.host
         self.port = conn_params.port
         self.ssh_key = conn_params.ssh_key
+        self.ssh_cmd = ["-o StrictHostKeyChecking=no"]
         self.ssh_args = []
         if self.ssh_key:
             self.ssh_args += ["-i", self.ssh_key]
@@ -53,8 +58,8 @@ class RemoteOperations(OsOperations):
             self.ssh_args += ["-p", self.port]
         self.remote = True
         self.username = conn_params.username or self.get_user()
-        self.add_known_host(self.host)
         self.tunnel_process = None
+        self.tunnel_port = None
 
     def __enter__(self):
         return self
@@ -62,30 +67,42 @@ class RemoteOperations(OsOperations):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close_ssh_tunnel()
 
-    def establish_ssh_tunnel(self, local_port, remote_port):
+    @staticmethod
+    def is_port_open(host, port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)  # Таймаут для попытки соединения
+            try:
+                sock.connect((host, port))
+                return True
+            except socket.error:
+                return False
+
+    def establish_ssh_tunnel(self, local_port, remote_port, host):
         """
         Establish an SSH tunnel from a local port to a remote PostgreSQL port.
         """
-        ssh_cmd = ['-N', '-L', f"{local_port}:localhost:{remote_port}"]
+        if host != 'localhost':
+            ssh_cmd = ['-N', '-L', f"localhost:{local_port}:{host}:{remote_port}"]
+        else:
+            ssh_cmd = ['-N', '-L', f"{local_port}:{host}:{remote_port}"]
         self.tunnel_process = self.exec_command(ssh_cmd, get_process=True, timeout=300)
+        timeout = 10
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if self.is_port_open('localhost', local_port):
+                print("SSH tunnel established.")
+                return
+            time.sleep(0.5)
+        raise Exception("Failed to establish SSH tunnel within the timeout period.")
 
     def close_ssh_tunnel(self):
-        if hasattr(self, 'tunnel_process'):
+        if self.tunnel_process:
             self.tunnel_process.terminate()
             self.tunnel_process.wait()
+            print("SSH tunnel closed.")
             del self.tunnel_process
         else:
             print("No active tunnel to close.")
-
-    def add_known_host(self, host):
-        known_hosts_path = os.path.expanduser("~/.ssh/known_hosts")
-        cmd = 'ssh-keyscan -H %s >> %s' % (host, known_hosts_path)
-
-        try:
-            subprocess.check_call(cmd, shell=True)
-            logging.info("Successfully added %s to known_hosts." % host)
-        except subprocess.CalledProcessError as e:
-            raise Exception("Failed to add %s to known_hosts. Error: %s" % (host, str(e)))
 
     def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False,
                      encoding=None, shell=True, text=False, input=None, stdin=None, stdout=None,
@@ -295,6 +312,7 @@ class RemoteOperations(OsOperations):
         with tempfile.NamedTemporaryFile(mode=mode, delete=False) as tmp_file:
             # For scp the port is specified by a "-P" option
             scp_args = ['-P' if x == '-p' else x for x in self.ssh_args]
+
             if not truncate:
                 scp_cmd = ['scp'] + scp_args + [f"{self.username}@{self.host}:{filename}", tmp_file.name]
                 subprocess.run(scp_cmd, check=False)  # The file might not exist yet
@@ -394,17 +412,25 @@ class RemoteOperations(OsOperations):
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
         """
-         Established SSH tunnel and Connects to a PostgreSQL
+        Establish SSH tunnel and connect to a PostgreSQL database.
         """
-        self.establish_ssh_tunnel(local_port=port, remote_port=5432)
+        local_port = reserve_port()
+        self.tunnel_port = local_port
+        self.establish_ssh_tunnel(local_port=local_port, remote_port=port, host=host)
         try:
             conn = pglib.connect(
-                host=host,
-                port=port,
+                host='localhost',
+                port=local_port,
                 database=dbname,
                 user=user,
                 password=password,
+                timeout=10
             )
+            print("Database connection established successfully.")
             return conn
         except Exception as e:
-            raise Exception(f"Could not connect to the database. Error: {e}")
+            print(f"Error connecting to the database: {str(e)}")
+            if self.tunnel_process:
+                self.tunnel_process.terminate()
+                print("SSH tunnel closed due to connection failure.")
+            raise
