@@ -38,7 +38,7 @@ class LocalOperations(OsOperations):
         self.host = conn_params.host
         self.ssh_key = None
         self.remote = False
-        self.username = conn_params.username or self.get_user()
+        self.username = conn_params.username or getpass.getuser()
 
     @staticmethod
     def _raise_exec_exception(message, command, exit_code, output):
@@ -129,10 +129,6 @@ class LocalOperations(OsOperations):
     def set_env(self, var_name, var_val):
         # Check if the directory is already in PATH
         os.environ[var_name] = var_val
-
-    # Get environment variables
-    def get_user(self):
-        return self.username or getpass.getuser()
 
     def get_name(self):
         return os.name
