@@ -1,5 +1,6 @@
 import getpass
 import os
+import logging
 import platform
 import subprocess
 import tempfile
