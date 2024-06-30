@@ -1627,7 +1627,7 @@ class PostgresNode(object):
 
         self.os_ops.write(path, auto_conf, truncate=True)
 
-    def upgrade_from(self, old_node, options=None):
+    def upgrade_from(self, old_node, options=None, expect_error=False):
         """
         Upgrade this node from an old node using pg_upgrade.
 
@@ -1656,10 +1656,11 @@ class PostgresNode(object):
             "--new-datadir", self.data_dir,
             "--old-port", str(old_node.port),
             "--new-port", str(self.port),
+            "--copy"
         ]
         upgrade_command += options
 
-        return self.os_ops.exec_command(upgrade_command)
+        return self.os_ops.exec_command(upgrade_command, expect_error=expect_error)
 
     def _get_bin_path(self, filename):
         if self.bin_dir:

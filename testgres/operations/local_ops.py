@@ -19,13 +19,18 @@ except ImportError:
 
 CMD_TIMEOUT_SEC = 60
 error_markers = [b'error', b'Permission denied', b'fatal']
+err_out_markers = [b'Failure']
 
 
-def has_errors(output):
+def has_errors(output=None, error=None):
     if output:
         if isinstance(output, str):
             output = output.encode(get_default_encoding())
-        return any(marker in output for marker in error_markers)
+        return any(marker in output for marker in err_out_markers)
+    if error:
+        if isinstance(error, str):
+            error = error.encode(get_default_encoding())
+        return any(marker in error for marker in error_markers)
     return False
 
 
@@ -107,8 +112,8 @@ class LocalOperations(OsOperations):
         process, output, error = self._run_command(cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding)
         if get_process:
             return process
-        if process.returncode != 0 or (has_errors(error) and not expect_error):
-            self._raise_exec_exception('Utility exited with non-zero code. Error `{}`', cmd, process.returncode, error)
+        if (process.returncode != 0 or has_errors(output=output, error=error)) and not expect_error:
+            self._raise_exec_exception('Utility exited with non-zero code. Error `{}`', cmd, process.returncode, error or output)
 
         if verbose:
             return process.returncode, output, error
