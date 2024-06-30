@@ -4,6 +4,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 
 import psutil
 
@@ -147,8 +148,25 @@ class LocalOperations(OsOperations):
         except FileExistsError:
             pass
 
-    def rmdirs(self, path, ignore_errors=True):
-        return rmtree(path, ignore_errors=ignore_errors)
+    def rmdirs(self, path, ignore_errors=True, retries=3, delay=1):
+        """
+        Removes a directory and its contents, retrying on failure.
+
+        :param path: Path to the directory.
+        :param ignore_errors: If True, ignore errors.
+        :param retries: Number of attempts to remove the directory.
+        :param delay: Delay between attempts in seconds.
+        """
+        for attempt in range(retries):
+            try:
+                rmtree(path, ignore_errors=ignore_errors)
+                if not os.path.exists(path):
+                    return True
+            except Exception as e:
+                print(f"Error: Failed to remove directory {path} on attempt {attempt + 1}: {e}")
+            time.sleep(delay)
+        print(f"Error: Failed to remove directory {path} after {retries} attempts.")
+        return False
 
     def listdir(self, path):
         return os.listdir(path)

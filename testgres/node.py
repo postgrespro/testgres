@@ -932,7 +932,7 @@ class PostgresNode(object):
         else:
             rm_dir = self.data_dir    # just data, save logs
 
-        self.os_ops.rmdirs(rm_dir, ignore_errors=True)
+        self.os_ops.rmdirs(rm_dir, ignore_errors=False)
 
         return self
 
