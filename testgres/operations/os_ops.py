@@ -37,9 +37,11 @@ class OsOperations:
         raise NotImplementedError()
 
     def cwd(self):
-        if sys.platform == 'win32':
-            raise NotImplementedError()
-        return self.exec_command('pwd').decode().rstrip()
+        if sys.platform == 'linux':
+            cmd = 'pwd'
+        elif sys.platform == 'win32':
+            cmd = 'cd'
+        return self.exec_command(cmd).decode().rstrip()
 
     def find_executable(self, executable):
         raise NotImplementedError()

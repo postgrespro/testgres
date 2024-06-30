@@ -1674,7 +1674,6 @@ class PostgresNode(object):
 class NodeApp:
 
     def __init__(self, test_path=None, nodes_to_cleanup=None, os_ops=LocalOperations()):
-        print('ALEXEY in nodeapp init', test_path)
         if test_path:
             if os.path.isabs(test_path):
                 self.test_path = test_path
@@ -1682,7 +1681,6 @@ class NodeApp:
                 self.test_path = os.path.join(os_ops.cwd(), test_path)
         else:
             self.test_path = os_ops.cwd()
-        print('ALEXEY in nodeapp resulting test path', self.test_path)
         self.nodes_to_cleanup = nodes_to_cleanup if nodes_to_cleanup else []
         self.os_ops = os_ops
 
