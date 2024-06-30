@@ -157,6 +157,7 @@ class PostgresNode(object):
 
         self.host = self.os_ops.host
         self.port = port or reserve_port()
+
         self.ssh_key = self.os_ops.ssh_key
 
         # defaults for __exit__()

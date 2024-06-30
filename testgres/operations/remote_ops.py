@@ -1,9 +1,9 @@
 import getpass
 import os
-import socket
+import logging
+import platform
 import subprocess
 import tempfile
-import platform
 
 # we support both pg8000 and psycopg2
 try:
@@ -55,34 +55,9 @@ class RemoteOperations(OsOperations):
         self.remote = True
         self.username = conn_params.username or getpass.getuser()
         self.ssh_dest = f"{self.username}@{self.host}" if conn_params.username else self.host
-        #self.add_known_host(self.host)
-        self.tunnel_process = None
-        self.tunnel_port = None
 
     def __enter__(self):
         return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close_ssh_tunnel()
-
-    @staticmethod
-    def is_port_open(host, port):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(1)  # Таймаут для попытки соединения
-            try:
-                sock.connect((host, port))
-                return True
-            except socket.error:
-                return False
-
-    def close_ssh_tunnel(self):
-        if self.tunnel_process:
-            self.tunnel_process.terminate()
-            self.tunnel_process.wait()
-            print("SSH tunnel closed.")
-            del self.tunnel_process
-        else:
-            print("No active tunnel to close.")
 
     def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False,
                      encoding=None, shell=True, text=False, input=None, stdin=None, stdout=None,
@@ -94,9 +69,9 @@ class RemoteOperations(OsOperations):
         """
         ssh_cmd = []
         if isinstance(cmd, str):
-            ssh_cmd = ['ssh'] + self.ssh_args + [self.ssh_dest, cmd]
+            ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [cmd]
         elif isinstance(cmd, list):
-            ssh_cmd = ['ssh'] + self.ssh_args + [self.ssh_dest] + cmd
+            ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + cmd
         process = subprocess.Popen(ssh_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if get_process:
             return process
