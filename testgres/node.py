@@ -528,7 +528,9 @@ class PostgresNode(object):
                 u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
                 u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host),
                 u"host\treplication\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
-                u"host\tall\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host)
+                u"host\tall\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
+                u"host\tall\tall\tall\t{}\n".format(auth_host),
+                u"host\treplication\tall\tall\t{}\n".format(auth_host)
             ]  # yapf: disable
 
             # write missing lines
@@ -1671,9 +1673,15 @@ class PostgresNode(object):
 
 class NodeApp:
 
-    def __init__(self, test_path, nodes_to_cleanup, os_ops=LocalOperations()):
-        self.test_path = test_path
-        self.nodes_to_cleanup = nodes_to_cleanup
+    def __init__(self, test_path=None, nodes_to_cleanup=None, os_ops=LocalOperations()):
+        if test_path:
+            if os.path.isabs(test_path):
+                self.test_path = test_path
+            else:
+                self.test_path = os.path.join(os_ops.cwd(), test_path)
+        else:
+            self.test_path = os_ops.cwd()
+        self.nodes_to_cleanup = nodes_to_cleanup if nodes_to_cleanup else []
         self.os_ops = os_ops
 
     def make_empty(
