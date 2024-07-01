@@ -162,6 +162,8 @@ class LocalOperations(OsOperations):
                 rmtree(path, ignore_errors=ignore_errors)
                 if not os.path.exists(path):
                     return True
+            except FileNotFoundError:
+                return True
             except Exception as e:
                 print(f"Error: Failed to remove directory {path} on attempt {attempt + 1}: {e}")
             time.sleep(delay)
