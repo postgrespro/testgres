@@ -914,13 +914,14 @@ class PostgresNode(object):
             self._should_free_port = False
             release_port(self.port)
 
-    def cleanup(self, max_attempts=3):
+    def cleanup(self, max_attempts=3, full=False):
         """
         Stop node if needed and remove its data/logs directory.
         NOTE: take a look at TestgresConfig.node_cleanup_full.
 
         Args:
             max_attempts: how many times should we try to stop()?
+            full: clean full base dir
 
         Returns:
             This instance of :class:`.PostgresNode`.
@@ -929,12 +930,12 @@ class PostgresNode(object):
         self._try_shutdown(max_attempts)
 
         # choose directory to be removed
-        if testgres_config.node_cleanup_full:
+        if testgres_config.node_cleanup_full or full:
             rm_dir = self.base_dir    # everything
         else:
             rm_dir = self.data_dir    # just data, save logs
 
-        self.os_ops.rmdirs(rm_dir, ignore_errors=True)
+        self.os_ops.rmdirs(rm_dir, ignore_errors=False)
 
         return self
 
@@ -1629,7 +1630,7 @@ class PostgresNode(object):
 
         self.os_ops.write(path, auto_conf, truncate=True)
 
-    def upgrade_from(self, old_node, options=None):
+    def upgrade_from(self, old_node, options=None, expect_error=False):
         """
         Upgrade this node from an old node using pg_upgrade.
 
@@ -1657,11 +1658,11 @@ class PostgresNode(object):
             "--old-datadir", old_node.data_dir,
             "--new-datadir", self.data_dir,
             "--old-port", str(old_node.port),
-            "--new-port", str(self.port),
+            "--new-port", str(self.port)
         ]
         upgrade_command += options
 
-        return self.os_ops.exec_command(upgrade_command)
+        return self.os_ops.exec_command(upgrade_command, expect_error=expect_error)
 
     def _get_bin_path(self, filename):
         if self.bin_dir:
