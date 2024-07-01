@@ -1,4 +1,6 @@
+import getpass
 import locale
+import sys
 
 try:
     import psycopg2 as pglib  # noqa: F401
@@ -24,7 +26,7 @@ def get_default_encoding():
 class OsOperations:
     def __init__(self, username=None):
         self.ssh_key = None
-        self.username = username
+        self.username = username or getpass.getuser()
 
     # Command execution
     def exec_command(self, cmd, **kwargs):
@@ -33,6 +35,13 @@ class OsOperations:
     # Environment setup
     def environ(self, var_name):
         raise NotImplementedError()
+
+    def cwd(self):
+        if sys.platform == 'linux':
+            cmd = 'pwd'
+        elif sys.platform == 'win32':
+            cmd = 'cd'
+        return self.exec_command(cmd).decode().rstrip()
 
     def find_executable(self, executable):
         raise NotImplementedError()

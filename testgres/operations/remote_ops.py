@@ -1,6 +1,5 @@
 import getpass
 import os
-import logging
 import platform
 import subprocess
 import tempfile
@@ -55,39 +54,9 @@ class RemoteOperations(OsOperations):
         self.remote = True
         self.username = conn_params.username or getpass.getuser()
         self.ssh_dest = f"{self.username}@{self.host}" if conn_params.username else self.host
-        self.add_known_host(self.host)
-        self.tunnel_process = None
 
     def __enter__(self):
         return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close_ssh_tunnel()
-
-    def establish_ssh_tunnel(self, local_port, remote_port):
-        """
-        Establish an SSH tunnel from a local port to a remote PostgreSQL port.
-        """
-        ssh_cmd = ['-N', '-L', f"{local_port}:localhost:{remote_port}"]
-        self.tunnel_process = self.exec_command(ssh_cmd, get_process=True, timeout=300)
-
-    def close_ssh_tunnel(self):
-        if hasattr(self, 'tunnel_process'):
-            self.tunnel_process.terminate()
-            self.tunnel_process.wait()
-            del self.tunnel_process
-        else:
-            print("No active tunnel to close.")
-
-    def add_known_host(self, host):
-        known_hosts_path = os.path.expanduser("~/.ssh/known_hosts")
-        cmd = 'ssh-keyscan -H %s >> %s' % (host, known_hosts_path)
-
-        try:
-            subprocess.check_call(cmd, shell=True)
-            logging.info("Successfully added %s to known_hosts." % host)
-        except subprocess.CalledProcessError as e:
-            raise Exception("Failed to add %s to known_hosts. Error: %s" % (host, str(e)))
 
     def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False,
                      encoding=None, shell=True, text=False, input=None, stdin=None, stdout=None,
@@ -293,6 +262,7 @@ class RemoteOperations(OsOperations):
         with tempfile.NamedTemporaryFile(mode=mode, delete=False) as tmp_file:
             # For scp the port is specified by a "-P" option
             scp_args = ['-P' if x == '-p' else x for x in self.ssh_args]
+
             if not truncate:
                 scp_cmd = ['scp'] + scp_args + [f"{self.ssh_dest}:{filename}", tmp_file.name]
                 subprocess.run(scp_cmd, check=False)  # The file might not exist yet
@@ -391,18 +361,11 @@ class RemoteOperations(OsOperations):
 
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
-        """
-         Established SSH tunnel and Connects to a PostgreSQL
-        """
-        self.establish_ssh_tunnel(local_port=port, remote_port=5432)
-        try:
-            conn = pglib.connect(
-                host=host,
-                port=port,
-                database=dbname,
-                user=user,
-                password=password,
-            )
-            return conn
-        except Exception as e:
-            raise Exception(f"Could not connect to the database. Error: {e}")
+        conn = pglib.connect(
+            host=host,
+            port=port,
+            database=dbname,
+            user=user,
+            password=password,
+        )
+        return conn

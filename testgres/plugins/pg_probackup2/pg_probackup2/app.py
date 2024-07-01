@@ -43,14 +43,14 @@ fs_backup_class = FSTestBackupDir
 class ProbackupApp:
 
     def __init__(self, test_class: unittest.TestCase,
-                 pg_node, pb_log_path, test_env, auto_compress_alg, backup_dir):
+                 pg_node, pb_log_path, test_env, auto_compress_alg, backup_dir, probackup_path=None):
         self.test_class = test_class
         self.pg_node = pg_node
         self.pb_log_path = pb_log_path
         self.test_env = test_env
         self.auto_compress_alg = auto_compress_alg
         self.backup_dir = backup_dir
-        self.probackup_path = init_params.probackup_path
+        self.probackup_path = probackup_path or init_params.probackup_path
         self.probackup_old_path = init_params.probackup_old_path
         self.remote = init_params.remote
         self.verbose = init_params.verbose
@@ -388,6 +388,7 @@ class ProbackupApp:
             backup_mode, source_pgdata, destination_node,
             options=None,
             remote_host='localhost',
+            remote_port=None,
             expect_error=False,
             gdb=False
     ):
@@ -401,7 +402,9 @@ class ProbackupApp:
             '--destination-pgdata={0}'.format(destination_node.data_dir)
         ]
         if self.remote:
-            cmd_list += ['--remote-proto=ssh', '--remote-host=%s' % remote_host]
+            cmd_list += ['--remote-proto=ssh', f'--remote-host={remote_host}']
+            if remote_port:
+                cmd_list.append(f'--remote-port={remote_port}')
         if self.verbose:
             cmd_list += [
                 '--log-level-file=VERBOSE',
