@@ -2,6 +2,8 @@
 
 import atexit
 import copy
+import logging
+import os
 import tempfile
 
 from contextlib import contextmanager
@@ -9,6 +11,10 @@ from contextlib import contextmanager
 from .consts import TMP_CACHE
 from .operations.os_ops import OsOperations
 from .operations.local_ops import LocalOperations
+
+log_level = os.getenv('LOGGING_LEVEL', 'WARNING').upper()
+log_format = os.getenv('LOGGING_FORMAT', '%(asctime)s - %(levelname)s - %(message)s').upper()
+logging.basicConfig(level=log_level, format=log_format)
 
 
 class GlobalConfig(object):

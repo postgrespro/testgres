@@ -1,5 +1,5 @@
 # coding: utf-8
-
+import logging
 import os
 import random
 import signal
@@ -736,11 +736,10 @@ class PostgresNode(object):
                 if any(len(file) > 1 and 'Is another postmaster already '
                                          'running on port' in file[1].decode() for
                        file in files):
-                    print("Detected an issue with connecting to port {0}. "
-                          "Trying another port after a 5-second sleep...".format(self.port))
+                    logging.warning("Detected an issue with connecting to port {0}. "
+                                    "Trying another port after a 5-second sleep...".format(self.port))
                     self.port = reserve_port()
-                    options = {}
-                    options['port'] = str(self.port)
+                    options = {'port': str(self.port)}
                     self.set_auto_conf(options)
                     startup_retries -= 1
                     time.sleep(5)
@@ -1166,7 +1165,7 @@ class PostgresNode(object):
         assert sleep_time > 0
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
-            print(f"Pooling {attempts}")
+            logging.info(f"Pooling {attempts}")
             try:
                 res = self.execute(dbname=dbname,
                                    query=query,

@@ -1,3 +1,4 @@
+import logging
 from functools import reduce
 import getpass
 import os
@@ -31,7 +32,7 @@ try:
         cached_initdb_dir=False,
         node_cleanup_full=delete_logs)
 except Exception as e:
-    print("Can't configure testgres: {0}".format(e))
+    logging.warning("Can't configure testgres: {0}".format(e))
 
 
 class Init(object):
@@ -104,7 +105,7 @@ class Init(object):
 
             if os.path.isfile(probackup_path_tmp):
                 if not os.access(probackup_path_tmp, os.X_OK):
-                    print('{0} is not an executable file'.format(
+                    logging.warning('{0} is not an executable file'.format(
                         probackup_path_tmp))
                 else:
                     self.probackup_path = probackup_path_tmp
@@ -114,13 +115,13 @@ class Init(object):
 
             if os.path.isfile(probackup_path_tmp):
                 if not os.access(probackup_path_tmp, os.X_OK):
-                    print('{0} is not an executable file'.format(
+                    logging.warning('{0} is not an executable file'.format(
                         probackup_path_tmp))
                 else:
                     self.probackup_path = probackup_path_tmp
 
         if not self.probackup_path:
-            print('pg_probackup binary is not found')
+            logging.error('pg_probackup binary is not found')
             exit(1)
 
         if os.name == 'posix':
@@ -207,7 +208,7 @@ class Init(object):
         if self.probackup_version.split('.')[0].isdigit():
             self.major_version = int(self.probackup_version.split('.')[0])
         else:
-            print('Can\'t process pg_probackup version \"{}\": the major version is expected to be a number'.format(self.probackup_version))
+            logging.error('Can\'t process pg_probackup version \"{}\": the major version is expected to be a number'.format(self.probackup_version))
             sys.exit(1)
 
     def test_env(self):

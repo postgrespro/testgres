@@ -1,4 +1,5 @@
 import getpass
+import logging
 import os
 import shutil
 import stat
@@ -165,9 +166,9 @@ class LocalOperations(OsOperations):
             except FileNotFoundError:
                 return True
             except Exception as e:
-                print(f"Error: Failed to remove directory {path} on attempt {attempt + 1}: {e}")
+                logging.error(f"Error: Failed to remove directory {path} on attempt {attempt + 1}: {e}")
             time.sleep(delay)
-        print(f"Error: Failed to remove directory {path} after {retries} attempts.")
+        logging.error(f"Error: Failed to remove directory {path} after {retries} attempts.")
         return False
 
     def listdir(self, path):
