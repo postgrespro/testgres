@@ -1165,7 +1165,6 @@ class PostgresNode(object):
         assert sleep_time > 0
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
-            logging.info(f"Pooling {attempts}")
             try:
                 res = self.execute(dbname=dbname,
                                    query=query,
@@ -1189,6 +1188,7 @@ class PostgresNode(object):
                     return    # done
 
             except tuple(suppress or []):
+                logging.info(f"Trying execute, attempt {attempts + 1}.\nQuery: {query}")
                 pass    # we're suppressing them
 
             time.sleep(sleep_time)

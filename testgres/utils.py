@@ -3,7 +3,6 @@
 from __future__ import division
 from __future__ import print_function
 
-import logging
 import os
 
 import sys
@@ -229,7 +228,7 @@ def eprint(*args, **kwargs):
     """
     Print stuff to stderr.
     """
-    logging.error(*args, **kwargs)
+    print(*args, file=sys.stderr, **kwargs)
 
 
 def options_string(separator=u" ", **kwargs):
