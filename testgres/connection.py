@@ -1,4 +1,5 @@
 # coding: utf-8
+import logging
 
 # we support both pg8000 and psycopg2
 try:
@@ -110,7 +111,7 @@ class NodeConnection(object):
         except ProgrammingError:
             return None
         except Exception as e:
-            print("Error executing query: {}\n {}".format(repr(e), query))
+            logging.error("Error executing query: {}\n {}".format(repr(e), query))
             return None
 
     def close(self):

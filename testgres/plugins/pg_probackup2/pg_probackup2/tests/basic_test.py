@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import unittest
@@ -14,7 +15,7 @@ class TestUtils:
             module_name = test_id.split('.')[-2]
             fname = test_id.split('.')[-1]
         except IndexError:
-            print(f"Couldn't get module name and function name from test_id: `{test_id}`")
+            logging.warning(f"Couldn't get module name and function name from test_id: `{test_id}`")
             module_name, fname = test_id.split('(')[1].split('.')[1], test_id.split('(')[0]
         return module_name, fname
 

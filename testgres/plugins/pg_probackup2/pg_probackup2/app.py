@@ -1,6 +1,7 @@
 import contextlib
 import importlib
 import json
+import logging
 import os
 import re
 import subprocess
@@ -74,7 +75,7 @@ class ProbackupApp:
             command = [command[0], *self.backup_dir.pb_args, *command[1:]]
 
         if not self.probackup_old_path and old_binary:
-            print('PGPROBACKUPBIN_OLD is not set')
+            logging.error('PGPROBACKUPBIN_OLD is not set')
             exit(1)
 
         if old_binary:
@@ -107,12 +108,11 @@ class ProbackupApp:
             return GDBobj(cmdline, self.test_class)
 
         try:
-            result = None
             if type(gdb) is tuple and gdb[0] == 'suspend':
                 # special test flow for manually debug probackup
                 gdb_port = gdb[1]
                 cmdline = ['gdbserver'] + ['localhost:' + str(gdb_port)] + cmdline
-                print("pg_probackup gdb suspended, waiting gdb connection on localhost:{0}".format(gdb_port))
+                logging.warning("pg_probackup gdb suspended, waiting gdb connection on localhost:{0}".format(gdb_port))
 
             start_time = time.time()
             self.test_class.output = subprocess.check_output(
@@ -233,7 +233,7 @@ class ProbackupApp:
         if options is None:
             options = []
         if not node and not data_dir:
-            print('You must provide ether node or data_dir for backup')
+            logging.error('You must provide ether node or data_dir for backup')
             exit(1)
 
         if not datname:
@@ -502,7 +502,7 @@ class ProbackupApp:
                         if i == '':
                             backup_record_split.remove(i)
                     if len(header_split) != len(backup_record_split):
-                        print(warning.format(
+                        logging.error(warning.format(
                             header=header, body=body,
                             header_split=header_split,
                             body_split=backup_record_split)
@@ -581,7 +581,7 @@ class ProbackupApp:
         else:
             show_splitted = self.run(cmd_list + options, old_binary=old_binary,
                                      expect_error=expect_error).splitlines()
-            print(show_splitted)
+            logging.error(show_splitted)
             exit(1)
 
     def validate(
@@ -769,7 +769,7 @@ class ProbackupApp:
         if fs_type:
             implementation = fs_type
 
-        print("Using ", implementation)
+        logging.info("Using ", implementation)
         module_name, class_name = implementation.rsplit(sep='.', maxsplit=1)
 
         module = importlib.import_module(module_name)

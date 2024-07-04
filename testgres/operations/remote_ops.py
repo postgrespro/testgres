@@ -93,8 +93,10 @@ class RemoteOperations(OsOperations):
         if not error:
             error_found = 0
         else:
+            error = normalize_error(error)
             error_found = exit_status != 0 or any(
-                marker in error for marker in [b'error', b'Permission denied', b'fatal', b'No such file or directory'])
+                marker in error for marker in ['error', 'Permission denied', 'fatal', 'No such file or directory']
+            )
 
         if error_found:
             if isinstance(error, bytes):
@@ -369,3 +371,9 @@ class RemoteOperations(OsOperations):
             password=password,
         )
         return conn
+
+
+def normalize_error(error):
+    if isinstance(error, bytes):
+        return error.decode()
+    return error
