@@ -705,9 +705,13 @@ class ProbackupApp:
             if overwrite:
                 archive_command += ' --overwrite'
 
-            archive_command += ' --log-level-console=VERBOSE'
-            archive_command += ' -j 5'
-            archive_command += ' --batch-size 10'
+            if init_params.major_version > 2:
+                archive_command += ' --log-level-console=trace'
+            else:
+                archive_command += ' --log-level-console=VERBOSE'
+                archive_command += ' -j 5'
+                archive_command += ' --batch-size 10'
+
             archive_command += ' --no-sync'
 
             if archive_timeout:
