@@ -913,6 +913,17 @@ class PostgresNode(object):
             self._should_free_port = False
             release_port(self.port)
 
+    def _get_directory_size(self, directory):
+        """Calculate the total size of a directory."""
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(directory):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                # Skip if it is symbolic link
+                if not os.path.islink(fp):
+                    total_size += os.path.getsize(fp)
+        return total_size
+
     def cleanup(self, max_attempts=3, full=False):
         """
         Stop node if needed and remove its data/logs directory.
@@ -933,6 +944,9 @@ class PostgresNode(object):
             rm_dir = self.base_dir    # everything
         else:
             rm_dir = self.data_dir    # just data, save logs
+
+        dir_size = self._get_directory_size(rm_dir)
+        print(f"Cleanup: Size of the directory '{rm_dir}' before removal: {dir_size} bytes")
 
         self.os_ops.rmdirs(rm_dir, ignore_errors=False)
 
