@@ -13,7 +13,7 @@ from .operations.os_ops import OsOperations
 from .operations.local_ops import LocalOperations
 
 log_level = os.getenv('LOGGING_LEVEL', 'WARNING').upper()
-log_format = os.getenv('LOGGING_FORMAT', '%(asctime)s - %(levelname)s - %(message)s').upper()
+log_format = os.getenv('LOGGING_FORMAT', '%(asctime)s - %(levelname)s - %(message)s')
 logging.basicConfig(level=log_level, format=log_format)
 
 
