@@ -330,8 +330,9 @@ class PostgresNode(object):
         """
         return self._pg_version
 
-    def _try_shutdown(self, max_attempts):
+    def _try_shutdown(self, max_attempts, with_force=False):
         attempts = 0
+        node_pid = self.pid
 
         # try stopping server N times
         while attempts < max_attempts:
@@ -341,11 +342,29 @@ class PostgresNode(object):
             except ExecUtilException:
                 pass    # one more time
             except Exception:
-                # TODO: probably should kill stray instance
                 eprint('cannot stop node {}'.format(self.name))
                 break
 
             attempts += 1
+
+        # If force stopping is enabled and PID is valid
+        if with_force and node_pid != 0:
+            # If we couldn't stop the node
+            p_status_output = self.os_ops.exec_command(cmd=f'ps -p {node_pid}', shell=True).decode('utf-8')
+            if self.status() != NodeStatus.Stopped and p_status_output and str(node_pid) in p_status_output:
+                try:
+                    eprint(f'Force stopping node {self.name} with PID {node_pid}')
+                    self.os_ops.kill(node_pid, signal.SIGKILL, expect_error=False)
+                except Exception:
+                    # The node has already stopped
+                    pass
+
+            # Check that node stopped
+            p_status_output = self.os_ops.exec_command(f'ps -p {node_pid}', shell=True, expect_error=True).decode('utf-8')
+            if p_status_output and str(node_pid) in p_status_output:
+                eprint(f'Failed to stop node {self.name}.')
+            else:
+                eprint(f'Node {self.name} has been stopped successfully.')
 
     def _assign_master(self, master):
         """NOTE: this is a private method!"""

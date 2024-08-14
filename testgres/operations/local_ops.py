@@ -293,10 +293,10 @@ class LocalOperations(OsOperations):
         return os.remove(filename)
 
     # Processes control
-    def kill(self, pid, signal):
+    def kill(self, pid, signal, expect_error=False):
         # Kill the process
         cmd = "kill -{} {}".format(signal, pid)
-        return self.exec_command(cmd)
+        return self.exec_command(cmd, expect_error=expect_error)
 
     def get_pid(self):
         # Get current process id
