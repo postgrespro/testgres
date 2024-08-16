@@ -20,7 +20,9 @@ class ConnectionParams:
 
 
 def get_default_encoding():
-    return locale.getdefaultlocale()[1] or 'UTF-8'
+    if not hasattr(locale, 'getencoding'):
+        locale.getencoding = locale.getpreferredencoding
+    return locale.getencoding() or 'UTF-8'
 
 
 class OsOperations:
