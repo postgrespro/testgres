@@ -359,8 +359,8 @@ class PostgresNode(object):
                     # The node has already stopped
                     pass
 
-            # Check that node stopped
-            p_status_output = self.os_ops.exec_command(f'ps -p {node_pid}', shell=True, ignore_errors=True).decode('utf-8')
+            # Check that node stopped - print only column pid without headers
+            p_status_output = self.os_ops.exec_command(f'ps -o pid= -p {node_pid}', shell=True, ignore_errors=True).decode('utf-8')
             if p_status_output and str(node_pid) in p_status_output:
                 eprint(f'Failed to stop node {self.name}.')
             else:
