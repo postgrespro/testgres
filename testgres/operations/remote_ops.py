@@ -60,7 +60,7 @@ class RemoteOperations(OsOperations):
 
     def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False,
                      encoding=None, shell=True, text=False, input=None, stdin=None, stdout=None,
-                     stderr=None, get_process=None, timeout=None):
+                     stderr=None, get_process=None, timeout=None, ignore_errors=False):
         """
         Execute a command in the SSH session.
         Args:
@@ -98,7 +98,7 @@ class RemoteOperations(OsOperations):
                 marker in error for marker in ['error', 'Permission denied', 'fatal', 'No such file or directory']
             )
 
-        if error_found:
+        if not ignore_errors and error_found:
             if isinstance(error, bytes):
                 message = b"Utility exited with non-zero code. Error: " + error
             else:
