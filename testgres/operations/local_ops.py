@@ -107,14 +107,15 @@ class LocalOperations(OsOperations):
                 raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
 
     def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False, encoding=None, shell=False,
-                     text=False, input=None, stdin=None, stdout=None, stderr=None, get_process=False, timeout=None):
+                     text=False, input=None, stdin=None, stdout=None, stderr=None, get_process=False, timeout=None,
+                     ignore_errors=False):
         """
         Execute a command in a subprocess and handle the output based on the provided parameters.
         """
         process, output, error = self._run_command(cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding)
         if get_process:
             return process
-        if (process.returncode != 0 or has_errors(output=output, error=error)) and not expect_error:
+        if not ignore_errors and ((process.returncode != 0 or has_errors(output=output, error=error)) and not expect_error):
             self._raise_exec_exception('Utility exited with non-zero code. Error `{}`', cmd, process.returncode, error or output)
 
         if verbose:
