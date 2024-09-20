@@ -170,6 +170,7 @@ class Init(object):
 
         self.remote = test_env.get('PGPROBACKUP_SSH_REMOTE', None) == 'ON'
         self.ptrack = test_env.get('PG_PROBACKUP_PTRACK', None) == 'ON' and self.pg_config_version >= 110000
+        self.wal_tree_enabled = test_env.get('PG_PROBACKUP_WAL_TREE_ENABLED', None) == 'ON'
 
         self.paranoia = test_env.get('PG_PROBACKUP_PARANOIA', None) == 'ON'
         env_compress = test_env.get('ARCHIVE_COMPRESSION', None)

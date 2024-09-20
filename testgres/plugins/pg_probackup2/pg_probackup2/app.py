@@ -54,6 +54,7 @@ class ProbackupApp:
         self.probackup_path = probackup_path or init_params.probackup_path
         self.probackup_old_path = init_params.probackup_old_path
         self.remote = init_params.remote
+        self.wal_tree_enabled = init_params.wal_tree_enabled
         self.verbose = init_params.verbose
         self.archive_compress = init_params.archive_compress
         self.test_class.output = None
@@ -184,6 +185,9 @@ class ProbackupApp:
             options = options + [
                 '--remote-proto=ssh',
                 '--remote-host=localhost']
+
+        if self.wal_tree_enabled:
+            options = options + ['--wal-tree']
 
         return self.run(cmd + options, old_binary=old_binary, expect_error=expect_error)
 
