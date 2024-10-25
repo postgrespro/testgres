@@ -957,6 +957,9 @@ class TestgresTests(unittest.TestCase):
         if pg_version_ge('10'):
             master_processes.append(ProcessType.LogicalReplicationLauncher)
 
+        if pg_version_ge('14'):
+            master_processes.remove(ProcessType.StatsCollector)
+
         repl_processes = [
             ProcessType.Startup,
             ProcessType.WalReceiver,
