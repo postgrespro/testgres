@@ -1751,7 +1751,8 @@ class NodeApp:
                    'log_connections': 'on',
                    'log_disconnections': 'on',
                    'restart_after_crash': 'off',
-                   'autovacuum': 'off'}
+                   'autovacuum': 'off',
+                   'unix_socket_directories': '/tmp'}
 
         # Allow replication in pg_hba.conf
         if set_replication:
