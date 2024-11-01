@@ -42,7 +42,7 @@ def get_new_node(name=None, base_dir=None, **kwargs):
     return PostgresNode(name=name, base_dir=base_dir, **kwargs)
 
 
-def get_remote_node(name=None, conn_params=None):
+def get_remote_node(name=None):
     """
     Simply a wrapper around :class:`.PostgresNode` constructor for remote node.
     See :meth:`.PostgresNode.__init__` for details.
@@ -51,4 +51,4 @@ def get_remote_node(name=None, conn_params=None):
                                    ssh_key=None,
                                    username=default_username())
     """
-    return get_new_node(name=name, conn_params=conn_params)
+    return get_new_node(name=name)

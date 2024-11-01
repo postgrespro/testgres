@@ -126,7 +126,8 @@ class ProcessProxy(object):
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(), bin_dir=None, prefix=None):
+    def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(),
+                 bin_dir=None, prefix=None):
         """
         PostgresNode constructor.
 
@@ -150,13 +151,9 @@ class PostgresNode(object):
         self.name = name or generate_app_name()
         if testgres_config.os_ops:
             self.os_ops = testgres_config.os_ops
-        elif conn_params.ssh_key:
-            self.os_ops = RemoteOperations(conn_params)
-        else:
-            self.os_ops = LocalOperations(conn_params)
 
         self.host = self.os_ops.host
-        self.port = port or reserve_port()
+        self.port = port or self.os_ops.port or reserve_port()
 
         self.ssh_key = self.os_ops.ssh_key
 
@@ -1005,7 +1002,7 @@ class PostgresNode(object):
 
         # select query source
         if query:
-            if self.os_ops.remote:
+            if self.os_ops.conn_params.remote:
                 psql_params.extend(("-c", '"{}"'.format(query)))
             else:
                 psql_params.extend(("-c", query))
@@ -1016,7 +1013,7 @@ class PostgresNode(object):
 
         # should be the last one
         psql_params.append(dbname)
-        if not self.os_ops.remote:
+        if not self.os_ops.conn_params.remote:
             # start psql process
             process = subprocess.Popen(psql_params,
                                        stdin=subprocess.PIPE,

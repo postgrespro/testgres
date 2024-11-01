@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from testgres import ExecUtilException
+from testgres import ExecUtilException, get_remote_node, testgres_config
 from testgres import RemoteOperations
 from testgres import ConnectionParams
 
@@ -34,7 +34,7 @@ class TestRemoteOperations:
             exit_status, result, error = self.operations.exec_command(cmd, verbose=True, wait_exit=True)
         except ExecUtilException as e:
             error = e.message
-        assert error == b'Utility exited with non-zero code. Error: bash: line 1: nonexistent_command: command not found\n'
+        assert error == 'Utility exited with non-zero code. Error: bash: line 1: nonexistent_command: command not found\n'
 
     def test_is_executable_true(self):
         """
@@ -87,7 +87,7 @@ class TestRemoteOperations:
             exit_status, result, error = self.operations.rmdirs(path, verbose=True)
         except ExecUtilException as e:
             error = e.message
-        assert error == b"Utility exited with non-zero code. Error: rm: cannot remove '/root/test_dir': Permission denied\n"
+        assert error == "Utility exited with non-zero code. Error: rm: cannot remove '/root/test_dir': Permission denied\n"
 
     def test_listdir(self):
         """
@@ -192,3 +192,25 @@ class TestRemoteOperations:
         response = self.operations.isfile(filename)
 
         assert response is False
+
+    def test_skip_ssl(self):
+        conn_params = ConnectionParams(host=os.getenv('RDBMS_TESTPOOL1_HOST') or '127.0.0.1',
+                                       username=os.getenv('USER'),
+                                       remote=True,
+                                       skip_ssl=True)
+        os_ops = RemoteOperations(conn_params)
+        testgres_config.set_os_ops(os_ops=os_ops)
+        with get_remote_node().init().start() as node:
+            with node.connect() as con:
+                con.begin()
+                con.execute('create table test(val int)')
+                con.execute('insert into test values (1)')
+                con.commit()
+
+                con.begin()
+                con.execute('insert into test values (2)')
+                res = con.execute('select * from test order by val asc')
+                if isinstance(res, list):
+                    res.sort()
+                assert res == [(1,), (2,)]
+

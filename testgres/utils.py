@@ -97,7 +97,7 @@ def get_bin_path(filename):
     # check if it's already absolute
     if os.path.isabs(filename):
         return filename
-    if tconf.os_ops.remote:
+    if tconf.os_ops.conn_params.remote:
         pg_config = os.environ.get("PG_CONFIG_REMOTE") or os.environ.get("PG_CONFIG")
     else:
         # try PG_CONFIG - get from local machine
@@ -154,7 +154,7 @@ def get_pg_config(pg_config_path=None, os_ops=None):
         return _pg_config_data
 
     # try specified pg_config path or PG_CONFIG
-    if tconf.os_ops.remote:
+    if tconf.os_ops.conn_params.remote:
         pg_config = pg_config_path or os.environ.get("PG_CONFIG_REMOTE") or os.environ.get("PG_CONFIG")
     else:
         # try PG_CONFIG - get from local machine
