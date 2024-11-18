@@ -1,4 +1,3 @@
-import getpass
 import logging
 import os
 import shutil
@@ -10,7 +9,7 @@ import time
 import psutil
 
 from ..exceptions import ExecUtilException
-from .os_ops import ConnectionParams, OsOperations, pglib, get_default_encoding
+from .os_ops import ConnectionParams, OsOperations, get_default_encoding
 
 try:
     from shutil import which as find_executable
