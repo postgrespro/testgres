@@ -1707,12 +1707,13 @@ class NodeApp:
     def make_empty(
             self,
             base_dir=None,
-            port=None):
+            port=None,
+            bin_dir=None):
         real_base_dir = os.path.join(self.test_path, base_dir)
         self.os_ops.rmdirs(real_base_dir, ignore_errors=True)
         self.os_ops.makedirs(real_base_dir)
 
-        node = PostgresNode(base_dir=real_base_dir, port=port)
+        node = PostgresNode(base_dir=real_base_dir, port=port, bin_dir=bin_dir)
         node.should_rm_dirs = True
         self.nodes_to_cleanup.append(node)
 
@@ -1726,10 +1727,11 @@ class NodeApp:
             ptrack_enable=False,
             initdb_params=[],
             pg_options={},
-            checksum=True):
+            checksum=True,
+            bin_dir=None):
         if checksum and '--data-checksums' not in initdb_params:
             initdb_params.append('--data-checksums')
-        node = self.make_empty(base_dir, port)
+        node = self.make_empty(base_dir, port, bin_dir=bin_dir)
         node.init(
             initdb_params=initdb_params, allow_streaming=set_replication)
 

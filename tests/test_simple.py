@@ -23,7 +23,7 @@ from testgres import \
     BackupException, \
     QueryException, \
     TimeoutException, \
-    TestgresException
+    TestgresException, NodeApp
 
 from testgres import \
     TestgresConfig, \
@@ -1043,6 +1043,23 @@ class TestgresTests(unittest.TestCase):
             with get_new_node() as node2:
                 node2.port = node.port
                 node2.init().start()
+
+    def test_make_simple_with_bin_dir(self):
+        with get_new_node() as node:
+            node.init().start()
+            bin_dir = node.bin_dir
+
+        app = NodeApp()
+        correct_bin_dir = app.make_simple(base_dir=node.base_dir, bin_dir=bin_dir)
+        correct_bin_dir.slow_start()
+        correct_bin_dir.safe_psql("SELECT 1;")
+
+        try:
+            wrong_bin_dir = app.make_empty(base_dir=node.base_dir, bin_dir="wrong/path")
+            wrong_bin_dir.slow_start()
+            raise RuntimeError("Error was expected.")  # We should not reach this
+        except FileNotFoundError:
+            pass # Expected error
 
 
 if __name__ == '__main__':
