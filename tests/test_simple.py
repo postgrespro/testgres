@@ -1039,9 +1039,11 @@ class TestgresTests(unittest.TestCase):
     def test_the_same_port(self):
         with get_new_node() as node:
             node.init().start()
-        with get_new_node() as node2:
-            node2.port = node.port
-            node2.init().start()
+            with get_new_node() as node2:
+                node2.port = node.port
+                # _should_free_port is true if port was set up manually
+                node2._should_free_port = False
+                node2.init().start()
 
     def test_make_simple_with_bin_dir(self):
         with get_new_node() as node:

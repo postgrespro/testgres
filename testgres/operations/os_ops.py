@@ -124,16 +124,27 @@ class OsOperations:
     def get_process_children(self, pid):
         raise NotImplementedError()
 
+    def _get_ssl_options(self):
+        """
+        Determine the SSL options based on available modules.
+        """
+        if self.conn_params.skip_ssl:
+            if 'psycopg2' in sys.modules:
+                return {"sslmode": "disable"}
+            elif 'pg8000' in sys.modules:
+                return {"ssl_context": None}
+        return {}
+
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
-        ssl_options = {"sslmode": "disable"} if self.conn_params.skip_ssl and 'psycopg2' in sys.modules else {}
+        ssl_options = self._get_ssl_options()
         conn = pglib.connect(
             host=host,
             port=port,
             database=dbname,
             user=user,
             password=password,
-            **({"ssl_context": None} if self.conn_params.skip_ssl and 'pg8000' in sys.modules else ssl_options)
+            **ssl_options
         )
 
         return conn
