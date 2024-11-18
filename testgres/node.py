@@ -152,14 +152,14 @@ class PostgresNode(object):
             self.os_ops = testgres_config.os_ops
 
         self.host = self.os_ops.host
-        self.port = port or self.os_ops.port or reserve_port()
-
         self.ssh_key = self.os_ops.ssh_key
 
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
         self.cleanup_on_bad_exit = testgres_config.node_cleanup_on_bad_exit
         self.shutdown_max_attempts = 3
+
+        self.port = port or self.os_ops.port or reserve_port()
 
         # NOTE: for compatibility
         self.utils_log_name = self.utils_log_file
@@ -810,6 +810,7 @@ class PostgresNode(object):
 
         self._maybe_stop_logger()
         self.is_started = False
+        release_port(self.port)
         return self
 
     def kill(self, someone=None):
