@@ -1,5 +1,6 @@
 import getpass
 import locale
+import os
 import sys
 
 try:
@@ -12,15 +13,17 @@ except ImportError:
 
 
 class ConnectionParams:
-    def __init__(self, host='127.0.0.1', port=None, ssh_key=None, username=None, remote=False, skip_ssl=False):
+    def __init__(self, host='127.0.0.1', port=None, ssh_key=None, username=None, remote=False, skip_ssl=None):
         """
-            skip_ssl: if is True, the connection is established without SSL.
+            skip_ssl: if is True, the connection to database is established without SSL.
         """
         self.remote = remote
         self.host = host
         self.port = port
         self.ssh_key = ssh_key
         self.username = username
+        if skip_ssl is None:
+            skip_ssl = os.getenv("TESTGRES_SKIP_SSL", False)
         self.skip_ssl = skip_ssl
 
 
