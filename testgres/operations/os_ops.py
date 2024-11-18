@@ -126,14 +126,14 @@ class OsOperations:
 
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
-        ssl_options = {"sslmode": "disable"} if self.conn_params.skip_ssl and 'psycopg2' in globals() else {}
+        ssl_options = {"sslmode": "disable"} if self.conn_params.skip_ssl and 'psycopg2' in sys.modules else {}
         conn = pglib.connect(
             host=host,
             port=port,
             database=dbname,
             user=user,
             password=password,
-            **({"ssl_context": None} if self.conn_params.skip_ssl and 'pg8000' in globals() else ssl_options)
+            **({"ssl_context": None} if self.conn_params.skip_ssl and 'pg8000' in sys.modules else ssl_options)
         )
 
         return conn
