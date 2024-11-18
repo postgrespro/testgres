@@ -1039,10 +1039,9 @@ class TestgresTests(unittest.TestCase):
     def test_the_same_port(self):
         with get_new_node() as node:
             node.init().start()
-
-            with get_new_node() as node2:
-                node2.port = node.port
-                node2.init().start()
+        with get_new_node() as node2:
+            node2.port = node.port
+            node2.init().start()
 
     def test_make_simple_with_bin_dir(self):
         with get_new_node() as node:
@@ -1059,7 +1058,7 @@ class TestgresTests(unittest.TestCase):
             wrong_bin_dir.slow_start()
             raise RuntimeError("Error was expected.")  # We should not reach this
         except FileNotFoundError:
-            pass # Expected error
+            pass  # Expected error
 
 
 if __name__ == '__main__':

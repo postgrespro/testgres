@@ -213,4 +213,3 @@ class TestRemoteOperations:
                 if isinstance(res, list):
                     res.sort()
                 assert res == [(1,), (2,)]
-
