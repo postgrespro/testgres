@@ -1143,7 +1143,7 @@ class PostgresNode(object):
             filename
         ]  # yapf: disable
 
-        # try pg_restore if dump is binary formate, and psql if not
+        # try pg_restore if dump is binary format, and psql if not
         try:
             execute_utility(_params, self.utils_log_name)
         except ExecUtilException:
@@ -1286,7 +1286,7 @@ class PostgresNode(object):
 
         Args:
             standbys: either :class:`.First` or :class:`.Any` object specifying
-                sychronization parameters or just a plain list of
+                synchronization parameters or just a plain list of
                 :class:`.PostgresNode`s replicas which would be equivalent
                 to passing ``First(1, <list>)``. For PostgreSQL 9.5 and below
                 it is only possible to specify a plain list of standbys as

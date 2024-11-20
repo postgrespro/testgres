@@ -59,12 +59,12 @@ with testgres.get_new_node() as node:
 # ... node stops and its files are about to be removed
 ```
 
-There are four API methods for runnig queries:
+There are four API methods for running queries:
 
 | Command | Description |
 |----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | `node.psql(query, ...)` | Runs query via `psql` command and returns tuple `(error code, stdout, stderr)`. |
-| `node.safe_psql(query, ...)` | Same as `psql()` except that it returns only `stdout`. If an error occures during the execution, an exception will be thrown. |
+| `node.safe_psql(query, ...)` | Same as `psql()` except that it returns only `stdout`. If an error occurs during the execution, an exception will be thrown. |
 | `node.execute(query, ...)` | Connects to PostgreSQL using `psycopg2` or `pg8000` (depends on which one is installed in your system) and returns two-dimensional array with data. |
 | `node.connect(dbname, ...)` | Returns connection wrapper (`NodeConnection`) capable of running several queries within a single transaction. |
 
