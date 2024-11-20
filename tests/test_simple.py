@@ -501,7 +501,7 @@ class TestgresTests(unittest.TestCase):
             sub.disable()
             node1.safe_psql('insert into test values (3, 3)')
 
-            # enable and ensure that data successfully transfered
+            # enable and ensure that data successfully transferred
             sub.enable()
             sub.catchup()
             res = node2.execute('select * from test')
@@ -509,7 +509,7 @@ class TestgresTests(unittest.TestCase):
 
             # Add new tables. Since we added "all tables" to publication
             # (default behaviour of publish() method) we don't need
-            # to explicitely perform pub.add_tables()
+            # to explicitly perform pub.add_tables()
             create_table = 'create table test2 (c char)'
             node1.safe_psql(create_table)
             node2.safe_psql(create_table)
@@ -526,7 +526,7 @@ class TestgresTests(unittest.TestCase):
             pub.drop()
 
             # create new publication and subscription for specific table
-            # (ommitting copying data as it's already done)
+            # (omitting copying data as it's already done)
             pub = node1.publish('newpub', tables=['test'])
             sub = node2.subscribe(pub, 'newsub', copy_data=False)
 
@@ -535,7 +535,7 @@ class TestgresTests(unittest.TestCase):
             res = node2.execute('select * from test')
             self.assertListEqual(res, [(1, 1), (2, 2), (3, 3), (4, 4)])
 
-            # explicitely add table
+            # explicitly add table
             with self.assertRaises(ValueError):
                 pub.add_tables([])    # fail
             pub.add_tables(['test2'])

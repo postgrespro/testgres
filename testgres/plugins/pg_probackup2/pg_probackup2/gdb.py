@@ -37,7 +37,7 @@ class GDBobj:
                                    " to run GDB tests")
             raise GdbException("No gdb usage possible.")
 
-        # Check gdb presense
+        # Check gdb presence
         try:
             gdb_version, _ = subprocess.Popen(
                 ['gdb', '--version'],
