@@ -74,6 +74,8 @@ class ProbackupApp:
             command = [command[0], *use_backup_dir.pb_args, *command[1:]]
         elif use_backup_dir:
             command = [command[0], *self.backup_dir.pb_args, *command[1:]]
+        else:
+            command = [command[0], *self.backup_dir.pb_args[2:], *command[1:]]
 
         if not self.probackup_old_path and old_binary:
             logging.error('PGPROBACKUPBIN_OLD is not set')
