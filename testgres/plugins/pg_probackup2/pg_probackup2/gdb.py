@@ -108,6 +108,9 @@ class GDBobj:
         self.proc.stdin.close()
         self.proc.stdout.close()
 
+    def terminate_subprocess(self):
+        self._execute('kill')
+
     def set_breakpoint(self, location):
 
         result = self._execute('break ' + location)
