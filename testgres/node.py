@@ -1634,6 +1634,10 @@ class PostgresNode(object):
             current_options[name] = var
 
         for option in options:
+            assert type(option) == str
+            assert option != ""
+            assert option.strip() == option
+
             value = options[option]
             valueType = type(value)
 
@@ -1695,6 +1699,8 @@ class PostgresNode(object):
         return bin_path
 
     def _escape_config_value(value):
+        assert type(value) == str
+
         result = "'"
 
         for ch in value:
