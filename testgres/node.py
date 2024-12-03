@@ -1626,11 +1626,6 @@ class PostgresNode(object):
 
             name, var = line.partition('=')[::2]
             name = name.strip()
-            var = var.strip()
-
-            # Handle quoted values and remove escaping
-            if var.startswith("'") and var.endswith("'"):
-                var = var[1:-1].replace("''", "'")
 
             # Remove options specified in rm_options list
             if name in rm_options:
@@ -1640,14 +1635,18 @@ class PostgresNode(object):
 
         for option in options:
             value = options[option]
-            if isinstance(value, str):
-                value = value.replace("'", "\\'")
+            valueType = type(value)
+
+            if valueType == str:
+                value = __class__._escape_config_value(value)
+            elif valueType == bool:
+                value = "on" if value else "off"
+
             current_options[option] = value
 
         auto_conf = ''
         for option in current_options:
-            auto_conf += "{0} = '{1}'\n".format(
-                option, current_options[option])
+            auto_conf += option + " = " + str(current_options[option]) + "\n"
 
         for directive in current_directives:
             auto_conf += directive + "\n"
@@ -1694,6 +1693,28 @@ class PostgresNode(object):
         else:
             bin_path = get_bin_path(filename)
         return bin_path
+
+    def _escape_config_value(value):
+        result = "'"
+
+        for ch in value:
+            if (ch == "'"):
+                result += "\\'"
+            elif (ch == "\n"):
+                result += "\\n"
+            elif (ch == "\r"):
+                result += "\\r"
+            elif (ch == "\t"):
+                result += "\\t"
+            elif (ch == "\b"):
+                result += "\\b"
+            elif (ch == "\\"):
+                result += "\\\\"
+            else:
+                result += ch
+
+        result += "'"
+        return result
 
 
 class NodeApp:

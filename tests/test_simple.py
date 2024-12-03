@@ -1062,13 +1062,35 @@ class TestgresTests(unittest.TestCase):
             pass  # Expected error
 
     def test_set_auto_conf(self):
+        # elements contain [property id, value, storage value]
+        testData = [
+            ["archive_command",
+             "cp '%p' \"/mnt/server/archivedir/%f\"",
+             "'cp \\'%p\\' \"/mnt/server/archivedir/%f\""],
+            ["restore_command",
+             'cp "/mnt/server/archivedir/%f" \'%p\'',
+             "'cp \"/mnt/server/archivedir/%f\" \\'%p\\''"],
+            ["log_line_prefix",
+             "'\n\r\t\b\\\"",
+             "'\\\'\\n\\r\\t\\b\\\\\""],
+            ["log_connections",
+             True,
+             "on"],
+            ["log_disconnections",
+             False,
+             "off"],
+            ["autovacuum_max_workers",
+             3,
+             "3"]
+        ]
+
         with get_new_node() as node:
             node.init().start()
 
-            options = {
-                "archive_command": "cp '%p' \"/mnt/server/archivedir/%f\"",
-                'restore_command': 'cp "/mnt/server/archivedir/%f" \'%p\'',
-            }
+            options = {}
+
+            for x in testData:
+                options[x[0]] = x[1]
 
             node.set_auto_conf(options)
             node.stop()
@@ -1077,16 +1099,13 @@ class TestgresTests(unittest.TestCase):
             auto_conf_path = f"{node.data_dir}/postgresql.auto.conf"
             with open(auto_conf_path, "r") as f:
                 content = f.read()
-                self.assertIn(
-                    "archive_command = 'cp \\'%p\\' \"/mnt/server/archivedir/%f\"",
-                    content,
-                    "archive_command stored wrong"
-                )
-                self.assertIn(
-                    "restore_command = 'cp \"/mnt/server/archivedir/%f\" \\'%p\\''",
-                    content,
-                    "restore_command stored wrong"
-                )
+
+                for x in testData:
+                    self.assertIn(
+                        x[0] + " = " + x[2],
+                        content,
+                        x[0] + " stored wrong"
+                    )
 
 
 if __name__ == '__main__':
