@@ -1627,17 +1627,22 @@ class PostgresNode(object):
             name, var = line.partition('=')[::2]
             name = name.strip()
             var = var.strip()
-            var = var.strip('"')
-            var = var.strip("'")
 
-            # remove options specified in rm_options list
+            # Handle quoted values and remove escaping
+            if var.startswith("'") and var.endswith("'"):
+                var = var[1:-1].replace("''", "'")
+
+            # Remove options specified in rm_options list
             if name in rm_options:
                 continue
 
             current_options[name] = var
 
         for option in options:
-            current_options[option] = options[option]
+            value = options[option]
+            if isinstance(value, str):
+                value = value.replace("'", "\\'")
+            current_options[option] = value
 
         auto_conf = ''
         for option in current_options:

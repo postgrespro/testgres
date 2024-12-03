@@ -1061,6 +1061,33 @@ class TestgresTests(unittest.TestCase):
         except FileNotFoundError:
             pass  # Expected error
 
+    def test_set_auto_conf(self):
+        with get_new_node() as node:
+            node.init().start()
+
+            options = {
+                "archive_command": "cp '%p' \"/mnt/server/archivedir/%f\"",
+                'restore_command': 'cp "/mnt/server/archivedir/%f" \'%p\'',
+            }
+
+            node.set_auto_conf(options)
+            node.stop()
+            node.slow_start()
+
+            auto_conf_path = f"{node.data_dir}/postgresql.auto.conf"
+            with open(auto_conf_path, "r") as f:
+                content = f.read()
+                self.assertIn(
+                    "archive_command = 'cp \\'%p\\' \"/mnt/server/archivedir/%f\"",
+                    content,
+                    "archive_command stored wrong"
+                )
+                self.assertIn(
+                    "restore_command = 'cp \"/mnt/server/archivedir/%f\" \\'%p\\''",
+                    content,
+                    "restore_command stored wrong"
+                )
+
 
 if __name__ == '__main__':
     if os.environ.get('ALT_CONFIG'):
