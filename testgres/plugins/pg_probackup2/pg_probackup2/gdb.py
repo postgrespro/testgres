@@ -37,7 +37,7 @@ class GDBobj:
                                    " to run GDB tests")
             raise GdbException("No gdb usage possible.")
 
-        # Check gdb presense
+        # Check gdb presence
         try:
             gdb_version, _ = subprocess.Popen(
                 ['gdb', '--version'],
@@ -107,6 +107,9 @@ class GDBobj:
         self.proc.wait(3)
         self.proc.stdin.close()
         self.proc.stdout.close()
+
+    def terminate_subprocess(self):
+        self._execute('kill')
 
     def set_breakpoint(self, location):
 

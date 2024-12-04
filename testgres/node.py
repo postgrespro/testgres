@@ -1161,7 +1161,7 @@ class PostgresNode(object):
             filename
         ]  # yapf: disable
 
-        # try pg_restore if dump is binary formate, and psql if not
+        # try pg_restore if dump is binary format, and psql if not
         try:
             execute_utility(_params, self.utils_log_name)
         except ExecUtilException:
@@ -1304,7 +1304,7 @@ class PostgresNode(object):
 
         Args:
             standbys: either :class:`.First` or :class:`.Any` object specifying
-                sychronization parameters or just a plain list of
+                synchronization parameters or just a plain list of
                 :class:`.PostgresNode`s replicas which would be equivalent
                 to passing ``First(1, <list>)``. For PostgreSQL 9.5 and below
                 it is only possible to specify a plain list of standbys as
@@ -1646,23 +1646,31 @@ class PostgresNode(object):
 
             name, var = line.partition('=')[::2]
             name = name.strip()
-            var = var.strip()
-            var = var.strip('"')
-            var = var.strip("'")
 
-            # remove options specified in rm_options list
+            # Remove options specified in rm_options list
             if name in rm_options:
                 continue
 
             current_options[name] = var
 
         for option in options:
-            current_options[option] = options[option]
+            assert type(option) == str  # noqa: E721
+            assert option != ""
+            assert option.strip() == option
+
+            value = options[option]
+            valueType = type(value)
+
+            if valueType == str:
+                value = __class__._escape_config_value(value)
+            elif valueType == bool:
+                value = "on" if value else "off"
+
+            current_options[option] = value
 
         auto_conf = ''
         for option in current_options:
-            auto_conf += "{0} = '{1}'\n".format(
-                option, current_options[option])
+            auto_conf += option + " = " + str(current_options[option]) + "\n"
 
         for directive in current_directives:
             auto_conf += directive + "\n"
@@ -1709,6 +1717,30 @@ class PostgresNode(object):
         else:
             bin_path = get_bin_path(filename)
         return bin_path
+
+    def _escape_config_value(value):
+        assert type(value) == str  # noqa: E721
+
+        result = "'"
+
+        for ch in value:
+            if ch == "'":
+                result += "\\'"
+            elif ch == "\n":
+                result += "\\n"
+            elif ch == "\r":
+                result += "\\r"
+            elif ch == "\t":
+                result += "\\t"
+            elif ch == "\b":
+                result += "\\b"
+            elif ch == "\\":
+                result += "\\\\"
+            else:
+                result += ch
+
+        result += "'"
+        return result
 
 
 class NodeApp:

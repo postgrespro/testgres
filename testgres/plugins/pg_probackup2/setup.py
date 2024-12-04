@@ -4,7 +4,7 @@ except ImportError:
     from distutils.core import setup
 
 setup(
-    version='0.0.3',
+    version='0.0.4',
     name='testgres_pg_probackup2',
     packages=['pg_probackup2', 'pg_probackup2.storage'],
     description='Plugin for testgres that manages pg_probackup2',
