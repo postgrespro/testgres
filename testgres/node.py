@@ -1704,17 +1704,17 @@ class PostgresNode(object):
         result = "'"
 
         for ch in value:
-            if (ch == "'"):
+            if ch == "'":
                 result += "\\'"
-            elif (ch == "\n"):
+            elif ch == "\n":
                 result += "\\n"
-            elif (ch == "\r"):
+            elif ch == "\r":
                 result += "\\r"
-            elif (ch == "\t"):
+            elif ch == "\t":
                 result += "\\t"
-            elif (ch == "\b"):
+            elif ch == "\b":
                 result += "\\b"
-            elif (ch == "\\"):
+            elif ch == "\\":
                 result += "\\\\"
             else:
                 result += ch
