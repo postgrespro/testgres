@@ -1790,7 +1790,7 @@ class NodeApp:
             'log_disconnections': 'on',
             'restart_after_crash': 'off',
             'autovacuum': 'off',
-            # 'unix_socket_directories': '/tmp',
+            # unix_socket_directories will be defined later
         }
 
         # Allow replication in pg_hba.conf
