@@ -5,6 +5,7 @@ import random
 import signal
 import subprocess
 import threading
+import tempfile
 from queue import Queue
 
 import time
@@ -1761,6 +1762,8 @@ class NodeApp:
             pg_options={},
             checksum=True,
             bin_dir=None):
+        assert type(pg_options) == dict  # noqa: E721
+
         if checksum and '--data-checksums' not in initdb_params:
             initdb_params.append('--data-checksums')
         node = self.make_empty(base_dir, port, bin_dir=bin_dir)
@@ -1773,20 +1776,22 @@ class NodeApp:
         node.major_version = float(node.major_version_str)
 
         # Set default parameters
-        options = {'max_connections': 100,
-                   'shared_buffers': '10MB',
-                   'fsync': 'off',
-                   'wal_level': 'logical',
-                   'hot_standby': 'off',
-                   'log_line_prefix': '%t [%p]: [%l-1] ',
-                   'log_statement': 'none',
-                   'log_duration': 'on',
-                   'log_min_duration_statement': 0,
-                   'log_connections': 'on',
-                   'log_disconnections': 'on',
-                   'restart_after_crash': 'off',
-                   'autovacuum': 'off',
-                   'unix_socket_directories': '/tmp'}
+        options = {
+            'max_connections': 100,
+            'shared_buffers': '10MB',
+            'fsync': 'off',
+            'wal_level': 'logical',
+            'hot_standby': 'off',
+            'log_line_prefix': '%t [%p]: [%l-1] ',
+            'log_statement': 'none',
+            'log_duration': 'on',
+            'log_min_duration_statement': 0,
+            'log_connections': 'on',
+            'log_disconnections': 'on',
+            'restart_after_crash': 'off',
+            'autovacuum': 'off',
+            # 'unix_socket_directories': '/tmp',
+        }
 
         # Allow replication in pg_hba.conf
         if set_replication:
@@ -1801,11 +1806,16 @@ class NodeApp:
         else:
             options['wal_keep_segments'] = '12'
 
-        # set default values
-        node.set_auto_conf(options)
-
         # Apply given parameters
-        node.set_auto_conf(pg_options)
+        for x in pg_options:
+            options[x] = pg_options[x]
+
+        # Define delayed propertyes
+        if not ("unix_socket_directories" in options.keys()):
+            options["unix_socket_directories"] = __class__._gettempdir()
+
+        # Set config values
+        node.set_auto_conf(options)
 
         # kludge for testgres
         # https://github.com/postgrespro/testgres/issues/54
@@ -1814,3 +1824,26 @@ class NodeApp:
             node.set_auto_conf({}, 'postgresql.conf', ['wal_keep_segments'])
 
         return node
+
+    def _gettempdir():
+        v = tempfile.gettempdir()
+
+        #
+        # Paranoid checks
+        #
+        if type(v) != str:  # noqa: E721
+            __class__._raise_bugcheck("tempfile.gettempdir returned a value with type {0}.".format(type(v).__name__))
+
+        if v == "":
+            __class__._raise_bugcheck("tempfile.gettempdir returned an empty string.")
+
+        if not os.path.exists(v):
+            __class__._raise_bugcheck("tempfile.gettempdir returned a not exist path [{0}].".format(v))
+
+        # OK
+        return v
+
+    def _raise_bugcheck(msg):
+        assert type(msg) == str  # noqa: E721
+        assert msg != ""
+        raise Exception("[BUG CHECK] " + msg)
