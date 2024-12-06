@@ -1807,8 +1807,8 @@ class NodeApp:
             options['wal_keep_segments'] = '12'
 
         # Apply given parameters
-        for x in pg_options:
-            options[x] = pg_options[x]
+        for option_name, option_value in iteritems(pg_options):
+            options[option_name] = option_value
 
         # Define delayed propertyes
         if not ("unix_socket_directories" in options.keys()):
