@@ -1,4 +1,5 @@
 import pytest
+import platform
 
 from testgres import ExecUtilException
 from testgres import LocalOperations
@@ -10,10 +11,16 @@ class TestLocalOperations:
     def setup(self):
         self.operations = LocalOperations()
 
+    def skip_if_windows():
+        if platform.system().lower() == "windows":
+            pytest.skip("This test does not support Windows.")
+
     def test_exec_command_success(self):
         """
         Test exec_command for successful command execution.
         """
+        __class__.skip_if_windows()
+
         cmd = "python3 --version"
         response = self.operations.exec_command(cmd, wait_exit=True, shell=True)
 
@@ -23,6 +30,8 @@ class TestLocalOperations:
         """
         Test exec_command for command execution failure.
         """
+        __class__.skip_if_windows()
+
         cmd = "nonexistent_command"
         while True:
             try:
@@ -37,6 +46,8 @@ class TestLocalOperations:
         """
         Test exec_command for command execution failure.
         """
+        __class__.skip_if_windows()
+
         cmd = "nonexistent_command"
 
         exit_status, result, error = self.operations.exec_command(cmd, verbose=True, wait_exit=True, shell=True, expect_error=True)
