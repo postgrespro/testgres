@@ -97,7 +97,6 @@ from .backup import NodeBackup
 
 from .operations.os_ops import ConnectionParams
 from .operations.local_ops import LocalOperations
-from .operations.remote_ops import RemoteOperations
 
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
@@ -127,7 +126,8 @@ class ProcessProxy(object):
 
 
 class PostgresNode(object):
-    def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(), bin_dir=None, prefix=None):
+    def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(),
+                 bin_dir=None, prefix=None):
         """
         PostgresNode constructor.
 
@@ -151,20 +151,16 @@ class PostgresNode(object):
         self.name = name or generate_app_name()
         if testgres_config.os_ops:
             self.os_ops = testgres_config.os_ops
-        elif conn_params.ssh_key:
-            self.os_ops = RemoteOperations(conn_params)
-        else:
-            self.os_ops = LocalOperations(conn_params)
 
         self.host = self.os_ops.host
-        self.port = port or reserve_port()
-
         self.ssh_key = self.os_ops.ssh_key
 
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
         self.cleanup_on_bad_exit = testgres_config.node_cleanup_on_bad_exit
         self.shutdown_max_attempts = 3
+
+        self.port = port or self.os_ops.port or reserve_port()
 
         # NOTE: for compatibility
         self.utils_log_name = self.utils_log_file
@@ -491,7 +487,7 @@ class PostgresNode(object):
             os_ops=self.os_ops,
             params=initdb_params,
             bin_path=self.bin_dir,
-            cached=False)
+            cached=cached)
 
         # initialize default config files
         self.default_conf(**kwargs)
@@ -721,9 +717,9 @@ class PostgresNode(object):
                                         OperationalError},
                               max_attempts=max_attempts)
 
-    def start(self, params=[], wait=True):
+    def start(self, params=None, wait: bool = True) -> 'PostgresNode':
         """
-        Starts the PostgreSQL node using pg_ctl if node has not been started.
+        Starts the PostgreSQL node using pg_ctl if the node has not been started.
         By default, it waits for the operation to complete before returning.
         Optionally, it can return immediately without waiting for the start operation
         to complete by setting the `wait` parameter to False.
@@ -735,45 +731,60 @@ class PostgresNode(object):
         Returns:
             This instance of :class:`.PostgresNode`.
         """
+        if params is None:
+            params = []
         if self.is_started:
             return self
 
-        _params = [
-            self._get_bin_path("pg_ctl"),
-            "-D", self.data_dir,
-            "-l", self.pg_log_file,
-            "-w" if wait else '-W',  # --wait or --no-wait
-            "start"
-        ] + params  # yapf: disable
+        _params = [self._get_bin_path("pg_ctl"),
+                   "-D", self.data_dir,
+                   "-l", self.pg_log_file,
+                   "-w" if wait else '-W',  # --wait or --no-wait
+                   "start"] + params  # yapf: disable
 
-        startup_retries = 5
-        while True:
+        max_retries = 5
+        sleep_interval = 5  # seconds
+
+        for attempt in range(max_retries):
             try:
                 exit_status, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
                 if error and 'does not exist' in error:
                     raise Exception
+                break  # Exit the loop if successful
             except Exception as e:
-                files = self._collect_special_files()
-                if any(len(file) > 1 and 'Is another postmaster already '
-                                         'running on port' in file[1].decode() for
-                       file in files):
-                    logging.warning("Detected an issue with connecting to port {0}. "
-                                    "Trying another port after a 5-second sleep...".format(self.port))
-                    self.port = reserve_port()
-                    options = {'port': str(self.port)}
-                    self.set_auto_conf(options)
-                    startup_retries -= 1
-                    time.sleep(5)
-                    continue
+                if self._handle_port_conflict():
+                    if attempt < max_retries - 1:
+                        logging.info(f"Retrying start operation (Attempt {attempt + 2}/{max_retries})...")
+                        time.sleep(sleep_interval)
+                        continue
+                    else:
+                        logging.error("Reached maximum retry attempts. Unable to start node.")
+                        raise StartNodeException("Cannot start node after multiple attempts",
+                                                 self._collect_special_files()) from e
+                raise StartNodeException("Cannot start node", self._collect_special_files()) from e
 
-                msg = 'Cannot start node'
-                raise_from(StartNodeException(msg, files), e)
-            break
         self._maybe_start_logger()
         self.is_started = True
         return self
 
-    def stop(self, params=[], wait=True):
+    def _handle_port_conflict(self) -> bool:
+        """
+        Checks for a port conflict and attempts to resolve it by changing the port.
+        Returns True if the port was changed, False otherwise.
+        """
+        files = self._collect_special_files()
+        if any(len(file) > 1 and 'Is another postmaster already running on port' in file[1].decode() for file in files):
+            logging.warning(f"Port conflict detected on port {self.port}.")
+            if self._should_free_port:
+                logging.warning("Port reservation skipped due to _should_free_port setting.")
+                return False
+            self.port = reserve_port()
+            self.set_auto_conf({'port': str(self.port)})
+            logging.info(f"Port changed to {self.port}.")
+            return True
+        return False
+
+    def stop(self, params=None, wait=True):
         """
         Stops the PostgreSQL node using pg_ctl if the node has been started.
 
@@ -784,6 +795,8 @@ class PostgresNode(object):
         Returns:
             This instance of :class:`.PostgresNode`.
         """
+        if params is None:
+            params = []
         if not self.is_started:
             return self
 
@@ -798,6 +811,7 @@ class PostgresNode(object):
 
         self._maybe_stop_logger()
         self.is_started = False
+        release_port(self.port)
         return self
 
     def kill(self, someone=None):
@@ -816,7 +830,7 @@ class PostgresNode(object):
                 os.kill(self.auxiliary_pids[someone][0], sig)
             self.is_started = False
 
-    def restart(self, params=[]):
+    def restart(self, params=None):
         """
         Restart this node using pg_ctl.
 
@@ -827,6 +841,8 @@ class PostgresNode(object):
             This instance of :class:`.PostgresNode`.
         """
 
+        if params is None:
+            params = []
         _params = [
             self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
@@ -848,7 +864,7 @@ class PostgresNode(object):
 
         return self
 
-    def reload(self, params=[]):
+    def reload(self, params=None):
         """
         Asynchronously reload config files using pg_ctl.
 
@@ -859,6 +875,8 @@ class PostgresNode(object):
             This instance of :class:`.PostgresNode`.
         """
 
+        if params is None:
+            params = []
         _params = [
             self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
@@ -1006,7 +1024,7 @@ class PostgresNode(object):
 
         # select query source
         if query:
-            if self.os_ops.remote:
+            if self.os_ops.conn_params.remote:
                 psql_params.extend(("-c", '"{}"'.format(query)))
             else:
                 psql_params.extend(("-c", query))
@@ -1017,7 +1035,7 @@ class PostgresNode(object):
 
         # should be the last one
         psql_params.append(dbname)
-        if not self.os_ops.remote:
+        if not self.os_ops.conn_params.remote:
             # start psql process
             process = subprocess.Popen(psql_params,
                                        stdin=subprocess.PIPE,
@@ -1591,7 +1609,7 @@ class PostgresNode(object):
         return {(table, self.table_checksum(table, dbname))
                 for table in pgbench_tables}
 
-    def set_auto_conf(self, options, config='postgresql.auto.conf', rm_options={}):
+    def set_auto_conf(self, options, config='postgresql.auto.conf', rm_options=None):
         """
         Update or remove configuration options in the specified configuration file,
         updates the options specified in the options dictionary, removes any options
@@ -1607,6 +1625,8 @@ class PostgresNode(object):
                                          Defaults to an empty set.
         """
         # parse postgresql.auto.conf
+        if rm_options is None:
+            rm_options = {}
         path = os.path.join(self.data_dir, config)
 
         lines = self.os_ops.readlines(path)
