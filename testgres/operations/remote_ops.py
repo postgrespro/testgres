@@ -14,6 +14,7 @@ except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
 from ..exceptions import ExecUtilException
+from ..helpers.raise_error import RaiseError
 from .os_ops import OsOperations, ConnectionParams, get_default_encoding
 
 error_markers = [b'error', b'Permission denied', b'fatal', b'No such file or directory']
@@ -66,6 +67,9 @@ class RemoteOperations(OsOperations):
         Args:
         - cmd (str): The command to be executed.
         """
+        assert type(expect_error) == bool  # noqa: E721
+        assert type(ignore_errors) == bool  # noqa: E721
+
         ssh_cmd = []
         if isinstance(cmd, str):
             ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [cmd]
@@ -100,10 +104,12 @@ class RemoteOperations(OsOperations):
             error = error.decode(encoding)
 
         if not ignore_errors and error_found and not expect_error:
-            error = normalize_error(error)
-            assert type(error) == str  # noqa: E721
-            message = "Utility exited with non-zero code. Error: " + error
-            raise ExecUtilException(message=message, command=cmd, exit_code=exit_status, out=result)
+            RaiseError.UtilityExitedWithNonZeroCode(
+                cmd=cmd,
+                exit_code=exit_status,
+                msg_arg=error,
+                error=error,
+                out=result)
 
         if verbose:
             return exit_status, result, error
