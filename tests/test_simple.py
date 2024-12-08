@@ -153,7 +153,6 @@ class TestgresTests(unittest.TestCase):
 
         with scoped_config(cache_initdb=True,
                            cached_initdb_unique=True) as config:
-
             self.assertTrue(config.cache_initdb)
             self.assertTrue(config.cached_initdb_unique)
 
@@ -376,13 +375,11 @@ class TestgresTests(unittest.TestCase):
 
             with node.backup(xlog_method='fetch') as backup1, \
                     node.backup(xlog_method='fetch') as backup2:
-
                 self.assertNotEqual(backup1.base_dir, backup2.base_dir)
 
             with node.backup(xlog_method='fetch') as backup:
                 with backup.spawn_primary('node1', destroy=False) as node1, \
                         backup.spawn_primary('node2', destroy=False) as node2:
-
                     self.assertNotEqual(node1.base_dir, node2.base_dir)
 
     def test_backup_exhaust(self):
@@ -390,7 +387,6 @@ class TestgresTests(unittest.TestCase):
             node.init(allow_streaming=True).start()
 
             with node.backup(xlog_method='fetch') as backup:
-
                 # exhaust backup by creating new node
                 with backup.spawn_primary():
                     pass
@@ -778,7 +774,6 @@ class TestgresTests(unittest.TestCase):
 
         # modify setting for this scope
         with scoped_config(cache_pg_config=False) as config:
-
             # sanity check for value
             self.assertFalse(config.cache_pg_config)
 
@@ -810,7 +805,6 @@ class TestgresTests(unittest.TestCase):
             self.assertEqual(c1.cached_initdb_dir, d1)
 
             with scoped_config(cached_initdb_dir=d2) as c2:
-
                 stack_size = len(testgres.config.config_stack)
 
                 # try to break a stack
@@ -840,7 +834,6 @@ class TestgresTests(unittest.TestCase):
     def test_auto_name(self):
         with get_new_node().init(allow_streaming=True).start() as m:
             with m.replicate().start() as r:
-
                 # check that nodes are running
                 self.assertTrue(m.status())
                 self.assertTrue(r.status())

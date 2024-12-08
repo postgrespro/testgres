@@ -94,7 +94,6 @@ def removing(f):
 
 
 class TestgresRemoteTests(unittest.TestCase):
-
     def test_node_repr(self):
         with get_remote_node() as node:
             pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
@@ -748,6 +747,7 @@ class TestgresRemoteTests(unittest.TestCase):
 
         # save right before config change
         c1 = get_pg_config()
+
         # modify setting for this scope
         with scoped_config(cache_pg_config=False) as config:
             # sanity check for value

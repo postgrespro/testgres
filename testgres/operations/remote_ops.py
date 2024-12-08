@@ -68,26 +68,26 @@ class RemoteOperations(OsOperations):
 
         exit_status = process.returncode
 
+        assert type(result) == bytes  # noqa: E721
+        assert type(error) == bytes  # noqa: E721
+
+        if not error:
+            error_found = False
+        else:
+            error_found = exit_status != 0 or any(
+                marker in error for marker in [b'error', b'Permission denied', b'fatal', b'No such file or directory']
+            )
+
+        assert type(error_found) == bool  # noqa: E721
+
         if encoding:
             result = result.decode(encoding)
             error = error.decode(encoding)
 
-        if expect_error:
-            raise Exception(result, error)
-
-        if not error:
-            error_found = 0
-        else:
+        if not ignore_errors and error_found and not expect_error:
             error = normalize_error(error)
-            error_found = exit_status != 0 or any(
-                marker in error for marker in ['error', 'Permission denied', 'fatal', 'No such file or directory']
-            )
-
-        if not ignore_errors and error_found:
-            if isinstance(error, bytes):
-                message = b"Utility exited with non-zero code. Error: " + error
-            else:
-                message = f"Utility exited with non-zero code. Error: {error}"
+            assert type(error) == str  # noqa: E721
+            message = "Utility exited with non-zero code. Error: " + error
             raise ExecUtilException(message=message, command=cmd, exit_code=exit_status, out=result)
 
         if verbose:

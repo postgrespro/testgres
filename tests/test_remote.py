@@ -30,11 +30,26 @@ class TestRemoteOperations:
         Test exec_command for command execution failure.
         """
         cmd = "nonexistent_command"
-        try:
-            exit_status, result, error = self.operations.exec_command(cmd, verbose=True, wait_exit=True)
-        except ExecUtilException as e:
-            error = e.message
+        while True:
+            try:
+                self.operations.exec_command(cmd, verbose=True, wait_exit=True)
+            except ExecUtilException as e:
+                error = e.message
+                break
+            raise Exception("We wait an exception!")
         assert error == 'Utility exited with non-zero code. Error: bash: line 1: nonexistent_command: command not found\n'
+
+    def test_exec_command_failure__expect_error(self):
+        """
+        Test exec_command for command execution failure.
+        """
+        cmd = "nonexistent_command"
+
+        exit_status, result, error = self.operations.exec_command(cmd, verbose=True, wait_exit=True, shell=True, expect_error=True)
+
+        assert error == b'bash: line 1: nonexistent_command: command not found\n'
+        assert exit_status == 127
+        assert result == b''
 
     def test_is_executable_true(self):
         """

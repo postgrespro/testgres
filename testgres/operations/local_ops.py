@@ -58,47 +58,55 @@ class LocalOperations(OsOperations):
                 output = output.decode(encoding)
             return output, None  # In Windows stderr writing in stdout
 
-    def _run_command(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
-        """Execute a command and return the process and its output."""
-        if os.name == 'nt' and stdout is None:  # Windows
-            with tempfile.NamedTemporaryFile(mode='w+b', delete=False) as temp_file:
-                stdout = temp_file
-                stderr = subprocess.STDOUT
-                process = subprocess.Popen(
-                    cmd,
-                    shell=shell,
-                    stdin=stdin or subprocess.PIPE if input is not None else None,
-                    stdout=stdout,
-                    stderr=stderr,
-                )
-                if get_process:
-                    return process, None, None
-                temp_file_path = temp_file.name
-
-            # Wait process finished
-            process.wait()
-
-            output, error = self._process_output(encoding, temp_file_path)
-            return process, output, error
-        else:  # Other OS
+    def _run_command__nt(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
+        with tempfile.NamedTemporaryFile(mode='w+b', delete=False) as temp_file:
+            stdout = temp_file
+            stderr = subprocess.STDOUT
             process = subprocess.Popen(
                 cmd,
                 shell=shell,
                 stdin=stdin or subprocess.PIPE if input is not None else None,
-                stdout=stdout or subprocess.PIPE,
-                stderr=stderr or subprocess.PIPE,
+                stdout=stdout,
+                stderr=stderr,
             )
             if get_process:
                 return process, None, None
-            try:
-                output, error = process.communicate(input=input.encode(encoding) if input else None, timeout=timeout)
-                if encoding:
-                    output = output.decode(encoding)
-                    error = error.decode(encoding)
-                return process, output, error
-            except subprocess.TimeoutExpired:
-                process.kill()
-                raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
+            temp_file_path = temp_file.name
+
+        # Wait process finished
+        process.wait()
+
+        output, error = self._process_output(encoding, temp_file_path)
+        return process, output, error
+
+    def _run_command__generic(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
+        process = subprocess.Popen(
+            cmd,
+            shell=shell,
+            stdin=stdin or subprocess.PIPE if input is not None else None,
+            stdout=stdout or subprocess.PIPE,
+            stderr=stderr or subprocess.PIPE,
+        )
+        if get_process:
+            return process, None, None
+        try:
+            output, error = process.communicate(input=input.encode(encoding) if input else None, timeout=timeout)
+            if encoding:
+                output = output.decode(encoding)
+                error = error.decode(encoding)
+            return process, output, error
+        except subprocess.TimeoutExpired:
+            process.kill()
+            raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
+
+    def _run_command(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
+        """Execute a command and return the process and its output."""
+        if os.name == 'nt' and stdout is None:  # Windows
+            method = __class__._run_command__nt
+        else:  # Other OS
+            method = __class__._run_command__generic
+
+        return method(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding)
 
     def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False, encoding=None, shell=False,
                      text=False, input=None, stdin=None, stdout=None, stderr=None, get_process=False, timeout=None,
