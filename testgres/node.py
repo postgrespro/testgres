@@ -73,7 +73,8 @@ from .exceptions import \
     TimeoutException,   \
     InitNodeException,  \
     TestgresException,  \
-    BackupException
+    BackupException, \
+    InvalidOperationException
 
 from .logger import TestgresLogger
 
@@ -1089,7 +1090,7 @@ class PostgresNode(object):
             return e.error
 
         if expect_error:
-            assert False, "Exception was expected, but query finished successfully: `{}` ".format(query)
+            raise InvalidOperationException("Exception was expected, but query finished successfully: `{}`.".format(query))
 
         return out
 

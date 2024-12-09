@@ -23,7 +23,8 @@ from .exceptions import \
     CatchUpException, \
     StartNodeException, \
     InitNodeException, \
-    BackupException
+    BackupException, \
+    InvalidOperationException
 
 from .enums import \
     XLogMethod, \
