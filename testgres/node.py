@@ -5,6 +5,7 @@ import random
 import signal
 import threading
 import tempfile
+import subprocess
 from queue import Queue
 
 import time
@@ -1049,7 +1050,13 @@ class PostgresNode(object):
         # should be the last one
         psql_params.append(dbname)
 
-        return self.os_ops.exec_command(psql_params, verbose=True, input=input, ignore_errors=ignore_errors)
+        return self.os_ops.exec_command(
+            psql_params,
+            verbose=True,
+            input=input,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            ignore_errors=ignore_errors)
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def safe_psql(self, query=None, expect_error=False, **kwargs):
