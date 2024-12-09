@@ -327,7 +327,7 @@ class TestgresTests(unittest.TestCase):
 
             # ---------
             res = node.safe_psql("select 1;", expect_error=False)
-            self.assertEqual(res, b'1\n')
+            self.assertEqual(rm_carriage_returns(res), b'1\n')
 
     def test_transactions(self):
         with get_new_node().init().start() as node:
