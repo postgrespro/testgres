@@ -37,7 +37,7 @@ class TestLocalOperations:
                 error = e.message
                 break
             raise Exception("We wait an exception!")
-        assert error == "Utility exited with non-zero code. Error `b'/bin/sh: 1: nonexistent_command: not found\\n'`"
+        assert error == "Utility exited with non-zero code. Error: `/bin/sh: 1: nonexistent_command: not found`"
 
     def test_exec_command_failure__expect_error(self):
         """
