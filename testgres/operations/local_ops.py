@@ -11,6 +11,7 @@ import psutil
 
 from ..exceptions import ExecUtilException
 from .os_ops import ConnectionParams, OsOperations, pglib, get_default_encoding
+from .helpers import Helpers
 from ..helpers.raise_error import RaiseError
 
 try:
@@ -58,6 +59,8 @@ class LocalOperations(OsOperations):
             return output, None  # In Windows stderr writing in stdout
 
     def _run_command__nt(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
+        # TODO: why don't we use the data from input?
+
         with tempfile.NamedTemporaryFile(mode='w+b', delete=False) as temp_file:
             stdout = temp_file
             stderr = subprocess.STDOUT
@@ -79,6 +82,10 @@ class LocalOperations(OsOperations):
         return process, output, error
 
     def _run_command__generic(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
+        input_prepared = None
+        if not get_process:
+            input_prepared = Helpers.PrepareProcessInput(input, encoding)  # throw
+
         process = subprocess.Popen(
             cmd,
             shell=shell,
@@ -89,7 +96,7 @@ class LocalOperations(OsOperations):
         if get_process:
             return process, None, None
         try:
-            output, error = process.communicate(input=input.encode(encoding) if input else None, timeout=timeout)
+            output, error = process.communicate(input=input_prepared, timeout=timeout)
             if encoding:
                 output = output.decode(encoding)
                 error = error.decode(encoding)

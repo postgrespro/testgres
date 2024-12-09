@@ -1005,6 +1005,18 @@ class PostgresNode(object):
             username=None,
             input=None,
             **variables):
+        assert type(variables) == dict  # noqa: E721
+
+        #
+        # We do not support encoding. It may be added later. Ok?
+        #
+        if input is None:
+            pass
+        elif type(input) == bytes:  # noqa: E721
+            pass
+        else:
+            raise Exception("Input data must be None or bytes.")
+
         dbname = dbname or default_dbname()
 
         psql_params = [

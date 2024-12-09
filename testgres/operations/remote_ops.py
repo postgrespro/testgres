@@ -16,6 +16,7 @@ except ImportError:
 from ..exceptions import ExecUtilException
 from ..helpers.raise_error import RaiseError
 from .os_ops import OsOperations, ConnectionParams, get_default_encoding
+from .helpers import Helpers
 
 error_markers = [b'error', b'Permission denied', b'fatal', b'No such file or directory']
 
@@ -70,6 +71,10 @@ class RemoteOperations(OsOperations):
         assert type(expect_error) == bool  # noqa: E721
         assert type(ignore_errors) == bool  # noqa: E721
 
+        input_prepared = None
+        if not get_process:
+            input_prepared = Helpers.PrepareProcessInput(input, encoding)  # throw
+
         ssh_cmd = []
         if isinstance(cmd, str):
             ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [cmd]
@@ -80,7 +85,7 @@ class RemoteOperations(OsOperations):
             return process
 
         try:
-            result, error = process.communicate(input, timeout=timeout)
+            result, error = process.communicate(input=input_prepared, timeout=timeout)
         except subprocess.TimeoutExpired:
             process.kill()
             raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
