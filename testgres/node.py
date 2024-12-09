@@ -1059,13 +1059,22 @@ class PostgresNode(object):
         """
         assert type(kwargs) == dict  # noqa: E721
         assert not ("ignore_errors" in kwargs.keys())
+        assert not ("expect_error" in kwargs.keys())
 
         # force this setting
         kwargs['ON_ERROR_STOP'] = 1
         try:
             ret, out, err = self._psql(ignore_errors=False, query=query, **kwargs)
         except ExecUtilException as e:
-            raise QueryException(e.message, query)
+            if not expect_error:
+                raise QueryException(e.message, query)
+
+            if type(e.error) == bytes:  # noqa: E721
+                return e.error.decode("utf-8")  # throw
+
+            # [2024-12-09] This situation is not expected
+            assert False
+            return e.error
 
         if expect_error:
             assert False, "Exception was expected, but query finished successfully: `{}` ".format(query)
