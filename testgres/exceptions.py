@@ -104,5 +104,6 @@ class InitNodeException(TestgresException):
 class BackupException(TestgresException):
     pass
 
+
 class InvalidOperationException(TestgresException):
     pass
