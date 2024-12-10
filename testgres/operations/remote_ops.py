@@ -75,12 +75,15 @@ class RemoteOperations(OsOperations):
         if not get_process:
             input_prepared = Helpers.PrepareProcessInput(input, encoding)  # throw
 
+        assert input_prepared is None or (type(input_prepared) == bytes)  # noqa: E721
+
         ssh_cmd = []
         if isinstance(cmd, str):
             ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [cmd]
         elif isinstance(cmd, list):
             ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + cmd
         process = subprocess.Popen(ssh_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        assert not (process is None)
         if get_process:
             return process
 

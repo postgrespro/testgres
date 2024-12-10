@@ -86,6 +86,8 @@ class LocalOperations(OsOperations):
         if not get_process:
             input_prepared = Helpers.PrepareProcessInput(input, encoding)  # throw
 
+        assert input_prepared is None or (type(input_prepared) == bytes)  # noqa: E721
+
         process = subprocess.Popen(
             cmd,
             shell=shell,
@@ -93,17 +95,22 @@ class LocalOperations(OsOperations):
             stdout=stdout or subprocess.PIPE,
             stderr=stderr or subprocess.PIPE,
         )
+        assert not (process is None)
         if get_process:
             return process, None, None
         try:
             output, error = process.communicate(input=input_prepared, timeout=timeout)
-            if encoding:
-                output = output.decode(encoding)
-                error = error.decode(encoding)
-            return process, output, error
         except subprocess.TimeoutExpired:
             process.kill()
             raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
+
+        assert type(output) == bytes  # noqa: E721
+        assert type(error) == bytes  # noqa: E721
+
+        if encoding:
+            output = output.decode(encoding)
+            error = error.decode(encoding)
+        return process, output, error
 
     def _run_command(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
         """Execute a command and return the process and its output."""
