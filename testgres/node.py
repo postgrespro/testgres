@@ -739,13 +739,11 @@ class PostgresNode(object):
         if self.is_started:
             return self
 
-        _params = [
-            self._get_bin_path("pg_ctl"),
-            "-D", self.data_dir,
-            "-l", self.pg_log_file,
-            "-w" if wait else '-W',  # --wait or --no-wait
-            "start"
-        ] + params  # yapf: disable
+        _params = [self._get_bin_path("pg_ctl"),
+                   "-D", self.data_dir,
+                   "-l", self.pg_log_file,
+                   "-w" if wait else '-W',  # --wait or --no-wait
+                   "start"] + params  # yapf: disable
 
         startup_retries = 5
         while True:
