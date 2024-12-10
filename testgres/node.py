@@ -74,7 +74,7 @@ from .exceptions import \
     TimeoutException,   \
     InitNodeException,  \
     TestgresException,  \
-    BackupException, \
+    BackupException,    \
     InvalidOperationException
 
 from .logger import TestgresLogger
