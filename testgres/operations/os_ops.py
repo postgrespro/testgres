@@ -1,5 +1,6 @@
 import getpass
 import locale
+import os
 import sys
 
 try:
@@ -12,11 +13,18 @@ except ImportError:
 
 
 class ConnectionParams:
-    def __init__(self, host='127.0.0.1', port=None, ssh_key=None, username=None):
+    def __init__(self, host='127.0.0.1', port=None, ssh_key=None, username=None, remote=False, skip_ssl=None):
+        """
+            skip_ssl: if is True, the connection to database is established without SSL.
+        """
+        self.remote = remote
         self.host = host
         self.port = port
         self.ssh_key = ssh_key
         self.username = username
+        if skip_ssl is None:
+            skip_ssl = os.getenv("TESTGRES_SKIP_SSL", False)
+        self.skip_ssl = skip_ssl
 
 
 def get_default_encoding():
@@ -26,9 +34,12 @@ def get_default_encoding():
 
 
 class OsOperations:
-    def __init__(self, username=None):
-        self.ssh_key = None
-        self.username = username or getpass.getuser()
+    def __init__(self, conn_params=ConnectionParams()):
+        self.ssh_key = conn_params.ssh_key
+        self.username = conn_params.username or getpass.getuser()
+        self.host = conn_params.host
+        self.port = conn_params.port
+        self.conn_params = conn_params
 
     # Command execution
     def exec_command(self, cmd, **kwargs):
@@ -113,6 +124,27 @@ class OsOperations:
     def get_process_children(self, pid):
         raise NotImplementedError()
 
+    def _get_ssl_options(self):
+        """
+        Determine the SSL options based on available modules.
+        """
+        if self.conn_params.skip_ssl:
+            if 'psycopg2' in sys.modules:
+                return {"sslmode": "disable"}
+            elif 'pg8000' in sys.modules:
+                return {"ssl_context": None}
+        return {}
+
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
-        raise NotImplementedError()
+        ssl_options = self._get_ssl_options()
+        conn = pglib.connect(
+            host=host,
+            port=port,
+            database=dbname,
+            user=user,
+            password=password,
+            **ssl_options
+        )
+
+        return conn

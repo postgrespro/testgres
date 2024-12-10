@@ -1,4 +1,3 @@
-import getpass
 import logging
 import os
 import shutil
@@ -10,7 +9,7 @@ import time
 import psutil
 
 from ..exceptions import ExecUtilException
-from .os_ops import ConnectionParams, OsOperations, pglib, get_default_encoding
+from .os_ops import ConnectionParams, OsOperations, get_default_encoding
 from .raise_error import RaiseError
 from .helpers import Helpers
 
@@ -42,12 +41,7 @@ class LocalOperations(OsOperations):
     def __init__(self, conn_params=None):
         if conn_params is None:
             conn_params = ConnectionParams()
-        super(LocalOperations, self).__init__(conn_params.username)
-        self.conn_params = conn_params
-        self.host = conn_params.host
-        self.ssh_key = None
-        self.remote = False
-        self.username = conn_params.username or getpass.getuser()
+        super(LocalOperations, self).__init__(conn_params)
 
     @staticmethod
     def _process_output(encoding, temp_file_path):
@@ -329,14 +323,3 @@ class LocalOperations(OsOperations):
 
     def get_process_children(self, pid):
         return psutil.Process(pid).children()
-
-    # Database control
-    def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
-        conn = pglib.connect(
-            host=host,
-            port=port,
-            database=dbname,
-            user=user,
-            password=password,
-        )
-        return conn

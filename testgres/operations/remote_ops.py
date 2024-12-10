@@ -4,15 +4,6 @@ import platform
 import subprocess
 import tempfile
 
-# we support both pg8000 and psycopg2
-try:
-    import psycopg2 as pglib
-except ImportError:
-    try:
-        import pg8000 as pglib
-    except ImportError:
-        raise ImportError("You must have psycopg2 or pg8000 modules installed")
-
 from ..exceptions import ExecUtilException
 from .os_ops import OsOperations, ConnectionParams, get_default_encoding
 from .raise_error import RaiseError
@@ -39,23 +30,17 @@ class PsUtilProcessProxy:
 
 class RemoteOperations(OsOperations):
     def __init__(self, conn_params: ConnectionParams):
-
         if not platform.system().lower() == "linux":
             raise EnvironmentError("Remote operations are supported only on Linux!")
+        super().__init__(conn_params)
 
-        super().__init__(conn_params.username)
-        self.conn_params = conn_params
-        self.host = conn_params.host
-        self.port = conn_params.port
-        self.ssh_key = conn_params.ssh_key
         self.ssh_args = []
         if self.ssh_key:
             self.ssh_args += ["-i", self.ssh_key]
         if self.port:
             self.ssh_args += ["-p", self.port]
-        self.remote = True
         self.username = conn_params.username or getpass.getuser()
-        self.ssh_dest = f"{self.username}@{self.host}" if conn_params.username else self.host
+        self.ssh_dest = f"{self.username}@{self.host}" if self.username else self.host
 
     def __enter__(self):
         return self
@@ -374,17 +359,6 @@ class RemoteOperations(OsOperations):
             return [PsUtilProcessProxy(self, int(child_pid.strip())) for child_pid in children]
         else:
             raise ExecUtilException(f"Error in getting process children. Error: {result.stderr}")
-
-    # Database control
-    def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
-        conn = pglib.connect(
-            host=host,
-            port=port,
-            database=dbname,
-            user=user,
-            password=password,
-        )
-        return conn
 
 
 def normalize_error(error):
