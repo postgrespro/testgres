@@ -6,6 +6,8 @@ import tempfile
 
 from ..exceptions import ExecUtilException
 from .os_ops import OsOperations, ConnectionParams, get_default_encoding
+from .raise_error import RaiseError
+from .helpers import Helpers
 
 error_markers = [b'error', b'Permission denied', b'fatal', b'No such file or directory']
 
@@ -51,17 +53,27 @@ class RemoteOperations(OsOperations):
         Args:
         - cmd (str): The command to be executed.
         """
+        assert type(expect_error) == bool  # noqa: E721
+        assert type(ignore_errors) == bool  # noqa: E721
+
+        input_prepared = None
+        if not get_process:
+            input_prepared = Helpers.PrepareProcessInput(input, encoding)  # throw
+
+        assert input_prepared is None or (type(input_prepared) == bytes)  # noqa: E721
+
         ssh_cmd = []
         if isinstance(cmd, str):
             ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [cmd]
         elif isinstance(cmd, list):
             ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + cmd
         process = subprocess.Popen(ssh_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        assert not (process is None)
         if get_process:
             return process
 
         try:
-            result, error = process.communicate(input, timeout=timeout)
+            result, error = process.communicate(input=input_prepared, timeout=timeout)
         except subprocess.TimeoutExpired:
             process.kill()
             raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
@@ -85,10 +97,12 @@ class RemoteOperations(OsOperations):
             error = error.decode(encoding)
 
         if not ignore_errors and error_found and not expect_error:
-            error = normalize_error(error)
-            assert type(error) == str  # noqa: E721
-            message = "Utility exited with non-zero code. Error: " + error
-            raise ExecUtilException(message=message, command=cmd, exit_code=exit_status, out=result)
+            RaiseError.UtilityExitedWithNonZeroCode(
+                cmd=cmd,
+                exit_code=exit_status,
+                msg_arg=error,
+                error=error,
+                out=result)
 
         if verbose:
             return exit_status, result, error

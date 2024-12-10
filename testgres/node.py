@@ -74,7 +74,8 @@ from .exceptions import \
     TimeoutException,   \
     InitNodeException,  \
     TestgresException,  \
-    BackupException
+    BackupException,    \
+    InvalidOperationException
 
 from .logger import TestgresLogger
 
@@ -1005,6 +1006,37 @@ class PostgresNode(object):
             >>> psql(query='select 3', ON_ERROR_STOP=1)
         """
 
+        return self._psql(
+            ignore_errors=True,
+            query=query,
+            filename=filename,
+            dbname=dbname,
+            username=username,
+            input=input,
+            **variables
+        )
+
+    def _psql(
+            self,
+            ignore_errors,
+            query=None,
+            filename=None,
+            dbname=None,
+            username=None,
+            input=None,
+            **variables):
+        assert type(variables) == dict  # noqa: E721
+
+        #
+        # We do not support encoding. It may be added later. Ok?
+        #
+        if input is None:
+            pass
+        elif type(input) == bytes:  # noqa: E721
+            pass
+        else:
+            raise Exception("Input data must be None or bytes.")
+
         dbname = dbname or default_dbname()
 
         psql_params = [
@@ -1035,20 +1067,14 @@ class PostgresNode(object):
 
         # should be the last one
         psql_params.append(dbname)
-        if not self.os_ops.conn_params.remote:
-            # start psql process
-            process = subprocess.Popen(psql_params,
-                                       stdin=subprocess.PIPE,
-                                       stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE)
 
-            # wait until it finishes and get stdout and stderr
-            out, err = process.communicate(input=input)
-            return process.returncode, out, err
-        else:
-            status_code, out, err = self.os_ops.exec_command(psql_params, verbose=True, input=input)
-
-            return status_code, out, err
+        return self.os_ops.exec_command(
+            psql_params,
+            verbose=True,
+            input=input,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            ignore_errors=ignore_errors)
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def safe_psql(self, query=None, expect_error=False, **kwargs):
@@ -1069,22 +1095,27 @@ class PostgresNode(object):
         Returns:
             psql's output as str.
         """
+        assert type(kwargs) == dict  # noqa: E721
+        assert not ("ignore_errors" in kwargs.keys())
+        assert not ("expect_error" in kwargs.keys())
 
         # force this setting
         kwargs['ON_ERROR_STOP'] = 1
         try:
-            ret, out, err = self.psql(query=query, **kwargs)
+            ret, out, err = self._psql(ignore_errors=False, query=query, **kwargs)
         except ExecUtilException as e:
-            ret = e.exit_code
-            out = e.out
-            err = e.message
-        if ret:
-            if expect_error:
-                out = (err or b'').decode('utf-8')
-            else:
-                raise QueryException((err or b'').decode('utf-8'), query)
-        elif expect_error:
-            assert False, "Exception was expected, but query finished successfully: `{}` ".format(query)
+            if not expect_error:
+                raise QueryException(e.message, query)
+
+            if type(e.error) == bytes:  # noqa: E721
+                return e.error.decode("utf-8")  # throw
+
+            # [2024-12-09] This situation is not expected
+            assert False
+            return e.error
+
+        if expect_error:
+            raise InvalidOperationException("Exception was expected, but query finished successfully: `{}`.".format(query))
 
         return out
 

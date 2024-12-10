@@ -37,7 +37,7 @@ class TestRemoteOperations:
                 error = e.message
                 break
             raise Exception("We wait an exception!")
-        assert error == 'Utility exited with non-zero code. Error: bash: line 1: nonexistent_command: command not found\n'
+        assert error == 'Utility exited with non-zero code. Error: `bash: line 1: nonexistent_command: command not found`'
 
     def test_exec_command_failure__expect_error(self):
         """
@@ -98,11 +98,14 @@ class TestRemoteOperations:
             self.operations.makedirs(path)
 
         # Test rmdirs
-        try:
-            exit_status, result, error = self.operations.rmdirs(path, verbose=True)
-        except ExecUtilException as e:
-            error = e.message
-        assert error == "Utility exited with non-zero code. Error: rm: cannot remove '/root/test_dir': Permission denied\n"
+        while True:
+            try:
+                self.operations.rmdirs(path, verbose=True)
+            except ExecUtilException as e:
+                error = e.message
+                break
+            raise Exception("We wait an exception!")
+        assert error == "Utility exited with non-zero code. Error: `rm: cannot remove '/root/test_dir': Permission denied`"
 
     def test_listdir(self):
         """

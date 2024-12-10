@@ -10,6 +10,8 @@ import psutil
 
 from ..exceptions import ExecUtilException
 from .os_ops import ConnectionParams, OsOperations, get_default_encoding
+from .raise_error import RaiseError
+from .helpers import Helpers
 
 try:
     from shutil import which as find_executable
@@ -42,14 +44,6 @@ class LocalOperations(OsOperations):
         super(LocalOperations, self).__init__(conn_params)
 
     @staticmethod
-    def _raise_exec_exception(message, command, exit_code, output):
-        """Raise an ExecUtilException."""
-        raise ExecUtilException(message=message.format(output),
-                                command=' '.join(command) if isinstance(command, list) else command,
-                                exit_code=exit_code,
-                                out=output)
-
-    @staticmethod
     def _process_output(encoding, temp_file_path):
         """Process the output of a command from a temporary file."""
         with open(temp_file_path, 'rb') as temp_file:
@@ -59,6 +53,8 @@ class LocalOperations(OsOperations):
             return output, None  # In Windows stderr writing in stdout
 
     def _run_command__nt(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
+        # TODO: why don't we use the data from input?
+
         with tempfile.NamedTemporaryFile(mode='w+b', delete=False) as temp_file:
             stdout = temp_file
             stderr = subprocess.STDOUT
@@ -80,6 +76,12 @@ class LocalOperations(OsOperations):
         return process, output, error
 
     def _run_command__generic(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
+        input_prepared = None
+        if not get_process:
+            input_prepared = Helpers.PrepareProcessInput(input, encoding)  # throw
+
+        assert input_prepared is None or (type(input_prepared) == bytes)  # noqa: E721
+
         process = subprocess.Popen(
             cmd,
             shell=shell,
@@ -87,17 +89,22 @@ class LocalOperations(OsOperations):
             stdout=stdout or subprocess.PIPE,
             stderr=stderr or subprocess.PIPE,
         )
+        assert not (process is None)
         if get_process:
             return process, None, None
         try:
-            output, error = process.communicate(input=input.encode(encoding) if input else None, timeout=timeout)
-            if encoding:
-                output = output.decode(encoding)
-                error = error.decode(encoding)
-            return process, output, error
+            output, error = process.communicate(input=input_prepared, timeout=timeout)
         except subprocess.TimeoutExpired:
             process.kill()
             raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
+
+        assert type(output) == bytes  # noqa: E721
+        assert type(error) == bytes  # noqa: E721
+
+        if encoding:
+            output = output.decode(encoding)
+            error = error.decode(encoding)
+        return process, output, error
 
     def _run_command(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
         """Execute a command and return the process and its output."""
@@ -114,11 +121,20 @@ class LocalOperations(OsOperations):
         """
         Execute a command in a subprocess and handle the output based on the provided parameters.
         """
+        assert type(expect_error) == bool  # noqa: E721
+        assert type(ignore_errors) == bool  # noqa: E721
+
         process, output, error = self._run_command(cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding)
         if get_process:
             return process
         if not ignore_errors and ((process.returncode != 0 or has_errors(output=output, error=error)) and not expect_error):
-            self._raise_exec_exception('Utility exited with non-zero code. Error `{}`', cmd, process.returncode, error or output)
+            RaiseError.UtilityExitedWithNonZeroCode(
+                cmd=cmd,
+                exit_code=process.returncode,
+                msg_arg=error or output,
+                error=error,
+                out=output
+            )
 
         if verbose:
             return process.returncode, output, error

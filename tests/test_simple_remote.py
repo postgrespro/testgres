@@ -23,7 +23,8 @@ from testgres.exceptions import \
     BackupException, \
     QueryException, \
     TimeoutException, \
-    TestgresException
+    TestgresException, \
+    InvalidOperationException
 
 from testgres.config import \
     TestgresConfig, \
@@ -294,6 +295,23 @@ class TestgresRemoteTests(unittest.TestCase):
             # check psql on stopped node, fails
             with self.assertRaises(QueryException):
                 node.safe_psql('select 1')
+
+    def test_safe_psql__expect_error(self):
+        with get_remote_node(conn_params=conn_params).init().start() as node:
+            err = node.safe_psql('select_or_not_select 1', expect_error=True)
+            self.assertTrue(type(err) == str)  # noqa: E721
+            self.assertIn('select_or_not_select', err)
+            self.assertIn('ERROR:  syntax error at or near "select_or_not_select"', err)
+
+            # ---------
+            with self.assertRaises(InvalidOperationException) as ctx:
+                node.safe_psql("select 1;", expect_error=True)
+
+            self.assertEqual(str(ctx.exception), "Exception was expected, but query finished successfully: `select 1;`.")
+
+            # ---------
+            res = node.safe_psql("select 1;", expect_error=False)
+            self.assertEqual(res, b'1\n')
 
     def test_transactions(self):
         with get_remote_node().init().start() as node:
