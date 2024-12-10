@@ -1,4 +1,5 @@
 from ..exceptions import ExecUtilException
+from .helpers import Helpers
 
 
 class RaiseError:
@@ -29,7 +30,7 @@ class RaiseError:
         assert type(data) == bytes  # noqa: E721
 
         try:
-            return data.decode('utf-8')
+            return data.decode(Helpers.GetDefaultEncoding())
         except UnicodeDecodeError:
             pass
 
