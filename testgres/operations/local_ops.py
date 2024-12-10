@@ -11,8 +11,8 @@ import psutil
 
 from ..exceptions import ExecUtilException
 from .os_ops import ConnectionParams, OsOperations, pglib, get_default_encoding
+from .raise_error import RaiseError
 from .helpers import Helpers
-from ..helpers.raise_error import RaiseError
 
 try:
     from shutil import which as find_executable
