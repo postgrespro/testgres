@@ -3,9 +3,9 @@ import logging
 import os
 import random
 import signal
+import subprocess
 import threading
 import tempfile
-import subprocess
 from queue import Queue
 
 import time
