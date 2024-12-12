@@ -1051,10 +1051,18 @@ class TestgresTests(unittest.TestCase):
     def test_the_same_port(self):
         with get_new_node() as node:
             node.init().start()
+            self.assertTrue(node._should_free_port)
+            self.assertEqual(type(node.port), int)
 
-            with get_new_node() as node2:
-                node2.port = node.port
-                node2.init().start()
+            with get_new_node(port=node.port) as node2:
+                self.assertEqual(type(node2.port), int)
+                self.assertEqual(node2.port, node.port)
+                self.assertFalse(node2._should_free_port)
+
+                with self.assertRaises(StartNodeException) as ctx:
+                    node2.init().start()
+
+                self.assertIn("Cannot start node", str(ctx.exception))
 
     def test_simple_with_bin_dir(self):
         with get_new_node() as node:
