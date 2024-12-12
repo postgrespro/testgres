@@ -325,6 +325,11 @@ class LocalOperations(OsOperations):
     def isdir(self, dirname):
         return os.path.isdir(dirname)
 
+    def get_file_size(self, filename):
+        assert filename is not None
+        assert type(filename) == str  # noqa: E721
+        return os.path.getsize(filename)
+
     def remove_file(self, filename):
         return os.remove(filename)
 

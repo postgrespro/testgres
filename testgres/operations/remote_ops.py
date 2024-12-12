@@ -360,6 +360,70 @@ class RemoteOperations(OsOperations):
         response = self.exec_command(cmd)
         return response.strip() == b"True"
 
+    def get_file_size(self, filename):
+        C_ERR_SRC = "RemoteOpertions::get_file_size"
+
+        assert filename is not None
+        assert type(filename) == str  # noqa: E721
+        cmd = "du -b " + __class__._escape_path(filename)
+
+        s = self.exec_command(cmd, encoding=get_default_encoding())
+        assert type(s) == str  # noqa: E721
+
+        if len(s) == 0:
+            raise Exception(
+                "[BUG CHECK] Can't get size of file [{2}]. Remote operation returned an empty string. Check point [{0}][{1}].".format(
+                    C_ERR_SRC,
+                    "#001",
+                    filename
+                )
+            )
+
+        i = 0
+
+        while i < len(s) and s[i].isdigit():
+            assert s[i] >= '0'
+            assert s[i] <= '9'
+            i += 1
+
+        if i == 0:
+            raise Exception(
+                "[BUG CHECK] Can't get size of file [{2}]. Remote operation returned a bad formatted string. Check point [{0}][{1}].".format(
+                    C_ERR_SRC,
+                    "#002",
+                    filename
+                )
+            )
+
+        if i == len(s):
+            raise Exception(
+                "[BUG CHECK] Can't get size of file [{2}]. Remote operation returned a bad formatted string. Check point [{0}][{1}].".format(
+                    C_ERR_SRC,
+                    "#003",
+                    filename
+                )
+            )
+
+        if not s[i].isspace():
+            raise Exception(
+                "[BUG CHECK] Can't get size of file [{2}]. Remote operation returned a bad formatted string. Check point [{0}][{1}].".format(
+                    C_ERR_SRC,
+                    "#004",
+                    filename
+                )
+            )
+
+        r = 0
+
+        for i2 in range(0, i):
+            ch = s[i2]
+            assert ch >= '0'
+            assert ch <= '9'
+            # Here is needed to check overflow or that it is a human-valid result?
+            r = (r * 10) + ord(ch) - ord('0')
+
+        return r
+
     def remove_file(self, filename):
         cmd = "rm {}".format(filename)
         return self.exec_command(cmd)

@@ -224,6 +224,27 @@ class TestRemoteOperations:
         with pytest.raises(ExecUtilException, match=re.escape("tail: cannot open '/dummy' for reading: No such file or directory")):
             self.operations.read_binary("/dummy", 0)
 
+    def test_get_file_size(self):
+        """
+        Test LocalOperations::get_file_size.
+        """
+        filename = __file__  # current file
+
+        sz0 = os.path.getsize(filename)
+        assert type(sz0) == int  # noqa: E721
+
+        sz1 = self.operations.get_file_size(filename)
+        assert type(sz1) == int  # noqa: E721
+        assert sz1 == sz0
+
+    def test_get_file_size__unk_file(self):
+        """
+        Test LocalOperations::get_file_size.
+        """
+
+        with pytest.raises(ExecUtilException, match=re.escape("du: cannot access '/dummy': No such file or directory")):
+            self.operations.get_file_size("/dummy")
+
     def test_touch(self):
         """
         Test touch for creating a new file or updating access and modification times of an existing file.
