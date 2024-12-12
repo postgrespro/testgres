@@ -340,6 +340,16 @@ class RemoteOperations(OsOperations):
 
         return lines
 
+    def read_binary(self, filename, start_pos):
+        assert type(filename) == str  # noqa: E721
+        assert type(start_pos) == int  # noqa: E721
+        assert start_pos >= 0
+
+        cmd = "tail -c +{} {}".format(start_pos + 1, __class__._escape_path(filename))
+        r = self.exec_command(cmd)
+        assert type(r) == bytes  # noqa: E721
+        return r
+
     def isfile(self, remote_file):
         stdout = self.exec_command("test -f {}; echo $?".format(remote_file))
         result = int(stdout.strip())
@@ -385,6 +395,15 @@ class RemoteOperations(OsOperations):
             password=password,
         )
         return conn
+
+    def _escape_path(path):
+        assert type(path) == str  # noqa: E721
+        assert path != ""  # Ok?
+
+        r = "'"
+        r += path
+        r += "'"
+        return r
 
 
 def normalize_error(error):

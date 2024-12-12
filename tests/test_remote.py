@@ -1,6 +1,7 @@
 import os
 
 import pytest
+import re
 
 from testgres import ExecUtilException
 from testgres import RemoteOperations
@@ -180,6 +181,48 @@ class TestRemoteOperations:
         response = self.operations.read(filename, binary=True)
 
         assert isinstance(response, bytes)
+
+    def test_read_binary__spec(self):
+        """
+        Test RemoteOperations::read_binary.
+        """
+        filename = __file__  # currnt file
+
+        with open(filename, 'rb') as file:  # open in a binary mode
+            response0 = file.read()
+
+        assert type(response0) == bytes  # noqa: E721
+
+        response1 = self.operations.read_binary(filename, 0)
+        assert type(response1) == bytes  # noqa: E721
+        assert response1 == response0
+
+        response2 = self.operations.read_binary(filename, 1)
+        assert type(response2) == bytes  # noqa: E721
+        assert len(response2) < len(response1)
+        assert len(response2) + 1 == len(response1)
+        assert response2 == response1[1:]
+
+        response3 = self.operations.read_binary(filename, len(response1))
+        assert type(response3) == bytes  # noqa: E721
+        assert len(response3) == 0
+
+        response4 = self.operations.read_binary(filename, len(response2))
+        assert type(response4) == bytes  # noqa: E721
+        assert len(response4) == 1
+        assert response4[0] == response1[len(response1) - 1]
+
+        response5 = self.operations.read_binary(filename, len(response1) + 1)
+        assert type(response5) == bytes  # noqa: E721
+        assert len(response5) == 0
+
+    def test_read_binary__spec__unk_file(self):
+        """
+        Test RemoteOperations::read_binary with unknown file.
+        """
+
+        with pytest.raises(ExecUtilException, match=re.escape("tail: cannot open '/dummy' for reading: No such file or directory")):
+            self.operations.read_binary("/dummy", 0)
 
     def test_touch(self):
         """
