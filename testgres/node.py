@@ -83,13 +83,13 @@ from .pubsub import Publication, Subscription
 
 from .standby import First
 
+from . import utils
+
 from .utils import \
     PgVer, \
     eprint, \
     get_bin_path, \
     get_pg_version, \
-    reserve_port, \
-    release_port, \
     execute_utility, \
     options_string, \
     clean_on_error
@@ -158,7 +158,7 @@ class PostgresNode(object):
             self.os_ops = LocalOperations(conn_params)
 
         self.host = self.os_ops.host
-        self.port = port or reserve_port()
+        self.port = port or utils.reserve_port()
 
         self.ssh_key = self.os_ops.ssh_key
 
@@ -471,6 +471,28 @@ class PostgresNode(object):
 
         return result
 
+    def _collect_log_files(self):
+        # dictionary of log files + size in bytes
+
+        files = [
+            self.pg_log_file
+        ]  # yapf: disable
+
+        result = {}
+
+        for f in files:
+            # skip missing files
+            if not self.os_ops.path_exists(f):
+                continue
+
+            file_size = self.os_ops.get_file_size(f)
+            assert type(file_size) == int  # noqa: E721
+            assert file_size >= 0
+
+            result[f] = file_size
+
+        return result
+
     def init(self, initdb_params=None, cached=True, **kwargs):
         """
         Perform initdb for this node.
@@ -722,6 +744,22 @@ class PostgresNode(object):
                                         OperationalError},
                               max_attempts=max_attempts)
 
+    def _detect_port_conflict(self, log_files0, log_files1):
+        assert type(log_files0) == dict  # noqa: E721
+        assert type(log_files1) == dict  # noqa: E721
+
+        for file in log_files1.keys():
+            read_pos = 0
+
+            if file in log_files0.keys():
+                read_pos = log_files0[file]  # the previous size
+
+            file_content = self.os_ops.read_binary(file, read_pos)
+            file_content_s = file_content.decode()
+            if 'Is another postmaster already running on port' in file_content_s:
+                return True
+        return False
+
     def start(self, params=[], wait=True):
         """
         Starts the PostgreSQL node using pg_ctl if node has not been started.
@@ -745,27 +783,42 @@ class PostgresNode(object):
                    "-w" if wait else '-W',  # --wait or --no-wait
                    "start"] + params  # yapf: disable
 
-        startup_retries = 5
+        log_files0 = self._collect_log_files()
+        assert type(log_files0) == dict  # noqa: E721
+
+        nAttempt = 0
+        timeout = 1
         while True:
+            nAttempt += 1
             try:
                 exit_status, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
                 if error and 'does not exist' in error:
                     raise Exception
             except Exception as e:
-                files = self._collect_special_files()
-                if any(len(file) > 1 and 'Is another postmaster already '
-                                         'running on port' in file[1].decode() for
-                       file in files):
-                    logging.warning("Detected an issue with connecting to port {0}. "
-                                    "Trying another port after a 5-second sleep...".format(self.port))
-                    self.port = reserve_port()
-                    options = {'port': str(self.port)}
-                    self.set_auto_conf(options)
-                    startup_retries -= 1
-                    time.sleep(5)
-                    continue
+                if self._should_free_port and nAttempt < 5:
+                    log_files1 = self._collect_log_files()
+                    if self._detect_port_conflict(log_files0, log_files1):
+                        log_files0 = log_files1
+                        logging.warning(
+                            "Detected an issue with connecting to port {0}. "
+                            "Trying another port after a {1}-second sleep...".format(self.port, timeout)
+                        )
+                        time.sleep(timeout)
+                        timeout = min(2 * timeout, 5)
+                        cur_port = self.port
+                        new_port = utils.reserve_port()  # throw
+                        try:
+                            options = {'port': str(new_port)}
+                            self.set_auto_conf(options)
+                        except:  # noqa: E722
+                            utils.release_port(new_port)
+                            raise
+                        self.port = new_port
+                        utils.release_port(cur_port)
+                        continue
 
                 msg = 'Cannot start node'
+                files = self._collect_special_files()
                 raise_from(StartNodeException(msg, files), e)
             break
         self._maybe_start_logger()
@@ -930,8 +983,10 @@ class PostgresNode(object):
         """
 
         if self._should_free_port:
+            port = self.port
             self._should_free_port = False
-            release_port(self.port)
+            self.port = None
+            utils.release_port(port)
 
     def cleanup(self, max_attempts=3, full=False):
         """
