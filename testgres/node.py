@@ -128,6 +128,9 @@ class ProcessProxy(object):
 
 
 class PostgresNode(object):
+    # a max number of node start attempts
+    _C_MAX_START_ATEMPTS = 5
+
     def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(), bin_dir=None, prefix=None):
         """
         PostgresNode constructor.
@@ -774,6 +777,9 @@ class PostgresNode(object):
         Returns:
             This instance of :class:`.PostgresNode`.
         """
+
+        assert __class__._C_MAX_START_ATEMPTS > 1
+
         if self.is_started:
             return self
 
@@ -789,13 +795,17 @@ class PostgresNode(object):
         nAttempt = 0
         timeout = 1
         while True:
+            assert nAttempt >= 0
+            assert nAttempt < __class__._C_MAX_START_ATEMPTS
             nAttempt += 1
             try:
                 exit_status, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
                 if error and 'does not exist' in error:
                     raise Exception
             except Exception as e:
-                if self._should_free_port and nAttempt < 5:
+                assert nAttempt > 0
+                assert nAttempt <= __class__._C_MAX_START_ATEMPTS
+                if self._should_free_port and nAttempt < __class__._C_MAX_START_ATEMPTS:
                     log_files1 = self._collect_log_files()
                     if self._detect_port_conflict(log_files0, log_files1):
                         log_files0 = log_files1
@@ -806,7 +816,7 @@ class PostgresNode(object):
                         time.sleep(timeout)
                         timeout = min(2 * timeout, 5)
                         cur_port = self.port
-                        new_port = utils.reserve_port()  # throw
+                        new_port = utils.reserve_port()  # can raise
                         try:
                             options = {'port': str(new_port)}
                             self.set_auto_conf(options)
