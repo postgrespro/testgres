@@ -308,11 +308,27 @@ class LocalOperations(OsOperations):
                         buffers * max(2, int(num_lines / max(cur_lines, 1)))
                     )  # Adjust buffer size
 
+    def read_binary(self, filename, start_pos):
+        assert type(filename) == str  # noqa: E721
+        assert type(start_pos) == int  # noqa: E721
+        assert start_pos >= 0
+
+        with open(filename, 'rb') as file:  # open in a binary mode
+            file.seek(start_pos, os.SEEK_SET)
+            r = file.read()
+            assert type(r) == bytes  # noqa: E721
+            return r
+
     def isfile(self, remote_file):
         return os.path.isfile(remote_file)
 
     def isdir(self, dirname):
         return os.path.isdir(dirname)
+
+    def get_file_size(self, filename):
+        assert filename is not None
+        assert type(filename) == str  # noqa: E721
+        return os.path.getsize(filename)
 
     def remove_file(self, filename):
         return os.remove(filename)

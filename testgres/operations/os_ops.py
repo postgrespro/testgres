@@ -98,7 +98,16 @@ class OsOperations:
     def readlines(self, filename):
         raise NotImplementedError()
 
+    def read_binary(self, filename, start_pos):
+        assert type(filename) == str  # noqa: E721
+        assert type(start_pos) == int  # noqa: E721
+        assert start_pos >= 0
+        raise NotImplementedError()
+
     def isfile(self, remote_file):
+        raise NotImplementedError()
+
+    def get_file_size(self, filename):
         raise NotImplementedError()
 
     # Processes control

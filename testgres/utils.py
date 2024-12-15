@@ -34,7 +34,7 @@ class PgVer(Version):
             super().__init__(version)
 
 
-def reserve_port():
+def internal__reserve_port():
     """
     Generate a new port and add it to 'bound_ports'.
     """
@@ -45,12 +45,16 @@ def reserve_port():
     return port
 
 
-def release_port(port):
+def internal__release_port(port):
     """
     Free port provided by reserve_port().
     """
 
     bound_ports.discard(port)
+
+
+reserve_port = internal__reserve_port
+release_port = internal__release_port
 
 
 def execute_utility(args, logfile=None, verbose=False):
