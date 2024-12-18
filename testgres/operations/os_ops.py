@@ -107,6 +107,9 @@ class OsOperations:
     def isfile(self, remote_file):
         raise NotImplementedError()
 
+    def isdir(self, dirname):
+        raise NotImplementedError()
+
     def get_file_size(self, filename):
         raise NotImplementedError()
 
