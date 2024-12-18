@@ -259,18 +259,62 @@ class TestRemoteOperations:
         """
         Test isfile for an existing file.
         """
-        filename = "/etc/hosts"
+        filename = __file__
 
         response = self.operations.isfile(filename)
 
         assert response is True
 
-    def test_isfile_false(self):
+    def test_isfile_false__not_exist(self):
         """
         Test isfile for a non-existing file.
         """
-        filename = "/nonexistent_file.txt"
+        filename = os.path.join(os.path.dirname(__file__), "nonexistent_file.txt")
 
         response = self.operations.isfile(filename)
+
+        assert response is False
+
+    def test_isfile_false__directory(self):
+        """
+        Test isfile for a firectory.
+        """
+        name = os.path.dirname(__file__)
+
+        assert self.operations.isdir(name)
+
+        response = self.operations.isfile(name)
+
+        assert response is False
+
+    def test_isdir_true(self):
+        """
+        Test isdir for an existing directory.
+        """
+        name = os.path.dirname(__file__)
+
+        response = self.operations.isdir(name)
+
+        assert response is True
+
+    def test_isdir_false__not_exist(self):
+        """
+        Test isdir for a non-existing directory.
+        """
+        name = os.path.join(os.path.dirname(__file__), "it_is_nonexistent_directory")
+
+        response = self.operations.isdir(name)
+
+        assert response is False
+
+    def test_isdir_false__file(self):
+        """
+        Test isdir for a file.
+        """
+        name = __file__
+
+        assert self.operations.isfile(name)
+
+        response = self.operations.isdir(name)
 
         assert response is False
