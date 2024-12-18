@@ -118,3 +118,67 @@ class TestLocalOperations:
 
         with pytest.raises(FileNotFoundError, match=re.escape("[Errno 2] No such file or directory: '/dummy'")):
             self.operations.get_file_size("/dummy")
+
+    def test_isfile_true(self):
+        """
+        Test isfile for an existing file.
+        """
+        filename = __file__
+
+        response = self.operations.isfile(filename)
+
+        assert response is True
+
+    def test_isfile_false__not_exist(self):
+        """
+        Test isfile for a non-existing file.
+        """
+        filename = os.path.join(os.path.dirname(__file__), "nonexistent_file.txt")
+
+        response = self.operations.isfile(filename)
+
+        assert response is False
+
+    def test_isfile_false__directory(self):
+        """
+        Test isfile for a firectory.
+        """
+        name = os.path.dirname(__file__)
+
+        assert self.operations.isdir(name)
+
+        response = self.operations.isfile(name)
+
+        assert response is False
+
+    def test_isdir_true(self):
+        """
+        Test isdir for an existing directory.
+        """
+        name = os.path.dirname(__file__)
+
+        response = self.operations.isdir(name)
+
+        assert response is True
+
+    def test_isdir_false__not_exist(self):
+        """
+        Test isdir for a non-existing directory.
+        """
+        name = os.path.join(os.path.dirname(__file__), "it_is_nonexistent_directory")
+
+        response = self.operations.isdir(name)
+
+        assert response is False
+
+    def test_isdir_false__file(self):
+        """
+        Test isdir for a file.
+        """
+        name = __file__
+
+        assert self.operations.isfile(name)
+
+        response = self.operations.isdir(name)
+
+        assert response is False
