@@ -790,48 +790,72 @@ class PostgresNode(object):
                    "-w" if wait else '-W',  # --wait or --no-wait
                    "start"] + params  # yapf: disable
 
-        log_files0 = self._collect_log_files()
-        assert type(log_files0) == dict  # noqa: E721
+        def LOCAL__start_node():
+            _, _, error = execute_utility(_params, self.utils_log_file, verbose=True)
+            assert type(error) == str  # noqa: E721
+            if error and 'does not exist' in error:
+                raise Exception(error)
 
-        nAttempt = 0
-        timeout = 1
-        while True:
-            assert nAttempt >= 0
-            assert nAttempt < __class__._C_MAX_START_ATEMPTS
-            nAttempt += 1
+        def LOCAL__raise_cannot_start_node(from_exception, msg):
+            assert isinstance(from_exception, Exception)
+            assert type(msg) == str  # noqa: E721
+            files = self._collect_special_files()
+            raise_from(StartNodeException(msg, files), from_exception)
+
+        def LOCAL__raise_cannot_start_node__std(from_exception):
+            assert isinstance(from_exception, Exception)
+            LOCAL__raise_cannot_start_node(from_exception, 'Cannot start node')
+
+        if not self._should_free_port:
             try:
-                exit_status, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
-                if error and 'does not exist' in error:
-                    raise Exception
+                LOCAL__start_node()
             except Exception as e:
-                assert nAttempt > 0
-                assert nAttempt <= __class__._C_MAX_START_ATEMPTS
-                if self._should_free_port and nAttempt < __class__._C_MAX_START_ATEMPTS:
-                    log_files1 = self._collect_log_files()
-                    if self._detect_port_conflict(log_files0, log_files1):
-                        log_files0 = log_files1
-                        logging.warning(
-                            "Detected an issue with connecting to port {0}. "
-                            "Trying another port after a {1}-second sleep...".format(self.port, timeout)
-                        )
-                        time.sleep(timeout)
-                        timeout = min(2 * timeout, 5)
-                        cur_port = self.port
-                        new_port = utils.reserve_port()  # can raise
-                        try:
-                            options = {'port': str(new_port)}
-                            self.set_auto_conf(options)
-                        except:  # noqa: E722
-                            utils.release_port(new_port)
-                            raise
-                        self.port = new_port
-                        utils.release_port(cur_port)
-                        continue
+                LOCAL__raise_cannot_start_node__std(e)
+        else:
+            assert self._should_free_port
+            assert __class__._C_MAX_START_ATEMPTS > 1
 
-                msg = 'Cannot start node'
-                files = self._collect_special_files()
-                raise_from(StartNodeException(msg, files), e)
-            break
+            log_files0 = self._collect_log_files()
+            assert type(log_files0) == dict  # noqa: E721
+
+            nAttempt = 0
+            timeout = 1
+            while True:
+                assert nAttempt >= 0
+                assert nAttempt < __class__._C_MAX_START_ATEMPTS
+                nAttempt += 1
+                try:
+                    LOCAL__start_node()
+                except Exception as e:
+                    assert nAttempt > 0
+                    assert nAttempt <= __class__._C_MAX_START_ATEMPTS
+                    if nAttempt == __class__._C_MAX_START_ATEMPTS:
+                        logging.error("Reached maximum retry attempts. Unable to start node.")
+                        LOCAL__raise_cannot_start_node(e, "Cannot start node after multiple attempts")
+
+                    log_files1 = self._collect_log_files()
+                    if not self._detect_port_conflict(log_files0, log_files1):
+                        LOCAL__raise_cannot_start_node__std(e)
+
+                    log_files0 = log_files1
+                    logging.warning(
+                        "Detected a conflict with using the port {0}. "
+                        "Trying another port after a {1}-second sleep...".format(self.port, timeout)
+                    )
+                    time.sleep(timeout)
+                    timeout = min(2 * timeout, 5)
+                    cur_port = self.port
+                    new_port = utils.reserve_port()  # can raise
+                    try:
+                        options = {'port': str(new_port)}
+                        self.set_auto_conf(options)
+                    except:  # noqa: E722
+                        utils.release_port(new_port)
+                        raise
+                    self.port = new_port
+                    utils.release_port(cur_port)
+                    continue
+                break
         self._maybe_start_logger()
         self.is_started = True
         return self
