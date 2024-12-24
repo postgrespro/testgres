@@ -1125,10 +1125,7 @@ class PostgresNode(object):
 
         # select query source
         if query:
-            if self.os_ops.remote:
-                psql_params.extend(("-c", '"{}"'.format(query)))
-            else:
-                psql_params.extend(("-c", query))
+            psql_params.extend(("-c", query))
         elif filename:
             psql_params.extend(("-f", filename))
         else:
