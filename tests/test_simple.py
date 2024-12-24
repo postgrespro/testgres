@@ -1219,7 +1219,7 @@ class TestgresTests(unittest.TestCase):
                     with self.assertRaises(StartNodeException) as ctx:
                         node2.init().start()
 
-                    self.assertIn("Cannot start node", str(ctx.exception))
+                    self.assertIn("Cannot start node after multiple attempts", str(ctx.exception))
 
                     self.assertEqual(node2.port, node1.port)
                     self.assertTrue(node2._should_free_port)
