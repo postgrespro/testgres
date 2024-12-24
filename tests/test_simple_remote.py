@@ -297,7 +297,7 @@ class TestgresRemoteTests(unittest.TestCase):
                 node.safe_psql('select 1')
 
     def test_safe_psql__expect_error(self):
-        with get_remote_node(conn_params=conn_params).init().start() as node:
+        with get_remote_node().init().start() as node:
             err = node.safe_psql('select_or_not_select 1', expect_error=True)
             self.assertTrue(type(err) == str)  # noqa: E721
             self.assertIn('select_or_not_select', err)
