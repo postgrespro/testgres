@@ -80,7 +80,10 @@ class RemoteOperations(OsOperations):
         if isinstance(cmd, str):
             ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [cmd]
         elif isinstance(cmd, list):
-            ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + cmd
+            ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [subprocess.list2cmdline(cmd)]
+        else:
+            raise ValueError("Invalid 'cmd' argument type - {0}".format(type(cmd).__name__))
+
         process = subprocess.Popen(ssh_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert not (process is None)
         if get_process:
