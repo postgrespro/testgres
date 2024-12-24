@@ -1107,13 +1107,12 @@ class PostgresNode(object):
         else:
             raise Exception("Input data must be None or bytes.")
 
-        dbname = dbname or default_dbname()
-
         psql_params = [
             self._get_bin_path("psql"),
             "-p", str(self.port),
             "-h", self.host,
             "-U", username or self.os_ops.username,
+            "-d", dbname or default_dbname(),
             "-X",  # no .psqlrc
             "-A",  # unaligned output
             "-t",  # print rows only
@@ -1134,9 +1133,6 @@ class PostgresNode(object):
             psql_params.extend(("-f", filename))
         else:
             raise QueryException('Query or filename must be provided')
-
-        # should be the last one
-        psql_params.append(dbname)
 
         return self.os_ops.exec_command(
             psql_params,
