@@ -39,7 +39,6 @@ class PsUtilProcessProxy:
 
 class RemoteOperations(OsOperations):
     def __init__(self, conn_params: ConnectionParams):
-
         if not platform.system().lower() == "linux":
             raise EnvironmentError("Remote operations are supported only on Linux!")
 
