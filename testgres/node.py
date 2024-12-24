@@ -131,7 +131,8 @@ class PostgresNode(object):
     # a max number of node start attempts
     _C_MAX_START_ATEMPTS = 5
 
-    def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(), bin_dir=None, prefix=None):
+    def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(),
+                 bin_dir=None, prefix=None):
         """
         PostgresNode constructor.
 
