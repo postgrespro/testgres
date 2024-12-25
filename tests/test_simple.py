@@ -1054,7 +1054,7 @@ class TestgresTests(unittest.TestCase):
             self.assertTrue(node._should_free_port)
             self.assertEqual(type(node.port), int)
             node_port_copy = node.port
-            self.assertEqual(node.safe_psql("SELECT 1;"), b'1\n')
+            self.assertEqual(rm_carriage_returns(node.safe_psql("SELECT 1;")), b'1\n')
 
             with get_new_node(port=node.port) as node2:
                 self.assertEqual(type(node2.port), int)
@@ -1069,7 +1069,7 @@ class TestgresTests(unittest.TestCase):
             # node is still working
             self.assertEqual(node.port, node_port_copy)
             self.assertTrue(node._should_free_port)
-            self.assertEqual(node.safe_psql("SELECT 3;"), b'3\n')
+            self.assertEqual(rm_carriage_returns(node.safe_psql("SELECT 3;")), b'3\n')
 
     class tagPortManagerProxy:
         sm_prev_testgres_reserve_port = None
@@ -1175,7 +1175,7 @@ class TestgresTests(unittest.TestCase):
             self.assertTrue(node1._should_free_port)
             self.assertEqual(type(node1.port), int)  # noqa: E721
             node1_port_copy = node1.port
-            self.assertEqual(node1.safe_psql("SELECT 1;"), b'1\n')
+            self.assertEqual(rm_carriage_returns(node1.safe_psql("SELECT 1;")), b'1\n')
 
             with __class__.tagPortManagerProxy(node1.port, C_COUNT_OF_BAD_PORT_USAGE):
                 assert __class__.tagPortManagerProxy.sm_DummyPortNumber == node1.port
@@ -1191,12 +1191,12 @@ class TestgresTests(unittest.TestCase):
                     self.assertEqual(__class__.tagPortManagerProxy.sm_DummyPortTotalUsage, C_COUNT_OF_BAD_PORT_USAGE)
                     self.assertTrue(node2.is_started)
 
-                    self.assertEqual(node2.safe_psql("SELECT 2;"), b'2\n')
+                    self.assertEqual(rm_carriage_returns(node2.safe_psql("SELECT 2;")), b'2\n')
 
             # node1 is still working
             self.assertEqual(node1.port, node1_port_copy)
             self.assertTrue(node1._should_free_port)
-            self.assertEqual(node1.safe_psql("SELECT 3;"), b'3\n')
+            self.assertEqual(rm_carriage_returns(node1.safe_psql("SELECT 3;")), b'3\n')
 
     def test_port_conflict(self):
         assert testgres.PostgresNode._C_MAX_START_ATEMPTS > 1
@@ -1208,7 +1208,7 @@ class TestgresTests(unittest.TestCase):
             self.assertTrue(node1._should_free_port)
             self.assertEqual(type(node1.port), int)  # noqa: E721
             node1_port_copy = node1.port
-            self.assertEqual(node1.safe_psql("SELECT 1;"), b'1\n')
+            self.assertEqual(rm_carriage_returns(node1.safe_psql("SELECT 1;")), b'1\n')
 
             with __class__.tagPortManagerProxy(node1.port, C_COUNT_OF_BAD_PORT_USAGE):
                 assert __class__.tagPortManagerProxy.sm_DummyPortNumber == node1.port
@@ -1233,7 +1233,7 @@ class TestgresTests(unittest.TestCase):
             # node1 is still working
             self.assertEqual(node1.port, node1_port_copy)
             self.assertTrue(node1._should_free_port)
-            self.assertEqual(node1.safe_psql("SELECT 3;"), b'3\n')
+            self.assertEqual(rm_carriage_returns(node1.safe_psql("SELECT 3;")), b'3\n')
 
     def test_simple_with_bin_dir(self):
         with get_new_node() as node:
