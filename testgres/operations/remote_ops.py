@@ -3,6 +3,7 @@ import os
 import platform
 import subprocess
 import tempfile
+import io
 
 # we support both pg8000 and psycopg2
 try:
@@ -341,7 +342,9 @@ class RemoteOperations(OsOperations):
         assert type(encoding) == str  # noqa: E721
         content = self._read__binary(filename)
         assert type(content) == bytes  # noqa: E721
-        content_s = content.decode(encoding)
+        buf0 = io.BytesIO(content)
+        buf1 = io.TextIOWrapper(buf0, encoding=encoding)
+        content_s = buf1.read()
         assert type(content_s) == str  # noqa: E721
         return content_s
 
