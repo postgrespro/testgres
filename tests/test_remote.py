@@ -226,7 +226,7 @@ class TestRemoteOperations:
 
     def test_get_file_size(self):
         """
-        Test LocalOperations::get_file_size.
+        Test RemoteOperations::get_file_size.
         """
         filename = __file__  # current file
 
@@ -239,7 +239,7 @@ class TestRemoteOperations:
 
     def test_get_file_size__unk_file(self):
         """
-        Test LocalOperations::get_file_size.
+        Test RemoteOperations::get_file_size.
         """
 
         with pytest.raises(ExecUtilException, match=re.escape("du: cannot access '/dummy': No such file or directory")):
