@@ -162,6 +162,16 @@ class TestLocalOperations:
                 match=re.escape("[Errno 2] No such file or directory: '/dummy'")):
             self.operations.read_binary("/dummy", 0)
 
+    def test_read_binary__spec__negative_offset(self):
+        """
+        Test LocalOperations::read_binary with negative offset.
+        """
+
+        with pytest.raises(
+                ValueError,
+                match=re.escape("Negative 'offset' is not supported.")):
+            self.operations.read_binary(__file__, -1)
+
     def test_get_file_size(self):
         """
         Test LocalOperations::get_file_size.
