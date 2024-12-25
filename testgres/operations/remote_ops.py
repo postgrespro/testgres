@@ -347,7 +347,7 @@ class RemoteOperations(OsOperations):
         assert type(start_pos) == int  # noqa: E721
         assert start_pos >= 0
 
-        cmd = "tail -c +{} {}".format(start_pos + 1, __class__._escape_path(filename))
+        cmd = ["tail", "-c", "+{}".format(start_pos + 1), filename]
         r = self.exec_command(cmd)
         assert type(r) == bytes  # noqa: E721
         return r
@@ -367,7 +367,7 @@ class RemoteOperations(OsOperations):
 
         assert filename is not None
         assert type(filename) == str  # noqa: E721
-        cmd = "du -b " + __class__._escape_path(filename)
+        cmd = ["du", "-b", filename]
 
         s = self.exec_command(cmd, encoding=get_default_encoding())
         assert type(s) == str  # noqa: E721
@@ -461,15 +461,6 @@ class RemoteOperations(OsOperations):
             password=password,
         )
         return conn
-
-    def _escape_path(path):
-        assert type(path) == str  # noqa: E721
-        assert path != ""  # Ok?
-
-        r = "'"
-        r += path
-        r += "'"
-        return r
 
 
 def normalize_error(error):
