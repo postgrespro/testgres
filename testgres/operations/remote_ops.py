@@ -370,12 +370,14 @@ class RemoteOperations(OsOperations):
 
         return lines
 
-    def read_binary(self, filename, start_pos):
+    def read_binary(self, filename, offset):
         assert type(filename) == str  # noqa: E721
-        assert type(start_pos) == int  # noqa: E721
-        assert start_pos >= 0
+        assert type(offset) == int  # noqa: E721
 
-        cmd = ["tail", "-c", "+{}".format(start_pos + 1), filename]
+        if offset < 0:
+            raise ValueError("Negative 'offset' is not supported.")
+
+        cmd = ["tail", "-c", "+{}".format(offset + 1), filename]
         r = self.exec_command(cmd)
         assert type(r) == bytes  # noqa: E721
         return r

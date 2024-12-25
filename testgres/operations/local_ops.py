@@ -331,13 +331,15 @@ class LocalOperations(OsOperations):
                         buffers * max(2, int(num_lines / max(cur_lines, 1)))
                     )  # Adjust buffer size
 
-    def read_binary(self, filename, start_pos):
+    def read_binary(self, filename, offset):
         assert type(filename) == str  # noqa: E721
-        assert type(start_pos) == int  # noqa: E721
-        assert start_pos >= 0
+        assert type(offset) == int  # noqa: E721
+
+        if offset < 0:
+            raise ValueError("Negative 'offset' is not supported.")
 
         with open(filename, 'rb') as file:  # open in a binary mode
-            file.seek(start_pos, os.SEEK_SET)
+            file.seek(offset, os.SEEK_SET)
             r = file.read()
             assert type(r) == bytes  # noqa: E721
             return r

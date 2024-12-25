@@ -288,6 +288,16 @@ class TestRemoteOperations:
         with pytest.raises(ExecUtilException, match=re.escape("tail: cannot open '/dummy' for reading: No such file or directory")):
             self.operations.read_binary("/dummy", 0)
 
+    def test_read_binary__spec__negative_offset(self):
+        """
+        Test RemoteOperations::read_binary with negative offset.
+        """
+
+        with pytest.raises(
+                ValueError,
+                match=re.escape("Negative 'offset' is not supported.")):
+            self.operations.read_binary(__file__, -1)
+
     def test_get_file_size(self):
         """
         Test RemoteOperations::get_file_size.

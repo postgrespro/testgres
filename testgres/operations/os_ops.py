@@ -98,10 +98,10 @@ class OsOperations:
     def readlines(self, filename):
         raise NotImplementedError()
 
-    def read_binary(self, filename, start_pos):
+    def read_binary(self, filename, offset):
         assert type(filename) == str  # noqa: E721
-        assert type(start_pos) == int  # noqa: E721
-        assert start_pos >= 0
+        assert type(offset) == int  # noqa: E721
+        assert offset >= 0
         raise NotImplementedError()
 
     def isfile(self, remote_file):
