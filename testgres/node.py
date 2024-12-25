@@ -792,7 +792,7 @@ class PostgresNode(object):
 
         def LOCAL__start_node():
             _, _, error = execute_utility(_params, self.utils_log_file, verbose=True)
-            assert type(error) == str  # noqa: E721
+            assert error is None or type(error) == str  # noqa: E721
             if error and 'does not exist' in error:
                 raise Exception(error)
 
