@@ -286,11 +286,10 @@ class LocalOperations(OsOperations):
     def _read__text_with_encoding(self, filename, encoding):
         assert type(filename) == str  # noqa: E721
         assert type(encoding) == str  # noqa: E721
-        content = self._read__binary(filename)
-        assert type(content) == bytes  # noqa: E721
-        content_s = content.decode(encoding)
-        assert type(content_s) == str  # noqa: E721
-        return content_s
+        with open(filename, mode='r', encoding=encoding) as file:  # open in a text mode
+            content = file.read()
+            assert type(content) == str  # noqa: E721
+            return content
 
     def _read__binary(self, filename):
         assert type(filename) == str  # noqa: E721
