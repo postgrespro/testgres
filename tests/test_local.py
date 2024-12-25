@@ -4,6 +4,7 @@ import pytest
 import re
 
 from testgres import ExecUtilException
+from testgres import InvalidOperationException
 from testgres import LocalOperations
 
 from .helpers.run_conditions import RunConditions
@@ -56,6 +57,67 @@ class TestLocalOperations:
         assert exit_status == 127
         assert result == b''
 
+    def test_read__text(self):
+        """
+        Test LocalOperations::read for text data.
+        """
+        filename = __file__  # current file
+
+        with open(filename, 'r') as file:  # open in a text mode
+            response0 = file.read()
+
+        assert type(response0) == str  # noqa: E721
+
+        response1 = self.operations.read(filename)
+        assert type(response1) == str  # noqa: E721
+        assert response1 == response0
+
+        response2 = self.operations.read(filename, encoding=None, binary=False)
+        assert type(response2) == str  # noqa: E721
+        assert response2 == response0
+
+        response3 = self.operations.read(filename, encoding="")
+        assert type(response3) == str  # noqa: E721
+        assert response3 == response0
+
+        response4 = self.operations.read(filename, encoding="UTF-8")
+        assert type(response4) == str  # noqa: E721
+        assert response4 == response0
+
+    def test_read__binary(self):
+        """
+        Test LocalOperations::read for binary data.
+        """
+        filename = __file__  # current file
+
+        with open(filename, 'rb') as file:  # open in a binary mode
+            response0 = file.read()
+
+        assert type(response0) == bytes  # noqa: E721
+
+        response1 = self.operations.read(filename, binary=True)
+        assert type(response1) == bytes  # noqa: E721
+        assert response1 == response0
+
+    def test_read__binary_and_encoding(self):
+        """
+        Test LocalOperations::read for binary data and encoding.
+        """
+        filename = __file__  # current file
+
+        with pytest.raises(
+                InvalidOperationException,
+                match=re.escape("Enconding is not allowed for read binary operation")):
+            self.operations.read(filename, encoding="", binary=True)
+
+    def test_read__unknown_file(self):
+        """
+        Test LocalOperations::read with unknown file.
+        """
+
+        with pytest.raises(FileNotFoundError, match=re.escape("[Errno 2] No such file or directory: '/dummy'")):
+            self.operations.read("/dummy")
+
     def test_read_binary__spec(self):
         """
         Test LocalOperations::read_binary.
@@ -95,7 +157,9 @@ class TestLocalOperations:
         Test LocalOperations::read_binary with unknown file.
         """
 
-        with pytest.raises(FileNotFoundError, match=re.escape("[Errno 2] No such file or directory: '/dummy'")):
+        with pytest.raises(
+                FileNotFoundError,
+                match=re.escape("[Errno 2] No such file or directory: '/dummy'")):
             self.operations.read_binary("/dummy", 0)
 
     def test_get_file_size(self):

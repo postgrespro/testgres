@@ -3,6 +3,7 @@ import os
 import platform
 import subprocess
 import tempfile
+import io
 
 # we support both pg8000 and psycopg2
 try:
@@ -14,6 +15,7 @@ except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
 from ..exceptions import ExecUtilException
+from ..exceptions import InvalidOperationException
 from .os_ops import OsOperations, ConnectionParams, get_default_encoding
 from .raise_error import RaiseError
 from .helpers import Helpers
@@ -319,13 +321,39 @@ class RemoteOperations(OsOperations):
         self.exec_command("touch {}".format(filename))
 
     def read(self, filename, binary=False, encoding=None):
-        cmd = "cat {}".format(filename)
-        result = self.exec_command(cmd, encoding=encoding)
+        assert type(filename) == str  # noqa: E721
+        assert encoding is None or type(encoding) == str  # noqa: E721
+        assert type(binary) == bool  # noqa: E721
 
-        if not binary and result:
-            result = result.decode(encoding or get_default_encoding())
+        if binary:
+            if encoding is not None:
+                raise InvalidOperationException("Enconding is not allowed for read binary operation")
 
-        return result
+            return self._read__binary(filename)
+
+        # python behavior
+        assert (None or "abc") == "abc"
+        assert ("" or "abc") == "abc"
+
+        return self._read__text_with_encoding(filename, encoding or get_default_encoding())
+
+    def _read__text_with_encoding(self, filename, encoding):
+        assert type(filename) == str  # noqa: E721
+        assert type(encoding) == str  # noqa: E721
+        content = self._read__binary(filename)
+        assert type(content) == bytes  # noqa: E721
+        buf0 = io.BytesIO(content)
+        buf1 = io.TextIOWrapper(buf0, encoding=encoding)
+        content_s = buf1.read()
+        assert type(content_s) == str  # noqa: E721
+        return content_s
+
+    def _read__binary(self, filename):
+        assert type(filename) == str  # noqa: E721
+        cmd = ["cat", filename]
+        content = self.exec_command(cmd)
+        assert type(content) == bytes  # noqa: E721
+        return content
 
     def readlines(self, filename, num_lines=0, binary=False, encoding=None):
         if num_lines > 0:
