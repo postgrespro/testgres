@@ -332,8 +332,8 @@ class RemoteOperations(OsOperations):
             return self._read__binary(filename)
 
         # python behavior
-        assert None or "abc" == "abc"
-        assert "" or "abc" == "abc"
+        assert (None or "abc") == "abc"
+        assert ("" or "abc") == "abc"
 
         return self._read__text_with_encoding(filename, encoding or get_default_encoding())
 
