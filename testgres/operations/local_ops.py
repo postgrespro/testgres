@@ -10,6 +10,7 @@ import time
 import psutil
 
 from ..exceptions import ExecUtilException
+from ..exceptions import InvalidOperationException
 from .os_ops import ConnectionParams, OsOperations, pglib, get_default_encoding
 from .raise_error import RaiseError
 from .helpers import Helpers
@@ -266,13 +267,36 @@ class LocalOperations(OsOperations):
             os.utime(filename, None)
 
     def read(self, filename, encoding=None, binary=False):
-        mode = "rb" if binary else "r"
-        with open(filename, mode) as file:
+        assert type(filename) == str  # noqa: E721
+        assert encoding is None or type(encoding) == str  # noqa: E721
+        assert type(binary) == bool  # noqa: E721
+
+        if binary:
+            if encoding is not None:
+                raise InvalidOperationException("Enconding is not allowed for read binary operation")
+
+            return self._read__binary(filename)
+
+        # python behavior
+        assert None or "abc" == "abc"
+        assert "" or "abc" == "abc"
+
+        return self._read__text_with_encoding(filename, encoding or get_default_encoding())
+
+    def _read__text_with_encoding(self, filename, encoding):
+        assert type(filename) == str  # noqa: E721
+        assert type(encoding) == str  # noqa: E721
+        content = self._read__binary(filename)
+        assert type(content) == bytes  # noqa: E721
+        content_s = content.decode(encoding)
+        assert type(content_s) == str  # noqa: E721
+        return content_s
+
+    def _read__binary(self, filename):
+        assert type(filename) == str  # noqa: E721
+        with open(filename, 'rb') as file:  # open in a binary mode
             content = file.read()
-            if binary:
-                return content
-            if isinstance(content, bytes):
-                return content.decode(encoding or get_default_encoding())
+            assert type(content) == bytes  # noqa: E721
             return content
 
     def readlines(self, filename, num_lines=0, binary=False, encoding=None):

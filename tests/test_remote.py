@@ -4,6 +4,7 @@ import pytest
 import re
 
 from testgres import ExecUtilException
+from testgres import InvalidOperationException
 from testgres import RemoteOperations
 from testgres import ConnectionParams
 
@@ -181,6 +182,69 @@ class TestRemoteOperations:
         response = self.operations.read(filename, binary=True)
 
         assert isinstance(response, bytes)
+
+    def test_read__text(self):
+        """
+        Test RemoteOperations::read for text data.
+        """
+        filename = __file__  # current file
+
+        with open(filename, 'r') as file:  # open in a text mode
+            response0 = file.read()
+
+        assert type(response0) == str  # noqa: E721
+
+        response1 = self.operations.read(filename)
+        assert type(response1) == str  # noqa: E721
+        assert response1 == response0
+
+        response2 = self.operations.read(filename, encoding=None, binary=False)
+        assert type(response2) == str  # noqa: E721
+        assert response2 == response0
+
+        response3 = self.operations.read(filename, encoding="")
+        assert type(response3) == str  # noqa: E721
+        assert response3 == response0
+
+        response4 = self.operations.read(filename, encoding="UTF-8")
+        assert type(response4) == str  # noqa: E721
+        assert response4 == response0
+
+    def test_read__binary(self):
+        """
+        Test RemoteOperations::read for binary data.
+        """
+        filename = __file__  # current file
+
+        with open(filename, 'rb') as file:  # open in a binary mode
+            response0 = file.read()
+
+        assert type(response0) == bytes  # noqa: E721
+
+        response1 = self.operations.read(filename, binary=True)
+        assert type(response1) == bytes  # noqa: E721
+        assert response1 == response0
+
+    def test_read__binary_and_encoding(self):
+        """
+        Test RemoteOperations::read for binary data and encoding.
+        """
+        filename = __file__  # current file
+
+        with pytest.raises(
+                InvalidOperationException,
+                match=re.escape("Enconding is not allowed for read binary operation")):
+            self.operations.read(filename, encoding="", binary=True)
+
+    def test_read__unknown_file(self):
+        """
+        Test RemoteOperations::read with unknown file.
+        """
+
+        with pytest.raises(
+                ExecUtilException,
+                match=re.escape("cat: /dummy: No such file or directory")):
+            self.operations.read("/dummy")
 
     def test_read_binary__spec(self):
         """
