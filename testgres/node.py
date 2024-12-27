@@ -848,7 +848,7 @@ class PostgresNode(object):
                     cur_port = self.port
                     new_port = utils.reserve_port()  # can raise
                     try:
-                        options = {'port': str(new_port)}
+                        options = {'port': new_port}
                         self.set_auto_conf(options)
                     except:  # noqa: E722
                         utils.release_port(new_port)
