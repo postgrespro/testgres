@@ -172,6 +172,10 @@ class Init(object):
         self.ptrack = test_env.get('PG_PROBACKUP_PTRACK', None) == 'ON' and self.pg_config_version >= 110000
         self.wal_tree_enabled = test_env.get('PG_PROBACKUP_WAL_TREE_ENABLED', None) == 'ON'
 
+        self.bckp_source = test_env.get('PG_PROBACKUP_SOURCE', 'pro').lower()
+        if self.bckp_source not in ('base', 'direct', 'pro'):
+            raise Exception("Wrong PG_PROBACKUP_SOURCE value. Available options: base|direct|pro")
+
         self.paranoia = test_env.get('PG_PROBACKUP_PARANOIA', None) == 'ON'
         env_compress = test_env.get('ARCHIVE_COMPRESSION', None)
         if env_compress:
