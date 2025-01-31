@@ -26,10 +26,8 @@ class PortManager:
         if ports is None:
             ports = set(range(1024, 65535))
 
-        if exclude_ports is None:
-            exclude_ports = set()
-
-        ports.difference_update(set(exclude_ports))
+        if exclude_ports is not None:
+            ports.difference_update(set(exclude_ports))
 
         sampled_ports = random.sample(tuple(ports), min(len(ports), 100))
 
