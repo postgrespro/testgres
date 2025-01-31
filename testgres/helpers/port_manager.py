@@ -26,7 +26,7 @@ class PortManager:
         if ports is None:
             ports = set(range(1024, 65535))
 
-        assert type(ports) == set
+        assert type(ports) == set  # noqa: E721
 
         if exclude_ports is not None:
             assert isinstance(exclude_ports, Iterable)
