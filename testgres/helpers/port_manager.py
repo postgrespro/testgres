@@ -26,10 +26,11 @@ class PortManager:
         if ports is None:
             ports = set(range(1024, 65535))
 
-        if exclude_ports is None:
-            exclude_ports = set()
+        assert type(ports) == set  # noqa: E721
 
-        ports.difference_update(set(exclude_ports))
+        if exclude_ports is not None:
+            assert isinstance(exclude_ports, Iterable)
+            ports.difference_update(exclude_ports)
 
         sampled_ports = random.sample(tuple(ports), min(len(ports), 100))
 
