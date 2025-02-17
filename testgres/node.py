@@ -1938,7 +1938,7 @@ class NodeApp:
 
         return node
 
-    def _gettempdir():
+    def _gettempdir(self):
         v = tempfile.gettempdir()
 
         #
@@ -1956,7 +1956,7 @@ class NodeApp:
         # OK
         return v
 
-    def _raise_bugcheck(msg):
+    def _raise_bugcheck(self, msg):
         assert type(msg) == str  # noqa: E721
         assert msg != ""
         raise Exception("[BUG CHECK] " + msg)
