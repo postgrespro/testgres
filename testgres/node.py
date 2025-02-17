@@ -6,6 +6,7 @@ import signal
 import subprocess
 import threading
 import tempfile
+import platform
 from queue import Queue
 
 import time
@@ -1925,7 +1926,7 @@ class NodeApp:
 
         # Define delayed propertyes
         if not ("unix_socket_directories" in options.keys()):
-            options["unix_socket_directories"] = __class__._gettempdir()
+            options["unix_socket_directories"] = __class__._gettempdir_for_socket()
 
         # Set config values
         node.set_auto_conf(options)
@@ -1937,6 +1938,33 @@ class NodeApp:
             node.set_auto_conf({}, 'postgresql.conf', ['wal_keep_segments'])
 
         return node
+
+    def _gettempdir_for_socket():
+        platform_system_name = platform.system().lower()
+
+        if platform_system_name == "windows":
+            return __class__._gettempdir()
+
+        #
+        # [2025-02-17] Hot fix.
+        #
+        # Let's use hard coded path as Postgres likes.
+        #
+        # pg_config_manual.h:
+        #
+        # #ifndef WIN32
+        # #define DEFAULT_PGSOCKET_DIR  "/tmp"
+        # #else
+        # #define DEFAULT_PGSOCKET_DIR ""
+        # #endif
+        #
+        # On the altlinux-10 tempfile.gettempdir() may return
+        # the path to "private" temp directiry - "/temp/.private/<username>/"
+        #
+        # But Postgres want to find a socket file in "/tmp" (see above).
+        #
+
+        return "/tmp"
 
     def _gettempdir():
         v = tempfile.gettempdir()
