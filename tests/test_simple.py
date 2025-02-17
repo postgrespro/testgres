@@ -1244,13 +1244,19 @@ class TestgresTests(unittest.TestCase):
         correct_bin_dir = app.make_simple(base_dir=node.base_dir, bin_dir=bin_dir)
         correct_bin_dir.slow_start()
         correct_bin_dir.safe_psql("SELECT 1;")
+        correct_bin_dir.stop()
 
-        try:
-            wrong_bin_dir = app.make_empty(base_dir=node.base_dir, bin_dir="wrong/path")
-            wrong_bin_dir.slow_start()
+        while True:
+            try:
+                app.make_simple(base_dir=node.base_dir, bin_dir="wrong/path")
+            except FileNotFoundError:
+                break  # Expected error
+            except ExecUtilException:
+                break  # Expected error
+
             raise RuntimeError("Error was expected.")  # We should not reach this
-        except FileNotFoundError:
-            pass  # Expected error
+
+        return
 
     def test_set_auto_conf(self):
         # elements contain [property id, value, storage value]
