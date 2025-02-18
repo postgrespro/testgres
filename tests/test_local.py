@@ -256,3 +256,20 @@ class TestLocalOperations:
         response = self.operations.isdir(name)
 
         assert response is False
+
+    def test_cwd(self):
+        """
+        Test cwd.
+        """
+        v = self.operations.cwd()
+
+        assert v is not None
+        assert type(v) == str  # noqa: E721
+
+        expectedValue = os.getcwd()
+        assert expectedValue is not None
+        assert type(expectedValue) == str  # noqa: E721
+        assert expectedValue != ""  # research
+
+        # Comp result
+        assert v == expectedValue
