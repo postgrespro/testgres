@@ -152,6 +152,9 @@ class LocalOperations(OsOperations):
     def environ(self, var_name):
         return os.environ.get(var_name)
 
+    def cwd(self):
+        return os.getcwd()
+
     def find_executable(self, executable):
         return find_executable(executable)
 
