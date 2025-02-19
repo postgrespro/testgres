@@ -2,6 +2,7 @@ import os
 
 import pytest
 import re
+import tempfile
 
 from testgres import ExecUtilException
 from testgres import InvalidOperationException
@@ -402,3 +403,71 @@ class TestRemoteOperations:
         assert v is not None
         assert type(v) == str  # noqa: E721
         assert v != ""
+
+    class tagWriteData001:
+        def __init__(self, sign, source, cp_rw, cp_truncate, cp_binary, cp_data, result):
+            self.sign = sign
+            self.source = source
+            self.call_param__rw = cp_rw
+            self.call_param__truncate = cp_truncate
+            self.call_param__binary = cp_binary
+            self.call_param__data = cp_data
+            self.result = result
+
+    sm_write_data001 = [
+        tagWriteData001("A001", "1234567890", False, False, False, "ABC", "1234567890ABC"),
+        tagWriteData001("A002", b"1234567890", False, False, True, b"ABC", b"1234567890ABC"),
+
+        tagWriteData001("B001", "1234567890", False, True, False, "ABC", "ABC"),
+        tagWriteData001("B002", "1234567890", False, True, False, "ABC1234567890", "ABC1234567890"),
+        tagWriteData001("B003", b"1234567890", False, True, True, b"ABC", b"ABC"),
+        tagWriteData001("B004", b"1234567890", False, True, True, b"ABC1234567890", b"ABC1234567890"),
+
+        tagWriteData001("C001", "1234567890", True, False, False, "ABC", "1234567890ABC"),
+        tagWriteData001("C002", b"1234567890", True, False, True, b"ABC", b"1234567890ABC"),
+
+        tagWriteData001("D001", "1234567890", True, True, False, "ABC", "ABC"),
+        tagWriteData001("D002", "1234567890", True, True, False, "ABC1234567890", "ABC1234567890"),
+        tagWriteData001("D003", b"1234567890", True, True, True, b"ABC", b"ABC"),
+        tagWriteData001("D004", b"1234567890", True, True, True, b"ABC1234567890", b"ABC1234567890"),
+
+        tagWriteData001("E001", "\0001234567890\000", False, False, False, "\000ABC\000", "\0001234567890\000\000ABC\000"),
+        tagWriteData001("E002", b"\0001234567890\000", False, False, True, b"\000ABC\000", b"\0001234567890\000\000ABC\000"),
+
+        tagWriteData001("F001", "a\nb\n", False, False, False, ["c", "d"], "a\nb\nc\nd\n"),
+        tagWriteData001("F002", b"a\nb\n", False, False, True, [b"c", b"d"], b"a\nb\nc\nd\n"),
+
+        tagWriteData001("G001", "a\nb\n", False, False, False, ["c\n\n", "d\n"], "a\nb\nc\nd\n"),
+        tagWriteData001("G002", b"a\nb\n", False, False, True, [b"c\n\n", b"d\n"], b"a\nb\nc\nd\n"),
+    ]
+
+    @pytest.fixture(
+        params=sm_write_data001,
+        ids=[x.sign for x in sm_write_data001],
+    )
+    def write_data001(self, request):
+        assert isinstance(request, pytest.FixtureRequest)
+        assert type(request.param) == __class__.tagWriteData001  # noqa: E721
+        return request.param
+
+    def test_write(self, write_data001):
+        assert type(write_data001) == __class__.tagWriteData001  # noqa: E721
+
+        mode = "w+b" if write_data001.call_param__binary else "w+"
+
+        with tempfile.NamedTemporaryFile(mode=mode, delete=True) as tmp_file:
+            tmp_file.write(write_data001.source)
+            tmp_file.flush()
+
+            self.operations.write(
+                tmp_file.name,
+                write_data001.call_param__data,
+                read_and_write=write_data001.call_param__rw,
+                truncate=write_data001.call_param__truncate,
+                binary=write_data001.call_param__binary)
+
+            tmp_file.seek(0)
+
+            s = tmp_file.read()
+
+            assert s == write_data001.result

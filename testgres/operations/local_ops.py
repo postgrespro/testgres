@@ -235,27 +235,54 @@ class LocalOperations(OsOperations):
         Args:
             filename: The file path where the data will be written.
             data: The data to be written to the file.
-            truncate: If True, the file will be truncated before writing ('w' or 'wb' option);
-                      if False (default), data will be appended ('a' or 'ab' option).
-            binary: If True, the data will be written in binary mode ('wb' or 'ab' option);
-                    if False (default), the data will be written in text mode ('w' or 'a' option).
-            read_and_write: If True, the file will be opened with read and write permissions ('r+' option);
-                            if False (default), only write permission will be used ('w', 'a', 'wb', or 'ab' option)
+            truncate: If True, the file will be truncated before writing ('w' option);
+                      if False (default), data will be appended ('a' option).
+            binary: If True, the data will be written in binary mode ('b' option);
+                    if False (default), the data will be written in text mode.
+            read_and_write: If True, the file will be opened with read and write permissions ('+' option);
+                            if False (default), only write permission will be used.
         """
-        # If it is a bytes str or list
         if isinstance(data, bytes) or isinstance(data, list) and all(isinstance(item, bytes) for item in data):
             binary = True
-        mode = "wb" if binary else "w"
-        if not truncate:
-            mode = "ab" if binary else "a"
+
+        mode = "w" if truncate else "a"
+
         if read_and_write:
-            mode = "r+b" if binary else "r+"
+            mode += "+"
+
+        # If it is a bytes str or list
+        if binary:
+            mode += "b"
+
+        assert type(mode) == str  # noqa: E721
+        assert mode != ""
 
         with open(filename, mode) as file:
             if isinstance(data, list):
-                file.writelines(data)
+                data2 = [__class__._prepare_line_to_write(s, binary) for s in data]
+                file.writelines(data2)
             else:
-                file.write(data)
+                data2 = __class__._prepare_data_to_write(data, binary)
+                file.write(data2)
+
+    def _prepare_line_to_write(data, binary):
+        data = __class__._prepare_data_to_write(data, binary)
+
+        if binary:
+            assert type(data) == bytes  # noqa: E721
+            return data.rstrip(b'\n') + b'\n'
+
+        assert type(data) == str  # noqa: E721
+        return data.rstrip('\n') + '\n'
+
+    def _prepare_data_to_write(data, binary):
+        if isinstance(data, bytes):
+            return data if binary else data.decode()
+
+        if isinstance(data, str):
+            return data if not binary else data.encode()
+
+        raise InvalidOperationException("Unknown type of data type [{0}].".format(type(data).__name__))
 
     def touch(self, filename):
         """
