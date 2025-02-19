@@ -139,7 +139,6 @@ class RemoteOperations(OsOperations):
         return self.exec_command(cmd, encoding=get_default_encoding()).strip()
 
     def cwd(self):
-        assert platform.system().lower() == "linux"
         cmd = 'pwd'
         return self.exec_command(cmd, encoding=get_default_encoding()).rstrip()
 
