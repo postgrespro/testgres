@@ -278,10 +278,6 @@ class RemoteOperations(OsOperations):
         if not encoding:
             encoding = get_default_encoding()
         mode = "wb" if binary else "w"
-        if not truncate:
-            mode = "ab" if binary else "a"
-        if read_and_write:
-            mode = "r+b" if binary else "r+"
 
         with tempfile.NamedTemporaryFile(mode=mode, delete=False) as tmp_file:
             # For scp the port is specified by a "-P" option
@@ -292,16 +288,12 @@ class RemoteOperations(OsOperations):
                 subprocess.run(scp_cmd, check=False)  # The file might not exist yet
                 tmp_file.seek(0, os.SEEK_END)
 
-            if isinstance(data, bytes) and not binary:
-                data = data.decode(encoding)
-            elif isinstance(data, str) and binary:
-                data = data.encode(encoding)
-
             if isinstance(data, list):
-                data = [(s if isinstance(s, str) else s.decode(get_default_encoding())).rstrip('\n') + '\n' for s in data]
-                tmp_file.writelines(data)
+                data2 = [__class__._prepare_line_to_write(s, binary, encoding) for s in data]
+                tmp_file.writelines(data2)
             else:
-                tmp_file.write(data)
+                data2 = __class__._prepare_data_to_write(data, binary, encoding)
+                tmp_file.write(data2)
 
             tmp_file.flush()
             scp_cmd = ['scp'] + scp_args + [tmp_file.name, f"{self.ssh_dest}:{filename}"]
@@ -312,6 +304,25 @@ class RemoteOperations(OsOperations):
             subprocess.run(mkdir_cmd, check=True)
 
             os.remove(tmp_file.name)
+
+    def _prepare_line_to_write(data, binary, encoding):
+        data = __class__._prepare_data_to_write(data, binary, encoding)
+
+        if binary:
+            assert type(data) == bytes  # noqa: E721
+            return data.rstrip(b'\n') + b'\n'
+
+        assert type(data) == str  # noqa: E721
+        return data.rstrip('\n') + '\n'
+
+    def _prepare_data_to_write(data, binary, encoding):
+        if isinstance(data, bytes):
+            return data if binary else data.decode(encoding)
+
+        if isinstance(data, str):
+            return data if not binary else data.encode(encoding)
+
+        raise InvalidOperationException("Unknown type of data type [{0}].".format(type(data).__name__))
 
     def touch(self, filename):
         """
