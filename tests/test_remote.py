@@ -392,3 +392,13 @@ class TestRemoteOperations:
         response = self.operations.isdir(name)
 
         assert response is False
+
+    def test_cwd(self):
+        """
+        Test cwd.
+        """
+        v = self.operations.cwd()
+
+        assert v is not None
+        assert type(v) == str  # noqa: E721
+        assert v != ""

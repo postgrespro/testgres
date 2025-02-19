@@ -1,6 +1,5 @@
 import getpass
 import locale
-import sys
 
 try:
     import psycopg2 as pglib  # noqa: F401
@@ -39,11 +38,7 @@ class OsOperations:
         raise NotImplementedError()
 
     def cwd(self):
-        if sys.platform == 'linux':
-            cmd = 'pwd'
-        elif sys.platform == 'win32':
-            cmd = 'cd'
-        return self.exec_command(cmd).decode().rstrip()
+        raise NotImplementedError()
 
     def find_executable(self, executable):
         raise NotImplementedError()

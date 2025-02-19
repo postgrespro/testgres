@@ -138,6 +138,10 @@ class RemoteOperations(OsOperations):
         cmd = "echo ${}".format(var_name)
         return self.exec_command(cmd, encoding=get_default_encoding()).strip()
 
+    def cwd(self):
+        cmd = 'pwd'
+        return self.exec_command(cmd, encoding=get_default_encoding()).rstrip()
+
     def find_executable(self, executable):
         search_paths = self.environ("PATH")
         if not search_paths:
