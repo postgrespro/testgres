@@ -78,13 +78,16 @@ class RemoteOperations(OsOperations):
 
         assert input_prepared is None or (type(input_prepared) == bytes)  # noqa: E721
 
-        ssh_cmd = []
-        if isinstance(cmd, str):
-            ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [cmd]
-        elif isinstance(cmd, list):
-            ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [subprocess.list2cmdline(cmd)]
+        if type(cmd) == str:  # noqa: E721
+            cmd_s = cmd
+        elif type(cmd) == list:  # noqa: E721
+            cmd_s = subprocess.list2cmdline(cmd)
         else:
             raise ValueError("Invalid 'cmd' argument type - {0}".format(type(cmd).__name__))
+
+        assert type(cmd_s) == str  # noqa: E721
+
+        ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [cmd_s]
 
         process = subprocess.Popen(ssh_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert not (process is None)
