@@ -441,7 +441,14 @@ class PostgresNode(object):
     @property
     def data_dir(self):
         # NOTE: we can't run initdb without user's args
-        return os.path.join(self.base_dir, DATA_DIR)
+        if hasattr(self, '_data_dir'):
+            return self._data_dir
+        else:
+            return os.path.join(self.base_dir, DATA_DIR)
+
+    @data_dir.setter
+    def data_dir(self, value):
+        self._data_dir = value
 
     @property
     def utils_log_file(self):
