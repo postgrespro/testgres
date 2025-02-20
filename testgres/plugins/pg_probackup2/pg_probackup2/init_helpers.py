@@ -57,7 +57,10 @@ class Init(object):
         test_env = os.environ.copy()
         envs_list = [
             'LANGUAGE',
+            'LANG',
             'LC_ALL',
+            'LC_CTYPE',
+            'LC_COLLATE',
             'PGCONNECT_TIMEOUT',
             'PGDATA',
             'PGDATABASE',
