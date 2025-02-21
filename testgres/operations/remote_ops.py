@@ -541,7 +541,7 @@ class RemoteOperations(OsOperations):
         return False
 
     @staticmethod
-    def _quote_envvar(value) -> str:
+    def _quote_envvar(value: str) -> str:
         assert type(value) == str  # noqa: E721
         result = "\""
         for ch in value:
