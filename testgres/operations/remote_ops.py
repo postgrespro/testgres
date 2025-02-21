@@ -515,6 +515,7 @@ class RemoteOperations(OsOperations):
         )
         return conn
 
+    @staticmethod
     def _make_exec_env_list() -> list[str]:
         result = list[str]()
         for envvar in os.environ.items():
@@ -529,6 +530,7 @@ class RemoteOperations(OsOperations):
 
     sm_envs_for_exec_cmd = ["LANG", "LANGUAGE"]
 
+    @staticmethod
     def _does_put_envvar_into_exec_cmd(name: str) -> bool:
         assert type(name) == str  # noqa: E721
         name = name.upper()
@@ -538,6 +540,7 @@ class RemoteOperations(OsOperations):
             return True
         return False
 
+    @staticmethod
     def _quote_envvar(value) -> str:
         assert type(value) == str  # noqa: E721
         result = "\""
