@@ -87,7 +87,12 @@ class RemoteOperations(OsOperations):
 
         assert type(cmd_s) == str  # noqa: E721
 
-        ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [cmd_s]
+        cmd_items = __class__._make_exec_env_list()
+        cmd_items.append(cmd_s)
+
+        env_cmd_s = ';'.join(cmd_items)
+
+        ssh_cmd = ['ssh', self.ssh_dest] + self.ssh_args + [env_cmd_s]
 
         process = subprocess.Popen(ssh_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert not (process is None)
@@ -509,6 +514,45 @@ class RemoteOperations(OsOperations):
             password=password,
         )
         return conn
+
+    @staticmethod
+    def _make_exec_env_list() -> list[str]:
+        result = list[str]()
+        for envvar in os.environ.items():
+            if not __class__._does_put_envvar_into_exec_cmd(envvar[0]):
+                continue
+            qvalue = __class__._quote_envvar(envvar[1])
+            assert type(qvalue) == str   # noqa: E721
+            result.append(envvar[0] + "=" + qvalue)
+            continue
+
+        return result
+
+    sm_envs_for_exec_cmd = ["LANG", "LANGUAGE"]
+
+    @staticmethod
+    def _does_put_envvar_into_exec_cmd(name: str) -> bool:
+        assert type(name) == str  # noqa: E721
+        name = name.upper()
+        if name.startswith("LC_"):
+            return True
+        if name in __class__.sm_envs_for_exec_cmd:
+            return True
+        return False
+
+    @staticmethod
+    def _quote_envvar(value: str) -> str:
+        assert type(value) == str  # noqa: E721
+        result = "\""
+        for ch in value:
+            if ch == "\"":
+                result += "\\\""
+            elif ch == "\\":
+                result += "\\\\"
+            else:
+                result += ch
+        result += "\""
+        return result
 
 
 def normalize_error(error):

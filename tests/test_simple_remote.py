@@ -119,6 +119,79 @@ class TestgresRemoteTests(unittest.TestCase):
             # there should be no trust entries at all
             self.assertFalse(any('trust' in s for s in lines))
 
+    def test_init__LANG_С(self):
+        # PBCKP-1744
+        prev_LANG = os.environ.get("LANG")
+
+        try:
+            os.environ["LANG"] = "C"
+
+            with get_remote_node(conn_params=conn_params) as node:
+                node.init().start()
+        finally:
+            __class__.helper__restore_envvar("LANG", prev_LANG)
+
+    def test_init__unk_LANG_and_LC_CTYPE(self):
+        # PBCKP-1744
+        prev_LANG = os.environ.get("LANG")
+        prev_LANGUAGE = os.environ.get("LANGUAGE")
+        prev_LC_CTYPE = os.environ.get("LC_CTYPE")
+        prev_LC_COLLATE = os.environ.get("LC_COLLATE")
+
+        try:
+            # TODO: Pass unkData through test parameter.
+            unkDatas = [
+                ("UNKNOWN_LANG", "UNKNOWN_CTYPE"),
+                ("\"UNKNOWN_LANG\"", "\"UNKNOWN_CTYPE\""),
+                ("\\UNKNOWN_LANG\\", "\\UNKNOWN_CTYPE\\"),
+                ("\"UNKNOWN_LANG", "UNKNOWN_CTYPE\""),
+                ("\\UNKNOWN_LANG", "UNKNOWN_CTYPE\\"),
+                ("\\", "\\"),
+                ("\"", "\""),
+            ]
+
+            for unkData in unkDatas:
+                logging.info("----------------------")
+                logging.info("Unk LANG is [{0}]".format(unkData[0]))
+                logging.info("Unk LC_CTYPE is [{0}]".format(unkData[1]))
+
+                os.environ["LANG"] = unkData[0]
+                os.environ.pop("LANGUAGE", None)
+                os.environ["LC_CTYPE"] = unkData[1]
+                os.environ.pop("LC_COLLATE", None)
+
+                assert os.environ.get("LANG") == unkData[0]
+                assert not ("LANGUAGE" in os.environ.keys())
+                assert os.environ.get("LC_CTYPE") == unkData[1]
+                assert not ("LC_COLLATE" in os.environ.keys())
+
+                while True:
+                    try:
+                        with get_remote_node(conn_params=conn_params):
+                            pass
+                    except testgres.exceptions.ExecUtilException as e:
+                        #
+                        # Example of an error message:
+                        #
+                        # warning: setlocale: LC_CTYPE: cannot change locale (UNKNOWN_CTYPE): No such file or directory
+                        # postgres (PostgreSQL) 14.12
+                        #
+                        errMsg = str(e)
+
+                        logging.info("Error message is: {0}".format(errMsg))
+
+                        assert "LC_CTYPE" in errMsg
+                        assert unkData[1] in errMsg
+                        assert "warning: setlocale: LC_CTYPE: cannot change locale (" + unkData[1] + "): No such file or directory" in errMsg
+                        assert "postgres" in errMsg
+                        break
+                    raise Exception("We expected an error!")
+        finally:
+            __class__.helper__restore_envvar("LANG", prev_LANG)
+            __class__.helper__restore_envvar("LANGUAGE", prev_LANGUAGE)
+            __class__.helper__restore_envvar("LC_CTYPE", prev_LC_CTYPE)
+            __class__.helper__restore_envvar("LC_COLLATE", prev_LC_COLLATE)
+
     def test_double_init(self):
         with get_remote_node(conn_params=conn_params).init() as node:
             # can't initialize node more than once
@@ -993,6 +1066,12 @@ class TestgresRemoteTests(unittest.TestCase):
             process.wait()
             # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
             [ProcessProxy(p) for p in children]
+
+    def helper__restore_envvar(name, prev_value):
+        if prev_value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = prev_value
 
 
 if __name__ == '__main__':
