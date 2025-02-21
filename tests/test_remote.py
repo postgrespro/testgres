@@ -83,10 +83,12 @@ class TestRemoteOperations:
 
         # Test makedirs
         self.operations.makedirs(path)
+        assert os.path.exists(path)
         assert self.operations.path_exists(path)
 
         # Test rmdirs
         self.operations.rmdirs(path)
+        assert not os.path.exists(path)
         assert not self.operations.path_exists(path)
 
     def test_makedirs_and_rmdirs_failure(self):
