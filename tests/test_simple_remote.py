@@ -139,30 +139,53 @@ class TestgresRemoteTests(unittest.TestCase):
         prev_LC_COLLATE = os.environ.get("LC_COLLATE")
 
         try:
-            os.environ["LANG"] = "UNKNOWN_LANG"
-            os.environ.pop("LANGUAGE", None)
-            os.environ["LC_CTYPE"] = "UNKNOWN_CTYPE"
-            os.environ.pop("LC_COLLATE", None)
+            # TODO: Pass unkData through test parameter.
+            unkDatas = [
+                ("UNKNOWN_LANG", "UNKNOWN_CTYPE"),
+                ("\"UNKNOWN_LANG\"", "\"UNKNOWN_CTYPE\""),
+                ("\\UNKNOWN_LANG\\", "\\UNKNOWN_CTYPE\\"),
+                ("\"UNKNOWN_LANG", "UNKNOWN_CTYPE\""),
+                ("\\UNKNOWN_LANG", "UNKNOWN_CTYPE\\"),
+                ("\\", "\\"),
+                ("\"", "\""),
+            ]
 
-            assert os.environ.get("LANG") == "UNKNOWN_LANG"
-            assert not ("LANGUAGE" in os.environ.keys())
-            assert os.environ.get("LC_CTYPE") == "UNKNOWN_CTYPE"
-            assert not ("LC_COLLATE" in os.environ.keys())
+            for unkData in unkDatas:
+                logging.info("----------------------")
+                logging.info("Unk LANG is [{0}]".format(unkData[0]))
+                logging.info("Unk LC_CTYPE is [{0}]".format(unkData[1]))
 
-            while True:
-                try:
-                    with get_remote_node(conn_params=conn_params):
-                        pass
-                except testgres.exceptions.ExecUtilException as e:
-                    # warning: setlocale: LC_CTYPE: cannot change locale (UNKNOWN_CTYPE): No such file or directory
-                    # postgres (PostgreSQL) 14.12
-                    errMsg = str(e)
-                    assert "LC_CTYPE" in errMsg
-                    assert "UNKNOWN_CTYPE" in errMsg
-                    assert "warning: setlocale: LC_CTYPE: cannot change locale (UNKNOWN_CTYPE): No such file or directory" in errMsg
-                    assert "postgres" in errMsg
-                    break
-                raise Exception("We expected an error!")
+                os.environ["LANG"] = unkData[0]
+                os.environ.pop("LANGUAGE", None)
+                os.environ["LC_CTYPE"] = unkData[1]
+                os.environ.pop("LC_COLLATE", None)
+
+                assert os.environ.get("LANG") == unkData[0]
+                assert not ("LANGUAGE" in os.environ.keys())
+                assert os.environ.get("LC_CTYPE") == unkData[1]
+                assert not ("LC_COLLATE" in os.environ.keys())
+
+                while True:
+                    try:
+                        with get_remote_node(conn_params=conn_params):
+                            pass
+                    except testgres.exceptions.ExecUtilException as e:
+                        #
+                        # Example of an error message:
+                        #
+                        # warning: setlocale: LC_CTYPE: cannot change locale (UNKNOWN_CTYPE): No such file or directory
+                        # postgres (PostgreSQL) 14.12
+                        #
+                        errMsg = str(e)
+
+                        logging.info("Error message is: {0}".format(errMsg))
+
+                        assert "LC_CTYPE" in errMsg
+                        assert unkData[1] in errMsg
+                        assert "warning: setlocale: LC_CTYPE: cannot change locale (" + unkData[1] + "): No such file or directory" in errMsg
+                        assert "postgres" in errMsg
+                        break
+                    raise Exception("We expected an error!")
         finally:
             __class__.helper__restore_envvar("LANG", prev_LANG)
             __class__.helper__restore_envvar("LANGUAGE", prev_LANGUAGE)
