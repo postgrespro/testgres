@@ -347,12 +347,12 @@ class TestgresTests(unittest.TestCase):
                 con.begin()
                 con.execute('insert into test values (2)')
                 res = con.execute('select * from test order by val asc')
-                self.assertListEqual(res, [(1, ), (2, )])
+                assert (res == [(1, ), (2, )])
                 con.rollback()
 
                 con.begin()
                 res = con.execute('select * from test')
-                self.assertListEqual(res, [(1, )])
+                assert (res == [(1, )])
                 con.rollback()
 
                 con.begin()
@@ -392,7 +392,7 @@ class TestgresTests(unittest.TestCase):
             with master.backup(xlog_method='stream') as backup:
                 with backup.spawn_primary().start() as slave:
                     res = slave.execute('select * from test order by i asc')
-                    self.assertListEqual(res, [(1, ), (2, ), (3, ), (4, )])
+                    assert (res == [(1, ), (2, ), (3, ), (4, )])
 
     def test_backup_multiple(self):
         with get_new_node() as node:
@@ -448,14 +448,14 @@ class TestgresTests(unittest.TestCase):
 
             with node.replicate().start() as replica:
                 res = replica.execute('select 1')
-                self.assertListEqual(res, [(1, )])
+                assert (res == [(1, )])
 
                 node.execute('create table test (val int)', commit=True)
 
                 replica.catchup()
 
                 res = node.execute('select * from test')
-                self.assertListEqual(res, [])
+                assert (res == [])
 
     # @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_synchronous_replication(self):
@@ -522,7 +522,7 @@ class TestgresTests(unittest.TestCase):
             # wait until changes apply on subscriber and check them
             sub.catchup()
             res = node2.execute('select * from test')
-            self.assertListEqual(res, [(1, 1), (2, 2)])
+            assert (res == [(1, 1), (2, 2)])
 
             # disable and put some new data
             sub.disable()
@@ -532,7 +532,7 @@ class TestgresTests(unittest.TestCase):
             sub.enable()
             sub.catchup()
             res = node2.execute('select * from test')
-            self.assertListEqual(res, [(1, 1), (2, 2), (3, 3)])
+            assert (res == [(1, 1), (2, 2), (3, 3)])
 
             # Add new tables. Since we added "all tables" to publication
             # (default behaviour of publish() method) we don't need
@@ -546,7 +546,7 @@ class TestgresTests(unittest.TestCase):
             node1.safe_psql('insert into test2 values (\'a\'), (\'b\')')
             sub.catchup()
             res = node2.execute('select * from test2')
-            self.assertListEqual(res, [('a', ), ('b', )])
+            assert (res == [('a', ), ('b', )])
 
             # drop subscription
             sub.drop()
@@ -560,7 +560,7 @@ class TestgresTests(unittest.TestCase):
             node1.safe_psql('insert into test values (4, 4)')
             sub.catchup()
             res = node2.execute('select * from test')
-            self.assertListEqual(res, [(1, 1), (2, 2), (3, 3), (4, 4)])
+            assert (res == [(1, 1), (2, 2), (3, 3), (4, 4)])
 
             # explicitly add table
             with pytest.raises(expected_exception=ValueError):
@@ -569,7 +569,7 @@ class TestgresTests(unittest.TestCase):
             node1.safe_psql('insert into test2 values (\'c\')')
             sub.catchup()
             res = node2.execute('select * from test2')
-            self.assertListEqual(res, [('a', ), ('b', )])
+            assert (res == [('a', ), ('b', )])
 
     # @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_catchup(self):
@@ -593,10 +593,7 @@ class TestgresTests(unittest.TestCase):
                 node1.execute('insert into test values ({0}, {0})'.format(i))
                 sub.catchup()
                 res = node2.execute('select * from test')
-                self.assertListEqual(res, [(
-                    i,
-                    i,
-                )])
+                assert (res == [(i,i,)])
                 node1.execute('delete from test')
 
     # @unittest.skipIf(pg_version_ge('10'), 'requires <10')
@@ -657,7 +654,7 @@ class TestgresTests(unittest.TestCase):
                         # restore dump
                         node3.restore(filename=dump)
                         res = node3.execute(query_select)
-                        self.assertListEqual(res, [(1, ), (2, )])
+                        assert (res == [(1, ), (2, )])
 
     def test_users(self):
         with get_new_node().init().start() as node:
