@@ -291,7 +291,7 @@ class TestgresRemoteTests(unittest.TestCase):
             # check new value
             cmm_new = node.execute('show client_min_messages')
             assert ('debug1' == cmm_new[0][0].lower())
-            self.assertNotEqual(cmm_old, cmm_new)
+            assert (cmm_old != cmm_new)
 
     def test_pg_ctl(self):
         with get_remote_node(conn_params=conn_params) as node:
@@ -317,7 +317,7 @@ class TestgresRemoteTests(unittest.TestCase):
 
             node.start()
 
-            self.assertNotEqual(node.pid, 0)
+            assert (node.pid != 0)
             assert (node.status() == NodeStatus.Running)
 
             node.stop()
@@ -453,12 +453,12 @@ class TestgresRemoteTests(unittest.TestCase):
 
             with node.backup(xlog_method='fetch') as backup1, \
                     node.backup(xlog_method='fetch') as backup2:
-                self.assertNotEqual(backup1.base_dir, backup2.base_dir)
+                assert (backup1.base_dir != backup2.base_dir)
 
             with node.backup(xlog_method='fetch') as backup:
                 with backup.spawn_primary('node1', destroy=False) as node1, \
                         backup.spawn_primary('node2', destroy=False) as node2:
-                    self.assertNotEqual(node1.base_dir, node2.base_dir)
+                    assert (node1.base_dir != node2.base_dir)
 
     def test_backup_exhaust(self):
         with get_remote_node(conn_params=conn_params) as node:
@@ -865,12 +865,12 @@ class TestgresRemoteTests(unittest.TestCase):
             c2 = get_pg_config()
 
             # check different instances after config change
-            self.assertNotEqual(id(c1), id(c2))
+            assert (id(c1) != id(c2))
 
             # check different instances
             a = get_pg_config()
             b = get_pg_config()
-            self.assertNotEqual(id(a), id(b))
+            assert (id(a) != id(b))
 
     def test_config_stack(self):
         # no such option
@@ -927,7 +927,7 @@ class TestgresRemoteTests(unittest.TestCase):
                 assert (r.status())
 
                 # check their names
-                self.assertNotEqual(m.name, r.name)
+                assert (m.name != r.name)
                 assert ('testgres' in m.name)
                 assert ('testgres' in r.name)
 
