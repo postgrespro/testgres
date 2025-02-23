@@ -230,8 +230,8 @@ class TestgresRemoteTests(unittest.TestCase):
                 id2 = node2.execute(query)[0]
 
                 # ids must increase
-                self.assertGreater(id1, id0)
-                self.assertGreater(id2, id1)
+                assert (id1 > id0)
+                assert (id2 > id1)
 
     def test_node_exit(self):
         with pytest.raises(expected_exception=QueryException):
@@ -1045,7 +1045,7 @@ class TestgresRemoteTests(unittest.TestCase):
                 master.source_walsender
 
             with master.connect() as con:
-                self.assertGreater(con.pid, 0)
+                assert (con.pid > 0)
 
             with master.replicate().start() as replica:
 
