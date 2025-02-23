@@ -210,10 +210,10 @@ class TestgresTests(unittest.TestCase):
 
             # restart, ok
             res = node.execute('select 1')
-            self.assertEqual(res, [(1, )])
+            assert (res == [(1, )])
             node.restart()
             res = node.execute('select 2')
-            self.assertEqual(res, [(2, )])
+            assert (res == [(2, )])
 
             # restart, fail
             with pytest.raises(expected_exception=StartNodeException):
@@ -233,7 +233,7 @@ class TestgresTests(unittest.TestCase):
 
             # check new value
             cmm_new = node.execute('show client_min_messages')
-            self.assertEqual('debug1', cmm_new[0][0].lower())
+            assert ('debug1' == cmm_new[0][0].lower())
             self.assertNotEqual(cmm_old, cmm_new)
 
     def test_pg_ctl(self):
@@ -250,62 +250,62 @@ class TestgresTests(unittest.TestCase):
 
         # check statuses after each operation
         with get_new_node() as node:
-            self.assertEqual(node.pid, 0)
-            self.assertEqual(node.status(), NodeStatus.Uninitialized)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
 
             node.init()
 
-            self.assertEqual(node.pid, 0)
-            self.assertEqual(node.status(), NodeStatus.Stopped)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Stopped)
 
             node.start()
 
             self.assertNotEqual(node.pid, 0)
-            self.assertEqual(node.status(), NodeStatus.Running)
+            assert (node.status() == NodeStatus.Running)
 
             node.stop()
 
-            self.assertEqual(node.pid, 0)
-            self.assertEqual(node.status(), NodeStatus.Stopped)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Stopped)
 
             node.cleanup()
 
-            self.assertEqual(node.pid, 0)
-            self.assertEqual(node.status(), NodeStatus.Uninitialized)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
 
     def test_psql(self):
         with get_new_node().init().start() as node:
 
             # check returned values (1 arg)
             res = node.psql('select 1')
-            self.assertEqual(rm_carriage_returns(res), (0, b'1\n', b''))
+            assert (rm_carriage_returns(res) == (0, b'1\n', b''))
 
             # check returned values (2 args)
             res = node.psql('postgres', 'select 2')
-            self.assertEqual(rm_carriage_returns(res), (0, b'2\n', b''))
+            assert (rm_carriage_returns(res) == (0, b'2\n', b''))
 
             # check returned values (named)
             res = node.psql(query='select 3', dbname='postgres')
-            self.assertEqual(rm_carriage_returns(res), (0, b'3\n', b''))
+            assert (rm_carriage_returns(res) == (0, b'3\n', b''))
 
             # check returned values (1 arg)
             res = node.safe_psql('select 4')
-            self.assertEqual(rm_carriage_returns(res), b'4\n')
+            assert (rm_carriage_returns(res) == b'4\n')
 
             # check returned values (2 args)
             res = node.safe_psql('postgres', 'select 5')
-            self.assertEqual(rm_carriage_returns(res), b'5\n')
+            assert (rm_carriage_returns(res) == b'5\n')
 
             # check returned values (named)
             res = node.safe_psql(query='select 6', dbname='postgres')
-            self.assertEqual(rm_carriage_returns(res), b'6\n')
+            assert (rm_carriage_returns(res) == b'6\n')
 
             # check feeding input
             node.safe_psql('create table horns (w int)')
             node.safe_psql('copy horns from stdin (format csv)',
                            input=b"1\n2\n3\n\\.\n")
             _sum = node.safe_psql('select sum(w) from horns')
-            self.assertEqual(rm_carriage_returns(_sum), b'6\n')
+            assert (rm_carriage_returns(_sum) == b'6\n')
 
             # check psql's default args, fails
             with pytest.raises(expected_exception=QueryException):
@@ -333,7 +333,7 @@ class TestgresTests(unittest.TestCase):
 
             # ---------
             res = node.safe_psql("select 1;", expect_error=False)
-            self.assertEqual(rm_carriage_returns(res), b'1\n')
+            assert (rm_carriage_returns(res) == b'1\n')
 
     def test_transactions(self):
         with get_new_node().init().start() as node:
@@ -475,11 +475,11 @@ class TestgresTests(unittest.TestCase):
                 standby2.start()
 
                 # check formatting
-                self.assertEqual(
-                    '1 ("{}", "{}")'.format(standby1.name, standby2.name),
+                assert (
+                    '1 ("{}", "{}")'.format(standby1.name, standby2.name) ==
                     str(First(1, (standby1, standby2))))  # yapf: disable
-                self.assertEqual(
-                    'ANY 1 ("{}", "{}")'.format(standby1.name, standby2.name),
+                assert (
+                    'ANY 1 ("{}", "{}")'.format(standby1.name, standby2.name) ==
                     str(Any(1, (standby1, standby2))))  # yapf: disable
 
                 # set synchronous_standby_names
@@ -498,7 +498,7 @@ class TestgresTests(unittest.TestCase):
                     master.safe_psql(
                         'insert into abc select generate_series(1, 1000000)')
                     res = standby1.safe_psql('select count(*) from abc')
-                    self.assertEqual(rm_carriage_returns(res), b'1000000\n')
+                    assert (rm_carriage_returns(res) == b'1000000\n')
 
     # @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_replication(self):
@@ -638,7 +638,7 @@ class TestgresTests(unittest.TestCase):
                 # make standby becomes writable master
                 replica.safe_psql('insert into abc values (1)')
                 res = replica.safe_psql('select * from abc')
-                self.assertEqual(rm_carriage_returns(res), b'1\n')
+                assert (rm_carriage_returns(res) == b'1\n')
 
     def test_dump(self):
         query_create = 'create table test as select generate_series(1, 2) as val'
@@ -664,7 +664,7 @@ class TestgresTests(unittest.TestCase):
             node.psql('create role test_user login')
             value = node.safe_psql('select 1', username='test_user')
             value = rm_carriage_returns(value)
-            self.assertEqual(value, b'1\n')
+            assert (value == b'1\n')
 
     def test_poll_query_until(self):
         with get_new_node() as node:
@@ -804,7 +804,7 @@ class TestgresTests(unittest.TestCase):
         # check same instances
         a = get_pg_config()
         b = get_pg_config()
-        self.assertEqual(id(a), id(b))
+        assert (id(a) == id(b))
 
         # save right before config change
         c1 = get_pg_config()
@@ -839,7 +839,7 @@ class TestgresTests(unittest.TestCase):
         d2 = 'dummy_def'
 
         with scoped_config(cached_initdb_dir=d1) as c1:
-            self.assertEqual(c1.cached_initdb_dir, d1)
+            assert (c1.cached_initdb_dir == d1)
 
             with scoped_config(cached_initdb_dir=d2) as c2:
                 stack_size = len(testgres.config.config_stack)
@@ -849,12 +849,12 @@ class TestgresTests(unittest.TestCase):
                     with scoped_config(dummy=True):
                         pass
 
-                self.assertEqual(c2.cached_initdb_dir, d2)
-                self.assertEqual(len(testgres.config.config_stack), stack_size)
+                assert (c2.cached_initdb_dir == d2)
+                assert (len(testgres.config.config_stack) == stack_size)
 
-            self.assertEqual(c1.cached_initdb_dir, d1)
+            assert (c1.cached_initdb_dir == d1)
 
-        self.assertEqual(TestgresConfig.cached_initdb_dir, d0)
+        assert (TestgresConfig.cached_initdb_dir == d0)
 
     def test_unix_sockets(self):
         with get_new_node() as node:
@@ -897,13 +897,13 @@ class TestgresTests(unittest.TestCase):
 
             f.seek(0)
             lines = file_tail(f, 3)
-            self.assertEqual(lines[0], s1)
-            self.assertEqual(lines[1], s2)
-            self.assertEqual(lines[2], s3)
+            assert (lines[0] == s1)
+            assert (lines[1] == s2)
+            assert (lines[2] == s3)
 
             f.seek(0)
             lines = file_tail(f, 1)
-            self.assertEqual(lines[0], s3)
+            assert (lines[0] == s3)
 
     def test_isolation_levels(self):
         with get_new_node().init().start() as node:
@@ -926,19 +926,19 @@ class TestgresTests(unittest.TestCase):
 
     def test_ports_management(self):
         # check that no ports have been bound yet
-        self.assertEqual(len(bound_ports), 0)
+        assert (len(bound_ports) == 0)
 
         with get_new_node() as node:
             # check that we've just bound a port
-            self.assertEqual(len(bound_ports), 1)
+            assert (len(bound_ports) == 1)
 
             # check that bound_ports contains our port
             port_1 = list(bound_ports)[0]
             port_2 = node.port
-            self.assertEqual(port_1, port_2)
+            assert (port_1 == port_2)
 
         # check that port has been freed successfully
-        self.assertEqual(len(bound_ports), 0)
+        assert (len(bound_ports) == 0)
 
     def test_exceptions(self):
         str(StartNodeException('msg', [('file', 'lines')]))
@@ -972,7 +972,7 @@ class TestgresTests(unittest.TestCase):
         with get_new_node() as node:
             assert (isinstance(version, six.string_types))
             assert (isinstance(node.version, PgVer))
-            self.assertEqual(node.version, PgVer(version))
+            assert (node.version == PgVer(version))
 
     def test_child_pids(self):
         master_processes = [
@@ -1018,10 +1018,10 @@ class TestgresTests(unittest.TestCase):
                     self.assertIn(ptype, replica_pids)
 
                 # there should be exactly 1 source walsender for replica
-                self.assertEqual(len(master_pids[ProcessType.WalSender]), 1)
+                assert (len(master_pids[ProcessType.WalSender]) == 1)
                 pid1 = master_pids[ProcessType.WalSender][0]
                 pid2 = replica.source_walsender.pid
-                self.assertEqual(pid1, pid2)
+                assert (pid1 == pid2)
 
                 replica.stop()
 
@@ -1034,7 +1034,7 @@ class TestgresTests(unittest.TestCase):
         cmd = ["timeout", "60"] if os.name == 'nt' else ["sleep", "60"]
 
         with subprocess.Popen(cmd, shell=True) as process:  # shell=True might be needed on Windows
-            self.assertEqual(process.poll(), None)
+            assert (process.poll() == None)
             # collect list of processes currently running
             children = psutil.Process(os.getpid()).children()
             # kill a process, so received children dictionary becomes invalid
@@ -1070,13 +1070,13 @@ class TestgresTests(unittest.TestCase):
         with get_new_node() as node:
             node.init().start()
             assert (node._should_free_port)
-            self.assertEqual(type(node.port), int)
+            assert (type(node.port) == int)
             node_port_copy = node.port
-            self.assertEqual(rm_carriage_returns(node.safe_psql("SELECT 1;")), b'1\n')
+            assert (rm_carriage_returns(node.safe_psql("SELECT 1;")) == b'1\n')
 
             with get_new_node(port=node.port) as node2:
-                self.assertEqual(type(node2.port), int)
-                self.assertEqual(node2.port, node.port)
+                assert (type(node2.port) == int)
+                assert (node2.port == node.port)
                 assert not (node2._should_free_port)
 
                 with pytest.raises(
@@ -1086,9 +1086,9 @@ class TestgresTests(unittest.TestCase):
                     node2.init().start()
 
             # node is still working
-            self.assertEqual(node.port, node_port_copy)
+            assert (node.port == node_port_copy)
             assert (node._should_free_port)
-            self.assertEqual(rm_carriage_returns(node.safe_psql("SELECT 3;")), b'3\n')
+            assert (rm_carriage_returns(node.safe_psql("SELECT 3;")) == b'3\n')
 
     class tagPortManagerProxy:
         sm_prev_testgres_reserve_port = None
@@ -1194,30 +1194,30 @@ class TestgresTests(unittest.TestCase):
         with get_new_node() as node1:
             node1.init().start()
             assert (node1._should_free_port)
-            self.assertEqual(type(node1.port), int)  # noqa: E721
+            assert (type(node1.port) == int)  # noqa: E721
             node1_port_copy = node1.port
-            self.assertEqual(rm_carriage_returns(node1.safe_psql("SELECT 1;")), b'1\n')
+            assert (rm_carriage_returns(node1.safe_psql("SELECT 1;")) == b'1\n')
 
             with __class__.tagPortManagerProxy(node1.port, C_COUNT_OF_BAD_PORT_USAGE):
                 assert __class__.tagPortManagerProxy.sm_DummyPortNumber == node1.port
                 with get_new_node() as node2:
                     assert (node2._should_free_port)
-                    self.assertEqual(node2.port, node1.port)
+                    assert (node2.port == node1.port)
 
                     node2.init().start()
 
                     self.assertNotEqual(node2.port, node1.port)
                     assert (node2._should_free_port)
-                    self.assertEqual(__class__.tagPortManagerProxy.sm_DummyPortCurrentUsage, 0)
-                    self.assertEqual(__class__.tagPortManagerProxy.sm_DummyPortTotalUsage, C_COUNT_OF_BAD_PORT_USAGE)
+                    assert (__class__.tagPortManagerProxy.sm_DummyPortCurrentUsage == 0)
+                    assert (__class__.tagPortManagerProxy.sm_DummyPortTotalUsage == C_COUNT_OF_BAD_PORT_USAGE)
                     assert (node2.is_started)
 
-                    self.assertEqual(rm_carriage_returns(node2.safe_psql("SELECT 2;")), b'2\n')
+                    assert (rm_carriage_returns(node2.safe_psql("SELECT 2;")) == b'2\n')
 
             # node1 is still working
-            self.assertEqual(node1.port, node1_port_copy)
+            assert (node1.port == node1_port_copy)
             assert (node1._should_free_port)
-            self.assertEqual(rm_carriage_returns(node1.safe_psql("SELECT 3;")), b'3\n')
+            assert (rm_carriage_returns(node1.safe_psql("SELECT 3;")) == b'3\n')
 
     def test_port_conflict(self):
         assert testgres.PostgresNode._C_MAX_START_ATEMPTS > 1
@@ -1227,15 +1227,15 @@ class TestgresTests(unittest.TestCase):
         with get_new_node() as node1:
             node1.init().start()
             assert (node1._should_free_port)
-            self.assertEqual(type(node1.port), int)  # noqa: E721
+            assert (type(node1.port) == int)  # noqa: E721
             node1_port_copy = node1.port
-            self.assertEqual(rm_carriage_returns(node1.safe_psql("SELECT 1;")), b'1\n')
+            assert (rm_carriage_returns(node1.safe_psql("SELECT 1;")) == b'1\n')
 
             with __class__.tagPortManagerProxy(node1.port, C_COUNT_OF_BAD_PORT_USAGE):
                 assert __class__.tagPortManagerProxy.sm_DummyPortNumber == node1.port
                 with get_new_node() as node2:
                     assert (node2._should_free_port)
-                    self.assertEqual(node2.port, node1.port)
+                    assert (node2.port == node1.port)
 
                     with pytest.raises(
                         expected_exception=StartNodeException,
@@ -1243,19 +1243,19 @@ class TestgresTests(unittest.TestCase):
                     ):
                         node2.init().start()
 
-                    self.assertEqual(node2.port, node1.port)
+                    assert (node2.port == node1.port)
                     assert (node2._should_free_port)
-                    self.assertEqual(__class__.tagPortManagerProxy.sm_DummyPortCurrentUsage, 1)
-                    self.assertEqual(__class__.tagPortManagerProxy.sm_DummyPortTotalUsage, C_COUNT_OF_BAD_PORT_USAGE)
+                    assert (__class__.tagPortManagerProxy.sm_DummyPortCurrentUsage == 1)
+                    assert (__class__.tagPortManagerProxy.sm_DummyPortTotalUsage == C_COUNT_OF_BAD_PORT_USAGE)
                     assert not (node2.is_started)
 
                 # node2 must release our dummyPort (node1.port)
-                self.assertEqual(__class__.tagPortManagerProxy.sm_DummyPortCurrentUsage, 0)
+                assert (__class__.tagPortManagerProxy.sm_DummyPortCurrentUsage == 0)
 
             # node1 is still working
-            self.assertEqual(node1.port, node1_port_copy)
+            assert (node1.port == node1_port_copy)
             assert (node1._should_free_port)
-            self.assertEqual(rm_carriage_returns(node1.safe_psql("SELECT 3;")), b'3\n')
+            assert (rm_carriage_returns(node1.safe_psql("SELECT 3;")) == b'3\n')
 
     def test_simple_with_bin_dir(self):
         with get_new_node() as node:
