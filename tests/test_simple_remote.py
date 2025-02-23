@@ -9,7 +9,6 @@ import tempfile
 import testgres
 import time
 import six
-import unittest
 import pytest
 import psutil
 
@@ -95,7 +94,7 @@ def removing(f):
             os_ops.rmdirs(f, ignore_errors=True)
 
 
-class TestgresRemoteTests(unittest.TestCase):
+class TestgresRemoteTests:
     def test_node_repr(self):
         with get_remote_node(conn_params=conn_params) as node:
             pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
@@ -1106,23 +1105,3 @@ class TestgresRemoteTests(unittest.TestCase):
         if pg_version_ge(version):
             pytest.skip('requires <{0}'.format(version))
 
-
-if __name__ == '__main__':
-    if os_ops.environ('ALT_CONFIG'):
-        suite = unittest.TestSuite()
-
-        # Small subset of tests for alternative configs (PG_BIN or PG_CONFIG)
-        suite.addTest(TestgresRemoteTests('test_pg_config'))
-        suite.addTest(TestgresRemoteTests('test_pg_ctl'))
-        suite.addTest(TestgresRemoteTests('test_psql'))
-        suite.addTest(TestgresRemoteTests('test_replicate'))
-
-        print('Running tests for alternative config:')
-        for t in suite:
-            print(t)
-        print()
-
-        runner = unittest.TextTestRunner()
-        runner.run(suite)
-    else:
-        unittest.main()

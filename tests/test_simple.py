@@ -8,7 +8,6 @@ import tempfile
 import testgres
 import time
 import six
-import unittest
 import pytest
 import psutil
 import platform
@@ -107,7 +106,7 @@ def removing(f):
             rmtree(f, ignore_errors=True)
 
 
-class TestgresTests(unittest.TestCase):
+class TestgresTests:
     def test_node_repr(self):
         with get_new_node() as node:
             pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
@@ -1342,23 +1341,3 @@ class TestgresTests(unittest.TestCase):
         if pg_version_ge(version):
             pytest.skip('requires <{0}'.format(version))
 
-
-if __name__ == '__main__':
-    if os.environ.get('ALT_CONFIG'):
-        suite = unittest.TestSuite()
-
-        # Small subset of tests for alternative configs (PG_BIN or PG_CONFIG)
-        suite.addTest(TestgresTests('test_pg_config'))
-        suite.addTest(TestgresTests('test_pg_ctl'))
-        suite.addTest(TestgresTests('test_psql'))
-        suite.addTest(TestgresTests('test_replicate'))
-
-        print('Running tests for alternative config:')
-        for t in suite:
-            print(t)
-        print()
-
-        runner = unittest.TextTestRunner()
-        runner.run(suite)
-    else:
-        unittest.main()
