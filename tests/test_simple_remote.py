@@ -1067,6 +1067,7 @@ class TestgresRemoteTests(unittest.TestCase):
             # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
             [ProcessProxy(p) for p in children]
 
+    @staticmethod
     def helper__restore_envvar(name, prev_value):
         if prev_value is None:
             os.environ.pop(name, None)
