@@ -1939,6 +1939,7 @@ class NodeApp:
 
         return node
 
+    @staticmethod
     def _gettempdir_for_socket():
         platform_system_name = platform.system().lower()
 
@@ -1966,6 +1967,7 @@ class NodeApp:
 
         return "/tmp"
 
+    @staticmethod
     def _gettempdir():
         v = tempfile.gettempdir()
 
@@ -1984,6 +1986,7 @@ class NodeApp:
         # OK
         return v
 
+    @staticmethod
     def _raise_bugcheck(msg):
         assert type(msg) == str  # noqa: E721
         assert msg != ""

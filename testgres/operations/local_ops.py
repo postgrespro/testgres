@@ -265,6 +265,7 @@ class LocalOperations(OsOperations):
                 data2 = __class__._prepare_data_to_write(data, binary)
                 file.write(data2)
 
+    @staticmethod
     def _prepare_line_to_write(data, binary):
         data = __class__._prepare_data_to_write(data, binary)
 
@@ -275,6 +276,7 @@ class LocalOperations(OsOperations):
         assert type(data) == str  # noqa: E721
         return data.rstrip('\n') + '\n'
 
+    @staticmethod
     def _prepare_data_to_write(data, binary):
         if isinstance(data, bytes):
             return data if binary else data.decode()

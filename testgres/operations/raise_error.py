@@ -3,6 +3,7 @@ from .helpers import Helpers
 
 
 class RaiseError:
+    @staticmethod
     def UtilityExitedWithNonZeroCode(cmd, exit_code, msg_arg, error, out):
         assert type(exit_code) == int  # noqa: E721
 
@@ -20,12 +21,14 @@ class RaiseError:
             out=out,
             error=error)
 
+    @staticmethod
     def _TranslateDataIntoString(data):
         if type(data) == bytes:  # noqa: E721
             return __class__._TranslateDataIntoString__FromBinary(data)
 
         return str(data)
 
+    @staticmethod
     def _TranslateDataIntoString__FromBinary(data):
         assert type(data) == bytes  # noqa: E721
 
@@ -36,6 +39,7 @@ class RaiseError:
 
         return "#cannot_decode_text"
 
+    @staticmethod
     def _BinaryIsASCII(data):
         assert type(data) == bytes  # noqa: E721
 

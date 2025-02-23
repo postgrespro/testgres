@@ -2,6 +2,7 @@ import locale
 
 
 class Helpers:
+    @staticmethod
     def _make_get_default_encoding_func():
         # locale.getencoding is added in Python 3.11
         if hasattr(locale, 'getencoding'):
@@ -13,6 +14,7 @@ class Helpers:
     # Prepared pointer on function to get a name of system codepage
     _get_default_encoding_func = _make_get_default_encoding_func()
 
+    @staticmethod
     def GetDefaultEncoding():
         #
         #   Original idea/source was:
@@ -36,6 +38,7 @@ class Helpers:
         # Is it an unexpected situation?
         return 'UTF-8'
 
+    @staticmethod
     def PrepareProcessInput(input, encoding):
         if not input:
             return None

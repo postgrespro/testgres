@@ -313,6 +313,7 @@ class RemoteOperations(OsOperations):
 
             os.remove(tmp_file.name)
 
+    @staticmethod
     def _prepare_line_to_write(data, binary, encoding):
         data = __class__._prepare_data_to_write(data, binary, encoding)
 
@@ -323,6 +324,7 @@ class RemoteOperations(OsOperations):
         assert type(data) == str  # noqa: E721
         return data.rstrip('\n') + '\n'
 
+    @staticmethod
     def _prepare_data_to_write(data, binary, encoding):
         if isinstance(data, bytes):
             return data if binary else data.decode(encoding)

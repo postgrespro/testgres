@@ -1125,6 +1125,7 @@ class TestgresTests(unittest.TestCase):
             __class__.sm_prev_testgres_reserve_port = None
             __class__.sm_prev_testgres_release_port = None
 
+        @staticmethod
         def _proxy__reserve_port():
             assert type(__class__.sm_DummyPortMaxUsage) == int  # noqa: E721
             assert type(__class__.sm_DummyPortTotalUsage) == int  # noqa: E721
@@ -1144,6 +1145,7 @@ class TestgresTests(unittest.TestCase):
             __class__.sm_DummyPortCurrentUsage += 1
             return __class__.sm_DummyPortNumber
 
+        @staticmethod
         def _proxy__release_port(dummyPortNumber):
             assert type(dummyPortNumber) == int  # noqa: E721
 
