@@ -475,11 +475,11 @@ class TestgresTests:
 
                 # check formatting
                 assert (
-                    '1 ("{}", "{}")'.format(standby1.name, standby2.name) ==
-                    str(First(1, (standby1, standby2))))  # yapf: disable
+                    '1 ("{}", "{}")'.format(standby1.name, standby2.name) == str(First(1, (standby1, standby2)))
+                )  # yapf: disable
                 assert (
-                    'ANY 1 ("{}", "{}")'.format(standby1.name, standby2.name) ==
-                    str(Any(1, (standby1, standby2))))  # yapf: disable
+                    'ANY 1 ("{}", "{}")'.format(standby1.name, standby2.name) == str(Any(1, (standby1, standby2)))
+                )  # yapf: disable
 
                 # set synchronous_standby_names
                 master.set_synchronous_standbys(First(2, [standby1, standby2]))
@@ -592,7 +592,7 @@ class TestgresTests:
                 node1.execute('insert into test values ({0}, {0})'.format(i))
                 sub.catchup()
                 res = node2.execute('select * from test')
-                assert (res == [(i,i,)])
+                assert (res == [(i, i, )])
                 node1.execute('delete from test')
 
     # @unittest.skipIf(pg_version_ge('10'), 'requires <10')
@@ -1030,7 +1030,7 @@ class TestgresTests:
         cmd = ["timeout", "60"] if os.name == 'nt' else ["sleep", "60"]
 
         with subprocess.Popen(cmd, shell=True) as process:  # shell=True might be needed on Windows
-            assert (process.poll() == None)
+            assert (process.poll() is None)
             # collect list of processes currently running
             children = psutil.Process(os.getpid()).children()
             # kill a process, so received children dictionary becomes invalid
@@ -1066,12 +1066,12 @@ class TestgresTests:
         with get_new_node() as node:
             node.init().start()
             assert (node._should_free_port)
-            assert (type(node.port) == int)
+            assert (type(node.port) == int)  # noqa: E721
             node_port_copy = node.port
             assert (rm_carriage_returns(node.safe_psql("SELECT 1;")) == b'1\n')
 
             with get_new_node(port=node.port) as node2:
-                assert (type(node2.port) == int)
+                assert (type(node2.port) == int)  # noqa: E721
                 assert (node2.port == node.port)
                 assert not (node2._should_free_port)
 
@@ -1317,6 +1317,7 @@ class TestgresTests:
 
                 for x in testData:
                     assert x[0] + " = " + x[2] in content
+
     @staticmethod
     def helper__skip_test_if_util_not_exist(name: str):
         assert type(name) == str  # noqa: E721
@@ -1340,4 +1341,3 @@ class TestgresTests:
         assert type(version) == str  # noqa: E721
         if pg_version_ge(version):
             pytest.skip('requires <{0}'.format(version))
-

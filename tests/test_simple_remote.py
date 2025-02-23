@@ -528,11 +528,11 @@ class TestgresRemoteTests:
 
                 # check formatting
                 assert (
-                    '1 ("{}", "{}")'.format(standby1.name, standby2.name) ==
-                    str(First(1, (standby1, standby2))))  # yapf: disable
+                    '1 ("{}", "{}")'.format(standby1.name, standby2.name) == str(First(1, (standby1, standby2)))
+                )  # yapf: disable
                 assert (
-                    'ANY 1 ("{}", "{}")'.format(standby1.name, standby2.name) ==
-                    str(Any(1, (standby1, standby2))))  # yapf: disable
+                    'ANY 1 ("{}", "{}")'.format(standby1.name, standby2.name) == str(Any(1, (standby1, standby2)))
+                )  # yapf: disable
 
                 # set synchronous_standby_names
                 master.set_synchronous_standbys(First(2, [standby1, standby2]))
@@ -645,7 +645,7 @@ class TestgresRemoteTests:
                 node1.execute('insert into test values ({0}, {0})'.format(i))
                 sub.catchup()
                 res = node2.execute('select * from test')
-                assert (res == [(i,i,)])
+                assert (res == [(i, i, )])
                 node1.execute('delete from test')
 
     # @unittest.skipIf(pg_version_ge('10'), 'requires <10')
@@ -1071,7 +1071,7 @@ class TestgresRemoteTests:
     def test_child_process_dies(self):
         # test for FileNotFound exception during child_processes() function
         with subprocess.Popen(["sleep", "60"]) as process:
-            assert (process.poll() == None)
+            assert (process.poll() is None)
             # collect list of processes currently running
             children = psutil.Process(os.getpid()).children()
             # kill a process, so received children dictionary becomes invalid
@@ -1104,4 +1104,3 @@ class TestgresRemoteTests:
         assert type(version) == str  # noqa: E721
         if pg_version_ge(version):
             pytest.skip('requires <{0}'.format(version))
-
