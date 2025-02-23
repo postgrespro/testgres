@@ -131,7 +131,7 @@ class TestgresTests(unittest.TestCase):
                 self.assertGreaterEqual(len(lines), 6)
 
                 # there should be no trust entries at all
-                self.assertFalse(any('trust' in s for s in lines))
+                assert not (any('trust' in s for s in lines))
 
     def test_double_init(self):
         with get_new_node().init() as node:
@@ -190,7 +190,7 @@ class TestgresTests(unittest.TestCase):
             base_dir = node.base_dir
 
         # should have been removed by default
-        self.assertFalse(os.path.exists(base_dir))
+        assert not (os.path.exists(base_dir))
 
     def test_double_start(self):
         with get_new_node().init().start() as node:
@@ -245,8 +245,8 @@ class TestgresTests(unittest.TestCase):
 
     def test_status(self):
         self.assertTrue(NodeStatus.Running)
-        self.assertFalse(NodeStatus.Stopped)
-        self.assertFalse(NodeStatus.Uninitialized)
+        assert not (NodeStatus.Stopped)
+        assert not (NodeStatus.Uninitialized)
 
         # check statuses after each operation
         with get_new_node() as node:
@@ -812,7 +812,7 @@ class TestgresTests(unittest.TestCase):
         # modify setting for this scope
         with scoped_config(cache_pg_config=False) as config:
             # sanity check for value
-            self.assertFalse(config.cache_pg_config)
+            assert not (config.cache_pg_config)
 
             # save right after config change
             c2 = get_pg_config()
@@ -1077,7 +1077,7 @@ class TestgresTests(unittest.TestCase):
             with get_new_node(port=node.port) as node2:
                 self.assertEqual(type(node2.port), int)
                 self.assertEqual(node2.port, node.port)
-                self.assertFalse(node2._should_free_port)
+                assert not (node2._should_free_port)
 
                 with pytest.raises(
                     expected_exception=StartNodeException,
@@ -1247,7 +1247,7 @@ class TestgresTests(unittest.TestCase):
                     self.assertTrue(node2._should_free_port)
                     self.assertEqual(__class__.tagPortManagerProxy.sm_DummyPortCurrentUsage, 1)
                     self.assertEqual(__class__.tagPortManagerProxy.sm_DummyPortTotalUsage, C_COUNT_OF_BAD_PORT_USAGE)
-                    self.assertFalse(node2.is_started)
+                    assert not (node2.is_started)
 
                 # node2 must release our dummyPort (node1.port)
                 self.assertEqual(__class__.tagPortManagerProxy.sm_DummyPortCurrentUsage, 0)

@@ -118,7 +118,7 @@ class TestgresRemoteTests(unittest.TestCase):
             self.assertGreaterEqual(len(lines), 6)
 
             # there should be no trust entries at all
-            self.assertFalse(any('trust' in s for s in lines))
+            assert not (any('trust' in s for s in lines))
 
     def test_init__LANG_С(self):
         # PBCKP-1744
@@ -247,7 +247,7 @@ class TestgresRemoteTests(unittest.TestCase):
             base_dir = node.base_dir
 
         # should have been removed by default
-        self.assertFalse(os_ops.path_exists(base_dir))
+        assert not (os_ops.path_exists(base_dir))
 
     def test_double_start(self):
         with get_remote_node(conn_params=conn_params).init().start() as node:
@@ -302,8 +302,8 @@ class TestgresRemoteTests(unittest.TestCase):
 
     def test_status(self):
         self.assertTrue(NodeStatus.Running)
-        self.assertFalse(NodeStatus.Stopped)
-        self.assertFalse(NodeStatus.Uninitialized)
+        assert not (NodeStatus.Stopped)
+        assert not (NodeStatus.Uninitialized)
 
         # check statuses after each operation
         with get_remote_node(conn_params=conn_params) as node:
@@ -859,7 +859,7 @@ class TestgresRemoteTests(unittest.TestCase):
         # modify setting for this scope
         with scoped_config(cache_pg_config=False) as config:
             # sanity check for value
-            self.assertFalse(config.cache_pg_config)
+            assert not (config.cache_pg_config)
 
             # save right after config change
             c2 = get_pg_config()
