@@ -11,6 +11,7 @@ import six
 import unittest
 import pytest
 import psutil
+import platform
 
 import logging.config
 
@@ -144,10 +145,13 @@ class TestgresTests(unittest.TestCase):
             node.cleanup()
             node.init().start().execute('select 1')
 
-    @unittest.skipUnless(util_exists('pg_resetwal.exe' if os.name == 'nt' else 'pg_resetwal'), 'pgbench might be missing')
-    @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
+    # @unittest.skipUnless(util_exists('pg_resetwal.exe' if os.name == 'nt' else 'pg_resetwal'), 'pgbench might be missing')
+    # @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_init_unique_system_id(self):
         # this function exists in PostgreSQL 9.6+
+        __class__.helper__skip_test_if_util_not_exist("pg_resetwal")
+        __class__.helper__skip_test_if_pg_version_is_not_ge("9.6")
+
         query = 'select system_identifier from pg_control_system()'
 
         with scoped_config(cache_initdb=False):
@@ -453,8 +457,10 @@ class TestgresTests(unittest.TestCase):
                 res = node.execute('select * from test')
                 self.assertListEqual(res, [])
 
-    @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
+    # @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_synchronous_replication(self):
+        __class__.helper__skip_test_if_pg_version_is_not_ge("9.6")
+
         with get_new_node() as master:
             old_version = not pg_version_ge('9.6')
 
@@ -494,8 +500,10 @@ class TestgresTests(unittest.TestCase):
                     res = standby1.safe_psql('select count(*) from abc')
                     self.assertEqual(rm_carriage_returns(res), b'1000000\n')
 
-    @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
+    # @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_replication(self):
+        __class__.helper__skip_test_if_pg_version_is_not_ge("10")
+
         with get_new_node() as node1, get_new_node() as node2:
             node1.init(allow_logical=True)
             node1.start()
@@ -563,9 +571,11 @@ class TestgresTests(unittest.TestCase):
             res = node2.execute('select * from test2')
             self.assertListEqual(res, [('a', ), ('b', )])
 
-    @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
+    # @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_catchup(self):
         """ Runs catchup for 100 times to be sure that it is consistent """
+        __class__.helper__skip_test_if_pg_version_is_not_ge("10")
+
         with get_new_node() as node1, get_new_node() as node2:
             node1.init(allow_logical=True)
             node1.start()
@@ -589,8 +599,10 @@ class TestgresTests(unittest.TestCase):
                 )])
                 node1.execute('delete from test')
 
-    @unittest.skipIf(pg_version_ge('10'), 'requires <10')
+    # @unittest.skipIf(pg_version_ge('10'), 'requires <10')
     def test_logical_replication_fail(self):
+        __class__.helper__skip_test_if_pg_version_is_ge("10")
+
         with get_new_node() as node:
             with pytest.raises(expected_exception=InitNodeException):
                 node.init(allow_logical=True)
@@ -766,8 +778,10 @@ class TestgresTests(unittest.TestCase):
                 master.restart()
                 self.assertTrue(master._logger.is_alive())
 
-    @unittest.skipUnless(util_exists('pgbench.exe' if os.name == 'nt' else 'pgbench'), 'pgbench might be missing')
+    # @unittest.skipUnless(util_exists('pgbench.exe' if os.name == 'nt' else 'pgbench'), 'pgbench might be missing')
     def test_pgbench(self):
+        __class__.helper__skip_test_if_util_not_exist("pgbench")
+
         with get_new_node().init().start() as node:
 
             # initialize pgbench DB and run benchmarks
@@ -1311,6 +1325,30 @@ class TestgresTests(unittest.TestCase):
                         content,
                         x[0] + " stored wrong"
                     )
+
+    @staticmethod
+    def helper__skip_test_if_util_not_exist(name: str):
+        assert type(name) == str  # noqa: E721
+
+        if platform.system().lower() == "windows":
+            name2 = name + ".exe"
+        else:
+            name2 = name
+
+        if not util_exists(name2):
+            pytest.skip('might be missing')
+
+    @staticmethod
+    def helper__skip_test_if_pg_version_is_not_ge(version: str):
+        assert type(version) == str  # noqa: E721
+        if not pg_version_ge(version):
+            pytest.skip('requires {0}+'.format(version))
+
+    @staticmethod
+    def helper__skip_test_if_pg_version_is_ge(version: str):
+        assert type(version) == str  # noqa: E721
+        if pg_version_ge(version):
+            pytest.skip('requires <{0}'.format(version))
 
 
 if __name__ == '__main__':

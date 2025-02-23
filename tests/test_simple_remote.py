@@ -205,10 +205,13 @@ class TestgresRemoteTests(unittest.TestCase):
             node.cleanup()
             node.init().start().execute('select 1')
 
-    @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
-    @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
+    # @unittest.skipUnless(util_exists('pg_resetwal'), 'might be missing')
+    # @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_init_unique_system_id(self):
         # this function exists in PostgreSQL 9.6+
+        __class__.helper__skip_test_if_util_not_exist("pg_resetwal")
+        __class__.helper__skip_test_if_pg_version_is_not_ge('9.6')
+
         query = 'select system_identifier from pg_control_system()'
 
         with scoped_config(cache_initdb=False):
@@ -507,8 +510,10 @@ class TestgresRemoteTests(unittest.TestCase):
                 res = node.execute('select * from test')
                 self.assertListEqual(res, [])
 
-    @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
+    # @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_synchronous_replication(self):
+        __class__.helper__skip_test_if_pg_version_is_not_ge("9.6")
+
         with get_remote_node(conn_params=conn_params) as master:
             old_version = not pg_version_ge('9.6')
 
@@ -548,8 +553,10 @@ class TestgresRemoteTests(unittest.TestCase):
                     res = standby1.safe_psql('select count(*) from abc')
                     self.assertEqual(res, b'1000000\n')
 
-    @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
+    # @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_replication(self):
+        __class__.helper__skip_test_if_pg_version_is_not_ge("10")
+
         with get_remote_node(conn_params=conn_params) as node1, get_remote_node(conn_params=conn_params) as node2:
             node1.init(allow_logical=True)
             node1.start()
@@ -617,9 +624,11 @@ class TestgresRemoteTests(unittest.TestCase):
             res = node2.execute('select * from test2')
             self.assertListEqual(res, [('a',), ('b',)])
 
-    @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
+    # @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_catchup(self):
         """ Runs catchup for 100 times to be sure that it is consistent """
+        __class__.helper__skip_test_if_pg_version_is_not_ge("10")
+
         with get_remote_node(conn_params=conn_params) as node1, get_remote_node(conn_params=conn_params) as node2:
             node1.init(allow_logical=True)
             node1.start()
@@ -643,8 +652,10 @@ class TestgresRemoteTests(unittest.TestCase):
                 )])
                 node1.execute('delete from test')
 
-    @unittest.skipIf(pg_version_ge('10'), 'requires <10')
+    # @unittest.skipIf(pg_version_ge('10'), 'requires <10')
     def test_logical_replication_fail(self):
+        __class__.helper__skip_test_if_pg_version_is_ge("10")
+
         with get_remote_node(conn_params=conn_params) as node:
             with pytest.raises(expected_exception=InitNodeException):
                 node.init(allow_logical=True)
@@ -820,8 +831,10 @@ class TestgresRemoteTests(unittest.TestCase):
                 master.restart()
                 self.assertTrue(master._logger.is_alive())
 
-    @unittest.skipUnless(util_exists('pgbench'), 'might be missing')
+    # @unittest.skipUnless(util_exists('pgbench'), 'might be missing')
     def test_pgbench(self):
+        __class__.helper__skip_test_if_util_not_exist("pgbench")
+
         with get_remote_node(conn_params=conn_params).init().start() as node:
             # initialize pgbench DB and run benchmarks
             node.pgbench_init(scale=2, foreign_keys=True,
@@ -1076,6 +1089,24 @@ class TestgresRemoteTests(unittest.TestCase):
             os.environ.pop(name, None)
         else:
             os.environ[name] = prev_value
+
+    @staticmethod
+    def helper__skip_test_if_util_not_exist(name: str):
+        assert type(name) == str  # noqa: E721
+        if not util_exists(name):
+            pytest.skip('might be missing')
+
+    @staticmethod
+    def helper__skip_test_if_pg_version_is_not_ge(version: str):
+        assert type(version) == str  # noqa: E721
+        if not pg_version_ge(version):
+            pytest.skip('requires {0}+'.format(version))
+
+    @staticmethod
+    def helper__skip_test_if_pg_version_is_ge(version: str):
+        assert type(version) == str  # noqa: E721
+        if pg_version_ge(version):
+            pytest.skip('requires <{0}'.format(version))
 
 
 if __name__ == '__main__':
