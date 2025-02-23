@@ -9,6 +9,7 @@ import testgres
 import time
 import six
 import unittest
+import pytest
 import psutil
 
 import logging.config
@@ -134,7 +135,7 @@ class TestgresTests(unittest.TestCase):
     def test_double_init(self):
         with get_new_node().init() as node:
             # can't initialize node more than once
-            with self.assertRaises(InitNodeException):
+            with pytest.raises(expected_exception=InitNodeException):
                 node.init()
 
     def test_init_after_cleanup(self):
@@ -172,7 +173,7 @@ class TestgresTests(unittest.TestCase):
     def test_node_exit(self):
         base_dir = None
 
-        with self.assertRaises(QueryException):
+        with pytest.raises(expected_exception=QueryException):
             with get_new_node().init() as node:
                 base_dir = node.base_dir
                 node.safe_psql('select 1')
@@ -196,7 +197,7 @@ class TestgresTests(unittest.TestCase):
     def test_uninitialized_start(self):
         with get_new_node() as node:
             # node is not initialized yet
-            with self.assertRaises(StartNodeException):
+            with pytest.raises(expected_exception=StartNodeException):
                 node.start()
 
     def test_restart(self):
@@ -211,7 +212,7 @@ class TestgresTests(unittest.TestCase):
             self.assertEqual(res, [(2, )])
 
             # restart, fail
-            with self.assertRaises(StartNodeException):
+            with pytest.raises(expected_exception=StartNodeException):
                 node.append_conf('pg_hba.conf', 'DUMMY')
                 node.restart()
 
@@ -303,13 +304,13 @@ class TestgresTests(unittest.TestCase):
             self.assertEqual(rm_carriage_returns(_sum), b'6\n')
 
             # check psql's default args, fails
-            with self.assertRaises(QueryException):
+            with pytest.raises(expected_exception=QueryException):
                 node.psql()
 
             node.stop()
 
             # check psql on stopped node, fails
-            with self.assertRaises(QueryException):
+            with pytest.raises(expected_exception=QueryException):
                 node.safe_psql('select 1')
 
     def test_safe_psql__expect_error(self):
@@ -320,10 +321,11 @@ class TestgresTests(unittest.TestCase):
             self.assertIn('ERROR:  syntax error at or near "select_or_not_select"', err)
 
             # ---------
-            with self.assertRaises(InvalidOperationException) as ctx:
+            with pytest.raises(
+                expected_exception=InvalidOperationException,
+                match="^" + re.escape("Exception was expected, but query finished successfully: `select 1;`.") + "$"
+            ):
                 node.safe_psql("select 1;", expect_error=True)
-
-            self.assertEqual(str(ctx.exception), "Exception was expected, but query finished successfully: `select 1;`.")
 
             # ---------
             res = node.safe_psql("select 1;", expect_error=False)
@@ -357,7 +359,7 @@ class TestgresTests(unittest.TestCase):
         with get_new_node() as node:
 
             # node is not initialized yet
-            with self.assertRaises(ExecUtilException):
+            with pytest.raises(expected_exception=ExecUtilException):
                 node.get_control_data()
 
             node.init()
@@ -374,7 +376,7 @@ class TestgresTests(unittest.TestCase):
             master.init(allow_streaming=True)
 
             # node must be running
-            with self.assertRaises(BackupException):
+            with pytest.raises(expected_exception=BackupException):
                 master.backup()
 
             # it's time to start node
@@ -411,15 +413,17 @@ class TestgresTests(unittest.TestCase):
                     pass
 
                 # now let's try to create one more node
-                with self.assertRaises(BackupException):
+                with pytest.raises(expected_exception=BackupException):
                     backup.spawn_primary()
 
     def test_backup_wrong_xlog_method(self):
         with get_new_node() as node:
             node.init(allow_streaming=True).start()
 
-            with self.assertRaises(BackupException,
-                                   msg='Invalid xlog_method "wrong"'):
+            with pytest.raises(
+                expected_exception=BackupException,
+                match="^" + re.escape('Invalid xlog_method "wrong"') + "$"
+            ):
                 node.backup(xlog_method='wrong')
 
     def test_pg_ctl_wait_option(self):
@@ -551,7 +555,7 @@ class TestgresTests(unittest.TestCase):
             self.assertListEqual(res, [(1, 1), (2, 2), (3, 3), (4, 4)])
 
             # explicitly add table
-            with self.assertRaises(ValueError):
+            with pytest.raises(expected_exception=ValueError):
                 pub.add_tables([])    # fail
             pub.add_tables(['test2'])
             node1.safe_psql('insert into test2 values (\'c\')')
@@ -588,7 +592,7 @@ class TestgresTests(unittest.TestCase):
     @unittest.skipIf(pg_version_ge('10'), 'requires <10')
     def test_logical_replication_fail(self):
         with get_new_node() as node:
-            with self.assertRaises(InitNodeException):
+            with pytest.raises(expected_exception=InitNodeException):
                 node.init(allow_logical=True)
 
     def test_replication_slots(self):
@@ -599,7 +603,7 @@ class TestgresTests(unittest.TestCase):
                 replica.execute('select 1')
 
                 # cannot create new slot with the same name
-                with self.assertRaises(TestgresException):
+                with pytest.raises(expected_exception=TestgresException):
                     node.replicate(slot='slot1')
 
     def test_incorrect_catchup(self):
@@ -607,7 +611,7 @@ class TestgresTests(unittest.TestCase):
             node.init(allow_streaming=True).start()
 
             # node has no master, can't catch up
-            with self.assertRaises(TestgresException):
+            with pytest.raises(expected_exception=TestgresException):
                 node.catchup()
 
     def test_promotion(self):
@@ -664,12 +668,12 @@ class TestgresTests(unittest.TestCase):
             self.assertTrue(end_time - start_time >= 5)
 
             # check 0 columns
-            with self.assertRaises(QueryException):
+            with pytest.raises(expected_exception=QueryException):
                 node.poll_query_until(
                     query='select from pg_catalog.pg_class limit 1')
 
             # check None, fail
-            with self.assertRaises(QueryException):
+            with pytest.raises(expected_exception=QueryException):
                 node.poll_query_until(query='create table abc (val int)')
 
             # check None, ok
@@ -682,7 +686,7 @@ class TestgresTests(unittest.TestCase):
                 expected=None)
 
             # check arbitrary expected value, fail
-            with self.assertRaises(TimeoutException):
+            with pytest.raises(expected_exception=TimeoutException):
                 node.poll_query_until(query='select 3',
                                       expected=1,
                                       max_attempts=3,
@@ -692,17 +696,17 @@ class TestgresTests(unittest.TestCase):
             node.poll_query_until(query='select 2', expected=2)
 
             # check timeout
-            with self.assertRaises(TimeoutException):
+            with pytest.raises(expected_exception=TimeoutException):
                 node.poll_query_until(query='select 1 > 2',
                                       max_attempts=3,
                                       sleep_time=0.01)
 
             # check ProgrammingError, fail
-            with self.assertRaises(testgres.ProgrammingError):
+            with pytest.raises(expected_exception=testgres.ProgrammingError):
                 node.poll_query_until(query='dummy1')
 
             # check ProgrammingError, ok
-            with self.assertRaises(TimeoutException):
+            with pytest.raises(expected_exception=(TimeoutException)):
                 node.poll_query_until(query='dummy2',
                                       max_attempts=3,
                                       sleep_time=0.01,
@@ -809,11 +813,11 @@ class TestgresTests(unittest.TestCase):
 
     def test_config_stack(self):
         # no such option
-        with self.assertRaises(TypeError):
+        with pytest.raises(expected_exception=TypeError):
             configure_testgres(dummy=True)
 
         # we have only 1 config in stack
-        with self.assertRaises(IndexError):
+        with pytest.raises(expected_exception=IndexError):
             pop_config()
 
         d0 = TestgresConfig.cached_initdb_dir
@@ -827,7 +831,7 @@ class TestgresTests(unittest.TestCase):
                 stack_size = len(testgres.config.config_stack)
 
                 # try to break a stack
-                with self.assertRaises(TypeError):
+                with pytest.raises(expected_exception=TypeError):
                     with scoped_config(dummy=True):
                         pass
 
@@ -903,7 +907,7 @@ class TestgresTests(unittest.TestCase):
                 con.begin(IsolationLevel.Serializable).commit()
 
                 # check wrong level
-                with self.assertRaises(QueryException):
+                with pytest.raises(expected_exception=QueryException):
                     con.begin('Garbage').commit()
 
     def test_ports_management(self):
@@ -980,7 +984,7 @@ class TestgresTests(unittest.TestCase):
         with get_new_node().init().start() as master:
 
             # master node doesn't have a source walsender!
-            with self.assertRaises(TestgresException):
+            with pytest.raises(expected_exception=TestgresException):
                 master.source_walsender
 
             with master.connect() as con:
@@ -1008,7 +1012,7 @@ class TestgresTests(unittest.TestCase):
                 replica.stop()
 
                 # there should be no walsender after we've stopped replica
-                with self.assertRaises(TestgresException):
+                with pytest.raises(expected_exception=TestgresException):
                     replica.source_walsender
 
     def test_child_process_dies(self):
@@ -1061,10 +1065,11 @@ class TestgresTests(unittest.TestCase):
                 self.assertEqual(node2.port, node.port)
                 self.assertFalse(node2._should_free_port)
 
-                with self.assertRaises(StartNodeException) as ctx:
+                with pytest.raises(
+                    expected_exception=StartNodeException,
+                    match=re.escape("Cannot start node")
+                ):
                     node2.init().start()
-
-                self.assertIn("Cannot start node", str(ctx.exception))
 
             # node is still working
             self.assertEqual(node.port, node_port_copy)
@@ -1218,10 +1223,11 @@ class TestgresTests(unittest.TestCase):
                     self.assertTrue(node2._should_free_port)
                     self.assertEqual(node2.port, node1.port)
 
-                    with self.assertRaises(StartNodeException) as ctx:
+                    with pytest.raises(
+                        expected_exception=StartNodeException,
+                        match=re.escape("Cannot start node after multiple attempts")
+                    ):
                         node2.init().start()
-
-                    self.assertIn("Cannot start node after multiple attempts", str(ctx.exception))
 
                     self.assertEqual(node2.port, node1.port)
                     self.assertTrue(node2._should_free_port)
