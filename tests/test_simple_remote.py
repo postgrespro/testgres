@@ -377,8 +377,8 @@ class TestgresRemoteTests(unittest.TestCase):
         with get_remote_node(conn_params=conn_params).init().start() as node:
             err = node.safe_psql('select_or_not_select 1', expect_error=True)
             assert (type(err) == str)  # noqa: E721
-            self.assertIn('select_or_not_select', err)
-            self.assertIn('ERROR:  syntax error at or near "select_or_not_select"', err)
+            assert ('select_or_not_select' in err)
+            assert ('ERROR:  syntax error at or near "select_or_not_select"' in err)
 
             # ---------
             with pytest.raises(
@@ -1054,11 +1054,11 @@ class TestgresRemoteTests(unittest.TestCase):
 
                 master_pids = master.auxiliary_pids
                 for ptype in master_processes:
-                    self.assertIn(ptype, master_pids)
+                    assert (ptype in master_pids)
 
                 replica_pids = replica.auxiliary_pids
                 for ptype in repl_processes:
-                    self.assertIn(ptype, replica_pids)
+                    assert (ptype in replica_pids)
 
                 # there should be exactly 1 source walsender for replica
                 assert (len(master_pids[ProcessType.WalSender]) == 1)
