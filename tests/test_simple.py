@@ -111,7 +111,7 @@ class TestgresTests(unittest.TestCase):
     def test_node_repr(self):
         with get_new_node() as node:
             pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
-            self.assertIsNotNone(re.match(pattern, str(node)))
+            assert re.match(pattern, str(node)) is not None
 
     def test_custom_init(self):
         with get_new_node() as node:
@@ -370,7 +370,7 @@ class TestgresTests(unittest.TestCase):
             data = node.get_control_data()
 
             # check returned dict
-            self.assertIsNotNone(data)
+            assert data is not None
             self.assertTrue(any('pg_control' in s for s in data.keys()))
 
     def test_backup_simple(self):
