@@ -220,8 +220,8 @@ class TestgresRemoteTests(unittest.TestCase):
 
         with scoped_config(cache_initdb=True,
                            cached_initdb_unique=True) as config:
-            self.assertTrue(config.cache_initdb)
-            self.assertTrue(config.cached_initdb_unique)
+            assert (config.cache_initdb)
+            assert (config.cached_initdb_unique)
 
             # spawn two nodes; ids must be different
             with get_remote_node(conn_params=conn_params).init().start() as node1, \
@@ -240,7 +240,7 @@ class TestgresRemoteTests(unittest.TestCase):
                 node.safe_psql('select 1')
 
         # we should save the DB for "debugging"
-        self.assertTrue(os_ops.path_exists(base_dir))
+        assert (os_ops.path_exists(base_dir))
         os_ops.rmdirs(base_dir, ignore_errors=True)
 
         with get_remote_node(conn_params=conn_params).init() as node:
@@ -253,7 +253,7 @@ class TestgresRemoteTests(unittest.TestCase):
         with get_remote_node(conn_params=conn_params).init().start() as node:
             # can't start node more than once
             node.start()
-            self.assertTrue(node.is_started)
+            assert (node.is_started)
 
     def test_uninitialized_start(self):
         with get_remote_node(conn_params=conn_params) as node:
@@ -298,10 +298,10 @@ class TestgresRemoteTests(unittest.TestCase):
             node.init().start()
 
             status = node.pg_ctl(['status'])
-            self.assertTrue('PID' in status)
+            assert ('PID' in status)
 
     def test_status(self):
-        self.assertTrue(NodeStatus.Running)
+        assert (NodeStatus.Running)
         assert not (NodeStatus.Stopped)
         assert not (NodeStatus.Uninitialized)
 
@@ -376,7 +376,7 @@ class TestgresRemoteTests(unittest.TestCase):
     def test_safe_psql__expect_error(self):
         with get_remote_node(conn_params=conn_params).init().start() as node:
             err = node.safe_psql('select_or_not_select 1', expect_error=True)
-            self.assertTrue(type(err) == str)  # noqa: E721
+            assert (type(err) == str)  # noqa: E721
             self.assertIn('select_or_not_select', err)
             self.assertIn('ERROR:  syntax error at or near "select_or_not_select"', err)
 
@@ -425,7 +425,7 @@ class TestgresRemoteTests(unittest.TestCase):
 
             # check returned dict
             assert data is not None
-            self.assertTrue(any('pg_control' in s for s in data.keys()))
+            assert (any('pg_control' in s for s in data.keys()))
 
     def test_backup_simple(self):
         with get_remote_node(conn_params=conn_params) as master:
@@ -704,9 +704,9 @@ class TestgresRemoteTests(unittest.TestCase):
                 with removing(node1.dump(format=format)) as dump:
                     with get_remote_node(conn_params=conn_params).init().start() as node3:
                         if format == 'directory':
-                            self.assertTrue(os_ops.isdir(dump))
+                            assert (os_ops.isdir(dump))
                         else:
-                            self.assertTrue(os_ops.isfile(dump))
+                            assert (os_ops.isfile(dump))
                         # restore dump
                         node3.restore(filename=dump)
                         res = node3.execute(query_select)
@@ -729,7 +729,7 @@ class TestgresRemoteTests(unittest.TestCase):
             node.poll_query_until(query=check_time.format(start_time))
             end_time = node.execute(get_time)[0][0]
 
-            self.assertTrue(end_time - start_time >= 5)
+            assert (end_time - start_time >= 5)
 
             # check 0 columns
             with pytest.raises(expected_exception=QueryException):
@@ -823,13 +823,13 @@ class TestgresRemoteTests(unittest.TestCase):
                 # check that master's port is found
                 with open(logfile.name, 'r') as log:
                     lines = log.readlines()
-                    self.assertTrue(any(node_name in s for s in lines))
+                    assert (any(node_name in s for s in lines))
 
                 # test logger after stop/start/restart
                 master.stop()
                 master.start()
                 master.restart()
-                self.assertTrue(master._logger.is_alive())
+                assert (master._logger.is_alive())
 
     # @unittest.skipUnless(util_exists('pgbench'), 'might be missing')
     def test_pgbench(self):
@@ -845,7 +845,7 @@ class TestgresRemoteTests(unittest.TestCase):
                                 stderr=subprocess.STDOUT,
                                 options=['-T3'])
             out = proc.communicate()[0]
-            self.assertTrue(b'tps = ' in out)
+            assert (b'tps = ' in out)
 
     def test_pg_config(self):
         # check same instances
@@ -923,13 +923,13 @@ class TestgresRemoteTests(unittest.TestCase):
         with get_remote_node(conn_params=conn_params).init(allow_streaming=True).start() as m:
             with m.replicate().start() as r:
                 # check that nodes are running
-                self.assertTrue(m.status())
-                self.assertTrue(r.status())
+                assert (m.status())
+                assert (r.status())
 
                 # check their names
                 self.assertNotEqual(m.name, r.name)
-                self.assertTrue('testgres' in m.name)
-                self.assertTrue('testgres' in r.name)
+                assert ('testgres' in m.name)
+                assert ('testgres' in r.name)
 
     def test_file_tail(self):
         from testgres.utils import file_tail
@@ -1004,17 +1004,17 @@ class TestgresRemoteTests(unittest.TestCase):
         e = PgVer('15rc1')
         f = PgVer('15beta4')
 
-        self.assertTrue(a == b)
-        self.assertTrue(b > c)
-        self.assertTrue(a > c)
-        self.assertTrue(d > e)
-        self.assertTrue(e > f)
-        self.assertTrue(d > f)
+        assert (a == b)
+        assert (b > c)
+        assert (a > c)
+        assert (d > e)
+        assert (e > f)
+        assert (d > f)
 
         version = get_pg_version()
         with get_remote_node(conn_params=conn_params) as node:
-            self.assertTrue(isinstance(version, six.string_types))
-            self.assertTrue(isinstance(node.version, PgVer))
+            assert (isinstance(version, six.string_types))
+            assert (isinstance(node.version, PgVer))
             self.assertEqual(node.version, PgVer(version))
 
     def test_child_pids(self):
