@@ -115,7 +115,7 @@ class TestgresRemoteTests(unittest.TestCase):
             lines = os_ops.readlines(hba_file)
 
             # check number of lines
-            self.assertGreaterEqual(len(lines), 6)
+            assert (len(lines) >= 6)
 
             # there should be no trust entries at all
             assert not (any('trust' in s for s in lines))
