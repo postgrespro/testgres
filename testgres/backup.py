@@ -15,9 +15,11 @@ from .consts import \
 
 from .exceptions import BackupException
 
+from .operations.os_ops import OsOperations
+
 from .utils import \
-    get_bin_path, \
-    execute_utility, \
+    get_bin_path2, \
+    execute_utility2, \
     clean_on_error
 
 
@@ -44,6 +46,9 @@ class NodeBackup(object):
             username: database user name.
             xlog_method: none | fetch | stream (see docs)
         """
+        assert node.os_ops is not None
+        assert isinstance(node.os_ops, OsOperations)
+
         if not options:
             options = []
         self.os_ops = node.os_ops
@@ -73,7 +78,7 @@ class NodeBackup(object):
         data_dir = os.path.join(self.base_dir, DATA_DIR)
 
         _params = [
-            get_bin_path("pg_basebackup"),
+            get_bin_path2(self.os_ops, "pg_basebackup"),
             "-p", str(node.port),
             "-h", node.host,
             "-U", username,
@@ -81,7 +86,7 @@ class NodeBackup(object):
             "-X", xlog_method.value
         ]  # yapf: disable
         _params += options
-        execute_utility(_params, self.log_file)
+        execute_utility2(self.os_ops, _params, self.log_file)
 
     def __enter__(self):
         return self

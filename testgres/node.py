@@ -89,9 +89,9 @@ from . import utils
 from .utils import \
     PgVer, \
     eprint, \
-    get_bin_path, \
+    get_bin_path2, \
     get_pg_version, \
-    execute_utility, \
+    execute_utility2, \
     options_string, \
     clean_on_error
 
@@ -301,7 +301,7 @@ class PostgresNode(object):
     @property
     def bin_dir(self):
         if not self._bin_dir:
-            self._bin_dir = os.path.dirname(get_bin_path("pg_config"))
+            self._bin_dir = os.path.dirname(get_bin_path2(self.os_ops, "pg_config"))
         return self._bin_dir
 
     @property
@@ -684,7 +684,7 @@ class PostgresNode(object):
                 "-D", self.data_dir,
                 "status"
             ]  # yapf: disable
-            status_code, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
+            status_code, out, error = execute_utility2(self.os_ops, _params, self.utils_log_file, verbose=True)
             if error and 'does not exist' in error:
                 return NodeStatus.Uninitialized
             elif 'no server running' in out:
@@ -710,7 +710,7 @@ class PostgresNode(object):
         _params += ["-D"] if self._pg_version >= PgVer('9.5') else []
         _params += [self.data_dir]
 
-        data = execute_utility(_params, self.utils_log_file)
+        data = execute_utility2(self.os_ops, _params, self.utils_log_file)
 
         out_dict = {}
 
@@ -793,7 +793,7 @@ class PostgresNode(object):
 
         def LOCAL__start_node():
             # 'error' will be None on Windows
-            _, _, error = execute_utility(_params, self.utils_log_file, verbose=True)
+            _, _, error = execute_utility2(self.os_ops, _params, self.utils_log_file, verbose=True)
             assert error is None or type(error) == str  # noqa: E721
             if error and 'does not exist' in error:
                 raise Exception(error)
@@ -882,7 +882,7 @@ class PostgresNode(object):
             "stop"
         ] + params  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility2(self.os_ops, _params, self.utils_log_file)
 
         self._maybe_stop_logger()
         self.is_started = False
@@ -924,7 +924,7 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            error_code, out, error = execute_utility(_params, self.utils_log_file, verbose=True)
+            error_code, out, error = execute_utility2(self.os_ops, _params, self.utils_log_file, verbose=True)
             if error and 'could not start server' in error:
                 raise ExecUtilException
         except ExecUtilException as e:
@@ -953,7 +953,7 @@ class PostgresNode(object):
             "reload"
         ] + params  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility2(self.os_ops, _params, self.utils_log_file)
 
         return self
 
@@ -975,7 +975,7 @@ class PostgresNode(object):
             "promote"
         ]  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility2(self.os_ops, _params, self.utils_log_file)
 
         # for versions below 10 `promote` is asynchronous so we need to wait
         # until it actually becomes writable
@@ -1010,7 +1010,7 @@ class PostgresNode(object):
             "-w"  # wait
         ] + params  # yapf: disable
 
-        return execute_utility(_params, self.utils_log_file)
+        return execute_utility2(self.os_ops, _params, self.utils_log_file)
 
     def free_port(self):
         """
@@ -1230,7 +1230,7 @@ class PostgresNode(object):
             "-F", format.value
         ]  # yapf: disable
 
-        execute_utility(_params, self.utils_log_file)
+        execute_utility2(self.os_ops, _params, self.utils_log_file)
 
         return filename
 
@@ -1259,7 +1259,7 @@ class PostgresNode(object):
 
         # try pg_restore if dump is binary format, and psql if not
         try:
-            execute_utility(_params, self.utils_log_name)
+            execute_utility2(self.os_ops, _params, self.utils_log_name)
         except ExecUtilException:
             self.psql(filename=filename, dbname=dbname, username=username)
 
@@ -1612,7 +1612,7 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        return execute_utility(_params, self.utils_log_file)
+        return execute_utility2(self.os_ops, _params, self.utils_log_file)
 
     def connect(self,
                 dbname=None,
@@ -1809,7 +1809,7 @@ class PostgresNode(object):
         if self.bin_dir:
             bin_path = os.path.join(self.bin_dir, filename)
         else:
-            bin_path = get_bin_path(filename)
+            bin_path = get_bin_path2(self.os_ops, filename)
         return bin_path
 
     def _escape_config_value(value):
