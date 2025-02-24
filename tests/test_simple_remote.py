@@ -183,7 +183,7 @@ class TestgresRemoteTests(unittest.TestCase):
                         assert "LC_CTYPE" in errMsg
                         assert unkData[1] in errMsg
                         assert "warning: setlocale: LC_CTYPE: cannot change locale (" + unkData[1] + "): No such file or directory" in errMsg
-                        assert "postgres" in errMsg
+                        assert ("postgres" in errMsg) or ("PostgreSQL" in errMsg)
                         break
                     raise Exception("We expected an error!")
         finally:
