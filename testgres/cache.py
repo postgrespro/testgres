@@ -32,11 +32,11 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = Lo
 
     def make_utility_path(name):
         assert name is not None
-        assert type(name) == str
+        assert type(name) == str  # noqa: E721
 
         if bin_path:
             return os.path.join(bin_path, name)
-         
+
         return get_bin_path2(os_ops, name)
 
     def call_initdb(initdb_dir, log=logfile):
