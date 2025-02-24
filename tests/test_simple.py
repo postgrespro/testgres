@@ -918,20 +918,38 @@ class TestgresTests:
                     con.begin('Garbage').commit()
 
     def test_ports_management(self):
-        # check that no ports have been bound yet
-        assert (len(bound_ports) == 0)
+        assert bound_ports is not None
+        assert type(bound_ports) == set  # noqa: E721
+
+        if len(bound_ports) != 0:
+            logging.warning("bound_ports is not empty: {0}".format(bound_ports))
+
+        stage0__bound_ports = bound_ports.copy()
 
         with get_new_node() as node:
-            # check that we've just bound a port
-            assert (len(bound_ports) == 1)
+            assert bound_ports is not None
+            assert type(bound_ports) == set  # noqa: E721
 
-            # check that bound_ports contains our port
-            port_1 = list(bound_ports)[0]
-            port_2 = node.port
-            assert (port_1 == port_2)
+            assert node.port is not None
+            assert type(node.port) == int  # noqa: E721
+
+            logging.info("node port is {0}".format(node.port))
+
+            assert node.port in bound_ports
+            assert node.port not in stage0__bound_ports
+
+            assert stage0__bound_ports <= bound_ports
+            assert len(stage0__bound_ports) + 1 == len(bound_ports)
+
+            stage1__bound_ports = stage0__bound_ports.copy()
+            stage1__bound_ports.add(node.port)
+
+            assert stage1__bound_ports == bound_ports
 
         # check that port has been freed successfully
-        assert (len(bound_ports) == 0)
+        assert bound_ports is not None
+        assert type(bound_ports) == set  # noqa: E721
+        assert bound_ports == stage0__bound_ports
 
     def test_exceptions(self):
         str(StartNodeException('msg', [('file', 'lines')]))
