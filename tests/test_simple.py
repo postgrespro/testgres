@@ -144,8 +144,6 @@ class TestgresTests:
             node.cleanup()
             node.init().start().execute('select 1')
 
-    # @unittest.skipUnless(util_exists('pg_resetwal.exe' if os.name == 'nt' else 'pg_resetwal'), 'pgbench might be missing')
-    # @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_init_unique_system_id(self):
         # this function exists in PostgreSQL 9.6+
         __class__.helper__skip_test_if_util_not_exist("pg_resetwal")
@@ -456,7 +454,6 @@ class TestgresTests:
                 res = node.execute('select * from test')
                 assert (res == [])
 
-    # @unittest.skipUnless(pg_version_ge('9.6'), 'requires 9.6+')
     def test_synchronous_replication(self):
         __class__.helper__skip_test_if_pg_version_is_not_ge("9.6")
 
@@ -499,7 +496,6 @@ class TestgresTests:
                     res = standby1.safe_psql('select count(*) from abc')
                     assert (rm_carriage_returns(res) == b'1000000\n')
 
-    # @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_replication(self):
         __class__.helper__skip_test_if_pg_version_is_not_ge("10")
 
@@ -570,7 +566,6 @@ class TestgresTests:
             res = node2.execute('select * from test2')
             assert (res == [('a', ), ('b', )])
 
-    # @unittest.skipUnless(pg_version_ge('10'), 'requires 10+')
     def test_logical_catchup(self):
         """ Runs catchup for 100 times to be sure that it is consistent """
         __class__.helper__skip_test_if_pg_version_is_not_ge("10")
@@ -595,7 +590,6 @@ class TestgresTests:
                 assert (res == [(i, i, )])
                 node1.execute('delete from test')
 
-    # @unittest.skipIf(pg_version_ge('10'), 'requires <10')
     def test_logical_replication_fail(self):
         __class__.helper__skip_test_if_pg_version_is_ge("10")
 
@@ -774,7 +768,6 @@ class TestgresTests:
                 master.restart()
                 assert (master._logger.is_alive())
 
-    # @unittest.skipUnless(util_exists('pgbench.exe' if os.name == 'nt' else 'pgbench'), 'pgbench might be missing')
     def test_pgbench(self):
         __class__.helper__skip_test_if_util_not_exist("pgbench")
 
