@@ -841,8 +841,7 @@ class PostgresNode(object):
 
                     log_files0 = log_files1
                     logging.warning(
-                        "Detected a conflict with using the port {0}. "
-                        "Trying another port after a {1}-second sleep...".format(self.port, timeout)
+                        "Detected a conflict with using the port {0}. Trying another port after a {1}-second sleep...".format(self.port, timeout)
                     )
                     time.sleep(timeout)
                     timeout = min(2 * timeout, 5)
