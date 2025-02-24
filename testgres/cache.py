@@ -15,8 +15,8 @@ from .exceptions import \
     ExecUtilException
 
 from .utils import \
-    get_bin_path, \
-    execute_utility
+    get_bin_path2, \
+    execute_utility2
 
 from .operations.local_ops import LocalOperations
 from .operations.os_ops import OsOperations
@@ -27,11 +27,23 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = Lo
     Perform initdb or use cached node files.
     """
 
+    assert os_ops is not None
+    assert isinstance(os_ops, OsOperations)
+
+    def make_utility_path(name):
+        assert name is not None
+        assert type(name) == str
+
+        if bin_path:
+            return os.path.join(bin_path, name)
+         
+        return get_bin_path2(os_ops, name)
+
     def call_initdb(initdb_dir, log=logfile):
         try:
-            initdb_path = os.path.join(bin_path, 'initdb') if bin_path else get_bin_path("initdb")
+            initdb_path = make_utility_path("initdb")
             _params = [initdb_path, "-D", initdb_dir, "-N"]
-            execute_utility(_params + (params or []), log)
+            execute_utility2(os_ops, _params + (params or []), log)
         except ExecUtilException as e:
             raise_from(InitNodeException("Failed to run initdb"), e)
 
@@ -63,8 +75,8 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = Lo
                 os_ops.write(pg_control, new_pg_control, truncate=True, binary=True, read_and_write=True)
 
                 # XXX: build new WAL segment with our system id
-                _params = [get_bin_path("pg_resetwal"), "-D", data_dir, "-f"]
-                execute_utility(_params, logfile)
+                _params = [make_utility_path("pg_resetwal"), "-D", data_dir, "-f"]
+                execute_utility2(os_ops, _params, logfile)
 
         except ExecUtilException as e:
             msg = "Failed to reset WAL for system id"
