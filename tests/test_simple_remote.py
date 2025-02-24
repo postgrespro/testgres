@@ -52,6 +52,7 @@ from ..testgres.utils import PgVer
 from ..testgres.utils import file_tail
 from ..testgres.node import ProcessProxy, ConnectionParams
 
+
 def pg_version_ge(version):
     cur_ver = PgVer(get_pg_version())
     min_ver = PgVer(version)
@@ -93,7 +94,7 @@ class TestgresRemoteTests:
         ssh_key=os.getenv('RDBMS_TESTPOOL_SSHKEY'))
 
     sm_os_ops = RemoteOperations(sm_conn_params)
-    
+
     @pytest.fixture(autouse=True, scope="class")
     def implicit_fixture(self):
         prev_ops = testgres_config.os_ops
