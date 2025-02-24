@@ -179,6 +179,10 @@ class PostgresNode(object):
         # Node state
         self.is_started = False
 
+        # Data inserter thread
+        self._insert_thread = None
+        self._stop_insert_data = threading.Event()
+
     def __enter__(self):
         return self
 
@@ -882,6 +886,8 @@ class PostgresNode(object):
             "-w" if wait else '-W',  # --wait or --no-wait
             "stop"
         ] + params  # yapf: disable
+
+        self.stop_data_inserter()
 
         execute_utility(_params, self.utils_log_file)
 
@@ -1837,6 +1843,28 @@ class PostgresNode(object):
         result += "'"
         return result
 
+    def start_data_inserter(self, sleep_interval=1):
+        self._stop_insert_data.clear()
+
+        def _insert_loop():
+            while not self._stop_insert_data.is_set():
+                try:
+
+                    self.safe_psql(
+                    "postgres",
+                    "select txid_current()")
+                except QueryException:
+                    break
+                time.sleep(sleep_interval)
+
+        self._insert_thread = threading.Thread(target=_insert_loop, daemon=True)
+        self._insert_thread.start()
+
+    def stop_data_inserter(self):
+        if self._insert_thread:
+            self._stop_insert_data.set()
+            self._insert_thread.join()
+            self._insert_thread = None
 
 class NodeApp:
 
