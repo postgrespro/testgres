@@ -3,7 +3,6 @@ import re
 import subprocess
 import tempfile
 
-import testgres
 import time
 import six
 import pytest
@@ -13,7 +12,9 @@ import logging.config
 
 from contextlib import contextmanager
 
-from testgres.exceptions import \
+from .. import testgres
+
+from ..testgres.exceptions import \
     InitNodeException, \
     StartNodeException, \
     ExecUtilException, \
@@ -23,39 +24,33 @@ from testgres.exceptions import \
     TestgresException, \
     InvalidOperationException
 
-from testgres.config import \
+from ..testgres.config import \
     TestgresConfig, \
     configure_testgres, \
     scoped_config, \
     pop_config, testgres_config
 
-from testgres import \
+from ..testgres import \
     NodeStatus, \
     ProcessType, \
     IsolationLevel, \
     get_remote_node, \
     RemoteOperations
 
-from testgres import \
+from ..testgres import \
     get_bin_path, \
     get_pg_config, \
     get_pg_version
 
-from testgres import \
+from ..testgres import \
     First, \
     Any
 
 # NOTE: those are ugly imports
-from testgres import bound_ports
-from testgres.utils import PgVer
-from testgres.node import ProcessProxy, ConnectionParams
-
-conn_params = ConnectionParams(host=os.getenv('RDBMS_TESTPOOL1_HOST') or '127.0.0.1',
-                               username=os.getenv('USER'),
-                               ssh_key=os.getenv('RDBMS_TESTPOOL_SSHKEY'))
-os_ops = RemoteOperations(conn_params)
-testgres_config.set_os_ops(os_ops=os_ops)
-
+from ..testgres import bound_ports
+from ..testgres.utils import PgVer
+from ..testgres.utils import file_tail
+from ..testgres.node import ProcessProxy, ConnectionParams
 
 def pg_version_ge(version):
     cur_ver = PgVer(get_pg_version())
@@ -65,16 +60,16 @@ def pg_version_ge(version):
 
 def util_exists(util):
     def good_properties(f):
-        return (os_ops.path_exists(f) and  # noqa: W504
-                os_ops.isfile(f) and  # noqa: W504
-                os_ops.is_executable(f))  # yapf: disable
+        return (testgres_config.os_ops.path_exists(f) and  # noqa: W504
+                testgres_config.os_ops.isfile(f) and  # noqa: W504
+                testgres_config.os_ops.is_executable(f))  # yapf: disable
 
     # try to resolve it
     if good_properties(get_bin_path(util)):
         return True
 
     # check if util is in PATH
-    for path in os_ops.environ("PATH").split(os_ops.pathsep):
+    for path in testgres_config.os_ops.environ("PATH").split(testgres_config.os_ops.pathsep):
         if good_properties(os.path.join(path, util)):
             return True
 
@@ -84,31 +79,50 @@ def removing(f):
     try:
         yield f
     finally:
-        if os_ops.isfile(f):
-            os_ops.remove_file(f)
+        if testgres_config.os_ops.isfile(f):
+            testgres_config.os_ops.remove_file(f)
 
-        elif os_ops.isdir(f):
-            os_ops.rmdirs(f, ignore_errors=True)
+        elif testgres_config.os_ops.isdir(f):
+            testgres_config.os_ops.rmdirs(f, ignore_errors=True)
 
 
 class TestgresRemoteTests:
+    sm_conn_params = ConnectionParams(
+        host=os.getenv('RDBMS_TESTPOOL1_HOST') or '127.0.0.1',
+        username=os.getenv('USER'),
+        ssh_key=os.getenv('RDBMS_TESTPOOL_SSHKEY'))
+
+    sm_os_ops = RemoteOperations(sm_conn_params)
+    
+    @pytest.fixture(autouse=True, scope="class")
+    def implicit_fixture(self):
+        prev_ops = testgres_config.os_ops
+        assert prev_ops is not None
+        assert __class__.sm_os_ops is not None
+        testgres_config.set_os_ops(os_ops=__class__.sm_os_ops)
+        assert testgres_config.os_ops is __class__.sm_os_ops
+        yield
+        assert testgres_config.os_ops is __class__.sm_os_ops
+        testgres_config.set_os_ops(os_ops=prev_ops)
+        assert testgres_config.os_ops is prev_ops
+
     def test_node_repr(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
             assert re.match(pattern, str(node)) is not None
 
     def test_custom_init(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             # enable page checksums
             node.init(initdb_params=['-k']).start()
 
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init(
                 allow_streaming=True,
                 initdb_params=['--auth-local=reject', '--auth-host=reject'])
 
             hba_file = os.path.join(node.data_dir, 'pg_hba.conf')
-            lines = os_ops.readlines(hba_file)
+            lines = node.os_ops.readlines(hba_file)
 
             # check number of lines
             assert (len(lines) >= 6)
@@ -123,7 +137,7 @@ class TestgresRemoteTests:
         try:
             os.environ["LANG"] = "C"
 
-            with get_remote_node(conn_params=conn_params) as node:
+            with __class__.helper__get_node() as node:
                 node.init().start()
         finally:
             __class__.helper__restore_envvar("LANG", prev_LANG)
@@ -164,9 +178,9 @@ class TestgresRemoteTests:
 
                 while True:
                     try:
-                        with get_remote_node(conn_params=conn_params):
+                        with __class__.helper__get_node():
                             pass
-                    except testgres.exceptions.ExecUtilException as e:
+                    except ExecUtilException as e:
                         #
                         # Example of an error message:
                         #
@@ -190,13 +204,13 @@ class TestgresRemoteTests:
             __class__.helper__restore_envvar("LC_COLLATE", prev_LC_COLLATE)
 
     def test_double_init(self):
-        with get_remote_node(conn_params=conn_params).init() as node:
+        with __class__.helper__get_node().init() as node:
             # can't initialize node more than once
             with pytest.raises(expected_exception=InitNodeException):
                 node.init()
 
     def test_init_after_cleanup(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init().start().execute('select 1')
             node.cleanup()
             node.init().start().execute('select 1')
@@ -211,7 +225,7 @@ class TestgresRemoteTests:
         query = 'select system_identifier from pg_control_system()'
 
         with scoped_config(cache_initdb=False):
-            with get_remote_node(conn_params=conn_params).init().start() as node0:
+            with __class__.helper__get_node().init().start() as node0:
                 id0 = node0.execute(query)[0]
 
         with scoped_config(cache_initdb=True,
@@ -220,8 +234,8 @@ class TestgresRemoteTests:
             assert (config.cached_initdb_unique)
 
             # spawn two nodes; ids must be different
-            with get_remote_node(conn_params=conn_params).init().start() as node1, \
-                    get_remote_node(conn_params=conn_params).init().start() as node2:
+            with __class__.helper__get_node().init().start() as node1, \
+                    __class__.helper__get_node().init().start() as node2:
                 id1 = node1.execute(query)[0]
                 id2 = node2.execute(query)[0]
 
@@ -231,34 +245,34 @@ class TestgresRemoteTests:
 
     def test_node_exit(self):
         with pytest.raises(expected_exception=QueryException):
-            with get_remote_node(conn_params=conn_params).init() as node:
+            with __class__.helper__get_node().init() as node:
                 base_dir = node.base_dir
                 node.safe_psql('select 1')
 
         # we should save the DB for "debugging"
-        assert (os_ops.path_exists(base_dir))
-        os_ops.rmdirs(base_dir, ignore_errors=True)
+        assert (__class__.sm_os_ops.path_exists(base_dir))
+        __class__.sm_os_ops.rmdirs(base_dir, ignore_errors=True)
 
-        with get_remote_node(conn_params=conn_params).init() as node:
+        with __class__.helper__get_node().init() as node:
             base_dir = node.base_dir
 
         # should have been removed by default
-        assert not (os_ops.path_exists(base_dir))
+        assert not (__class__.sm_os_ops.path_exists(base_dir))
 
     def test_double_start(self):
-        with get_remote_node(conn_params=conn_params).init().start() as node:
+        with __class__.helper__get_node().init().start() as node:
             # can't start node more than once
             node.start()
             assert (node.is_started)
 
     def test_uninitialized_start(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             # node is not initialized yet
             with pytest.raises(expected_exception=StartNodeException):
                 node.start()
 
     def test_restart(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init().start()
 
             # restart, ok
@@ -274,7 +288,7 @@ class TestgresRemoteTests:
                 node.restart()
 
     def test_reload(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init().start()
 
             # change client_min_messages and save old value
@@ -290,7 +304,7 @@ class TestgresRemoteTests:
             assert (cmm_old != cmm_new)
 
     def test_pg_ctl(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init().start()
 
             status = node.pg_ctl(['status'])
@@ -302,7 +316,7 @@ class TestgresRemoteTests:
         assert not (NodeStatus.Uninitialized)
 
         # check statuses after each operation
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             assert (node.pid == 0)
             assert (node.status() == NodeStatus.Uninitialized)
 
@@ -327,7 +341,7 @@ class TestgresRemoteTests:
             assert (node.status() == NodeStatus.Uninitialized)
 
     def test_psql(self):
-        with get_remote_node(conn_params=conn_params).init().start() as node:
+        with __class__.helper__get_node().init().start() as node:
             # check returned values (1 arg)
             res = node.psql('select 1')
             assert (res == (0, b'1\n', b''))
@@ -370,7 +384,7 @@ class TestgresRemoteTests:
                 node.safe_psql('select 1')
 
     def test_safe_psql__expect_error(self):
-        with get_remote_node(conn_params=conn_params).init().start() as node:
+        with __class__.helper__get_node().init().start() as node:
             err = node.safe_psql('select_or_not_select 1', expect_error=True)
             assert (type(err) == str)  # noqa: E721
             assert ('select_or_not_select' in err)
@@ -388,7 +402,7 @@ class TestgresRemoteTests:
             assert (res == b'1\n')
 
     def test_transactions(self):
-        with get_remote_node(conn_params=conn_params).init().start() as node:
+        with __class__.helper__get_node().init().start() as node:
             with node.connect() as con:
                 con.begin()
                 con.execute('create table test(val int)')
@@ -411,7 +425,7 @@ class TestgresRemoteTests:
                 con.commit()
 
     def test_control_data(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             # node is not initialized yet
             with pytest.raises(expected_exception=ExecUtilException):
                 node.get_control_data()
@@ -424,7 +438,7 @@ class TestgresRemoteTests:
             assert (any('pg_control' in s for s in data.keys()))
 
     def test_backup_simple(self):
-        with get_remote_node(conn_params=conn_params) as master:
+        with __class__.helper__get_node() as master:
             # enable streaming for backups
             master.init(allow_streaming=True)
 
@@ -444,7 +458,7 @@ class TestgresRemoteTests:
                     assert (res == [(1,), (2,), (3,), (4,)])
 
     def test_backup_multiple(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init(allow_streaming=True).start()
 
             with node.backup(xlog_method='fetch') as backup1, \
@@ -457,7 +471,7 @@ class TestgresRemoteTests:
                     assert (node1.base_dir != node2.base_dir)
 
     def test_backup_exhaust(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init(allow_streaming=True).start()
 
             with node.backup(xlog_method='fetch') as backup:
@@ -470,7 +484,7 @@ class TestgresRemoteTests:
                     backup.spawn_primary()
 
     def test_backup_wrong_xlog_method(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init(allow_streaming=True).start()
 
             with pytest.raises(
@@ -480,7 +494,7 @@ class TestgresRemoteTests:
                 node.backup(xlog_method='wrong')
 
     def test_pg_ctl_wait_option(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init().start(wait=False)
             while True:
                 try:
@@ -492,7 +506,7 @@ class TestgresRemoteTests:
                     pass
 
     def test_replicate(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init(allow_streaming=True).start()
 
             with node.replicate().start() as replica:
@@ -510,7 +524,7 @@ class TestgresRemoteTests:
     def test_synchronous_replication(self):
         __class__.helper__skip_test_if_pg_version_is_not_ge("9.6")
 
-        with get_remote_node(conn_params=conn_params) as master:
+        with __class__.helper__get_node() as master:
             old_version = not pg_version_ge('9.6')
 
             master.init(allow_streaming=True).start()
@@ -553,7 +567,7 @@ class TestgresRemoteTests:
     def test_logical_replication(self):
         __class__.helper__skip_test_if_pg_version_is_not_ge("10")
 
-        with get_remote_node(conn_params=conn_params) as node1, get_remote_node(conn_params=conn_params) as node2:
+        with __class__.helper__get_node() as node1, __class__.helper__get_node() as node2:
             node1.init(allow_logical=True)
             node1.start()
             node2.init().start()
@@ -625,7 +639,7 @@ class TestgresRemoteTests:
         """ Runs catchup for 100 times to be sure that it is consistent """
         __class__.helper__skip_test_if_pg_version_is_not_ge("10")
 
-        with get_remote_node(conn_params=conn_params) as node1, get_remote_node(conn_params=conn_params) as node2:
+        with __class__.helper__get_node() as node1, __class__.helper__get_node() as node2:
             node1.init(allow_logical=True)
             node1.start()
             node2.init().start()
@@ -649,12 +663,12 @@ class TestgresRemoteTests:
     def test_logical_replication_fail(self):
         __class__.helper__skip_test_if_pg_version_is_ge("10")
 
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             with pytest.raises(expected_exception=InitNodeException):
                 node.init(allow_logical=True)
 
     def test_replication_slots(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init(allow_streaming=True).start()
 
             with node.replicate(slot='slot1').start() as replica:
@@ -665,7 +679,7 @@ class TestgresRemoteTests:
                     node.replicate(slot='slot1')
 
     def test_incorrect_catchup(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init(allow_streaming=True).start()
 
             # node has no master, can't catch up
@@ -673,7 +687,7 @@ class TestgresRemoteTests:
                 node.catchup()
 
     def test_promotion(self):
-        with get_remote_node(conn_params=conn_params) as master:
+        with __class__.helper__get_node() as master:
             master.init().start()
             master.safe_psql('create table abc(id serial)')
 
@@ -690,29 +704,29 @@ class TestgresRemoteTests:
         query_create = 'create table test as select generate_series(1, 2) as val'
         query_select = 'select * from test order by val asc'
 
-        with get_remote_node(conn_params=conn_params).init().start() as node1:
+        with __class__.helper__get_node().init().start() as node1:
 
             node1.execute(query_create)
             for format in ['plain', 'custom', 'directory', 'tar']:
                 with removing(node1.dump(format=format)) as dump:
-                    with get_remote_node(conn_params=conn_params).init().start() as node3:
+                    with __class__.helper__get_node().init().start() as node3:
                         if format == 'directory':
-                            assert (os_ops.isdir(dump))
+                            assert (node1.os_ops.isdir(dump))
                         else:
-                            assert (os_ops.isfile(dump))
+                            assert (node1.os_ops.isfile(dump))
                         # restore dump
                         node3.restore(filename=dump)
                         res = node3.execute(query_select)
                         assert (res == [(1,), (2,)])
 
     def test_users(self):
-        with get_remote_node(conn_params=conn_params).init().start() as node:
+        with __class__.helper__get_node().init().start() as node:
             node.psql('create role test_user login')
             value = node.safe_psql('select 1', username='test_user')
             assert (b'1\n' == value)
 
     def test_poll_query_until(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init().start()
 
             get_time = 'select extract(epoch from now())'
@@ -828,7 +842,7 @@ class TestgresRemoteTests:
     def test_pgbench(self):
         __class__.helper__skip_test_if_util_not_exist("pgbench")
 
-        with get_remote_node(conn_params=conn_params).init().start() as node:
+        with __class__.helper__get_node().init().start() as node:
             # initialize pgbench DB and run benchmarks
             node.pgbench_init(scale=2, foreign_keys=True,
                               options=['-q']).pgbench_run(time=2)
@@ -897,7 +911,7 @@ class TestgresRemoteTests:
         assert (TestgresConfig.cached_initdb_dir == d0)
 
     def test_unix_sockets(self):
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             node.init(unix_sockets=False, allow_streaming=True)
             node.start()
 
@@ -913,7 +927,7 @@ class TestgresRemoteTests:
                 assert (res_psql == b'1\n')
 
     def test_auto_name(self):
-        with get_remote_node(conn_params=conn_params).init(allow_streaming=True).start() as m:
+        with __class__.helper__get_node().init(allow_streaming=True).start() as m:
             with m.replicate().start() as r:
                 # check that nodes are running
                 assert (m.status())
@@ -925,8 +939,6 @@ class TestgresRemoteTests:
                 assert ('testgres' in r.name)
 
     def test_file_tail(self):
-        from testgres.utils import file_tail
-
         s1 = "the quick brown fox jumped over that lazy dog\n"
         s2 = "abc\n"
         s3 = "def\n"
@@ -950,7 +962,7 @@ class TestgresRemoteTests:
             assert (lines[0] == s3)
 
     def test_isolation_levels(self):
-        with get_remote_node(conn_params=conn_params).init().start() as node:
+        with __class__.helper__get_node().init().start() as node:
             with node.connect() as con:
                 # string levels
                 con.begin('Read Uncommitted').commit()
@@ -972,7 +984,7 @@ class TestgresRemoteTests:
         # check that no ports have been bound yet
         assert (len(bound_ports) == 0)
 
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             # check that we've just bound a port
             assert (len(bound_ports) == 1)
 
@@ -1005,7 +1017,7 @@ class TestgresRemoteTests:
         assert (d > f)
 
         version = get_pg_version()
-        with get_remote_node(conn_params=conn_params) as node:
+        with __class__.helper__get_node() as node:
             assert (isinstance(version, six.string_types))
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
@@ -1031,7 +1043,7 @@ class TestgresRemoteTests:
             ProcessType.WalReceiver,
         ]
 
-        with get_remote_node(conn_params=conn_params).init().start() as master:
+        with __class__.helper__get_node().init().start() as master:
 
             # master node doesn't have a source walsender!
             with pytest.raises(expected_exception=TestgresException):
@@ -1076,6 +1088,11 @@ class TestgresRemoteTests:
             process.wait()
             # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
             [ProcessProxy(p) for p in children]
+
+    @staticmethod
+    def helper__get_node():
+        assert __class__.sm_conn_params is not None
+        return get_remote_node(conn_params=__class__.sm_conn_params)
 
     @staticmethod
     def helper__restore_envvar(name, prev_value):

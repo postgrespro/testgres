@@ -2,7 +2,6 @@ import os
 import re
 import subprocess
 import tempfile
-import testgres
 import time
 import six
 import pytest
@@ -14,7 +13,9 @@ import logging.config
 from contextlib import contextmanager
 from shutil import rmtree
 
-from testgres import \
+from .. import testgres
+
+from ..testgres import \
     InitNodeException, \
     StartNodeException, \
     ExecUtilException, \
@@ -25,31 +26,32 @@ from testgres import \
     InvalidOperationException, \
     NodeApp
 
-from testgres import \
+from ..testgres import \
     TestgresConfig, \
     configure_testgres, \
     scoped_config, \
     pop_config
 
-from testgres import \
+from ..testgres import \
     NodeStatus, \
     ProcessType, \
     IsolationLevel, \
     get_new_node
 
-from testgres import \
+from ..testgres import \
     get_bin_path, \
     get_pg_config, \
     get_pg_version
 
-from testgres import \
+from ..testgres import \
     First, \
     Any
 
 # NOTE: those are ugly imports
-from testgres import bound_ports
-from testgres.utils import PgVer, parse_pg_version
-from testgres.node import ProcessProxy
+from ..testgres import bound_ports
+from ..testgres.utils import PgVer, parse_pg_version
+from ..testgres.utils import file_tail
+from ..testgres.node import ProcessProxy
 
 
 def pg_version_ge(version):
@@ -874,8 +876,6 @@ class TestgresTests:
                 assert ('testgres' in r.name)
 
     def test_file_tail(self):
-        from testgres.utils import file_tail
-
         s1 = "the quick brown fox jumped over that lazy dog\n"
         s2 = "abc\n"
         s3 = "def\n"
