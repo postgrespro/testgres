@@ -13,6 +13,18 @@ from ..storage.fs_backup import FSTestBackupDir
 class ProbackupTest:
     pg_node: testgres.PostgresNode
 
+    @staticmethod
+    def probackup_is_available() -> bool:
+        p = os.environ.get("PGPROBACKUPBIN")
+
+        if p is None:
+            return False
+
+        if not os.path.exists(p):
+            return False
+
+        return True
+
     @pytest.fixture(autouse=True, scope="function")
     def implicit_fixture(self, request: pytest.FixtureRequest):
         assert isinstance(request, pytest.FixtureRequest)
@@ -60,6 +72,7 @@ class ProbackupTest:
         return FSTestBackupDir(rel_path=self.rel_path, backup=backup)
 
 
+@pytest.mark.skipif(not ProbackupTest.probackup_is_available(), reason="Check that PGPROBACKUPBIN is defined and is valid.")
 class TestBasic(ProbackupTest):
     def test_full_backup(self):
         # Setting up a simple test node
