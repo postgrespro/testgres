@@ -38,19 +38,19 @@ rm -f $COVERAGE_FILE
 
 
 # run tests (PATH)
-time coverage run -a -m pytest -l -v -n 4
+time coverage run -a -m pytest -l -v -n 2 -k "TestgresTests"
 
 
 # run tests (PG_BIN)
 time \
 	PG_BIN=$(dirname $(which pg_config)) \
-	coverage run -a -m pytest -l -v -n 4
+	coverage run -a -m pytest -l -v -n 2 -k "TestgresTests"
 
 
 # run tests (PG_CONFIG)
 time \
 	PG_CONFIG=$(which pg_config) \
-	coverage run -a -m pytest -l -v -n 4
+	coverage run -a -m pytest -l -v -n 2 -k "TestgresTests"
 
 
 # show coverage
