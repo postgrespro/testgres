@@ -1,62 +1,66 @@
-import logging
+from __future__ import annotations
+
 import os
 import shutil
-import unittest
+import pytest
+
 from ...... import testgres
 from ...pg_probackup2.app import ProbackupApp
 from ...pg_probackup2.init_helpers import Init, init_params
 from ..storage.fs_backup import FSTestBackupDir
 
 
-class TestUtils:
-    @staticmethod
-    def get_module_and_function_name(test_id):
-        try:
-            module_name = test_id.split('.')[-2]
-            fname = test_id.split('.')[-1]
-        except IndexError:
-            logging.warning(f"Couldn't get module name and function name from test_id: `{test_id}`")
-            module_name, fname = test_id.split('(')[1].split('.')[1], test_id.split('(')[0]
-        return module_name, fname
+class ProbackupTest:
+    pg_node: testgres.PostgresNode
 
+    @pytest.fixture(autouse=True, scope="function")
+    def implicit_fixture(self, request: pytest.FixtureRequest):
+        assert isinstance(request, pytest.FixtureRequest)
+        self.helper__setUp(request)
+        yield
+        self.helper__tearDown()
 
-class ProbackupTest(unittest.TestCase):
-    def setUp(self):
-        self.setup_test_environment()
-        self.setup_test_paths()
-        self.setup_backup_dir()
-        self.setup_probackup()
+    def helper__setUp(self, request: pytest.FixtureRequest):
+        assert isinstance(request, pytest.FixtureRequest)
 
-    def setup_test_environment(self):
+        self.helper__setup_test_environment(request)
+        self.helper__setup_test_paths()
+        self.helper__setup_backup_dir()
+        self.helper__setup_probackup()
+
+    def helper__setup_test_environment(self, request: pytest.FixtureRequest):
+        assert isinstance(request, pytest.FixtureRequest)
+
         self.output = None
         self.cmd = None
         self.nodes_to_cleanup = []
-        self.module_name, self.fname = TestUtils.get_module_and_function_name(self.id())
+        self.module_name, self.fname = request.node.cls.__name__, request.node.name
         self.test_env = Init().test_env()
 
-    def setup_test_paths(self):
+    def helper__setup_test_paths(self):
         self.rel_path = os.path.join(self.module_name, self.fname)
         self.test_path = os.path.join(init_params.tmp_path, self.rel_path)
         os.makedirs(self.test_path, exist_ok=True)
         self.pb_log_path = os.path.join(self.test_path, "pb_log")
 
-    def setup_backup_dir(self):
-        self.backup_dir = self.build_backup_dir('backup')
+    def helper__setup_backup_dir(self):
+        self.backup_dir = self.helper__build_backup_dir('backup')
         self.backup_dir.cleanup()
 
-    def setup_probackup(self):
+    def helper__setup_probackup(self):
         self.pg_node = testgres.NodeApp(self.test_path, self.nodes_to_cleanup)
         self.pb = ProbackupApp(self, self.pg_node, self.pb_log_path, self.test_env,
                                auto_compress_alg='zlib', backup_dir=self.backup_dir)
 
-    def tearDown(self):
+    def helper__tearDown(self):
         if os.path.exists(self.test_path):
             shutil.rmtree(self.test_path)
 
-    def build_backup_dir(self, backup='backup'):
+    def helper__build_backup_dir(self, backup='backup'):
         return FSTestBackupDir(rel_path=self.rel_path, backup=backup)
 
-class BasicTest(ProbackupTest):
+
+class TestBasic(ProbackupTest):
     def test_full_backup(self):
         # Setting up a simple test node
         node = self.pg_node.make_simple('node', pg_options={"fsync": "off", "synchronous_commit": "off"})
@@ -75,8 +79,4 @@ class BasicTest(ProbackupTest):
         out = self.pb.validate('node', backup_id)
 
         # Check if the backup is valid
-        self.assertIn(f"INFO: Backup {backup_id} is valid", out)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert f"INFO: Backup {backup_id} is valid" in out
