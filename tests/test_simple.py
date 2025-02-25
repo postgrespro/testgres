@@ -1000,6 +1000,62 @@ class TestgresTests:
             ProcessType.WalReceiver,
         ]
 
+        def LOCAL__test_auxiliary_pids(
+            node: testgres.PostgresNode,
+            expectedTypes: list[ProcessType]
+        ) -> list[ProcessType]:
+            # returns list of the absence processes
+            assert node is not None
+            assert type(node) == testgres.PostgresNode  # noqa: E721
+            assert expectedTypes is not None
+            assert type(expectedTypes) == list  # noqa: E721
+
+            pids = node.auxiliary_pids
+            assert pids is not None  # noqa: E721
+            assert type(pids) == dict  # noqa: E721
+
+            result = list[ProcessType]()
+            for ptype in expectedTypes:
+                if not (ptype in pids):
+                    result.append(ptype)
+            return result
+
+        def LOCAL__check_auxiliary_pids__multiple_attempts(
+                node: testgres.PostgresNode,
+                expectedTypes: list[ProcessType]):
+            assert node is not None
+            assert type(node) == testgres.PostgresNode  # noqa: E721
+            assert expectedTypes is not None
+            assert type(expectedTypes) == list  # noqa: E721
+
+            nAttempt = 0
+
+            while nAttempt < 5:
+                nAttempt += 1
+
+                logging.info("Test pids of [{0}] node. Attempt #{1}.".format(
+                    node.name,
+                    nAttempt
+                ))
+
+                if nAttempt > 1:
+                    time.sleep(1)
+
+                absenceList = LOCAL__test_auxiliary_pids(node, expectedTypes)
+                assert absenceList is not None
+                assert type(absenceList) == list  # noqa: E721
+                if len(absenceList) == 0:
+                    logging.info("Bingo!")
+                    return
+
+                logging.info("These processes are not found: {0}.".format(absenceList))
+                continue
+
+            raise Exception("Node {0} does not have the following processes: {1}.".format(
+                node.name,
+                absenceList
+            ))
+
         with get_new_node().init().start() as master:
 
             # master node doesn't have a source walsender!
@@ -1014,13 +1070,15 @@ class TestgresTests:
                 # test __str__ method
                 str(master.child_processes[0])
 
-                master_pids = master.auxiliary_pids
-                for ptype in master_processes:
-                    assert (ptype in master_pids)
+                LOCAL__check_auxiliary_pids__multiple_attempts(
+                    master,
+                    master_processes)
 
-                replica_pids = replica.auxiliary_pids
-                for ptype in repl_processes:
-                    assert (ptype in replica_pids)
+                LOCAL__check_auxiliary_pids__multiple_attempts(
+                    replica,
+                    repl_processes)
+
+                master_pids = master.auxiliary_pids
 
                 # there should be exactly 1 source walsender for replica
                 assert (len(master_pids[ProcessType.WalSender]) == 1)
