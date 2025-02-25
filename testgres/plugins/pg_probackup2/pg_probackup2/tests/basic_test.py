@@ -2,10 +2,10 @@ import logging
 import os
 import shutil
 import unittest
-import testgres
-from pg_probackup2.app import ProbackupApp
-from pg_probackup2.init_helpers import Init, init_params
-from pg_probackup2.app import build_backup_dir
+from ...... import testgres
+from ...pg_probackup2.app import ProbackupApp
+from ...pg_probackup2.init_helpers import Init, init_params
+from ..storage.fs_backup import FSTestBackupDir
 
 
 class TestUtils:
@@ -37,11 +37,11 @@ class ProbackupTest(unittest.TestCase):
     def setup_test_paths(self):
         self.rel_path = os.path.join(self.module_name, self.fname)
         self.test_path = os.path.join(init_params.tmp_path, self.rel_path)
-        os.makedirs(self.test_path)
+        os.makedirs(self.test_path, exist_ok=True)
         self.pb_log_path = os.path.join(self.test_path, "pb_log")
 
     def setup_backup_dir(self):
-        self.backup_dir = build_backup_dir(self, 'backup')
+        self.backup_dir = self.build_backup_dir('backup')
         self.backup_dir.cleanup()
 
     def setup_probackup(self):
@@ -53,6 +53,8 @@ class ProbackupTest(unittest.TestCase):
         if os.path.exists(self.test_path):
             shutil.rmtree(self.test_path)
 
+    def build_backup_dir(self, backup='backup'):
+        return FSTestBackupDir(rel_path=self.rel_path, backup=backup)
 
 class BasicTest(ProbackupTest):
     def test_full_backup(self):
