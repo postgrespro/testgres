@@ -1130,17 +1130,35 @@ class TestgresRemoteTests:
                 with pytest.raises(expected_exception=TestgresException):
                     replica.source_walsender
 
+    # TODO: Why does not this test work with remote host?
     def test_child_process_dies(self):
-        # test for FileNotFound exception during child_processes() function
-        with subprocess.Popen(["sleep", "60"]) as process:
-            assert (process.poll() is None)
-            # collect list of processes currently running
-            children = psutil.Process(os.getpid()).children()
-            # kill a process, so received children dictionary becomes invalid
-            process.kill()
-            process.wait()
-            # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
-            [ProcessProxy(p) for p in children]
+        nAttempt = 0
+
+        while True:
+            if nAttempt == 5:
+                raise Exception("Max attempt number is exceed.")
+
+            nAttempt += 1
+
+            logging.info("Attempt #{0}".format(nAttempt))
+
+            # test for FileNotFound exception during child_processes() function
+            with subprocess.Popen(["sleep", "60"]) as process:
+                r = process.poll()
+
+                if r is not None:
+                    logging.warning("process.pool() returns an unexpected result: {0}.".format(r))
+                    continue
+
+                assert r is None
+                # collect list of processes currently running
+                children = psutil.Process(os.getpid()).children()
+                # kill a process, so received children dictionary becomes invalid
+                process.kill()
+                process.wait()
+                # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
+                [ProcessProxy(p) for p in children]
+                break
 
     @staticmethod
     def helper__get_node():

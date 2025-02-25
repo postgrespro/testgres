@@ -1096,15 +1096,32 @@ class TestgresTests:
         # test for FileNotFound exception during child_processes() function
         cmd = ["timeout", "60"] if os.name == 'nt' else ["sleep", "60"]
 
-        with subprocess.Popen(cmd, shell=True) as process:  # shell=True might be needed on Windows
-            assert (process.poll() is None)
-            # collect list of processes currently running
-            children = psutil.Process(os.getpid()).children()
-            # kill a process, so received children dictionary becomes invalid
-            process.kill()
-            process.wait()
-            # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
-            [ProcessProxy(p) for p in children]
+        nAttempt = 0
+
+        while True:
+            if nAttempt == 5:
+                raise Exception("Max attempt number is exceed.")
+
+            nAttempt += 1
+
+            logging.info("Attempt #{0}".format(nAttempt))
+
+            with subprocess.Popen(cmd, shell=True) as process:  # shell=True might be needed on Windows
+                r = process.poll()
+
+                if r is not None:
+                    logging.warning("process.pool() returns an unexpected result: {0}.".format(r))
+                    continue
+
+                assert r is None
+                # collect list of processes currently running
+                children = psutil.Process(os.getpid()).children()
+                # kill a process, so received children dictionary becomes invalid
+                process.kill()
+                process.wait()
+                # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
+                [ProcessProxy(p) for p in children]
+                break
 
     def test_upgrade_node(self):
         old_bin_dir = os.path.dirname(get_bin_path("pg_config"))
