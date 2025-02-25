@@ -22,7 +22,7 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 source $VENV_PATH/bin/activate
 
 # install utilities
-$PIP install coverage flake8 psutil Sphinx
+$PIP install coverage flake8 psutil Sphinx pytest
 
 # install testgres' dependencies
 export PYTHONPATH=$(pwd)
@@ -38,21 +38,21 @@ rm -f $COVERAGE_FILE
 
 
 # run tests (PATH)
-time coverage run -a tests/test_simple.py
+time coverage run -a -m pytest tests/test_simple_remote.py
 
 
 # run tests (PG_BIN)
 time \
 	PG_BIN=$(dirname $(which pg_config)) \
 	ALT_CONFIG=1 \
-	coverage run -a tests/test_simple.py
+	coverage run -a -m pytest tests/test_simple_remote.py
 
 
 # run tests (PG_CONFIG)
 time \
 	PG_CONFIG=$(which pg_config) \
 	ALT_CONFIG=1 \
-	coverage run -a tests/test_simple.py
+	coverage run -a -m pytest tests/test_simple_remote.py
 
 
 # show coverage
