@@ -16,6 +16,8 @@ from six import iteritems
 from .helpers.port_manager import PortManager
 from .exceptions import ExecUtilException
 from .config import testgres_config as tconf
+from .operations.os_ops import OsOperations
+from .operations.remote_ops import RemoteOperations
 
 # rows returned by PG_CONFIG
 _pg_config_data = {}
@@ -68,7 +70,14 @@ def execute_utility(args, logfile=None, verbose=False):
     Returns:
         stdout of executed utility.
     """
-    exit_status, out, error = tconf.os_ops.exec_command(args, verbose=True)
+    return execute_utility2(tconf.os_ops, args, logfile, verbose)
+
+
+def execute_utility2(os_ops: OsOperations, args, logfile=None, verbose=False):
+    assert os_ops is not None
+    assert isinstance(os_ops, OsOperations)
+
+    exit_status, out, error = os_ops.exec_command(args, verbose=True)
     # decode result
     out = '' if not out else out
     if isinstance(out, bytes):
@@ -79,11 +88,11 @@ def execute_utility(args, logfile=None, verbose=False):
     # write new log entry if possible
     if logfile:
         try:
-            tconf.os_ops.write(filename=logfile, data=args, truncate=True)
+            os_ops.write(filename=logfile, data=args, truncate=True)
             if out:
                 # comment-out lines
                 lines = [u'\n'] + ['# ' + line for line in out.splitlines()] + [u'\n']
-                tconf.os_ops.write(filename=logfile, data=lines)
+                os_ops.write(filename=logfile, data=lines)
         except IOError:
             raise ExecUtilException(
                 "Problem with writing to logfile `{}` during run command `{}`".format(logfile, args))
@@ -98,25 +107,32 @@ def get_bin_path(filename):
     Return absolute path to an executable using PG_BIN or PG_CONFIG.
     This function does nothing if 'filename' is already absolute.
     """
+    return get_bin_path2(tconf.os_ops, filename)
+
+
+def get_bin_path2(os_ops: OsOperations, filename):
+    assert os_ops is not None
+    assert isinstance(os_ops, OsOperations)
+
     # check if it's already absolute
     if os.path.isabs(filename):
         return filename
-    if tconf.os_ops.remote:
+    if isinstance(os_ops, RemoteOperations):
         pg_config = os.environ.get("PG_CONFIG_REMOTE") or os.environ.get("PG_CONFIG")
     else:
         # try PG_CONFIG - get from local machine
         pg_config = os.environ.get("PG_CONFIG")
 
     if pg_config:
-        bindir = get_pg_config()["BINDIR"]
+        bindir = get_pg_config(pg_config, os_ops)["BINDIR"]
         return os.path.join(bindir, filename)
 
     # try PG_BIN
-    pg_bin = tconf.os_ops.environ("PG_BIN")
+    pg_bin = os_ops.environ("PG_BIN")
     if pg_bin:
         return os.path.join(pg_bin, filename)
 
-    pg_config_path = tconf.os_ops.find_executable('pg_config')
+    pg_config_path = os_ops.find_executable('pg_config')
     if pg_config_path:
         bindir = get_pg_config(pg_config_path)["BINDIR"]
         return os.path.join(bindir, filename)
@@ -129,12 +145,20 @@ def get_pg_config(pg_config_path=None, os_ops=None):
     Return output of pg_config (provided that it is installed).
     NOTE: this function caches the result by default (see GlobalConfig).
     """
-    if os_ops:
-        tconf.os_ops = os_ops
+
+    if os_ops is None:
+        os_ops = tconf.os_ops
+
+    return get_pg_config2(os_ops, pg_config_path)
+
+
+def get_pg_config2(os_ops: OsOperations, pg_config_path):
+    assert os_ops is not None
+    assert isinstance(os_ops, OsOperations)
 
     def cache_pg_config_data(cmd):
         # execute pg_config and get the output
-        out = tconf.os_ops.exec_command(cmd, encoding='utf-8')
+        out = os_ops.exec_command(cmd, encoding='utf-8')
 
         data = {}
         for line in out.splitlines():
@@ -158,7 +182,7 @@ def get_pg_config(pg_config_path=None, os_ops=None):
         return _pg_config_data
 
     # try specified pg_config path or PG_CONFIG
-    if tconf.os_ops.remote:
+    if isinstance(os_ops, RemoteOperations):
         pg_config = pg_config_path or os.environ.get("PG_CONFIG_REMOTE") or os.environ.get("PG_CONFIG")
     else:
         # try PG_CONFIG - get from local machine
