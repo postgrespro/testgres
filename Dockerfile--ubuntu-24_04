@@ -1,13 +1,7 @@
 FROM ubuntu:24.04
 
 RUN apt update
-#RUN apt -y install software-properties-common
-#RUN add-apt-repository main
-#RUN add-apt-repository universe
-
-#RUN apt-get update && apt-get install -y apt-transport-https
 RUN apt install -y sudo curl ca-certificates postgresql-common
-#RUN apt install -y lsb-core
 
 RUN bash /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
 
