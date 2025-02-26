@@ -1,0 +1,81 @@
+FROM ubuntu:24.04
+
+RUN apt update
+#RUN apt -y install software-properties-common
+#RUN add-apt-repository main
+#RUN add-apt-repository universe
+
+#RUN apt-get update && apt-get install -y apt-transport-https
+RUN apt install -y sudo curl ca-certificates postgresql-common
+#RUN apt install -y lsb-core
+
+RUN bash /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+
+RUN install -d /usr/share/postgresql-common/pgdg
+RUN curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+
+# It does not work
+#RUN sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+
+RUN apt update
+RUN apt install -y postgresql-17
+
+RUN apt install -y curl python3 python3-dev python3-virtualenv musl-dev
+RUN apt install -y mc
+
+# It is required for psycopg2
+RUN apt install -y libpq-dev
+RUN apt install -y openssh-server
+
+RUN mkdir -p /pg
+COPY run_tests.sh /run.sh
+RUN chmod 755 /run.sh
+
+# It adds the user 'postgres' in the group 'sudo'
+RUN adduser postgres sudo
+
+ADD . /pg/testgres
+WORKDIR /pg/testgres
+RUN chown -R postgres /pg
+
+EXPOSE 22
+
+RUN ssh-keygen -A
+
+# It enables execution of "sudo service ssh start" without password
+RUN sh -c "echo postgres ALL=NOPASSWD:/usr/sbin/service ssh start" >> /etc/sudoers
+# It requires for test those work through SSH
+RUN mkdir -p /home/postgres
+RUN chown postgres:postgres /home/postgres
+
+USER postgres
+
+ENV LANG=C.UTF-8
+
+#ENTRYPOINT PYTHON_VERSION=3.12 /run.sh
+ENTRYPOINT sh -c " \
+#set -eux; \
+echo HELLO FROM ENTRYPOINT; \
+echo HOME DIR IS [`realpath ~/`]; \
+echo POINT 1; \
+chmod go-w /var/lib/postgresql; \
+echo POINT 1.5; \
+mkdir -p ~/.ssh; \
+echo POINT 2; \
+service ssh enable; \
+echo POINT 3; \
+sudo service ssh start; \
+echo POINT 4; \
+ssh-keyscan -H localhost >> ~/.ssh/known_hosts; \
+echo POINT 5; \
+ssh-keyscan -H 127.0.0.1 >> ~/.ssh/known_hosts; \
+echo POINT 6; \
+ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -N ''; \
+echo ----; \
+cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys; \
+echo ----; \
+chmod 600 ~/.ssh/authorized_keys; \
+echo ----; \
+ls -la ~/.ssh/; \
+echo ----; \
+bash;"
