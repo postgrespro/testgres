@@ -1,12 +1,13 @@
+# coding: utf-8
 import os
 
 import pytest
 import re
 import tempfile
 
-from testgres import ExecUtilException
-from testgres import InvalidOperationException
-from testgres import LocalOperations
+from ..testgres import ExecUtilException
+from ..testgres import InvalidOperationException
+from ..testgres import LocalOperations
 
 from .helpers.run_conditions import RunConditions
 

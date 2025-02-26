@@ -121,8 +121,7 @@ class Init(object):
                     self.probackup_path = probackup_path_tmp
 
         if not self.probackup_path:
-            logging.error('pg_probackup binary is not found')
-            exit(1)
+            raise Exception('pg_probackup binary is not found')
 
         if os.name == 'posix':
             self.EXTERNAL_DIRECTORY_DELIMITER = ':'
@@ -213,11 +212,15 @@ class Init(object):
         if self.probackup_version.split('.')[0].isdigit():
             self.major_version = int(self.probackup_version.split('.')[0])
         else:
-            logging.error('Can\'t process pg_probackup version \"{}\": the major version is expected to be a number'.format(self.probackup_version))
-            sys.exit(1)
+            raise Exception('Can\'t process pg_probackup version \"{}\": the major version is expected to be a number'.format(self.probackup_version))
 
     def test_env(self):
         return self._test_env.copy()
 
 
-init_params = Init()
+try:
+    init_params = Init()
+except Exception as e:
+    logging.error(str(e))
+    logging.warning("testgres.plugins.probackup2.init_params is set to None.")
+    init_params = None

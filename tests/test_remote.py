@@ -1,13 +1,14 @@
+# coding: utf-8
 import os
 
 import pytest
 import re
 import tempfile
 
-from testgres import ExecUtilException
-from testgres import InvalidOperationException
-from testgres import RemoteOperations
-from testgres import ConnectionParams
+from ..testgres import ExecUtilException
+from ..testgres import InvalidOperationException
+from ..testgres import RemoteOperations
+from ..testgres import ConnectionParams
 
 
 class TestRemoteOperations:
