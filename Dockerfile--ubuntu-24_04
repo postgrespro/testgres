@@ -25,8 +25,9 @@ RUN mkdir -p /pg
 COPY run_tests.sh /run.sh
 RUN chmod 755 /run.sh
 
-# It adds the user 'postgres' in the group 'sudo'
-RUN adduser postgres sudo
+# [2025-02-26] It adds the user 'postgres' in the group 'sudo'
+# [2025-02-27] It is not required.
+# RUN adduser postgres sudo
 
 ADD . /pg/testgres
 WORKDIR /pg/testgres
