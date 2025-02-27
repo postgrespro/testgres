@@ -132,6 +132,9 @@ class PostgresNode(object):
     # a max number of node start attempts
     _C_MAX_START_ATEMPTS = 5
 
+    # a max number of read pid file attempts
+    _C_MAX_GET_PID_ATEMPTS = 5
+
     def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(),
                  bin_dir=None, prefix=None):
         """
@@ -208,14 +211,40 @@ class PostgresNode(object):
         Return postmaster's PID if node is running, else 0.
         """
 
-        if self.status():
-            pid_file = os.path.join(self.data_dir, PG_PID_FILE)
-            lines = self.os_ops.readlines(pid_file)
-            pid = int(lines[0]) if lines else None
-            return pid
+        nAttempt = 0
+        pid_file = os.path.join(self.data_dir, PG_PID_FILE)
+        pid_s: str = None
+        while True:
+            if nAttempt == __class__._C_MAX_GET_PID_ATEMPTS:
+                errMsg = "Can't read postmaster pid file [{0}].".format(pid_file)
+                raise Exception(errMsg)
 
-        # for clarity
-        return 0
+            nAttempt += 1
+
+            s1 = self.status()
+            if s1 != NodeStatus.Running:
+                return 0
+
+            try:
+                lines = self.os_ops.readlines(pid_file)
+            except Exception:
+                s2 = self.status()
+                if s2 == NodeStatus.Running:
+                    raise
+                return 0
+
+            assert lines is not None  # [2025-02-27] OK?
+            assert type(lines) == list  # noqa: E721
+            if len(lines) == 0:
+                continue
+
+            pid_s = lines[0]
+            assert type(pid_s) == str  # noqa: E721
+            if len(pid_s) == 0:
+                continue
+
+            pid = int(pid_s)
+            return pid
 
     @property
     def auxiliary_pids(self):
