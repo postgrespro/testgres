@@ -43,13 +43,13 @@ time coverage run -a -m pytest -l -v -n 4 -k "TestgresTests"
 
 # run tests (PG_BIN)
 time \
-	PG_BIN=$(dirname $(which pg_config)) \
+	PG_BIN=$(pg_config --bindir) \
 	coverage run -a -m pytest -l -v -n 4 -k "TestgresTests"
 
 
 # run tests (PG_CONFIG)
 time \
-	PG_CONFIG=$(which pg_config) \
+	PG_CONFIG=$(pg_config --bindir)/pg_config \
 	coverage run -a -m pytest -l -v -n 4 -k "TestgresTests"
 
 
