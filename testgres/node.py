@@ -239,6 +239,7 @@ class PostgresNode(object):
                 continue
 
             pid_s = lines[0]
+            assert type(pid_s) == str  # noqa: E721
             if len(pid_s) == 0:
                 continue
 
