@@ -21,10 +21,6 @@ RUN apt install -y mc
 RUN apt install -y libpq-dev
 RUN apt install -y openssh-server
 
-RUN mkdir -p /pg
-COPY run_tests.sh /run.sh
-RUN chmod 755 /run.sh
-
 # [2025-02-26] It adds the user 'postgres' in the group 'sudo'
 # [2025-02-27] It is not required.
 # RUN adduser postgres sudo
@@ -73,4 +69,4 @@ chmod 600 ~/.ssh/authorized_keys; \
 echo ----; \
 ls -la ~/.ssh/; \
 echo ----; \
-bash;"
+bash /pg/testgres/run_tests.sh;"
