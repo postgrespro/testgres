@@ -11,13 +11,9 @@ RUN if [ "${PYTHON_VERSION}" = "3" ] ; then \
 	fi
 ENV LANG=C.UTF-8
 
-RUN mkdir -p /pg
-COPY run_tests.sh /run.sh
-RUN chmod 755 /run.sh
-
 ADD . /pg/testgres
 WORKDIR /pg/testgres
 RUN chown -R postgres:postgres /pg
 
 USER postgres
-ENTRYPOINT PYTHON_VERSION=${PYTHON_VERSION} /run.sh
+ENTRYPOINT PYTHON_VERSION=${PYTHON_VERSION} bash run_tests.sh
