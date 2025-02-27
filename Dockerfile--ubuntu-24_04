@@ -14,7 +14,7 @@ RUN curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail http
 RUN apt update
 RUN apt install -y postgresql-17
 
-RUN apt install -y curl python3 python3-dev python3-virtualenv musl-dev
+RUN apt install -y python3 python3-dev python3-virtualenv musl-dev
 RUN apt install -y mc
 
 # It is required for psycopg2
