@@ -124,6 +124,7 @@ class ProbackupApp:
                 def stream_output(stream: subprocess.PIPE) -> None:
                     for line in iter(stream.readline, ''):
                         print(line)
+                        self.test_class.output += line
                     stream.close()
 
                 self.process = subprocess.Popen(
