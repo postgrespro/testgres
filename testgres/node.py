@@ -483,7 +483,7 @@ class PostgresNode(object):
 
         # If force stopping is enabled and PID is valid
         if not with_force:
-            return False
+            return
 
         node_pid = self.pid
         assert node_pid is not None
