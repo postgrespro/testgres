@@ -247,32 +247,42 @@ class RemoteOperations(OsOperations):
         - prefix (str): The prefix of the temporary directory name.
         """
         if prefix:
-            command = ["ssh"] + self.ssh_args + [self.ssh_dest, f"mktemp -d {prefix}XXXXX"]
+            command = ["mktemp", "-d", "-t", prefix + "XXXXX"]
         else:
-            command = ["ssh"] + self.ssh_args + [self.ssh_dest, "mktemp -d"]
+            command = ["mktemp", "-d"]
 
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        exit_status, result, error = self.exec_command(command, verbose=True, encoding=get_default_encoding(), ignore_errors=True)
 
-        if result.returncode == 0:
-            temp_dir = result.stdout.strip()
-            if not os.path.isabs(temp_dir):
-                temp_dir = os.path.join('/home', self.username, temp_dir)
-            return temp_dir
-        else:
-            raise ExecUtilException(f"Could not create temporary directory. Error: {result.stderr}")
+        assert type(result) == str  # noqa: E721
+        assert type(error) == str  # noqa: E721
+
+        if exit_status != 0:
+            raise ExecUtilException("Could not create temporary directory. Error code: {0}. Error message: {1}".format(exit_status, error))
+
+        temp_dir = result.strip()
+        return temp_dir
 
     def mkstemp(self, prefix=None):
+        """
+        Creates a temporary file in the remote server.
+        Args:
+        - prefix (str): The prefix of the temporary directory name.
+        """
         if prefix:
-            temp_dir = self.exec_command("mktemp {}XXXXX".format(prefix), encoding=get_default_encoding())
+            command = ["mktemp", "-t", prefix + "XXXXX"]
         else:
-            temp_dir = self.exec_command("mktemp", encoding=get_default_encoding())
+            command = ["mktemp"]
 
-        if temp_dir:
-            if not os.path.isabs(temp_dir):
-                temp_dir = os.path.join('/home', self.username, temp_dir.strip())
-            return temp_dir
-        else:
-            raise ExecUtilException("Could not create temporary directory.")
+        exit_status, result, error = self.exec_command(command, verbose=True, encoding=get_default_encoding(), ignore_errors=True)
+
+        assert type(result) == str  # noqa: E721
+        assert type(error) == str  # noqa: E721
+
+        if exit_status != 0:
+            raise ExecUtilException("Could not create temporary file. Error code: {0}. Error message: {1}".format(exit_status, error))
+
+        temp_file = result.strip()
+        return temp_file
 
     def copytree(self, src, dst):
         if not os.path.isabs(dst):
