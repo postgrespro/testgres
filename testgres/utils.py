@@ -73,11 +73,13 @@ def execute_utility(args, logfile=None, verbose=False):
     return execute_utility2(tconf.os_ops, args, logfile, verbose)
 
 
-def execute_utility2(os_ops: OsOperations, args, logfile=None, verbose=False):
+def execute_utility2(os_ops: OsOperations, args, logfile=None, verbose=False, ignore_errors=False):
     assert os_ops is not None
     assert isinstance(os_ops, OsOperations)
+    assert type(verbose) == bool  # noqa: E721
+    assert type(ignore_errors) == bool  # noqa: E721
 
-    exit_status, out, error = os_ops.exec_command(args, verbose=True)
+    exit_status, out, error = os_ops.exec_command(args, verbose=True, ignore_errors=ignore_errors)
     # decode result
     out = '' if not out else out
     if isinstance(out, bytes):
