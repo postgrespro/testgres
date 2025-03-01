@@ -38,10 +38,11 @@ class TestRemoteOperations:
             try:
                 self.operations.exec_command(cmd, verbose=True, wait_exit=True)
             except ExecUtilException as e:
-                error = e.message
+                assert e.message == "Utility exited with non-zero code."
+                assert type(e.error) == bytes  # noqa: E721
+                assert e.error.strip() == b"bash: line 1: nonexistent_command: command not found"
                 break
             raise Exception("We wait an exception!")
-        assert error == 'Utility exited with non-zero code. Error: `bash: line 1: nonexistent_command: command not found`'
 
     def test_exec_command_failure__expect_error(self):
         """
@@ -108,10 +109,11 @@ class TestRemoteOperations:
             try:
                 self.operations.rmdirs(path, verbose=True)
             except ExecUtilException as e:
-                error = e.message
+                assert e.message == "Utility exited with non-zero code."
+                assert type(e.error) == bytes  # noqa: E721
+                assert e.error.strip() == b"rm: cannot remove '/root/test_dir': Permission denied"
                 break
             raise Exception("We wait an exception!")
-        assert error == "Utility exited with non-zero code. Error: `rm: cannot remove '/root/test_dir': Permission denied`"
 
     def test_listdir(self):
         """

@@ -18,6 +18,7 @@ from .exceptions import ExecUtilException
 from .config import testgres_config as tconf
 from .operations.os_ops import OsOperations
 from .operations.remote_ops import RemoteOperations
+from .operations.helpers import Helpers as OsHelpers
 
 # rows returned by PG_CONFIG
 _pg_config_data = {}
@@ -79,13 +80,13 @@ def execute_utility2(os_ops: OsOperations, args, logfile=None, verbose=False, ig
     assert type(verbose) == bool  # noqa: E721
     assert type(ignore_errors) == bool  # noqa: E721
 
-    exit_status, out, error = os_ops.exec_command(args, verbose=True, ignore_errors=ignore_errors)
-    # decode result
+    exit_status, out, error = os_ops.exec_command(
+        args,
+        verbose=True,
+        ignore_errors=ignore_errors,
+        encoding=OsHelpers.GetDefaultEncoding())
+
     out = '' if not out else out
-    if isinstance(out, bytes):
-        out = out.decode('utf-8')
-    if isinstance(error, bytes):
-        error = error.decode('utf-8')
 
     # write new log entry if possible
     if logfile:
