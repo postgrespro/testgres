@@ -178,27 +178,32 @@ class TestgresRemoteTests:
                 assert os.environ.get("LC_CTYPE") == unkData[1]
                 assert not ("LC_COLLATE" in os.environ.keys())
 
-                while True:
+                assert os.getenv('LANG') == unkData[0]
+                assert os.getenv('LANGUAGE') is None
+                assert os.getenv('LC_CTYPE') == unkData[1]
+                assert os.getenv('LC_COLLATE') is None
+
+                exc: ExecUtilException = None
+                with __class__.helper__get_node() as node:
                     try:
-                        with __class__.helper__get_node():
-                            pass
-                    except ExecUtilException as e:
-                        #
-                        # Example of an error message:
-                        #
-                        # warning: setlocale: LC_CTYPE: cannot change locale (UNKNOWN_CTYPE): No such file or directory
-                        # postgres (PostgreSQL) 14.12
-                        #
-                        errMsg = str(e)
+                        node.init()  # IT RAISES!
+                    except InitNodeException as e:
+                        exc = e.__cause__
+                        assert exc is not None
+                        assert isinstance(exc, ExecUtilException)
 
-                        logging.info("Error message is: {0}".format(errMsg))
-
-                        assert "LC_CTYPE" in errMsg
-                        assert unkData[1] in errMsg
-                        assert "warning: setlocale: LC_CTYPE: cannot change locale (" + unkData[1] + "): No such file or directory" in errMsg
-                        assert ("postgres" in errMsg) or ("PostgreSQL" in errMsg)
-                        break
+                if exc is None:
                     raise Exception("We expected an error!")
+
+                assert isinstance(exc, ExecUtilException)
+
+                errMsg = str(exc)
+                logging.info("Error message is {0}: {1}".format(type(exc).__name__, errMsg))
+
+                assert "warning: setlocale: LC_CTYPE: cannot change locale (" + unkData[1] + ")" in errMsg
+                assert "initdb: error: invalid locale settings; check LANG and LC_* environment variables" in errMsg
+                continue
+
         finally:
             __class__.helper__restore_envvar("LANG", prev_LANG)
             __class__.helper__restore_envvar("LANGUAGE", prev_LANGUAGE)

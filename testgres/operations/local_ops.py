@@ -23,20 +23,6 @@ except ImportError:
     from distutils import rmtree
 
 CMD_TIMEOUT_SEC = 60
-error_markers = [b'error', b'Permission denied', b'fatal']
-err_out_markers = [b'Failure']
-
-
-def has_errors(output=None, error=None):
-    if output:
-        if isinstance(output, str):
-            output = output.encode(get_default_encoding())
-        return any(marker in output for marker in err_out_markers)
-    if error:
-        if isinstance(error, str):
-            error = error.encode(get_default_encoding())
-        return any(marker in error for marker in error_markers)
-    return False
 
 
 class LocalOperations(OsOperations):
@@ -134,19 +120,28 @@ class LocalOperations(OsOperations):
         process, output, error = self._run_command(cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding)
         if get_process:
             return process
-        if not ignore_errors and ((process.returncode != 0 or has_errors(output=output, error=error)) and not expect_error):
+
+        if expect_error:
+            if process.returncode == 0:
+                raise InvalidOperationException("We expected an execution error.")
+        elif ignore_errors:
+            pass
+        elif process.returncode == 0:
+            pass
+        else:
+            assert not expect_error
+            assert not ignore_errors
+            assert process.returncode != 0
             RaiseError.UtilityExitedWithNonZeroCode(
                 cmd=cmd,
                 exit_code=process.returncode,
-                msg_arg=error or output,
                 error=error,
-                out=output
-            )
+                out=output)
 
         if verbose:
             return process.returncode, output, error
-        else:
-            return output
+
+        return output
 
     # Environment setup
     def environ(self, var_name):
