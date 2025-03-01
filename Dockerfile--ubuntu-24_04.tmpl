@@ -35,9 +35,6 @@ RUN ssh-keygen -A
 
 # It enables execution of "sudo service ssh start" without password
 RUN sh -c "echo postgres ALL=NOPASSWD:/usr/sbin/service ssh start" >> /etc/sudoers
-# It requires for test those work through SSH
-RUN mkdir -p /home/postgres
-RUN chown postgres:postgres /home/postgres
 
 USER postgres
 
