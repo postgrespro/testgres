@@ -40,7 +40,7 @@ class TestLocalOperations:
             try:
                 self.operations.exec_command(cmd, wait_exit=True, shell=True)
             except ExecUtilException as e:
-                assert e.message == "Utility exited with non-zero code."
+                assert e.message == "Utility exited with non-zero code (127). Error: `/bin/sh: 1: nonexistent_command: not found`"
                 assert type(e.error) == bytes  # noqa: E721
                 assert e.error.strip() == b"/bin/sh: 1: nonexistent_command: not found"
                 break
