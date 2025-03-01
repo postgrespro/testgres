@@ -49,7 +49,9 @@ from .consts import \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
     UTILS_LOG_FILE, \
-    PG_PID_FILE
+    PG_CTL__STATUS__OK, \
+    PG_CTL__STATUS__NODE_IS_STOPPED, \
+    PG_CTL__STATUS__BAD_DATADIR \
 
 from .consts import \
     MAX_LOGICAL_REPLICATION_WORKERS, \
@@ -208,14 +210,136 @@ class PostgresNode(object):
         Return postmaster's PID if node is running, else 0.
         """
 
-        if self.status():
-            pid_file = os.path.join(self.data_dir, PG_PID_FILE)
-            lines = self.os_ops.readlines(pid_file)
-            pid = int(lines[0]) if lines else None
-            return pid
+        self__data_dir = self.data_dir
 
-        # for clarity
-        return 0
+        _params = [
+            self._get_bin_path('pg_ctl'),
+            "-D", self__data_dir,
+            "status"
+        ]  # yapf: disable
+
+        status_code, out, error = execute_utility2(
+            self.os_ops,
+            _params,
+            self.utils_log_file,
+            verbose=True,
+            ignore_errors=True)
+
+        assert type(status_code) == int  # noqa: E721
+        assert type(out) == str  # noqa: E721
+        assert type(error) == str  # noqa: E721
+
+        # -----------------
+        if status_code == PG_CTL__STATUS__NODE_IS_STOPPED:
+            return 0
+
+        # -----------------
+        if status_code == PG_CTL__STATUS__BAD_DATADIR:
+            return 0
+
+        # -----------------
+        if status_code != PG_CTL__STATUS__OK:
+            errMsg = "Getting of a node status [data_dir is {0}] failed.".format(self__data_dir)
+
+            raise ExecUtilException(
+                message=errMsg,
+                command=_params,
+                exit_code=status_code,
+                out=out,
+                error=error,
+            )
+
+        # -----------------
+        assert status_code == PG_CTL__STATUS__OK
+
+        if out == "":
+            __class__._throw_error__pg_ctl_returns_an_empty_string(
+                _params
+            )
+
+        C_PID_PREFIX = "(PID: "
+
+        i = out.find(C_PID_PREFIX)
+
+        if i == -1:
+            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
+                out,
+                _params
+            )
+
+        assert i > 0
+        assert i < len(out)
+        assert len(C_PID_PREFIX) <= len(out)
+        assert i <= len(out) - len(C_PID_PREFIX)
+
+        i += len(C_PID_PREFIX)
+        start_pid_s = i
+
+        while True:
+            if i == len(out):
+                __class__._throw_error__pg_ctl_returns_an_unexpected_string(
+                    out,
+                    _params
+                )
+
+            ch = out[i]
+
+            if ch == ")":
+                break
+
+            if ch.isdigit():
+                i += 1
+                continue
+
+            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
+                out,
+                _params
+            )
+            assert False
+
+        if i == start_pid_s:
+            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
+                out,
+                _params
+            )
+
+        # TODO: Let's verify a length of pid string.
+
+        pid = int(out[start_pid_s:i])
+
+        if pid == 0:
+            __class__._throw_error__pg_ctl_returns_a_zero_pid(
+                out,
+                _params
+            )
+
+        assert pid != 0
+        return pid
+
+    @staticmethod
+    def _throw_error__pg_ctl_returns_an_empty_string(_params):
+        errLines = []
+        errLines.append("Utility pg_ctl returns empty string.")
+        errLines.append("Command line is {0}".format(_params))
+        raise RuntimeError("\n".join(errLines))
+
+    @staticmethod
+    def _throw_error__pg_ctl_returns_an_unexpected_string(out, _params):
+        errLines = []
+        errLines.append("Utility pg_ctl returns an unexpected string:")
+        errLines.append(out)
+        errLines.append("------------")
+        errLines.append("Command line is {0}".format(_params))
+        raise RuntimeError("\n".join(errLines))
+
+    @staticmethod
+    def _throw_error__pg_ctl_returns_a_zero_pid(out, _params):
+        errLines = []
+        errLines.append("Utility pg_ctl returns a zero pid. Output string is:")
+        errLines.append(out)
+        errLines.append("------------")
+        errLines.append("Command line is {0}".format(_params))
+        raise RuntimeError("\n".join(errLines))
 
     @property
     def auxiliary_pids(self):
@@ -338,41 +462,84 @@ class PostgresNode(object):
         return self._pg_version
 
     def _try_shutdown(self, max_attempts, with_force=False):
+        assert type(max_attempts) == int  # noqa: E721
+        assert type(with_force) == bool  # noqa: E721
+        assert max_attempts > 0
+
         attempts = 0
+
+        # try stopping server N times
+        while attempts < max_attempts:
+            attempts += 1
+            try:
+                self.stop()
+            except ExecUtilException:
+                continue  # one more time
+            except Exception:
+                eprint('cannot stop node {}'.format(self.name))
+                break
+
+            return  # OK
+
+        # If force stopping is enabled and PID is valid
+        if not with_force:
+            return
+
         node_pid = self.pid
+        assert node_pid is not None
+        assert type(node_pid) == int  # noqa: E721
 
-        if node_pid > 0:
-            # try stopping server N times
-            while attempts < max_attempts:
-                try:
-                    self.stop()
-                    break    # OK
-                except ExecUtilException:
-                    pass    # one more time
-                except Exception:
-                    eprint('cannot stop node {}'.format(self.name))
-                    break
+        if node_pid == 0:
+            return
 
-                attempts += 1
+        # TODO: [2025-02-28] It is really the old ugly code. We have to rewrite it!
 
-            # If force stopping is enabled and PID is valid
-            if with_force and node_pid != 0:
-                # If we couldn't stop the node
-                p_status_output = self.os_ops.exec_command(cmd=f'ps -o pid= -p {node_pid}', shell=True, ignore_errors=True).decode('utf-8')
-                if self.status() != NodeStatus.Stopped and p_status_output and str(node_pid) in p_status_output:
-                    try:
-                        eprint(f'Force stopping node {self.name} with PID {node_pid}')
-                        self.os_ops.kill(node_pid, signal.SIGKILL, expect_error=False)
-                    except Exception:
-                        # The node has already stopped
-                        pass
+        ps_command = ['ps', '-o', 'pid=', '-p', str(node_pid)]
 
-                # Check that node stopped - print only column pid without headers
-                p_status_output = self.os_ops.exec_command(f'ps -o pid= -p {node_pid}', shell=True, ignore_errors=True).decode('utf-8')
-                if p_status_output and str(node_pid) in p_status_output:
-                    eprint(f'Failed to stop node {self.name}.')
-                else:
-                    eprint(f'Node {self.name} has been stopped successfully.')
+        ps_output = self.os_ops.exec_command(cmd=ps_command, shell=True, ignore_errors=True).decode('utf-8')
+        assert type(ps_output) == str  # noqa: E721
+
+        if ps_output == "":
+            return
+
+        if ps_output != str(node_pid):
+            __class__._throw_bugcheck__unexpected_result_of_ps(
+                ps_output,
+                ps_command)
+
+        try:
+            eprint('Force stopping node {0} with PID {1}'.format(self.name, node_pid))
+            self.os_ops.kill(node_pid, signal.SIGKILL, expect_error=False)
+        except Exception:
+            # The node has already stopped
+            pass
+
+        # Check that node stopped - print only column pid without headers
+        ps_output = self.os_ops.exec_command(cmd=ps_command, shell=True, ignore_errors=True).decode('utf-8')
+        assert type(ps_output) == str  # noqa: E721
+
+        if ps_output == "":
+            eprint('Node {0} has been stopped successfully.'.format(self.name))
+            return
+
+        if ps_output == str(node_pid):
+            eprint('Failed to stop node {0}.'.format(self.name))
+            return
+
+        __class__._throw_bugcheck__unexpected_result_of_ps(
+            ps_output,
+            ps_command)
+
+    @staticmethod
+    def _throw_bugcheck__unexpected_result_of_ps(result, cmd):
+        assert type(result) == str  # noqa: E721
+        assert type(cmd) == list  # noqa: E721
+        errLines = []
+        errLines.append("[BUG CHECK] Unexpected result of command ps:")
+        errLines.append(result)
+        errLines.append("-----")
+        errLines.append("Command line is {0}".format(cmd))
+        raise RuntimeError("\n".join(errLines))
 
     def _assign_master(self, master):
         """NOTE: this is a private method!"""
