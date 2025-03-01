@@ -8,7 +8,9 @@ import tempfile
 from ..testgres import ExecUtilException
 from ..testgres import InvalidOperationException
 from ..testgres import RemoteOperations
+from ..testgres import LocalOperations
 from ..testgres import ConnectionParams
+from ..testgres import utils as testgres_utils
 
 
 class TestRemoteOperations:
@@ -59,7 +61,11 @@ class TestRemoteOperations:
         """
         Test is_executable for an existing executable.
         """
-        cmd = os.getenv('PG_CONFIG')
+        local_ops = LocalOperations()
+        cmd = testgres_utils.get_bin_path2(local_ops, "pg_config")
+        cmd = local_ops.exec_command([cmd, "--bindir"], encoding="utf-8")
+        cmd = cmd.rstrip()
+        cmd = os.path.join(cmd, "pg_config")
         response = self.operations.is_executable(cmd)
 
         assert response is True
