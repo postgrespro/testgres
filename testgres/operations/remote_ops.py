@@ -100,41 +100,40 @@ class RemoteOperations(OsOperations):
             return process
 
         try:
-            result, error = process.communicate(input=input_prepared, timeout=timeout)
+            output, error = process.communicate(input=input_prepared, timeout=timeout)
         except subprocess.TimeoutExpired:
             process.kill()
             raise ExecUtilException("Command timed out after {} seconds.".format(timeout))
 
-        exit_status = process.returncode
-
-        assert type(result) == bytes  # noqa: E721
+        assert type(output) == bytes  # noqa: E721
         assert type(error) == bytes  # noqa: E721
 
-        if not error:
-            error_found = False
-        else:
-            error_found = exit_status != 0 or any(
-                marker in error for marker in [b'error', b'Permission denied', b'fatal', b'No such file or directory']
-            )
-
-        assert type(error_found) == bool  # noqa: E721
-
         if encoding:
-            result = result.decode(encoding)
+            output = output.decode(encoding)
             error = error.decode(encoding)
 
-        if not ignore_errors and error_found and not expect_error:
+        if expect_error:
+            if process.returncode == 0:
+                raise InvalidOperationException("We expected an execution error.")
+        elif ignore_errors:
+            pass
+        elif process.returncode == 0:
+            pass
+        else:
+            assert not expect_error
+            assert not ignore_errors
+            assert process.returncode != 0
             RaiseError.UtilityExitedWithNonZeroCode(
                 cmd=cmd,
-                exit_code=exit_status,
+                exit_code=process.returncode,
                 msg_arg=error,
                 error=error,
-                out=result)
+                out=output)
 
         if verbose:
-            return exit_status, result, error
-        else:
-            return result
+            return process.returncode, output, error
+
+        return output
 
     # Environment setup
     def environ(self, var_name: str) -> str:
@@ -165,8 +164,30 @@ class RemoteOperations(OsOperations):
 
     def is_executable(self, file):
         # Check if the file is executable
-        is_exec = self.exec_command("test -x {} && echo OK".format(file))
-        return is_exec == b"OK\n"
+        command = ["test", "-x", file]
+
+        exit_status, output, error = self.exec_command(cmd=command, encoding=get_default_encoding(), ignore_errors=True, verbose=True)
+
+        assert type(output) == str  # noqa: E721
+        assert type(error) == str  # noqa: E721
+
+        if exit_status == 0:
+            return True
+
+        if exit_status == 1:
+            return False
+
+        errMsg = "Test operation returns an unknown result code: {0}. File name is [{1}].".format(
+            exit_status,
+            file)
+
+        RaiseError.CommandExecutionError(
+            cmd=command,
+            exit_code=exit_status,
+            msg_arg=errMsg,
+            error=error,
+            out=output
+        )
 
     def set_env(self, var_name: str, var_val: str):
         """
@@ -251,15 +272,21 @@ class RemoteOperations(OsOperations):
         else:
             command = ["mktemp", "-d"]
 
-        exit_status, result, error = self.exec_command(command, verbose=True, encoding=get_default_encoding(), ignore_errors=True)
+        exec_exitcode, exec_output, exec_error = self.exec_command(command, verbose=True, encoding=get_default_encoding(), ignore_errors=True)
 
-        assert type(result) == str  # noqa: E721
-        assert type(error) == str  # noqa: E721
+        assert type(exec_exitcode) == int  # noqa: E721
+        assert type(exec_output) == str  # noqa: E721
+        assert type(exec_error) == str  # noqa: E721
 
-        if exit_status != 0:
-            raise ExecUtilException("Could not create temporary directory. Error code: {0}. Error message: {1}".format(exit_status, error))
+        if exec_exitcode != 0:
+            RaiseError.CommandExecutionError(
+                cmd=command,
+                exit_code=exec_exitcode,
+                message="Could not create temporary directory.",
+                error=exec_error,
+                out=exec_output)
 
-        temp_dir = result.strip()
+        temp_dir = exec_output.strip()
         return temp_dir
 
     def mkstemp(self, prefix=None):
@@ -273,15 +300,21 @@ class RemoteOperations(OsOperations):
         else:
             command = ["mktemp"]
 
-        exit_status, result, error = self.exec_command(command, verbose=True, encoding=get_default_encoding(), ignore_errors=True)
+        exec_exitcode, exec_output, exec_error = self.exec_command(command, verbose=True, encoding=get_default_encoding(), ignore_errors=True)
 
-        assert type(result) == str  # noqa: E721
-        assert type(error) == str  # noqa: E721
+        assert type(exec_exitcode) == int  # noqa: E721
+        assert type(exec_output) == str  # noqa: E721
+        assert type(exec_error) == str  # noqa: E721
 
-        if exit_status != 0:
-            raise ExecUtilException("Could not create temporary file. Error code: {0}. Error message: {1}".format(exit_status, error))
+        if exec_exitcode != 0:
+            RaiseError.CommandExecutionError(
+                cmd=command,
+                exit_code=exec_exitcode,
+                message="Could not create temporary file.",
+                error=exec_error,
+                out=exec_output)
 
-        temp_file = result.strip()
+        temp_file = exec_output.strip()
         return temp_file
 
     def copytree(self, src, dst):
