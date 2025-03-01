@@ -135,6 +135,7 @@ class LocalOperations(OsOperations):
             RaiseError.UtilityExitedWithNonZeroCode(
                 cmd=cmd,
                 exit_code=process.returncode,
+                msg_arg=error or output,
                 error=error,
                 out=output)
 

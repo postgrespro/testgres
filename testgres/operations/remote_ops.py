@@ -126,6 +126,7 @@ class RemoteOperations(OsOperations):
             RaiseError.UtilityExitedWithNonZeroCode(
                 cmd=cmd,
                 exit_code=process.returncode,
+                msg_arg=error,
                 error=error,
                 out=output)
 
@@ -180,7 +181,7 @@ class RemoteOperations(OsOperations):
             exit_status,
             file)
 
-        RaiseError.UtilityExitedWithNonZeroCode(
+        RaiseError.CommandExecutionError(
             cmd=command,
             exit_code=exit_status,
             msg_arg=errMsg,
