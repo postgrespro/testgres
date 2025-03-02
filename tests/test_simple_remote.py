@@ -8,8 +8,8 @@ import time
 import six
 import pytest
 import psutil
-
-import logging.config
+import logging
+import uuid
 
 from contextlib import contextmanager
 
@@ -788,56 +788,95 @@ class TestgresRemoteTests:
             node.poll_query_until('select true')
 
     def test_logging(self):
-        # FAIL
-        logfile = tempfile.NamedTemporaryFile('w', delete=True)
+        C_MAX_ATTEMPTS = 50
+        # This name is used for testgres logging, too.
+        C_NODE_NAME = "testgres_tests." + __class__.__name__ + "test_logging-master-" + uuid.uuid4().hex
 
-        log_conf = {
-            'version': 1,
-            'handlers': {
-                'file': {
-                    'class': 'logging.FileHandler',
-                    'filename': logfile.name,
-                    'formatter': 'base_format',
-                    'level': logging.DEBUG,
-                },
-            },
-            'formatters': {
-                'base_format': {
-                    'format': '%(node)-5s: %(message)s',
-                },
-            },
-            'root': {
-                'handlers': ('file',),
-                'level': 'DEBUG',
-            },
-        }
+        logging.info("Node name is [{0}]".format(C_NODE_NAME))
 
-        logging.config.dictConfig(log_conf)
+        with tempfile.NamedTemporaryFile('w', delete=True) as logfile:
+            formatter = logging.Formatter(fmt="%(node)-5s: %(message)s")
+            handler = logging.FileHandler(filename=logfile.name)
+            handler.formatter = formatter
+            logger = logging.getLogger(C_NODE_NAME)
+            assert logger is not None
+            assert len(logger.handlers) == 0
 
-        with scoped_config(use_python_logging=True):
-            node_name = 'master'
+            try:
+                # It disables to log on the root level
+                logger.propagate = False
+                logger.addHandler(handler)
 
-            with get_remote_node(name=node_name) as master:
-                master.init().start()
+                with scoped_config(use_python_logging=True):
+                    with __class__.helper__get_node(name=C_NODE_NAME) as master:
+                        logging.info("Master node is initilizing")
+                        master.init()
 
-                # execute a dummy query a few times
-                for i in range(20):
-                    master.execute('select 1')
-                    time.sleep(0.01)
+                        logging.info("Master node is starting")
+                        master.start()
 
-                # let logging worker do the job
-                time.sleep(0.1)
+                        logging.info("Dummy query is executed a few times")
+                        for _ in range(20):
+                            master.execute('select 1')
+                            time.sleep(0.01)
 
-                # check that master's port is found
-                with open(logfile.name, 'r') as log:
-                    lines = log.readlines()
-                    assert (any(node_name in s for s in lines))
+                        # let logging worker do the job
+                        time.sleep(0.1)
 
-                # test logger after stop/start/restart
-                master.stop()
-                master.start()
-                master.restart()
-                assert (master._logger.is_alive())
+                        logging.info("Master node log file is checking")
+                        nAttempt = 0
+
+                        while True:
+                            assert nAttempt <= C_MAX_ATTEMPTS
+                            if nAttempt == C_MAX_ATTEMPTS:
+                                raise Exception("Test failed!")
+
+                            # let logging worker do the job
+                            time.sleep(0.1)
+
+                            nAttempt += 1
+
+                            logging.info("Attempt {0}".format(nAttempt))
+
+                            # check that master's port is found
+                            with open(logfile.name, 'r') as log:
+                                lines = log.readlines()
+
+                            assert lines is not None
+                            assert type(lines) == list  # noqa: E721
+
+                            def LOCAL__test_lines():
+                                for s in lines:
+                                    if any(C_NODE_NAME in s for s in lines):
+                                        logging.info("OK. We found the node_name in a line \"{0}\"".format(s))
+                                        return True
+                                    return False
+
+                            if LOCAL__test_lines():
+                                break
+
+                            logging.info("Master node log file does not have an expected information.")
+                            continue
+
+                        # test logger after stop/start/restart
+                        logging.info("Master node is stopping...")
+                        master.stop()
+                        logging.info("Master node is staring again...")
+                        master.start()
+                        logging.info("Master node is restaring...")
+                        master.restart()
+                        assert (master._logger.is_alive())
+            finally:
+                # It is a hack code to logging cleanup
+                logging._acquireLock()
+                assert logging.Logger.manager is not None
+                assert C_NODE_NAME in logging.Logger.manager.loggerDict.keys()
+                logging.Logger.manager.loggerDict.pop(C_NODE_NAME, None)
+                assert not (C_NODE_NAME in logging.Logger.manager.loggerDict.keys())
+                assert not (handler in logging._handlers.values())
+                logging._releaseLock()
+        # GO HOME!
+        return
 
     def test_pgbench(self):
         __class__.helper__skip_test_if_util_not_exist("pgbench")
@@ -1184,9 +1223,9 @@ class TestgresRemoteTests:
                 break
 
     @staticmethod
-    def helper__get_node():
+    def helper__get_node(name=None):
         assert __class__.sm_conn_params is not None
-        return get_remote_node(conn_params=__class__.sm_conn_params)
+        return get_remote_node(name=name, conn_params=__class__.sm_conn_params)
 
     @staticmethod
     def helper__restore_envvar(name, prev_value):
