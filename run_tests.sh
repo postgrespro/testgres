@@ -4,6 +4,7 @@
 
 set -eux
 
+if [ -z ${TEST_FILTER+x} ]; then export TEST_FILTER="TestgresTests"; fi
 
 # choose python version
 echo python version is $PYTHON_VERSION
@@ -38,19 +39,19 @@ rm -f $COVERAGE_FILE
 
 
 # run tests (PATH)
-time coverage run -a -m pytest -l -v -n 4 -k "TestgresTests"
+time coverage run -a -m pytest -l -v -n 4 -k "${TEST_FILTER}"
 
 
 # run tests (PG_BIN)
 time \
 	PG_BIN=$(pg_config --bindir) \
-	coverage run -a -m pytest -l -v -n 4 -k "TestgresTests"
+	coverage run -a -m pytest -l -v -n 4 -k "${TEST_FILTER}"
 
 
 # run tests (PG_CONFIG)
 time \
 	PG_CONFIG=$(pg_config --bindir)/pg_config \
-	coverage run -a -m pytest -l -v -n 4 -k "TestgresTests"
+	coverage run -a -m pytest -l -v -n 4 -k "${TEST_FILTER}"
 
 
 # show coverage
