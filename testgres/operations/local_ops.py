@@ -174,7 +174,8 @@ class LocalOperations(OsOperations):
         except FileExistsError:
             pass
 
-    def rmdirs(self, path, ignore_errors=True, retries=3, delay=1):
+    # [2025-02-03] Old name of parameter attempts is "retries".
+    def rmdirs(self, path, ignore_errors=True, attempts=3, delay=1):
         """
         Removes a directory and its contents, retrying on failure.
 
@@ -183,18 +184,38 @@ class LocalOperations(OsOperations):
         :param retries: Number of attempts to remove the directory.
         :param delay: Delay between attempts in seconds.
         """
-        for attempt in range(retries):
+        assert type(path) == str  # noqa: E721
+        assert type(ignore_errors) == bool  # noqa: E721
+        assert type(attempts) == int  # noqa: E721
+        assert type(delay) == int or type(delay) == float  # noqa: E721
+        assert attempts > 0
+        assert delay >= 0
+
+        attempt = 0
+        while True:
+            assert attempt < attempts
+            attempt += 1
             try:
-                rmtree(path, ignore_errors=ignore_errors)
-                if not os.path.exists(path):
-                    return True
+                rmtree(path)
             except FileNotFoundError:
-                return True
+                pass
             except Exception as e:
-                logging.error(f"Error: Failed to remove directory {path} on attempt {attempt + 1}: {e}")
-            time.sleep(delay)
-        logging.error(f"Error: Failed to remove directory {path} after {retries} attempts.")
-        return False
+                if attempt < attempt:
+                    errMsg = "Failed to remove directory {0} on attempt {1} ({2}): {3}".format(
+                        path, attempt, type(e).__name__, e
+                    )
+                    logging.warning(errMsg)
+                    time.sleep(delay)
+                    continue
+
+                assert attempt == attempts
+                if not ignore_errors:
+                    raise
+
+                return False
+
+            # OK!
+            return True
 
     def listdir(self, path):
         return os.listdir(path)

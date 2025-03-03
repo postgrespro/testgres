@@ -99,9 +99,9 @@ class TestRemoteOperations:
         assert not os.path.exists(path)
         assert not self.operations.path_exists(path)
 
-    def test_makedirs_and_rmdirs_failure(self):
+    def test_makedirs_failure(self):
         """
-        Test makedirs and rmdirs for directory creation and removal failure.
+        Test makedirs for failure.
         """
         # Try to create a directory in a read-only location
         path = "/root/test_dir"
@@ -110,16 +110,32 @@ class TestRemoteOperations:
         with pytest.raises(Exception):
             self.operations.makedirs(path)
 
-        # Test rmdirs
-        while True:
-            try:
-                self.operations.rmdirs(path, verbose=True)
-            except ExecUtilException as e:
-                assert e.message == "Utility exited with non-zero code (1). Error: `rm: cannot remove '/root/test_dir': Permission denied`"
-                assert type(e.error) == bytes  # noqa: E721
-                assert e.error.strip() == b"rm: cannot remove '/root/test_dir': Permission denied"
-                break
-            raise Exception("We wait an exception!")
+    def test_rmdirs(self):
+        path = self.operations.mkdtemp()
+        assert os.path.exists(path)
+
+        assert self.operations.rmdirs(path, ignore_errors=False) is True
+        assert not os.path.exists(path)
+
+    def test_rmdirs__try_to_delete_nonexist_path(self):
+        path = "/root/test_dir"
+
+        assert self.operations.rmdirs(path, ignore_errors=False) is True
+
+    def test_rmdirs__try_to_delete_file(self):
+        path = self.operations.mkstemp()
+        assert os.path.exists(path)
+
+        with pytest.raises(ExecUtilException) as x:
+            self.operations.rmdirs(path, ignore_errors=False)
+
+        assert os.path.exists(path)
+        assert type(x.value) == ExecUtilException   # noqa: E721
+        assert x.value.message == "Utility exited with non-zero code (20). Error: `cannot remove '" + path + "': it is not a directory`"
+        assert type(x.value.error) == str  # noqa: E721
+        assert x.value.error.strip() == "cannot remove '" + path + "': it is not a directory"
+        assert type(x.value.exit_code) == int  # noqa: E721
+        assert x.value.exit_code == 20
 
     def test_listdir(self):
         """
