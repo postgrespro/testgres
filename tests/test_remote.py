@@ -117,6 +117,58 @@ class TestRemoteOperations:
         assert self.operations.rmdirs(path, ignore_errors=False) is True
         assert not os.path.exists(path)
 
+    def test_rmdirs__01_with_subfolder(self):
+        # folder with subfolder
+        path = self.operations.mkdtemp()
+        assert os.path.exists(path)
+
+        dir1 = os.path.join(path, "dir1")
+        assert not os.path.exists(dir1)
+
+        self.operations.makedirs(dir1)
+        assert os.path.exists(dir1)
+
+        assert self.operations.rmdirs(path, ignore_errors=False) is True
+        assert not os.path.exists(path)
+        assert not os.path.exists(dir1)
+
+    def test_rmdirs__02_with_file(self):
+        # folder with file
+        path = self.operations.mkdtemp()
+        assert os.path.exists(path)
+
+        file1 = os.path.join(path, "file1.txt")
+        assert not os.path.exists(file1)
+
+        self.operations.touch(file1)
+        assert os.path.exists(file1)
+
+        assert self.operations.rmdirs(path, ignore_errors=False) is True
+        assert not os.path.exists(path)
+        assert not os.path.exists(file1)
+
+    def test_rmdirs__03_with_subfolder_and_file(self):
+        # folder with subfolder and file
+        path = self.operations.mkdtemp()
+        assert os.path.exists(path)
+
+        dir1 = os.path.join(path, "dir1")
+        assert not os.path.exists(dir1)
+
+        self.operations.makedirs(dir1)
+        assert os.path.exists(dir1)
+
+        file1 = os.path.join(dir1, "file1.txt")
+        assert not os.path.exists(file1)
+
+        self.operations.touch(file1)
+        assert os.path.exists(file1)
+
+        assert self.operations.rmdirs(path, ignore_errors=False) is True
+        assert not os.path.exists(path)
+        assert not os.path.exists(dir1)
+        assert not os.path.exists(file1)
+
     def test_rmdirs__try_to_delete_nonexist_path(self):
         path = "/root/test_dir"
 
