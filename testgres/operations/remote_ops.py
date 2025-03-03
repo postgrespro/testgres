@@ -247,8 +247,30 @@ class RemoteOperations(OsOperations):
         return result.splitlines()
 
     def path_exists(self, path):
-        result = self.exec_command("test -e {}; echo $?".format(path), encoding=get_default_encoding())
-        return int(result.strip()) == 0
+        command = ["test", "-e", path]
+
+        exit_status, output, error = self.exec_command(cmd=command, encoding=get_default_encoding(), ignore_errors=True, verbose=True)
+
+        assert type(output) == str  # noqa: E721
+        assert type(error) == str  # noqa: E721
+
+        if exit_status == 0:
+            return True
+
+        if exit_status == 1:
+            return False
+
+        errMsg = "Test operation returns an unknown result code: {0}. Path is [{1}].".format(
+            exit_status,
+            path)
+
+        RaiseError.CommandExecutionError(
+            cmd=command,
+            exit_code=exit_status,
+            msg_arg=errMsg,
+            error=error,
+            out=output
+        )
 
     @property
     def pathsep(self):
