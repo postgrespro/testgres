@@ -499,16 +499,61 @@ class TestgresRemoteTests:
                 node.backup(xlog_method='wrong')
 
     def test_pg_ctl_wait_option(self):
-        with __class__.helper__get_node() as node:
-            node.init().start(wait=False)
-            while True:
-                try:
-                    node.stop(wait=False)
-                    break
-                except ExecUtilException:
-                    # it's ok to get this exception here since node
-                    # could be not started yet
-                    pass
+        C_MAX_ATTEMPTS = 50
+
+        node = __class__.helper__get_node()
+        assert node.status() == testgres.NodeStatus.Uninitialized
+        node.init()
+        assert node.status() == testgres.NodeStatus.Stopped
+        node.start(wait=False)
+        nAttempt = 0
+        while True:
+            if nAttempt == C_MAX_ATTEMPTS:
+                raise Exception("Could not stop node.")
+
+            nAttempt += 1
+
+            if nAttempt > 1:
+                logging.info("Wait 1 second.")
+                time.sleep(1)
+                logging.info("")
+
+            logging.info("Try to stop node. Attempt #{0}.".format(nAttempt))
+
+            try:
+                node.stop(wait=False)
+                break
+            except ExecUtilException as e:
+                # it's ok to get this exception here since node
+                # could be not started yet
+                logging.info("Node is not stopped. Exception ({0}): {1}".format(type(e).__name__, e))
+            continue
+
+        logging.info("OK. Stop command was executed. Let's wait while our node will stop really.")
+        nAttempt = 0
+        while True:
+            if nAttempt == C_MAX_ATTEMPTS:
+                raise Exception("Could not stop node.")
+
+            nAttempt += 1
+            if nAttempt > 1:
+                logging.info("Wait 1 second.")
+                time.sleep(1)
+                logging.info("")
+
+            logging.info("Attempt #{0}.".format(nAttempt))
+            s1 = node.status()
+
+            if s1 == testgres.NodeStatus.Running:
+                continue
+
+            if s1 == testgres.NodeStatus.Stopped:
+                break
+
+            raise Exception("Unexpected node status: {0}.".format(s1))
+
+        logging.info("OK. Node is stopped.")
+        node.cleanup()
 
     def test_replicate(self):
         with __class__.helper__get_node() as node:

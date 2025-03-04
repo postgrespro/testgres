@@ -4,6 +4,7 @@ import platform
 import subprocess
 import tempfile
 import io
+import logging
 
 # we support both pg8000 and psycopg2
 try:
@@ -222,20 +223,45 @@ class RemoteOperations(OsOperations):
             raise Exception("Couldn't create dir {} because of error {}".format(path, error))
         return result
 
-    def rmdirs(self, path, verbose=False, ignore_errors=True):
+    def rmdirs(self, path, ignore_errors=True):
         """
         Remove a directory in the remote server.
         Args:
         - path (str): The path to the directory to be removed.
-        - verbose (bool): If True, return exit status, result, and error.
         - ignore_errors (bool): If True, do not raise error if directory does not exist.
         """
-        cmd = "rm -rf {}".format(path)
-        exit_status, result, error = self.exec_command(cmd, verbose=True)
-        if verbose:
-            return exit_status, result, error
-        else:
-            return result
+        assert type(path) == str  # noqa: E721
+        assert type(ignore_errors) == bool  # noqa: E721
+
+        # ENOENT = 2 - No such file or directory
+        # ENOTDIR = 20 - Not a directory
+
+        cmd1 = [
+            "if", "[", "-d", path, "]", ";",
+            "then", "rm", "-rf", path, ";",
+            "elif", "[", "-e", path, "]", ";",
+            "then", "{", "echo", "cannot remove '" + path + "': it is not a directory", ">&2", ";", "exit", "20", ";", "}", ";",
+            "else", "{", "echo", "directory '" + path + "' does not exist", ">&2", ";", "exit", "2", ";", "}", ";",
+            "fi"
+        ]
+
+        cmd2 = ["sh", "-c", subprocess.list2cmdline(cmd1)]
+
+        try:
+            self.exec_command(cmd2, encoding=Helpers.GetDefaultEncoding())
+        except ExecUtilException as e:
+            if e.exit_code == 2:  # No such file or directory
+                return True
+
+            if not ignore_errors:
+                raise
+
+            errMsg = "Failed to remove directory {0} ({1}): {2}".format(
+                path, type(e).__name__, e
+            )
+            logging.warning(errMsg)
+            return False
+        return True
 
     def listdir(self, path):
         """
