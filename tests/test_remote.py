@@ -130,23 +130,29 @@ class TestRemoteOperations:
 
         assert isinstance(files, list)
 
-    def test_path_exists_true(self):
+    def test_path_exists_true__directory(self):
         """
-        Test path_exists for an existing path.
+        Test path_exists for an existing directory.
         """
-        path = "/etc"
-        response = self.operations.path_exists(path)
+        assert self.operations.path_exists("/etc") is True
 
-        assert response is True
-
-    def test_path_exists_false(self):
+    def test_path_exists_true__file(self):
         """
-        Test path_exists for a non-existing path.
+        Test path_exists for an existing file.
         """
-        path = "/nonexistent_path"
-        response = self.operations.path_exists(path)
+        assert self.operations.path_exists(__file__) is True
 
-        assert response is False
+    def test_path_exists_false__directory(self):
+        """
+        Test path_exists for a non-existing directory.
+        """
+        assert self.operations.path_exists("/nonexistent_path") is False
+
+    def test_path_exists_false__file(self):
+        """
+        Test path_exists for a non-existing file.
+        """
+        assert self.operations.path_exists("/etc/nonexistent_path.txt") is False
 
     def test_write_text_file(self):
         """
