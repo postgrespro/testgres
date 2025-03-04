@@ -61,6 +61,33 @@ class ProbackupApp:
         self.test_class.output = None
         self.execution_time = None
 
+    def form_daemon_process(self, cmdline, env):
+        def stream_output(stream: subprocess.PIPE) -> None:
+            try:
+                for line in iter(stream.readline, ''):
+                    print(line)
+                    self.test_class.output += line
+            finally:
+                stream.close()
+
+        self.process = subprocess.Popen(
+            cmdline,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env
+        )
+        logging.info(f"Process started in background with PID: {self.process.pid}")
+
+        if self.process.stdout and self.process.stderr:
+            stdout_thread = threading.Thread(target=stream_output, args=(self.process.stdout,), daemon=True)
+            stderr_thread = threading.Thread(target=stream_output, args=(self.process.stderr,), daemon=True)
+
+            stdout_thread.start()
+            stderr_thread.start()
+
+        return self.process.pid
+
     def run(self, command, gdb=False, old_binary=False, return_id=True, env=None,
             skip_log_directory=False, expect_error=False, use_backup_dir=True, daemonize=False):
         """
@@ -120,29 +147,7 @@ class ProbackupApp:
 
             start_time = time.time()
             if daemonize:
-
-                def stream_output(stream: subprocess.PIPE) -> None:
-                    for line in iter(stream.readline, ''):
-                        print(line)
-                        self.test_class.output += line
-                    stream.close()
-
-                self.process = subprocess.Popen(
-                    cmdline,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    env=env
-                )
-                logging.info(f"Process started in background with PID: {self.process.pid}")
-
-                if self.process.stdout and self.process.stderr:
-                    stdout_thread = threading.Thread(target=stream_output, args=(self.process.stdout,))
-                    stderr_thread = threading.Thread(target=stream_output, args=(self.process.stderr,))
-
-                    stdout_thread.start()
-                    stderr_thread.start()
-                    return self.process.pid
+                return self.form_daemon_process(cmdline, env)
             else:
                 self.test_class.output = subprocess.check_output(
                     cmdline,
