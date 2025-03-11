@@ -26,17 +26,25 @@ error_markers = [b'error', b'Permission denied', b'fatal', b'No such file or dir
 
 class PsUtilProcessProxy:
     def __init__(self, ssh, pid):
+        assert isinstance(ssh, RemoteOperations)
+        assert type(pid) == int  # noqa: E721
         self.ssh = ssh
         self.pid = pid
 
     def kill(self):
-        command = "kill {}".format(self.pid)
-        self.ssh.exec_command(command)
+        assert isinstance(self.ssh, RemoteOperations)
+        assert type(self.pid) == int  # noqa: E721
+        command = ["kill", str(self.pid)]
+        self.ssh.exec_command(command, encoding=get_default_encoding())
 
     def cmdline(self):
-        command = "ps -p {} -o cmd --no-headers".format(self.pid)
-        stdin, stdout, stderr = self.ssh.exec_command(command, verbose=True, encoding=get_default_encoding())
-        cmdline = stdout.strip()
+        assert isinstance(self.ssh, RemoteOperations)
+        assert type(self.pid) == int  # noqa: E721
+        command = ["ps", "-p", str(self.pid), "-o", "cmd", "--no-headers"]
+        output = self.ssh.exec_command(command, encoding=get_default_encoding())
+        assert type(output) == str  # noqa: E721
+        cmdline = output.strip()
+        # TODO: This code work wrong if command line contains quoted values. Yes?
         return cmdline.split()
 
 
