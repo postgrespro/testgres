@@ -316,7 +316,7 @@ class RemoteOperations(OsOperations):
         - prefix (str): The prefix of the temporary directory name.
         """
         if prefix:
-            command = ["mktemp", "-d", "-t", prefix + "XXXXX"]
+            command = ["mktemp", "-d", "-t", prefix + "XXXXXX"]
         else:
             command = ["mktemp", "-d"]
 
@@ -344,7 +344,7 @@ class RemoteOperations(OsOperations):
         - prefix (str): The prefix of the temporary directory name.
         """
         if prefix:
-            command = ["mktemp", "-t", prefix + "XXXXX"]
+            command = ["mktemp", "-t", prefix + "XXXXXX"]
         else:
             command = ["mktemp"]
 

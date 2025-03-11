@@ -4,6 +4,7 @@ import os
 import pytest
 import re
 import tempfile
+import logging
 
 from ..testgres import ExecUtilException
 from ..testgres import InvalidOperationException
@@ -109,6 +110,22 @@ class TestRemoteOperations:
         # Test makedirs
         with pytest.raises(Exception):
             self.operations.makedirs(path)
+
+    def test_mkdtemp__default(self):
+        path = self.operations.mkdtemp()
+        logging.info("Path is [{0}].".format(path))
+        assert os.path.exists(path)
+        os.rmdir(path)
+        assert not os.path.exists(path)
+
+    def test_mkdtemp__custom(self):
+        C_TEMPLATE = "abcdef"
+        path = self.operations.mkdtemp(C_TEMPLATE)
+        logging.info("Path is [{0}].".format(path))
+        assert os.path.exists(path)
+        assert C_TEMPLATE in os.path.basename(path)
+        os.rmdir(path)
+        assert not os.path.exists(path)
 
     def test_rmdirs(self):
         path = self.operations.mkdtemp()
