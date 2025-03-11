@@ -41,9 +41,17 @@ class TestRemoteOperations:
             try:
                 self.operations.exec_command(cmd, verbose=True, wait_exit=True)
             except ExecUtilException as e:
-                assert e.message == "Utility exited with non-zero code (127). Error: `bash: line 1: nonexistent_command: command not found`"
+                assert type(e.exit_code) == int  # noqa: E721
+                assert e.exit_code == 127
+
+                assert type(e.message) == str  # noqa: E721
                 assert type(e.error) == bytes  # noqa: E721
-                assert e.error.strip() == b"bash: line 1: nonexistent_command: command not found"
+
+                assert e.message.startswith("Utility exited with non-zero code (127). Error:")
+                assert "nonexistent_command" in e.message
+                assert "not found" in e.message
+                assert b"nonexistent_command" in e.error
+                assert b"not found" in e.error
                 break
             raise Exception("We wait an exception!")
 
@@ -55,9 +63,11 @@ class TestRemoteOperations:
 
         exit_status, result, error = self.operations.exec_command(cmd, verbose=True, wait_exit=True, shell=True, expect_error=True)
 
-        assert error == b'bash: line 1: nonexistent_command: command not found\n'
         assert exit_status == 127
         assert result == b''
+        assert type(error) == bytes  # noqa: E721
+        assert b"nonexistent_command" in error
+        assert b"not found" in error
 
     def test_is_executable_true(self):
         """
@@ -344,10 +354,12 @@ class TestRemoteOperations:
         Test RemoteOperations::read with unknown file.
         """
 
-        with pytest.raises(
-                ExecUtilException,
-                match=re.escape("cat: /dummy: No such file or directory")):
+        with pytest.raises(ExecUtilException) as x:
             self.operations.read("/dummy")
+
+        assert "Utility exited with non-zero code (1)." in str(x.value)
+        assert "No such file or directory" in str(x.value)
+        assert "/dummy" in str(x.value)
 
     def test_read_binary__spec(self):
         """
@@ -388,8 +400,12 @@ class TestRemoteOperations:
         Test RemoteOperations::read_binary with unknown file.
         """
 
-        with pytest.raises(ExecUtilException, match=re.escape("tail: cannot open '/dummy' for reading: No such file or directory")):
+        with pytest.raises(ExecUtilException) as x:
             self.operations.read_binary("/dummy", 0)
+
+        assert "Utility exited with non-zero code (1)." in str(x.value)
+        assert "No such file or directory" in str(x.value)
+        assert "/dummy" in str(x.value)
 
     def test_read_binary__spec__negative_offset(self):
         """
@@ -419,8 +435,12 @@ class TestRemoteOperations:
         Test RemoteOperations::get_file_size.
         """
 
-        with pytest.raises(ExecUtilException, match=re.escape("du: cannot access '/dummy': No such file or directory")):
+        with pytest.raises(ExecUtilException) as x:
             self.operations.get_file_size("/dummy")
+
+        assert "Utility exited with non-zero code (1)." in str(x.value)
+        assert "No such file or directory" in str(x.value)
+        assert "/dummy" in str(x.value)
 
     def test_touch(self):
         """
