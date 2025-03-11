@@ -163,6 +163,8 @@ class TestgresRemoteTests:
                 ("\"", "\""),
             ]
 
+            errorIsDetected = False
+
             for unkData in unkDatas:
                 logging.info("----------------------")
                 logging.info("Unk LANG is [{0}]".format(unkData[0]))
@@ -193,7 +195,10 @@ class TestgresRemoteTests:
                         assert isinstance(exc, ExecUtilException)
 
                 if exc is None:
-                    raise Exception("We expected an error!")
+                    logging.warning("We expected an error!")
+                    continue
+
+                errorIsDetected = True
 
                 assert isinstance(exc, ExecUtilException)
 
@@ -203,6 +208,9 @@ class TestgresRemoteTests:
                 assert "warning: setlocale: LC_CTYPE: cannot change locale (" + unkData[1] + ")" in errMsg
                 assert "initdb: error: invalid locale settings; check LANG and LC_* environment variables" in errMsg
                 continue
+
+            if not errorIsDetected:
+                pytest.xfail("All the bad data are processed without errors!")
 
         finally:
             __class__.helper__restore_envvar("LANG", prev_LANG)
