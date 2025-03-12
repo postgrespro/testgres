@@ -8,11 +8,10 @@ services:
     - docker
 
 install:
-    - ./mk_dockerfile.sh
-    - docker-compose build
+    - docker build --build-arg PG_VERSION="${PG_VERSION}" --build-arg PYTHON_VERSION="${PYTHON_VERSION}" -t tests -f Dockerfile--${TEST_PLATFORM}.tmpl .
 
 script:
-    - docker-compose run $(bash <(curl -s https://codecov.io/env)) tests
+    - docker run $(bash <(curl -s https://codecov.io/env)) -t tests
 
 notifications:
     email:
@@ -27,5 +26,5 @@ env:
     - TEST_PLATFORM=std PYTHON_VERSION=3 PG_VERSION=12
     - TEST_PLATFORM=std PYTHON_VERSION=3 PG_VERSION=11
     - TEST_PLATFORM=std PYTHON_VERSION=3 PG_VERSION=10
-    - TEST_PLATFORM=std.all PYTHON_VERSION=3 PG_VERSION=17
-    - TEST_PLATFORM=ubuntu-24_04 PYTHON_VERSION=3 PG_VERSION=17
+    - TEST_PLATFORM=std-all PYTHON_VERSION=3 PG_VERSION=17
+    - TEST_PLATFORM=ubuntu_24_04 PYTHON_VERSION=3 PG_VERSION=17
