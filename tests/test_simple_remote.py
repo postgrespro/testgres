@@ -517,6 +517,19 @@ class TestgresRemoteTests:
         nAttempt = 0
         while True:
             if nAttempt == C_MAX_ATTEMPTS:
+                #
+                # [2025-03-11]
+                #  We have an unexpected problem with this test in CI
+                #  Let's get an additional information about this test failure.
+                #
+                logging.error("Node was not stopped.")
+                if not node.os_ops.path_exists(node.pg_log_file):
+                    logging.warning("Node log does not exist.")
+                else:
+                    logging.info("Let's read node log file [{0}]".format(node.pg_log_file))
+                    logFileData = node.os_ops.read(node.pg_log_file, binary=False)
+                    logging.info("Node log file content:\n{0}".format(logFileData))
+
                 raise Exception("Could not stop node.")
 
             nAttempt += 1
