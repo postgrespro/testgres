@@ -5,13 +5,15 @@ import subprocess
 import tempfile
 
 import time
-import six
 import pytest
 import psutil
 import logging
 import uuid
 
 from contextlib import contextmanager
+
+from .helpers.os_ops_descrs import OsOpsDescrs
+from .helpers.os_ops_descrs import OsOperations
 
 from .. import testgres
 
@@ -33,10 +35,7 @@ from ..testgres.config import \
 
 from ..testgres import \
     NodeStatus, \
-    ProcessType, \
-    IsolationLevel, \
-    get_remote_node, \
-    RemoteOperations
+    IsolationLevel
 
 from ..testgres import \
     get_bin_path, \
@@ -51,7 +50,7 @@ from ..testgres import \
 from ..testgres import bound_ports
 from ..testgres.utils import PgVer
 from ..testgres.utils import file_tail
-from ..testgres.node import ProcessProxy, ConnectionParams
+from ..testgres.node import ProcessProxy
 
 
 def pg_version_ge(version):
@@ -89,12 +88,7 @@ def removing(f):
 
 
 class TestgresRemoteTests:
-    sm_conn_params = ConnectionParams(
-        host=os.getenv('RDBMS_TESTPOOL1_HOST') or '127.0.0.1',
-        username=os.getenv('USER'),
-        ssh_key=os.getenv('RDBMS_TESTPOOL_SSHKEY'))
-
-    sm_os_ops = RemoteOperations(sm_conn_params)
+    sm_os_ops = OsOpsDescrs.sm_remote_os_ops
 
     @pytest.fixture(autouse=True, scope="class")
     def implicit_fixture(self):
@@ -1119,145 +1113,6 @@ class TestgresRemoteTests:
         assert type(bound_ports) == set  # noqa: E721
         assert bound_ports == stage0__bound_ports
 
-    def test_exceptions(self):
-        str(StartNodeException('msg', [('file', 'lines')]))
-        str(ExecUtilException('msg', 'cmd', 1, 'out'))
-        str(QueryException('msg', 'query'))
-
-    def test_version_management(self):
-        a = PgVer('10.0')
-        b = PgVer('10')
-        c = PgVer('9.6.5')
-        d = PgVer('15.0')
-        e = PgVer('15rc1')
-        f = PgVer('15beta4')
-
-        assert (a == b)
-        assert (b > c)
-        assert (a > c)
-        assert (d > e)
-        assert (e > f)
-        assert (d > f)
-
-        version = get_pg_version()
-        with __class__.helper__get_node() as node:
-            assert (isinstance(version, six.string_types))
-            assert (isinstance(node.version, PgVer))
-            assert (node.version == PgVer(version))
-
-    def test_child_pids(self):
-        master_processes = [
-            ProcessType.AutovacuumLauncher,
-            ProcessType.BackgroundWriter,
-            ProcessType.Checkpointer,
-            ProcessType.StatsCollector,
-            ProcessType.WalSender,
-            ProcessType.WalWriter,
-        ]
-
-        if pg_version_ge('10'):
-            master_processes.append(ProcessType.LogicalReplicationLauncher)
-
-        if pg_version_ge('14'):
-            master_processes.remove(ProcessType.StatsCollector)
-
-        repl_processes = [
-            ProcessType.Startup,
-            ProcessType.WalReceiver,
-        ]
-
-        def LOCAL__test_auxiliary_pids(
-            node: testgres.PostgresNode,
-            expectedTypes: list[ProcessType]
-        ) -> list[ProcessType]:
-            # returns list of the absence processes
-            assert node is not None
-            assert type(node) == testgres.PostgresNode  # noqa: E721
-            assert expectedTypes is not None
-            assert type(expectedTypes) == list  # noqa: E721
-
-            pids = node.auxiliary_pids
-            assert pids is not None  # noqa: E721
-            assert type(pids) == dict  # noqa: E721
-
-            result = list[ProcessType]()
-            for ptype in expectedTypes:
-                if not (ptype in pids):
-                    result.append(ptype)
-            return result
-
-        def LOCAL__check_auxiliary_pids__multiple_attempts(
-                node: testgres.PostgresNode,
-                expectedTypes: list[ProcessType]):
-            assert node is not None
-            assert type(node) == testgres.PostgresNode  # noqa: E721
-            assert expectedTypes is not None
-            assert type(expectedTypes) == list  # noqa: E721
-
-            nAttempt = 0
-
-            while nAttempt < 5:
-                nAttempt += 1
-
-                logging.info("Test pids of [{0}] node. Attempt #{1}.".format(
-                    node.name,
-                    nAttempt
-                ))
-
-                if nAttempt > 1:
-                    time.sleep(1)
-
-                absenceList = LOCAL__test_auxiliary_pids(node, expectedTypes)
-                assert absenceList is not None
-                assert type(absenceList) == list  # noqa: E721
-                if len(absenceList) == 0:
-                    logging.info("Bingo!")
-                    return
-
-                logging.info("These processes are not found: {0}.".format(absenceList))
-                continue
-
-            raise Exception("Node {0} does not have the following processes: {1}.".format(
-                node.name,
-                absenceList
-            ))
-
-        with __class__.helper__get_node().init().start() as master:
-
-            # master node doesn't have a source walsender!
-            with pytest.raises(expected_exception=TestgresException):
-                master.source_walsender
-
-            with master.connect() as con:
-                assert (con.pid > 0)
-
-            with master.replicate().start() as replica:
-
-                # test __str__ method
-                str(master.child_processes[0])
-
-                LOCAL__check_auxiliary_pids__multiple_attempts(
-                    master,
-                    master_processes)
-
-                LOCAL__check_auxiliary_pids__multiple_attempts(
-                    replica,
-                    repl_processes)
-
-                master_pids = master.auxiliary_pids
-
-                # there should be exactly 1 source walsender for replica
-                assert (len(master_pids[ProcessType.WalSender]) == 1)
-                pid1 = master_pids[ProcessType.WalSender][0]
-                pid2 = replica.source_walsender.pid
-                assert (pid1 == pid2)
-
-                replica.stop()
-
-                # there should be no walsender after we've stopped replica
-                with pytest.raises(expected_exception=TestgresException):
-                    replica.source_walsender
-
     # TODO: Why does not this test work with remote host?
     def test_child_process_dies(self):
         nAttempt = 0
@@ -1290,8 +1145,8 @@ class TestgresRemoteTests:
 
     @staticmethod
     def helper__get_node(name=None):
-        assert __class__.sm_conn_params is not None
-        return get_remote_node(name=name, conn_params=__class__.sm_conn_params)
+        assert isinstance(__class__.sm_os_ops, OsOperations)
+        return testgres.PostgresNode(name, os_ops=__class__.sm_os_ops)
 
     @staticmethod
     def helper__restore_envvar(name, prev_value):
