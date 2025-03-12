@@ -11,7 +11,7 @@ install:
     - docker build --build-arg PG_VERSION="${PG_VERSION}" --build-arg PYTHON_VERSION="${PYTHON_VERSION}" -t tests -f Dockerfile--${TEST_PLATFORM}.tmpl .
 
 script:
-    - docker run $(bash <(curl -s https://codecov.io/env)) tests
+    - docker run $(bash <(curl -s https://codecov.io/env)) -t tests
 
 notifications:
     email:
