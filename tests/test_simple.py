@@ -1464,9 +1464,6 @@ class TestgresTests:
             ["archive_command",
              "cp '%p' \"/mnt/server/archivedir/%f\"",
              "'cp \\'%p\\' \"/mnt/server/archivedir/%f\""],
-            ["restore_command",
-             'cp "/mnt/server/archivedir/%f" \'%p\'',
-             "'cp \"/mnt/server/archivedir/%f\" \\'%p\\''"],
             ["log_line_prefix",
              "'\n\r\t\b\\\"",
              "'\\\'\\n\\r\\t\\b\\\\\""],
@@ -1480,6 +1477,10 @@ class TestgresTests:
              3,
              "3"]
         ]
+        if pg_version_ge('12'):
+            testData.append(["restore_command",
+                             'cp "/mnt/server/archivedir/%f" \'%p\'',
+                             "'cp \"/mnt/server/archivedir/%f\" \\'%p\\''"])
 
         with get_new_node() as node:
             node.init().start()
