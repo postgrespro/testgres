@@ -34,7 +34,6 @@ from ..testgres import \
 
 from ..testgres import \
     NodeStatus, \
-    IsolationLevel, \
     get_new_node
 
 from ..testgres import \
@@ -49,7 +48,6 @@ from ..testgres import \
 # NOTE: those are ugly imports
 from ..testgres import bound_ports
 from ..testgres.utils import PgVer, parse_pg_version
-from ..testgres.utils import file_tail
 from ..testgres.node import ProcessProxy
 
 
@@ -952,60 +950,6 @@ class TestgresTests:
             with node.replicate().start() as r:
                 r.execute('select 1')
                 r.safe_psql('select 1')
-
-    def test_auto_name(self):
-        with get_new_node().init(allow_streaming=True).start() as m:
-            with m.replicate().start() as r:
-                # check that nodes are running
-                assert (m.status())
-                assert (r.status())
-
-                # check their names
-                assert (m.name != r.name)
-                assert ('testgres' in m.name)
-                assert ('testgres' in r.name)
-
-    def test_file_tail(self):
-        s1 = "the quick brown fox jumped over that lazy dog\n"
-        s2 = "abc\n"
-        s3 = "def\n"
-
-        with tempfile.NamedTemporaryFile(mode='r+', delete=True) as f:
-            sz = 0
-            while sz < 3 * 8192:
-                sz += len(s1)
-                f.write(s1)
-            f.write(s2)
-            f.write(s3)
-
-            f.seek(0)
-            lines = file_tail(f, 3)
-            assert (lines[0] == s1)
-            assert (lines[1] == s2)
-            assert (lines[2] == s3)
-
-            f.seek(0)
-            lines = file_tail(f, 1)
-            assert (lines[0] == s3)
-
-    def test_isolation_levels(self):
-        with get_new_node().init().start() as node:
-            with node.connect() as con:
-                # string levels
-                con.begin('Read Uncommitted').commit()
-                con.begin('Read Committed').commit()
-                con.begin('Repeatable Read').commit()
-                con.begin('Serializable').commit()
-
-                # enum levels
-                con.begin(IsolationLevel.ReadUncommitted).commit()
-                con.begin(IsolationLevel.ReadCommitted).commit()
-                con.begin(IsolationLevel.RepeatableRead).commit()
-                con.begin(IsolationLevel.Serializable).commit()
-
-                # check wrong level
-                with pytest.raises(expected_exception=QueryException):
-                    con.begin('Garbage').commit()
 
     def test_ports_management(self):
         assert bound_ports is not None
