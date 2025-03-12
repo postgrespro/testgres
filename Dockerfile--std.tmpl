@@ -5,9 +5,11 @@ FROM postgres:${PG_VERSION}-alpine as base1
 
 FROM base1 as base2_with_python-2
 RUN apk add --no-cache curl python2 python2-dev build-base musl-dev linux-headers py-virtualenv py-pip
+ENV PYTHON_VERSION=2
 
 FROM base1 as base2_with_python-3
 RUN apk add --no-cache curl python3 python3-dev build-base musl-dev linux-headers py-virtualenv
+ENV PYTHON_VERSION=3
 
 FROM base2_with_python-${PYTHON_VERSION} as final
 
@@ -18,4 +20,4 @@ WORKDIR /pg/testgres
 RUN chown -R postgres:postgres /pg
 
 USER postgres
-ENTRYPOINT PYTHON_VERSION="${PYTHON_VERSION}" bash run_tests.sh
+ENTRYPOINT bash run_tests.sh
