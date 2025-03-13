@@ -277,8 +277,12 @@ class RemoteOperations(OsOperations):
         Args:
         path (str): The path to the directory.
         """
-        result = self.exec_command("ls {}".format(path))
-        return result.splitlines()
+        command = ["ls", path]
+        output = self.exec_command(cmd=command, encoding=get_default_encoding())
+        assert type(output) == str  # noqa: E721
+        result = output.splitlines()
+        assert type(result) == list  # noqa: E721
+        return result
 
     def path_exists(self, path):
         command = ["test", "-e", path]
