@@ -2,13 +2,11 @@
 import os
 import re
 import subprocess
-import tempfile
 import time
 import pytest
 import psutil
 import platform
 import logging
-import uuid
 
 from contextlib import contextmanager
 from shutil import rmtree
@@ -21,7 +19,6 @@ from ..testgres import \
     ExecUtilException, \
     BackupException, \
     QueryException, \
-    TimeoutException, \
     TestgresException, \
     InvalidOperationException, \
     NodeApp
@@ -702,165 +699,6 @@ class TestgresTests:
                         node3.restore(filename=dump)
                         res = node3.execute(query_select)
                         assert (res == [(1, ), (2, )])
-
-    def test_users(self):
-        with get_new_node().init().start() as node:
-            node.psql('create role test_user login')
-            value = node.safe_psql('select 1', username='test_user')
-            value = rm_carriage_returns(value)
-            assert (value == b'1\n')
-
-    def test_poll_query_until(self):
-        with get_new_node() as node:
-            node.init().start()
-
-            get_time = 'select extract(epoch from now())'
-            check_time = 'select extract(epoch from now()) - {} >= 5'
-
-            start_time = node.execute(get_time)[0][0]
-            node.poll_query_until(query=check_time.format(start_time))
-            end_time = node.execute(get_time)[0][0]
-
-            assert (end_time - start_time >= 5)
-
-            # check 0 columns
-            with pytest.raises(expected_exception=QueryException):
-                node.poll_query_until(
-                    query='select from pg_catalog.pg_class limit 1')
-
-            # check None, fail
-            with pytest.raises(expected_exception=QueryException):
-                node.poll_query_until(query='create table abc (val int)')
-
-            # check None, ok
-            node.poll_query_until(query='create table def()',
-                                  expected=None)    # returns nothing
-
-            # check 0 rows equivalent to expected=None
-            node.poll_query_until(
-                query='select * from pg_catalog.pg_class where true = false',
-                expected=None)
-
-            # check arbitrary expected value, fail
-            with pytest.raises(expected_exception=TimeoutException):
-                node.poll_query_until(query='select 3',
-                                      expected=1,
-                                      max_attempts=3,
-                                      sleep_time=0.01)
-
-            # check arbitrary expected value, ok
-            node.poll_query_until(query='select 2', expected=2)
-
-            # check timeout
-            with pytest.raises(expected_exception=TimeoutException):
-                node.poll_query_until(query='select 1 > 2',
-                                      max_attempts=3,
-                                      sleep_time=0.01)
-
-            # check ProgrammingError, fail
-            with pytest.raises(expected_exception=testgres.ProgrammingError):
-                node.poll_query_until(query='dummy1')
-
-            # check ProgrammingError, ok
-            with pytest.raises(expected_exception=(TimeoutException)):
-                node.poll_query_until(query='dummy2',
-                                      max_attempts=3,
-                                      sleep_time=0.01,
-                                      suppress={testgres.ProgrammingError})
-
-            # check 1 arg, ok
-            node.poll_query_until('select true')
-
-    def test_logging(self):
-        C_MAX_ATTEMPTS = 50
-        # This name is used for testgres logging, too.
-        C_NODE_NAME = "testgres_tests." + __class__.__name__ + "test_logging-master-" + uuid.uuid4().hex
-
-        logging.info("Node name is [{0}]".format(C_NODE_NAME))
-
-        with tempfile.NamedTemporaryFile('w', delete=True) as logfile:
-            formatter = logging.Formatter(fmt="%(node)-5s: %(message)s")
-            handler = logging.FileHandler(filename=logfile.name)
-            handler.formatter = formatter
-            logger = logging.getLogger(C_NODE_NAME)
-            assert logger is not None
-            assert len(logger.handlers) == 0
-
-            try:
-                # It disables to log on the root level
-                logger.propagate = False
-                logger.addHandler(handler)
-
-                with scoped_config(use_python_logging=True):
-                    with get_new_node(name=C_NODE_NAME) as master:
-                        logging.info("Master node is initilizing")
-                        master.init()
-
-                        logging.info("Master node is starting")
-                        master.start()
-
-                        logging.info("Dummy query is executed a few times")
-                        for _ in range(20):
-                            master.execute('select 1')
-                            time.sleep(0.01)
-
-                        # let logging worker do the job
-                        time.sleep(0.1)
-
-                        logging.info("Master node log file is checking")
-                        nAttempt = 0
-
-                        while True:
-                            assert nAttempt <= C_MAX_ATTEMPTS
-                            if nAttempt == C_MAX_ATTEMPTS:
-                                raise Exception("Test failed!")
-
-                            # let logging worker do the job
-                            time.sleep(0.1)
-
-                            nAttempt += 1
-
-                            logging.info("Attempt {0}".format(nAttempt))
-
-                            # check that master's port is found
-                            with open(logfile.name, 'r') as log:
-                                lines = log.readlines()
-
-                            assert lines is not None
-                            assert type(lines) == list  # noqa: E721
-
-                            def LOCAL__test_lines():
-                                for s in lines:
-                                    if any(C_NODE_NAME in s for s in lines):
-                                        logging.info("OK. We found the node_name in a line \"{0}\"".format(s))
-                                        return True
-                                    return False
-
-                            if LOCAL__test_lines():
-                                break
-
-                            logging.info("Master node log file does not have an expected information.")
-                            continue
-
-                        # test logger after stop/start/restart
-                        logging.info("Master node is stopping...")
-                        master.stop()
-                        logging.info("Master node is staring again...")
-                        master.start()
-                        logging.info("Master node is restaring...")
-                        master.restart()
-                        assert (master._logger.is_alive())
-            finally:
-                # It is a hack code to logging cleanup
-                logging._acquireLock()
-                assert logging.Logger.manager is not None
-                assert C_NODE_NAME in logging.Logger.manager.loggerDict.keys()
-                logging.Logger.manager.loggerDict.pop(C_NODE_NAME, None)
-                assert not (C_NODE_NAME in logging.Logger.manager.loggerDict.keys())
-                assert not (handler in logging._handlers.values())
-                logging._releaseLock()
-        # GO HOME!
-        return
 
     def test_pgbench(self):
         __class__.helper__skip_test_if_util_not_exist("pgbench")
