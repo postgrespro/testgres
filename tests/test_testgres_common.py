@@ -6,9 +6,12 @@ from ..testgres.node import PgVer
 from ..testgres.node import PostgresNode
 from ..testgres.utils import get_pg_version2
 from ..testgres.utils import file_tail
+from ..testgres.utils import get_bin_path2
 from ..testgres import ProcessType
+from ..testgres import NodeStatus
 from ..testgres import IsolationLevel
 from ..testgres import TestgresException
+from ..testgres import InitNodeException
 from ..testgres import StartNodeException
 from ..testgres import QueryException
 from ..testgres import ExecUtilException
@@ -22,6 +25,7 @@ import logging
 import time
 import tempfile
 import uuid
+import os
 
 
 class TestTestgresCommon:
@@ -70,6 +74,163 @@ class TestTestgresCommon:
             assert (isinstance(version, six.string_types))
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
+
+    def test_double_init(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        with __class__.helper__get_node(os_ops).init() as node:
+            # can't initialize node more than once
+            with pytest.raises(expected_exception=InitNodeException):
+                node.init()
+
+    def test_init_after_cleanup(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        with __class__.helper__get_node(os_ops) as node:
+            node.init().start().execute('select 1')
+            node.cleanup()
+            node.init().start().execute('select 1')
+
+    def test_init_unique_system_id(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        # this function exists in PostgreSQL 9.6+
+        current_version = get_pg_version2(os_ops)
+
+        __class__.helper__skip_test_if_util_not_exist(os_ops, "pg_resetwal")
+        __class__.helper__skip_test_if_pg_version_is_not_ge(current_version, '9.6')
+
+        query = 'select system_identifier from pg_control_system()'
+
+        with scoped_config(cache_initdb=False):
+            with __class__.helper__get_node(os_ops).init().start() as node0:
+                id0 = node0.execute(query)[0]
+
+        with scoped_config(cache_initdb=True,
+                           cached_initdb_unique=True) as config:
+            assert (config.cache_initdb)
+            assert (config.cached_initdb_unique)
+
+            # spawn two nodes; ids must be different
+            with __class__.helper__get_node(os_ops).init().start() as node1, \
+                    __class__.helper__get_node(os_ops).init().start() as node2:
+                id1 = node1.execute(query)[0]
+                id2 = node2.execute(query)[0]
+
+                # ids must increase
+                assert (id1 > id0)
+                assert (id2 > id1)
+
+    def test_node_exit(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        with pytest.raises(expected_exception=QueryException):
+            with __class__.helper__get_node(os_ops).init() as node:
+                base_dir = node.base_dir
+                node.safe_psql('select 1')
+
+        # we should save the DB for "debugging"
+        assert (os_ops.path_exists(base_dir))
+        os_ops.rmdirs(base_dir, ignore_errors=True)
+
+        with __class__.helper__get_node(os_ops).init() as node:
+            base_dir = node.base_dir
+
+        # should have been removed by default
+        assert not (os_ops.path_exists(base_dir))
+
+    def test_double_start(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        with __class__.helper__get_node(os_ops).init().start() as node:
+            # can't start node more than once
+            node.start()
+            assert (node.is_started)
+
+    def test_uninitialized_start(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        with __class__.helper__get_node(os_ops) as node:
+            # node is not initialized yet
+            with pytest.raises(expected_exception=StartNodeException):
+                node.start()
+
+    def test_restart(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        with __class__.helper__get_node(os_ops) as node:
+            node.init().start()
+
+            # restart, ok
+            res = node.execute('select 1')
+            assert (res == [(1,)])
+            node.restart()
+            res = node.execute('select 2')
+            assert (res == [(2,)])
+
+            # restart, fail
+            with pytest.raises(expected_exception=StartNodeException):
+                node.append_conf('pg_hba.conf', 'DUMMY')
+                node.restart()
+
+    def test_reload(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        with __class__.helper__get_node(os_ops) as node:
+            node.init().start()
+
+            # change client_min_messages and save old value
+            cmm_old = node.execute('show client_min_messages')
+            node.append_conf(client_min_messages='DEBUG1')
+
+            # reload config
+            node.reload()
+
+            # check new value
+            cmm_new = node.execute('show client_min_messages')
+            assert ('debug1' == cmm_new[0][0].lower())
+            assert (cmm_old != cmm_new)
+
+    def test_pg_ctl(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        with __class__.helper__get_node(os_ops) as node:
+            node.init().start()
+
+            status = node.pg_ctl(['status'])
+            assert ('PID' in status)
+
+    def test_status(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        assert (NodeStatus.Running)
+        assert not (NodeStatus.Stopped)
+        assert not (NodeStatus.Uninitialized)
+
+        # check statuses after each operation
+        with __class__.helper__get_node(os_ops) as node:
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Stopped)
+
+            node.start()
+
+            assert (node.pid != 0)
+            assert (node.status() == NodeStatus.Running)
+
+            node.stop()
+
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Stopped)
+
+            node.cleanup()
+
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
 
     def test_child_pids(self, os_ops: OsOperations):
         assert isinstance(os_ops, OsOperations)
@@ -418,6 +579,13 @@ class TestTestgresCommon:
         return PostgresNode(name, os_ops=os_ops)
 
     @staticmethod
+    def helper__skip_test_if_pg_version_is_not_ge(ver1: str, ver2):
+        assert type(ver1) == str  # noqa: E721
+        assert type(ver2) == str  # noqa: E721
+        if not __class__.helper__pg_version_ge(ver1, ver2):
+            pytest.skip('requires {0}+'.format(ver2))
+
+    @staticmethod
     def helper__pg_version_ge(ver1: str, ver2: str) -> bool:
         assert type(ver1) == str  # noqa: E721
         assert type(ver2) == str  # noqa: E721
@@ -442,3 +610,28 @@ class TestTestgresCommon:
 
         assert type(out) == str  # noqa: E721
         return out.replace('\r', '')
+
+    @staticmethod
+    def helper__skip_test_if_util_not_exist(os_ops: OsOperations, name: str):
+        assert isinstance(os_ops, OsOperations)
+        assert type(name) == str  # noqa: E721
+        if not __class__.helper__util_exists(os_ops, name):
+            pytest.skip('might be missing')
+
+    @staticmethod
+    def helper__util_exists(os_ops: OsOperations, util):
+        assert isinstance(os_ops, OsOperations)
+
+        def good_properties(f):
+            return (os_ops.path_exists(f) and  # noqa: W504
+                    os_ops.isfile(f) and  # noqa: W504
+                    os_ops.is_executable(f))  # yapf: disable
+
+        # try to resolve it
+        if good_properties(get_bin_path2(os_ops, util)):
+            return True
+
+        # check if util is in PATH
+        for path in os_ops.environ("PATH").split(os.pathsep):
+            if good_properties(os.path.join(path, util)):
+                return True
