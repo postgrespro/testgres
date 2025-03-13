@@ -222,8 +222,10 @@ class TestRemoteOperations:
         """
         path = "/etc"
         files = self.operations.listdir(path)
-
         assert isinstance(files, list)
+        for f in files:
+            assert f is not None
+            assert type(f) == str  # noqa: E721
 
     def test_path_exists_true__directory(self):
         """
