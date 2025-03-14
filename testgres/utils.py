@@ -203,17 +203,27 @@ def get_pg_config2(os_ops: OsOperations, pg_config_path):
     return cache_pg_config_data("pg_config")
 
 
+def get_pg_version2(os_ops: OsOperations, bin_dir=None):
+    """
+    Return PostgreSQL version provided by postmaster.
+    """
+    assert os_ops is not None
+    assert isinstance(os_ops, OsOperations)
+
+    # Get raw version (e.g., postgres (PostgreSQL) 9.5.7)
+    postgres_path = os.path.join(bin_dir, 'postgres') if bin_dir else get_bin_path2(os_ops, 'postgres')
+    _params = [postgres_path, '--version']
+    raw_ver = os_ops.exec_command(_params, encoding='utf-8')
+
+    return parse_pg_version(raw_ver)
+
+
 def get_pg_version(bin_dir=None):
     """
     Return PostgreSQL version provided by postmaster.
     """
 
-    # Get raw version (e.g., postgres (PostgreSQL) 9.5.7)
-    postgres_path = os.path.join(bin_dir, 'postgres') if bin_dir else get_bin_path('postgres')
-    _params = [postgres_path, '--version']
-    raw_ver = tconf.os_ops.exec_command(_params, encoding='utf-8')
-
-    return parse_pg_version(raw_ver)
+    return get_pg_version2(tconf.os_ops, bin_dir)
 
 
 def parse_pg_version(version_out):

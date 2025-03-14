@@ -99,6 +99,7 @@ from .utils import \
 
 from .backup import NodeBackup
 
+from .operations.os_ops import OsOperations
 from .operations.os_ops import ConnectionParams
 from .operations.local_ops import LocalOperations
 from .operations.remote_ops import RemoteOperations
@@ -134,8 +135,8 @@ class PostgresNode(object):
     # a max number of node start attempts
     _C_MAX_START_ATEMPTS = 5
 
-    def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(),
-                 bin_dir=None, prefix=None):
+    def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = None,
+                 bin_dir=None, prefix=None, os_ops: OsOperations = None):
         """
         PostgresNode constructor.
 
@@ -157,12 +158,21 @@ class PostgresNode(object):
 
         # basic
         self.name = name or generate_app_name()
-        if testgres_config.os_ops:
+        if os_ops is not None:
+            assert isinstance(os_ops, OsOperations)
+            assert conn_params is None
+            self.os_ops = os_ops
+        elif conn_params is not None:
+            if conn_params.ssh_key:
+                self.os_ops = RemoteOperations(conn_params)
+            else:
+                self.os_ops = LocalOperations(conn_params)
+        elif testgres_config.os_ops is not None:
+            assert isinstance(testgres_config.os_ops, OsOperations)
+            assert conn_params is None
             self.os_ops = testgres_config.os_ops
-        elif conn_params.ssh_key:
-            self.os_ops = RemoteOperations(conn_params)
         else:
-            self.os_ops = LocalOperations(conn_params)
+            raise InvalidOperationException("Can't detect OsOperations for PostgresNode.")
 
         self.host = self.os_ops.host
         self.port = port or utils.reserve_port()

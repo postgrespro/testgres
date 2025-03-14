@@ -4,7 +4,9 @@
 
 set -eux
 
-if [ -z ${TEST_FILTER+x} ]; then export TEST_FILTER="TestgresTests"; fi
+if [ -z ${TEST_FILTER+x} ]; \
+then export TEST_FILTER="TestgresTests or (TestTestgresCommon and (not remote_ops))"; \
+fi
 
 # choose python version
 echo python version is $PYTHON_VERSION
