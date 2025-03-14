@@ -418,6 +418,7 @@ class LocalOperations(OsOperations):
         return os.getpid()
 
     def get_process_children(self, pid):
+        assert type(pid) == int  # noqa: E721
         return psutil.Process(pid).children()
 
     # Database control

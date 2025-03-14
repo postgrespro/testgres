@@ -599,15 +599,16 @@ class RemoteOperations(OsOperations):
         return int(self.exec_command("echo $$", encoding=get_default_encoding()))
 
     def get_process_children(self, pid):
-        command = ["ssh"] + self.ssh_args + [self.ssh_dest, f"pgrep -P {pid}"]
+        assert type(pid) == int  # noqa: E721
+        command = ["ssh"] + self.ssh_args + [self.ssh_dest, "pgrep", "-P", str(pid)]
 
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
         if result.returncode == 0:
             children = result.stdout.strip().splitlines()
             return [PsUtilProcessProxy(self, int(child_pid.strip())) for child_pid in children]
-        else:
-            raise ExecUtilException(f"Error in getting process children. Error: {result.stderr}")
+
+        raise ExecUtilException(f"Error in getting process children. Error: {result.stderr}")
 
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
