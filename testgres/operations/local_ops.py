@@ -352,12 +352,26 @@ class LocalOperations(OsOperations):
         Read lines from a local file.
         If num_lines is greater than 0, only the last num_lines lines will be read.
         """
+        assert type(num_lines) == int  # noqa: E721
+        assert type(filename) == str  # noqa: E721
+        assert type(binary) == bool  # noqa: E721
+        assert encoding is None or type(encoding) == str  # noqa: E721
         assert num_lines >= 0
+
+        if binary:
+            assert encoding is None
+            pass
+        elif encoding is None:
+            encoding = get_default_encoding()
+            assert type(encoding) == str  # noqa: E721
+        else:
+            assert type(encoding) == str  # noqa: E721
+            pass
+
         mode = 'rb' if binary else 'r'
         if num_lines == 0:
             with open(filename, mode, encoding=encoding) as file:  # open in binary mode
                 return file.readlines()
-
         else:
             bufsize = 8192
             buffers = 1

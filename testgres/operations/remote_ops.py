@@ -484,18 +484,37 @@ class RemoteOperations(OsOperations):
         return content
 
     def readlines(self, filename, num_lines=0, binary=False, encoding=None):
+        assert type(num_lines) == int  # noqa: E721
+        assert type(filename) == str  # noqa: E721
+        assert type(binary) == bool  # noqa: E721
+        assert encoding is None or type(encoding) == str  # noqa: E721
+
         if num_lines > 0:
-            cmd = "tail -n {} {}".format(num_lines, filename)
+            cmd = ["tail", "-n", str(num_lines), filename]
         else:
-            cmd = "cat {}".format(filename)
+            cmd = ["cat", filename]
+
+        if binary:
+            assert encoding is None
+            pass
+        elif encoding is None:
+            encoding = get_default_encoding()
+            assert type(encoding) == str  # noqa: E721
+        else:
+            assert type(encoding) == str  # noqa: E721
+            pass
 
         result = self.exec_command(cmd, encoding=encoding)
+        assert result is not None
 
-        if not binary and result:
-            lines = result.decode(encoding or get_default_encoding()).splitlines()
+        if binary:
+            assert type(result) == bytes  # noqa: E721
+            lines = result.splitlines()
         else:
+            assert type(result) == str  # noqa: E721
             lines = result.splitlines()
 
+        assert type(lines) == list  # noqa: E721
         return lines
 
     def read_binary(self, filename, offset):
