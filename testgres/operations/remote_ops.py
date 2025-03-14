@@ -484,18 +484,37 @@ class RemoteOperations(OsOperations):
         return content
 
     def readlines(self, filename, num_lines=0, binary=False, encoding=None):
+        assert type(num_lines) == int  # noqa: E721
+        assert type(filename) == str  # noqa: E721
+        assert type(binary) == bool  # noqa: E721
+        assert encoding is None or type(encoding) == str  # noqa: E721
+
         if num_lines > 0:
-            cmd = "tail -n {} {}".format(num_lines, filename)
+            cmd = ["tail", "-n", str(num_lines), filename]
         else:
-            cmd = "cat {}".format(filename)
+            cmd = ["cat", filename]
+
+        if binary:
+            assert encoding is None
+            pass
+        elif encoding is None:
+            encoding = get_default_encoding()
+            assert type(encoding) == str  # noqa: E721
+        else:
+            assert type(encoding) == str  # noqa: E721
+            pass
 
         result = self.exec_command(cmd, encoding=encoding)
+        assert result is not None
 
-        if not binary and result:
-            lines = result.decode(encoding or get_default_encoding()).splitlines()
+        if binary:
+            assert type(result) == bytes  # noqa: E721
+            lines = result.splitlines()
         else:
+            assert type(result) == str  # noqa: E721
             lines = result.splitlines()
 
+        assert type(lines) == list  # noqa: E721
         return lines
 
     def read_binary(self, filename, offset):
@@ -599,15 +618,16 @@ class RemoteOperations(OsOperations):
         return int(self.exec_command("echo $$", encoding=get_default_encoding()))
 
     def get_process_children(self, pid):
-        command = ["ssh"] + self.ssh_args + [self.ssh_dest, f"pgrep -P {pid}"]
+        assert type(pid) == int  # noqa: E721
+        command = ["ssh"] + self.ssh_args + [self.ssh_dest, "pgrep", "-P", str(pid)]
 
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
         if result.returncode == 0:
             children = result.stdout.strip().splitlines()
             return [PsUtilProcessProxy(self, int(child_pid.strip())) for child_pid in children]
-        else:
-            raise ExecUtilException(f"Error in getting process children. Error: {result.stderr}")
+
+        raise ExecUtilException(f"Error in getting process children. Error: {result.stderr}")
 
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
