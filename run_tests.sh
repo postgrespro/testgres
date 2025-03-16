@@ -8,8 +8,9 @@ if [ -z ${TEST_FILTER+x} ]; then export TEST_FILTER="TestgresTests"; fi
 
 # choose python version
 echo python version is $PYTHON_VERSION
-VIRTUALENV="virtualenv --python=/usr/bin/python$PYTHON_VERSION"
+PYTHON="python$PYTHON_VERSION"
 PIP="pip$PYTHON_VERSION"
+VIRTUALENV="${PYTHON} -m virtualenv --python=/usr/bin/python$PYTHON_VERSION"
 
 # fail early
 echo check that pg_config is in PATH

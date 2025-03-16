@@ -1,0 +1,66 @@
+ARG PG_VERSION
+ARG PYTHON_VERSION 
+
+# --------------------------------------------- base1
+FROM alt:p10 as base1
+ARG PG_VERSION
+
+RUN apt-get update
+RUN apt-get install -y sudo curl ca-certificates
+RUN apt-get update
+RUN apt-get install -y openssh-server openssh-clients
+RUN apt-get install -y time
+
+RUN apt-get install -y mc
+
+RUN apt-get update
+RUN apt-get install -y postgresql-common
+RUN apt-get install -y postgresql${PG_VERSION}-server
+RUN apt-get install -y postgresql${PG_VERSION}-server-devel
+
+RUN apt-get install -y libsqlite3-devel
+
+EXPOSE 22
+
+RUN ssh-keygen -A
+
+# --------------------------------------------- base2_with_python-3
+FROM base1 as base2_with_python-3
+RUN apt-get install -y python3
+RUN apt-get install -y python3-dev
+RUN apt-get install -y python3-module-virtualenv
+RUN apt-get install -y python3-modules-sqlite3
+ENV PYTHON_VERSION=3
+
+# --------------------------------------------- final
+FROM base2_with_python-${PYTHON_VERSION} as final
+
+RUN adduser test -G wheel
+
+# It enables execution of "sudo service ssh start" without password
+RUN sh -c "echo \"WHEEL_USERS ALL=(ALL:ALL) NOPASSWD: ALL\"" >> /etc/sudoers
+
+ADD . /pg/testgres
+WORKDIR /pg/testgres
+RUN chown -R test /pg
+
+ENV LANG=C.UTF-8
+
+USER test
+
+RUN chmod 700 ~/
+RUN mkdir -p ~/.ssh
+
+ENTRYPOINT sh -c " \
+set -eux; \
+echo HELLO FROM ENTRYPOINT; \
+echo HOME DIR IS [`realpath ~/`]; \
+sudo /usr/sbin/sshd; \
+ssh-keyscan -H localhost >> ~/.ssh/known_hosts; \
+ssh-keyscan -H 127.0.0.1 >> ~/.ssh/known_hosts; \
+ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -N ''; \
+cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys; \
+chmod 600 ~/.ssh/authorized_keys; \
+ls -la ~/.ssh/; \
+TEST_FILTER=\"\" bash ./run_tests.sh;"
+
