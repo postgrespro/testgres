@@ -24,19 +24,11 @@ from ..testgres.config import \
 
 from ..testgres import \
     get_bin_path, \
-    get_pg_config, \
-    get_pg_version
+    get_pg_config
 
 # NOTE: those are ugly imports
 from ..testgres import bound_ports
-from ..testgres.utils import PgVer
 from ..testgres.node import ProcessProxy
-
-
-def pg_version_ge(version):
-    cur_ver = PgVer(get_pg_version())
-    min_ver = PgVer(version)
-    return cur_ver >= min_ver
 
 
 def util_exists(util):
