@@ -130,7 +130,7 @@ class PostgresNode(PostgresNode_Base):
             self._base_dir = base_dir
         else:
             self._base_dir = os_ops.mkdtemp(prefix=self._prefix or TMP_NODE)
-    
+
     @staticmethod
     def _get_os_ops(conn_params: ConnectionParams) -> OsOperations:
         assert type(conn_params) == ConnectionParams  # noqa: E721
