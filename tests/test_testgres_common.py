@@ -16,8 +16,13 @@ from ..testgres import StartNodeException
 from ..testgres import QueryException
 from ..testgres import ExecUtilException
 from ..testgres import TimeoutException
+from ..testgres import InvalidOperationException
+from ..testgres import BackupException
 from ..testgres import ProgrammingError
 from ..testgres import scoped_config
+from ..testgres import First, Any
+
+from contextlib import contextmanager
 
 import pytest
 import six
@@ -26,6 +31,21 @@ import time
 import tempfile
 import uuid
 import os
+import re
+
+
+@contextmanager
+def removing(os_ops: OsOperations, f):
+    assert isinstance(os_ops, OsOperations)
+
+    try:
+        yield f
+    finally:
+        if os_ops.isfile(f):
+            os_ops.remove_file(f)
+
+        elif os_ops.isdir(f):
+            os_ops.rmdirs(f, ignore_errors=True)
 
 
 class TestTestgresCommon:
@@ -573,17 +593,491 @@ class TestTestgresCommon:
         # GO HOME!
         return
 
+    def test_psql(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops).init().start() as node:
+
+            # check returned values (1 arg)
+            res = node.psql('select 1')
+            assert (__class__.helper__rm_carriage_returns(res) == (0, b'1\n', b''))
+
+            # check returned values (2 args)
+            res = node.psql('postgres', 'select 2')
+            assert (__class__.helper__rm_carriage_returns(res) == (0, b'2\n', b''))
+
+            # check returned values (named)
+            res = node.psql(query='select 3', dbname='postgres')
+            assert (__class__.helper__rm_carriage_returns(res) == (0, b'3\n', b''))
+
+            # check returned values (1 arg)
+            res = node.safe_psql('select 4')
+            assert (__class__.helper__rm_carriage_returns(res) == b'4\n')
+
+            # check returned values (2 args)
+            res = node.safe_psql('postgres', 'select 5')
+            assert (__class__.helper__rm_carriage_returns(res) == b'5\n')
+
+            # check returned values (named)
+            res = node.safe_psql(query='select 6', dbname='postgres')
+            assert (__class__.helper__rm_carriage_returns(res) == b'6\n')
+
+            # check feeding input
+            node.safe_psql('create table horns (w int)')
+            node.safe_psql('copy horns from stdin (format csv)',
+                           input=b"1\n2\n3\n\\.\n")
+            _sum = node.safe_psql('select sum(w) from horns')
+            assert (__class__.helper__rm_carriage_returns(_sum) == b'6\n')
+
+            # check psql's default args, fails
+            with pytest.raises(expected_exception=QueryException):
+                node.psql()
+
+            node.stop()
+
+            # check psql on stopped node, fails
+            with pytest.raises(expected_exception=QueryException):
+                node.safe_psql('select 1')
+
+    def test_safe_psql__expect_error(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops).init().start() as node:
+            err = node.safe_psql('select_or_not_select 1', expect_error=True)
+            assert (type(err) == str)  # noqa: E721
+            assert ('select_or_not_select' in err)
+            assert ('ERROR:  syntax error at or near "select_or_not_select"' in err)
+
+            # ---------
+            with pytest.raises(
+                expected_exception=InvalidOperationException,
+                match="^" + re.escape("Exception was expected, but query finished successfully: `select 1;`.") + "$"
+            ):
+                node.safe_psql("select 1;", expect_error=True)
+
+            # ---------
+            res = node.safe_psql("select 1;", expect_error=False)
+            assert (__class__.helper__rm_carriage_returns(res) == b'1\n')
+
+    def test_transactions(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops).init().start() as node:
+
+            with node.connect() as con:
+                con.begin()
+                con.execute('create table test(val int)')
+                con.execute('insert into test values (1)')
+                con.commit()
+
+                con.begin()
+                con.execute('insert into test values (2)')
+                res = con.execute('select * from test order by val asc')
+                assert (res == [(1, ), (2, )])
+                con.rollback()
+
+                con.begin()
+                res = con.execute('select * from test')
+                assert (res == [(1, )])
+                con.rollback()
+
+                con.begin()
+                con.execute('drop table test')
+                con.commit()
+
+    def test_control_data(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops) as node:
+
+            # node is not initialized yet
+            with pytest.raises(expected_exception=ExecUtilException):
+                node.get_control_data()
+
+            node.init()
+            data = node.get_control_data()
+
+            # check returned dict
+            assert data is not None
+            assert (any('pg_control' in s for s in data.keys()))
+
+    def test_backup_simple(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops) as master:
+
+            # enable streaming for backups
+            master.init(allow_streaming=True)
+
+            # node must be running
+            with pytest.raises(expected_exception=BackupException):
+                master.backup()
+
+            # it's time to start node
+            master.start()
+
+            # fill node with some data
+            master.psql('create table test as select generate_series(1, 4) i')
+
+            with master.backup(xlog_method='stream') as backup:
+                with backup.spawn_primary().start() as slave:
+                    res = slave.execute('select * from test order by i asc')
+                    assert (res == [(1, ), (2, ), (3, ), (4, )])
+
+    def test_backup_multiple(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops) as node:
+            node.init(allow_streaming=True).start()
+
+            with node.backup(xlog_method='fetch') as backup1, \
+                    node.backup(xlog_method='fetch') as backup2:
+                assert (backup1.base_dir != backup2.base_dir)
+
+            with node.backup(xlog_method='fetch') as backup:
+                with backup.spawn_primary('node1', destroy=False) as node1, \
+                        backup.spawn_primary('node2', destroy=False) as node2:
+                    assert (node1.base_dir != node2.base_dir)
+
+    def test_backup_exhaust(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops) as node:
+            node.init(allow_streaming=True).start()
+
+            with node.backup(xlog_method='fetch') as backup:
+                # exhaust backup by creating new node
+                with backup.spawn_primary():
+                    pass
+
+                # now let's try to create one more node
+                with pytest.raises(expected_exception=BackupException):
+                    backup.spawn_primary()
+
+    def test_backup_wrong_xlog_method(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops) as node:
+            node.init(allow_streaming=True).start()
+
+            with pytest.raises(
+                expected_exception=BackupException,
+                match="^" + re.escape('Invalid xlog_method "wrong"') + "$"
+            ):
+                node.backup(xlog_method='wrong')
+
+    def test_pg_ctl_wait_option(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        C_MAX_ATTEMPTS = 50
+
+        node = __class__.helper__get_node(os_ops)
+        assert node.status() == NodeStatus.Uninitialized
+        node.init()
+        assert node.status() == NodeStatus.Stopped
+        node.start(wait=False)
+        nAttempt = 0
+        while True:
+            if nAttempt == C_MAX_ATTEMPTS:
+                #
+                # [2025-03-11]
+                #  We have an unexpected problem with this test in CI
+                #  Let's get an additional information about this test failure.
+                #
+                logging.error("Node was not stopped.")
+                if not node.os_ops.path_exists(node.pg_log_file):
+                    logging.warning("Node log does not exist.")
+                else:
+                    logging.info("Let's read node log file [{0}]".format(node.pg_log_file))
+                    logFileData = node.os_ops.read(node.pg_log_file, binary=False)
+                    logging.info("Node log file content:\n{0}".format(logFileData))
+
+                raise Exception("Could not stop node.")
+
+            nAttempt += 1
+
+            if nAttempt > 1:
+                logging.info("Wait 1 second.")
+                time.sleep(1)
+                logging.info("")
+
+            logging.info("Try to stop node. Attempt #{0}.".format(nAttempt))
+
+            try:
+                node.stop(wait=False)
+                break
+            except ExecUtilException as e:
+                # it's ok to get this exception here since node
+                # could be not started yet
+                logging.info("Node is not stopped. Exception ({0}): {1}".format(type(e).__name__, e))
+            continue
+
+        logging.info("OK. Stop command was executed. Let's wait while our node will stop really.")
+        nAttempt = 0
+        while True:
+            if nAttempt == C_MAX_ATTEMPTS:
+                raise Exception("Could not stop node.")
+
+            nAttempt += 1
+            if nAttempt > 1:
+                logging.info("Wait 1 second.")
+                time.sleep(1)
+                logging.info("")
+
+            logging.info("Attempt #{0}.".format(nAttempt))
+            s1 = node.status()
+
+            if s1 == NodeStatus.Running:
+                continue
+
+            if s1 == NodeStatus.Stopped:
+                break
+
+            raise Exception("Unexpected node status: {0}.".format(s1))
+
+        logging.info("OK. Node is stopped.")
+        node.cleanup()
+
+    def test_replicate(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops) as node:
+            node.init(allow_streaming=True).start()
+
+            with node.replicate().start() as replica:
+                res = replica.execute('select 1')
+                assert (res == [(1, )])
+
+                node.execute('create table test (val int)', commit=True)
+
+                replica.catchup()
+
+                res = node.execute('select * from test')
+                assert (res == [])
+
+    def test_synchronous_replication(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        current_version = get_pg_version2(os_ops)
+
+        __class__.helper__skip_test_if_pg_version_is_not_ge(current_version, "9.6")
+
+        with __class__.helper__get_node(os_ops) as master:
+            old_version = not __class__.helper__pg_version_ge(current_version, '9.6')
+
+            master.init(allow_streaming=True).start()
+
+            if not old_version:
+                master.append_conf('synchronous_commit = remote_apply')
+
+            # create standby
+            with master.replicate() as standby1, master.replicate() as standby2:
+                standby1.start()
+                standby2.start()
+
+                # check formatting
+                assert (
+                    '1 ("{}", "{}")'.format(standby1.name, standby2.name) == str(First(1, (standby1, standby2)))
+                )  # yapf: disable
+                assert (
+                    'ANY 1 ("{}", "{}")'.format(standby1.name, standby2.name) == str(Any(1, (standby1, standby2)))
+                )  # yapf: disable
+
+                # set synchronous_standby_names
+                master.set_synchronous_standbys(First(2, [standby1, standby2]))
+                master.restart()
+
+                # the following part of the test is only applicable to newer
+                # versions of PostgresQL
+                if not old_version:
+                    master.safe_psql('create table abc(a int)')
+
+                    # Create a large transaction that will take some time to apply
+                    # on standby to check that it applies synchronously
+                    # (If set synchronous_commit to 'on' or other lower level then
+                    # standby most likely won't catchup so fast and test will fail)
+                    master.safe_psql(
+                        'insert into abc select generate_series(1, 1000000)')
+                    res = standby1.safe_psql('select count(*) from abc')
+                    assert (__class__.helper__rm_carriage_returns(res) == b'1000000\n')
+
+    def test_logical_replication(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        current_version = get_pg_version2(os_ops)
+
+        __class__.helper__skip_test_if_pg_version_is_not_ge(current_version, "10")
+
+        with __class__.helper__get_node(os_ops) as node1, __class__.helper__get_node(os_ops) as node2:
+            node1.init(allow_logical=True)
+            node1.start()
+            node2.init().start()
+
+            create_table = 'create table test (a int, b int)'
+            node1.safe_psql(create_table)
+            node2.safe_psql(create_table)
+
+            # create publication / create subscription
+            pub = node1.publish('mypub')
+            sub = node2.subscribe(pub, 'mysub')
+
+            node1.safe_psql('insert into test values (1, 1), (2, 2)')
+
+            # wait until changes apply on subscriber and check them
+            sub.catchup()
+            res = node2.execute('select * from test')
+            assert (res == [(1, 1), (2, 2)])
+
+            # disable and put some new data
+            sub.disable()
+            node1.safe_psql('insert into test values (3, 3)')
+
+            # enable and ensure that data successfully transferred
+            sub.enable()
+            sub.catchup()
+            res = node2.execute('select * from test')
+            assert (res == [(1, 1), (2, 2), (3, 3)])
+
+            # Add new tables. Since we added "all tables" to publication
+            # (default behaviour of publish() method) we don't need
+            # to explicitly perform pub.add_tables()
+            create_table = 'create table test2 (c char)'
+            node1.safe_psql(create_table)
+            node2.safe_psql(create_table)
+            sub.refresh()
+
+            # put new data
+            node1.safe_psql('insert into test2 values (\'a\'), (\'b\')')
+            sub.catchup()
+            res = node2.execute('select * from test2')
+            assert (res == [('a', ), ('b', )])
+
+            # drop subscription
+            sub.drop()
+            pub.drop()
+
+            # create new publication and subscription for specific table
+            # (omitting copying data as it's already done)
+            pub = node1.publish('newpub', tables=['test'])
+            sub = node2.subscribe(pub, 'newsub', copy_data=False)
+
+            node1.safe_psql('insert into test values (4, 4)')
+            sub.catchup()
+            res = node2.execute('select * from test')
+            assert (res == [(1, 1), (2, 2), (3, 3), (4, 4)])
+
+            # explicitly add table
+            with pytest.raises(expected_exception=ValueError):
+                pub.add_tables([])    # fail
+            pub.add_tables(['test2'])
+            node1.safe_psql('insert into test2 values (\'c\')')
+            sub.catchup()
+            res = node2.execute('select * from test2')
+            assert (res == [('a', ), ('b', )])
+
+    def test_logical_catchup(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        """ Runs catchup for 100 times to be sure that it is consistent """
+
+        current_version = get_pg_version2(os_ops)
+
+        __class__.helper__skip_test_if_pg_version_is_not_ge(current_version, "10")
+
+        with __class__.helper__get_node(os_ops) as node1, __class__.helper__get_node(os_ops) as node2:
+            node1.init(allow_logical=True)
+            node1.start()
+            node2.init().start()
+
+            create_table = 'create table test (key int primary key, val int); '
+            node1.safe_psql(create_table)
+            node1.safe_psql('alter table test replica identity default')
+            node2.safe_psql(create_table)
+
+            # create publication / create subscription
+            sub = node2.subscribe(node1.publish('mypub'), 'mysub')
+
+            for i in range(0, 100):
+                node1.execute('insert into test values ({0}, {0})'.format(i))
+                sub.catchup()
+                res = node2.execute('select * from test')
+                assert (res == [(i, i, )])
+                node1.execute('delete from test')
+
+    def test_logical_replication_fail(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        current_version = get_pg_version2(os_ops)
+
+        __class__.helper__skip_test_if_pg_version_is_ge(current_version, "10")
+
+        with __class__.helper__get_node(os_ops) as node:
+            with pytest.raises(expected_exception=InitNodeException):
+                node.init(allow_logical=True)
+
+    def test_replication_slots(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops) as node:
+            node.init(allow_streaming=True).start()
+
+            with node.replicate(slot='slot1').start() as replica:
+                replica.execute('select 1')
+
+                # cannot create new slot with the same name
+                with pytest.raises(expected_exception=TestgresException):
+                    node.replicate(slot='slot1')
+
+    def test_incorrect_catchup(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops) as node:
+            node.init(allow_streaming=True).start()
+
+            # node has no master, can't catch up
+            with pytest.raises(expected_exception=TestgresException):
+                node.catchup()
+
+    def test_promotion(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        with __class__.helper__get_node(os_ops) as master:
+            master.init().start()
+            master.safe_psql('create table abc(id serial)')
+
+            with master.replicate().start() as replica:
+                master.stop()
+                replica.promote()
+
+                # make standby becomes writable master
+                replica.safe_psql('insert into abc values (1)')
+                res = replica.safe_psql('select * from abc')
+                assert (__class__.helper__rm_carriage_returns(res) == b'1\n')
+
+    def test_dump(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        query_create = 'create table test as select generate_series(1, 2) as val'
+        query_select = 'select * from test order by val asc'
+
+        with __class__.helper__get_node(os_ops).init().start() as node1:
+
+            node1.execute(query_create)
+            for format in ['plain', 'custom', 'directory', 'tar']:
+                with removing(os_ops, node1.dump(format=format)) as dump:
+                    with __class__.helper__get_node(os_ops).init().start() as node3:
+                        if format == 'directory':
+                            assert (os.path.isdir(dump))
+                        else:
+                            assert (os.path.isfile(dump))
+                        # restore dump
+                        node3.restore(filename=dump)
+                        res = node3.execute(query_select)
+                        assert (res == [(1, ), (2, )])
+
     @staticmethod
     def helper__get_node(os_ops: OsOperations, name=None):
         assert isinstance(os_ops, OsOperations)
         return PostgresNode(name, os_ops=os_ops)
 
     @staticmethod
-    def helper__skip_test_if_pg_version_is_not_ge(ver1: str, ver2):
+    def helper__skip_test_if_pg_version_is_not_ge(ver1: str, ver2: str):
         assert type(ver1) == str  # noqa: E721
         assert type(ver2) == str  # noqa: E721
         if not __class__.helper__pg_version_ge(ver1, ver2):
             pytest.skip('requires {0}+'.format(ver2))
+
+    @staticmethod
+    def helper__skip_test_if_pg_version_is_ge(ver1: str, ver2: str):
+        assert type(ver1) == str  # noqa: E721
+        assert type(ver2) == str  # noqa: E721
+        if __class__.helper__pg_version_ge(ver1, ver2):
+            pytest.skip('requires <{0}'.format(ver2))
 
     @staticmethod
     def helper__pg_version_ge(ver1: str, ver2: str) -> bool:
