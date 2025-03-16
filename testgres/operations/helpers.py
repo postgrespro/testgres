@@ -12,7 +12,7 @@ class Helpers:
         return locale.getpreferredencoding
 
     # Prepared pointer on function to get a name of system codepage
-    _get_default_encoding_func = _make_get_default_encoding_func()
+    _get_default_encoding_func = _make_get_default_encoding_func.__func__()
 
     @staticmethod
     def GetDefaultEncoding():
