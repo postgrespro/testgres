@@ -36,23 +36,7 @@ from .config import testgres_config
 
 from .connection import NodeConnection
 
-from .consts import \
-    TMP_DUMP, \
-    PG_CONF_FILE, \
-    PG_AUTO_CONF_FILE, \
-    HBA_CONF_FILE, \
-    RECOVERY_CONF_FILE, \
-    PG_CTL__STATUS__OK, \
-    PG_CTL__STATUS__NODE_IS_STOPPED, \
-    PG_CTL__STATUS__BAD_DATADIR \
-
-from .consts import \
-    MAX_LOGICAL_REPLICATION_WORKERS, \
-    MAX_REPLICATION_SLOTS, \
-    MAX_WORKER_PROCESSES, \
-    MAX_WAL_SENDERS, \
-    WAL_KEEP_SEGMENTS, \
-    WAL_KEEP_SIZE
+from . import consts
 
 from .decorators import \
     method_decorator, \
@@ -205,15 +189,15 @@ class PostgresNode_Base(object):
         assert type(error) == str  # noqa: E721
 
         # -----------------
-        if status_code == PG_CTL__STATUS__NODE_IS_STOPPED:
+        if status_code == consts.PG_CTL__STATUS__NODE_IS_STOPPED:
             return 0
 
         # -----------------
-        if status_code == PG_CTL__STATUS__BAD_DATADIR:
+        if status_code == consts.PG_CTL__STATUS__BAD_DATADIR:
             return 0
 
         # -----------------
-        if status_code != PG_CTL__STATUS__OK:
+        if status_code != consts.PG_CTL__STATUS__OK:
             errMsg = "Getting of a node status [data_dir is {0}] failed.".format(self__data_dir)
 
             raise ExecUtilException(
@@ -225,7 +209,7 @@ class PostgresNode_Base(object):
             )
 
         # -----------------
-        assert status_code == PG_CTL__STATUS__OK
+        assert status_code == consts.PG_CTL__STATUS__OK
 
         if out == "":
             __class__._throw_error__pg_ctl_returns_an_empty_string(
@@ -568,7 +552,7 @@ class PostgresNode_Base(object):
         if self.version >= utils.PgVer('12'):
             self.append_conf(line=line)
         else:
-            self.append_conf(filename=RECOVERY_CONF_FILE, line=line)
+            self.append_conf(filename=consts.RECOVERY_CONF_FILE, line=line)
 
     def _maybe_start_logger(self):
         if testgres_config.use_python_logging:
@@ -586,10 +570,10 @@ class PostgresNode_Base(object):
 
         # list of important files + last N lines
         files = [
-            (os.path.join(self.data_dir, PG_CONF_FILE), 0),
-            (os.path.join(self.data_dir, PG_AUTO_CONF_FILE), 0),
-            (os.path.join(self.data_dir, RECOVERY_CONF_FILE), 0),
-            (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
+            (os.path.join(self.data_dir, consts.PG_CONF_FILE), 0),
+            (os.path.join(self.data_dir, consts.PG_AUTO_CONF_FILE), 0),
+            (os.path.join(self.data_dir, consts.RECOVERY_CONF_FILE), 0),
+            (os.path.join(self.data_dir, consts.HBA_CONF_FILE), 0),
             (self.pg_log_file, testgres_config.error_log_lines)
         ]  # yapf: disable
 
@@ -676,8 +660,8 @@ class PostgresNode_Base(object):
             This instance of :class:`.PostgresNode_Base`.
         """
 
-        postgres_conf = os.path.join(self.data_dir, PG_CONF_FILE)
-        hba_conf = os.path.join(self.data_dir, HBA_CONF_FILE)
+        postgres_conf = os.path.join(self.data_dir, consts.PG_CONF_FILE)
+        hba_conf = os.path.join(self.data_dir, consts.HBA_CONF_FILE)
 
         # filter lines in hba file
         # get rid of comments and blank lines
@@ -719,15 +703,15 @@ class PostgresNode_Base(object):
         self._os_ops.write(postgres_conf, '', truncate=True)
 
         self.append_conf(fsync=fsync,
-                         max_worker_processes=MAX_WORKER_PROCESSES,
+                         max_worker_processes=consts.MAX_WORKER_PROCESSES,
                          log_statement=log_statement,
                          listen_addresses=self.host,
                          port=self.port)  # yapf:disable
 
         # common replication settings
         if allow_streaming or allow_logical:
-            self.append_conf(max_replication_slots=MAX_REPLICATION_SLOTS,
-                             max_wal_senders=MAX_WAL_SENDERS)  # yapf: disable
+            self.append_conf(max_replication_slots=consts.MAX_REPLICATION_SLOTS,
+                             max_wal_senders=consts.MAX_WAL_SENDERS)  # yapf: disable
 
         # binary replication
         if allow_streaming:
@@ -736,11 +720,11 @@ class PostgresNode_Base(object):
 
             if self._pg_version < utils.PgVer('13'):
                 self.append_conf(hot_standby=True,
-                                 wal_keep_segments=WAL_KEEP_SEGMENTS,
+                                 wal_keep_segments=consts.WAL_KEEP_SEGMENTS,
                                  wal_level=wal_level)  # yapf: disable
             else:
                 self.append_conf(hot_standby=True,
-                                 wal_keep_size=WAL_KEEP_SIZE,
+                                 wal_keep_size=consts.WAL_KEEP_SIZE,
                                  wal_level=wal_level)  # yapf: disable
 
         # logical replication
@@ -750,7 +734,7 @@ class PostgresNode_Base(object):
                                         "available on PostgreSQL 10 and newer")
 
             self.append_conf(
-                max_logical_replication_workers=MAX_LOGICAL_REPLICATION_WORKERS,
+                max_logical_replication_workers=consts.MAX_LOGICAL_REPLICATION_WORKERS,
                 wal_level='logical')
 
         # disable UNIX sockets if asked to
@@ -760,7 +744,7 @@ class PostgresNode_Base(object):
         return self
 
     @method_decorator(positional_args_hack(['filename', 'line']))
-    def append_conf(self, line='', filename=PG_CONF_FILE, **kwargs):
+    def append_conf(self, line='', filename=consts.PG_CONF_FILE, **kwargs):
         """
         Append line to a config file.
 
@@ -1339,9 +1323,9 @@ class PostgresNode_Base(object):
         # Generate tmpfile or tmpdir
         def tmpfile():
             if format == DumpFormat.Directory:
-                fname = self._os_ops.mkdtemp(prefix=TMP_DUMP)
+                fname = self._os_ops.mkdtemp(prefix=consts.TMP_DUMP)
             else:
-                fname = self._os_ops.mkstemp(prefix=TMP_DUMP)
+                fname = self._os_ops.mkstemp(prefix=consts.TMP_DUMP)
             return fname
 
         filename = filename or tmpfile()
