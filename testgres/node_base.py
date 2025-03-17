@@ -116,9 +116,11 @@ class ProcessProxy(object):
         return getattr(self.process, name)
 
     def __repr__(self):
-        return '{}(ptype={}, process={})'.format(self.__class__.__name__,
-                                                 str(self.ptype),
-                                                 repr(self.process))
+        return '{}(ptype={}, process={})'.format(
+            self.__class__.__name__,
+            str(self.ptype),
+            repr(self.process)
+        )
 
 
 class PostgresNode_Base(object):
