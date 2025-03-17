@@ -106,7 +106,7 @@ OperationalError = pglib.OperationalError
 
 class PostgresNode(PostgresNode_Base):
     def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(),
-                 bin_dir=None, prefix=None):
+                 bin_dir=None, prefix=None, os_ops=None):
         """
         PostgresNode constructor.
 
@@ -119,11 +119,19 @@ class PostgresNode(PostgresNode_Base):
             prefix: signature of temporary directory if it is required.
         """
 
-        os_ops = __class__._get_os_ops(conn_params)
+        if os_ops is None:
+            os_ops = __class__._get_os_ops(conn_params)
+        else:
+            assert conn_params is None
+            pass
+
         assert os_ops is not None
         assert isinstance(os_ops, OsOperations)
 
         super().__init__(os_ops, name=name, port=port, bin_dir=bin_dir)
+
+        # it is needed to clone
+        self._prefix = prefix
 
         if base_dir:
             self._base_dir = base_dir
@@ -132,15 +140,29 @@ class PostgresNode(PostgresNode_Base):
 
     @staticmethod
     def _get_os_ops(conn_params: ConnectionParams) -> OsOperations:
-        assert type(conn_params) == ConnectionParams  # noqa: E721
-
         if testgres_config.os_ops:
             return testgres_config.os_ops
+
+        assert type(conn_params) == ConnectionParams  # noqa: E721
 
         if conn_params.ssh_key:
             return RemoteOperations(conn_params)
 
         return LocalOperations(conn_params)
+
+    def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
+        assert name is None or type(name) == str  # noqa: E721
+        assert base_dir is None or type(base_dir) == str  # noqa: E721
+
+        node = PostgresNode(
+            name=name,
+            base_dir=base_dir,
+            conn_params=None,
+            bin_dir=self._bin_dir,
+            prefix=self._prefix,
+            os_ops=self._os_ops)
+
+        return node
 
     @property
     def base_dir(self):

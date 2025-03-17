@@ -163,6 +163,9 @@ class PostgresNode_Base(object):
         return "{}(name='{}', port={}, base_dir='{}')".format(
             self.__class__.__name__, self.name, self.port, self.base_dir)
 
+    def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
+        raise NotImplementedError("PostgresNode_Base::clone_with_new_name_and_base_dir is not implemented")
+
     @property
     def pid(self):
         """
