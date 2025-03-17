@@ -184,8 +184,8 @@ class PostgresNode(PostgresNode_Base):
         return self.pg_log_file
 
     def cleanup(self, max_attempts=3, full=False):
-        assert type(max_attempts) == int
-        assert type(full) == bool
+        assert type(max_attempts) == int  # noqa: E721
+        assert type(full) == bool  # noqa: E721
         assert max_attempts > 0
 
         super().cleanup(max_attempts=max_attempts, full=full)
