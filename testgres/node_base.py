@@ -129,9 +129,10 @@ class PostgresNode_Base(object):
 
     def __init__(self, os_ops: OsOperations, name=None, port=None, bin_dir=None, prefix=None):
         """
-        PostgresNode constructor.
+        PostgresNode_Base constructor.
 
         Args:
+            os_ops: OS operations object.
             name: node's application name.
             port: port to accept connections.
             bin_dir: path to node's binary directory.
@@ -648,7 +649,7 @@ class PostgresNode_Base(object):
             allow_streaming: should this node add a hba entry for replication?
 
         Returns:
-            This instance of :class:`.PostgresNode`
+            This instance of :class:`.PostgresNode_Base`
         """
 
         # initialize this PostgreSQL node
@@ -682,7 +683,7 @@ class PostgresNode_Base(object):
             log_statement: one of ('all', 'off', 'mod', 'ddl').
 
         Returns:
-            This instance of :class:`.PostgresNode`.
+            This instance of :class:`.PostgresNode_Base`.
         """
 
         postgres_conf = os.path.join(self.data_dir, PG_CONF_FILE)
@@ -779,7 +780,7 @@ class PostgresNode_Base(object):
             **kwargs: named config options.
 
         Returns:
-            This instance of :class:`.PostgresNode`.
+            This instance of :class:`.PostgresNode_Base`.
 
         Examples:
             >>> append_conf(fsync=False)
@@ -916,7 +917,7 @@ class PostgresNode_Base(object):
             wait: wait until operation completes.
 
         Returns:
-            This instance of :class:`.PostgresNode`.
+            This instance of :class:`.PostgresNode_Base`.
         """
 
         assert __class__._C_MAX_START_ATEMPTS > 1
@@ -1009,7 +1010,7 @@ class PostgresNode_Base(object):
             wait: If True, waits until the operation is complete. Defaults to True.
 
         Returns:
-            This instance of :class:`.PostgresNode`.
+            This instance of :class:`.PostgresNode_Base`.
         """
         if not self.is_started:
             return self
@@ -1051,7 +1052,7 @@ class PostgresNode_Base(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of :class:`.PostgresNode`.
+            This instance of :class:`.PostgresNode_Base`.
         """
 
         _params = [
@@ -1083,7 +1084,7 @@ class PostgresNode_Base(object):
             params: additional arguments for pg_ctl.
 
         Returns:
-            This instance of :class:`.PostgresNode`.
+            This instance of :class:`.PostgresNode_Base`.
         """
 
         _params = [
@@ -1104,7 +1105,7 @@ class PostgresNode_Base(object):
         needed.
 
         Returns:
-            This instance of :class:`.PostgresNode`.
+            This instance of :class:`.PostgresNode_Base`.
         """
 
         _params = [
@@ -1173,7 +1174,7 @@ class PostgresNode_Base(object):
             full: clean full base dir
 
         Returns:
-            This instance of :class:`.PostgresNode`.
+            This instance of :class:`.PostgresNode_Base`.
         """
 
         self._try_shutdown(max_attempts)
@@ -1534,13 +1535,13 @@ class PostgresNode_Base(object):
         """
         Set standby synchronization options. This corresponds to
         `synchronous_standby_names <https://www.postgresql.org/docs/current/static/runtime-config-replication.html#GUC-SYNCHRONOUS-STANDBY-NAMES>`_
-        option. Note that :meth:`~.PostgresNode.reload` or
-        :meth:`~.PostgresNode.restart` is needed for changes to take place.
+        option. Note that :meth:`~.PostgresNode_Base.reload` or
+        :meth:`~.PostgresNode_Base.restart` is needed for changes to take place.
 
         Args:
             standbys: either :class:`.First` or :class:`.Any` object specifying
                 synchronization parameters or just a plain list of
-                :class:`.PostgresNode`s replicas which would be equivalent
+                :class:`.PostgresNode_Base`s replicas which would be equivalent
                 to passing ``First(1, <list>)``. For PostgreSQL 9.5 and below
                 it is only possible to specify a plain list of standbys as
                 `FIRST` and `ANY` keywords aren't supported.
@@ -1700,7 +1701,7 @@ class PostgresNode_Base(object):
         Sets initialize=True.
 
         Returns:
-            This instance of :class:`.PostgresNode`.
+            This instance of :class:`.PostgresNode_Base`.
         """
 
         self.pgbench_run(initialize=True, **kwargs)
@@ -1915,7 +1916,7 @@ class PostgresNode_Base(object):
         Upgrade this node from an old node using pg_upgrade.
 
         Args:
-            old_node: An instance of PostgresNode representing the old node.
+            old_node: A result of command operation.
         """
         if not os.path.exists(old_node.data_dir):
             raise Exception("Old node must be initialized")
