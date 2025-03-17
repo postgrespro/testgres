@@ -100,6 +100,7 @@ from .utils import \
 from .backup import NodeBackup
 
 from .operations.os_ops import ConnectionParams
+from .operations.os_ops import OsOperations
 from .operations.local_ops import LocalOperations
 from .operations.remote_ops import RemoteOperations
 
@@ -135,7 +136,7 @@ class PostgresNode(object):
     _C_MAX_START_ATEMPTS = 5
 
     def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(),
-                 bin_dir=None, prefix=None):
+                 bin_dir=None, prefix=None, os_ops=None):
         """
         PostgresNode constructor.
 
@@ -157,17 +158,20 @@ class PostgresNode(object):
 
         # basic
         self.name = name or generate_app_name()
-        if testgres_config.os_ops:
-            self.os_ops = testgres_config.os_ops
-        elif conn_params.ssh_key:
-            self.os_ops = RemoteOperations(conn_params)
+        if os_ops is None:
+            os_ops = __class__._get_os_ops(conn_params)
         else:
-            self.os_ops = LocalOperations(conn_params)
+            assert conn_params is None
+            pass
 
-        self.host = self.os_ops.host
+        assert os_ops is not None
+        assert isinstance(os_ops, OsOperations)
+        self._os_ops = os_ops
+
+        self.host = os_ops.host
         self.port = port or utils.reserve_port()
 
-        self.ssh_key = self.os_ops.ssh_key
+        self.ssh_key = os_ops.ssh_key
 
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
@@ -203,6 +207,40 @@ class PostgresNode(object):
     def __repr__(self):
         return "{}(name='{}', port={}, base_dir='{}')".format(
             self.__class__.__name__, self.name, self.port, self.base_dir)
+
+    @staticmethod
+    def _get_os_ops(conn_params: ConnectionParams) -> OsOperations:
+        if testgres_config.os_ops:
+            return testgres_config.os_ops
+
+        assert type(conn_params) == ConnectionParams  # noqa: E721
+
+        if conn_params.ssh_key:
+            return RemoteOperations(conn_params)
+
+        return LocalOperations(conn_params)
+
+    def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
+        assert name is None or type(name) == str  # noqa: E721
+        assert base_dir is None or type(base_dir) == str  # noqa: E721
+
+        assert __class__ == PostgresNode
+
+        node = PostgresNode(
+            name=name,
+            base_dir=base_dir,
+            conn_params=None,
+            bin_dir=self._bin_dir,
+            prefix=self._prefix,
+            os_ops=self._os_ops)
+
+        return node
+
+    @property
+    def os_ops(self) -> OsOperations:
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+        return self._os_ops
 
     @property
     def pid(self):
