@@ -186,6 +186,18 @@ class PostgresNode(PostgresNode_Base):
     def pg_log_name(self):
         return self.pg_log_file
 
+    def cleanup(self, max_attempts=3, full=False):
+        super().cleanup(max_attempts, full)
+
+        base_dir_items = self.os_ops.listdir(self.base_dir)
+        assert base_dir_items is not None
+        assert type(base_dir_items) == list  # noqa: E721
+
+        if len(base_dir_items) == 0:
+            self.os_ops.rmdirs(self.base_dir, ignore_errors=False)
+
+        return self
+
 
 class NodeApp:
 

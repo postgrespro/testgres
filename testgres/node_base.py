@@ -1170,7 +1170,7 @@ class PostgresNode_Base(object):
 
         Args:
             max_attempts: how many times should we try to stop()?
-            full: clean full base dir
+            full: clean logs dir, too.
 
         Returns:
             This instance of :class:`.PostgresNode_Base`.
@@ -1178,14 +1178,10 @@ class PostgresNode_Base(object):
 
         self._try_shutdown(max_attempts)
 
-        # choose directory to be removed
         if testgres_config.node_cleanup_full or full:
-            rm_dir = self.base_dir    # everything
-        else:
-            rm_dir = self.data_dir    # just data, save logs
+            self._os_ops.rmdirs(self.logs_dir, ignore_errors=False)
 
-        self._os_ops.rmdirs(rm_dir, ignore_errors=False)
-
+        self._os_ops.rmdirs(self.data_dir, ignore_errors=False)
         return self
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
