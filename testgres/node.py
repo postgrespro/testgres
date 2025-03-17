@@ -46,10 +46,7 @@ from .consts import \
     HBA_CONF_FILE, \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
-    UTILS_LOG_FILE, \
-    PG_CTL__STATUS__OK, \
-    PG_CTL__STATUS__NODE_IS_STOPPED, \
-    PG_CTL__STATUS__BAD_DATADIR  # noqa: F401
+    UTILS_LOG_FILE  # noqa: F401
 
 from .consts import \
     MAX_LOGICAL_REPLICATION_WORKERS, \
