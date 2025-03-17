@@ -219,7 +219,6 @@ class NodeApp:
         self.os_ops.makedirs(real_base_dir)
 
         node = PostgresNode(base_dir=real_base_dir, port=port, bin_dir=bin_dir)
-        node.should_rm_dirs = True
         self.nodes_to_cleanup.append(node)
 
         return node
