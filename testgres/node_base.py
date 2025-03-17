@@ -127,7 +127,7 @@ class PostgresNode_Base(object):
     # a max number of node start attempts
     _C_MAX_START_ATEMPTS = 5
 
-    def __init__(self, os_ops: OsOperations, name=None, port=None, bin_dir=None, prefix=None):
+    def __init__(self, os_ops: OsOperations, name=None, port=None, bin_dir=None):
         """
         PostgresNode_Base constructor.
 
@@ -146,7 +146,6 @@ class PostgresNode_Base(object):
         self._pg_version = PgVer(get_pg_version2(os_ops, bin_dir))
         self._should_free_port = port is None
         self._bin_dir = bin_dir
-        self._prefix = prefix
         self._logger = None
         self._master = None
 

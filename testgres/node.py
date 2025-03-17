@@ -119,18 +119,19 @@ class PostgresNode(PostgresNode_Base):
             port: port to accept connections.
             conn_params: parameters for selecting OS operations object.
             bin_dir: path to node's binary directory.
+            prefix: signature of temporary directory if it is required.
         """
 
         os_ops = __class__._get_os_ops(conn_params)
         assert os_ops is not None
         assert isinstance(os_ops, OsOperations)
 
-        super().__init__(os_ops, name=name, port=port, bin_dir=bin_dir, prefix=prefix)
+        super().__init__(os_ops, name=name, port=port, bin_dir=bin_dir)
 
         if base_dir:
             self._base_dir = base_dir
         else:
-            self._base_dir = os_ops.mkdtemp(prefix=self._prefix or TMP_NODE)
+            self._base_dir = os_ops.mkdtemp(prefix or TMP_NODE)
 
     @staticmethod
     def _get_os_ops(conn_params: ConnectionParams) -> OsOperations:
