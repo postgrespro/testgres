@@ -115,8 +115,9 @@ class PostgresNode(PostgresNode_Base):
 
         Args:
             name: node's application name.
-            port: port to accept connections.
             base_dir: path to node's data directory.
+            port: port to accept connections.
+            conn_params: parameters for selecting OS operations object.
             bin_dir: path to node's binary directory.
         """
 
