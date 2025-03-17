@@ -117,6 +117,7 @@ class PostgresNode(PostgresNode_Base):
             conn_params: parameters for selecting OS operations object.
             bin_dir: path to node's binary directory.
             prefix: signature of temporary directory if it is required.
+            os_ops: a prepared OsOperations object. If it a defined, conn_params must be None.
         """
 
         if os_ops is None:
