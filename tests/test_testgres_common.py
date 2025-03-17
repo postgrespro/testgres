@@ -1063,7 +1063,7 @@ class TestTestgresCommon:
     @staticmethod
     def helper__get_node(os_ops: OsOperations, name=None):
         assert isinstance(os_ops, OsOperations)
-        return PostgresNode(name, os_ops=os_ops)
+        return PostgresNode(name, conn_params=None, os_ops=os_ops)
 
     @staticmethod
     def helper__skip_test_if_pg_version_is_not_ge(ver1: str, ver2: str):

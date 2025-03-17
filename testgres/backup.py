@@ -147,8 +147,7 @@ class NodeBackup(object):
         base_dir = self._prepare_dir(destroy)
 
         # Build a new PostgresNode
-        NodeClass = self.original_node.__class__
-        with clean_on_error(NodeClass(name=name, base_dir=base_dir, conn_params=self.original_node.os_ops.conn_params)) as node:
+        with clean_on_error(self.original_node.clone_with_new_name_and_base_dir(name=name, base_dir=base_dir)) as node:
 
             # New nodes should always remove dir tree
             node._should_rm_dirs = True

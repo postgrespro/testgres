@@ -326,7 +326,7 @@ class TestgresRemoteTests:
     @staticmethod
     def helper__get_node(name=None):
         assert isinstance(__class__.sm_os_ops, OsOperations)
-        return testgres.PostgresNode(name, os_ops=__class__.sm_os_ops)
+        return testgres.PostgresNode(name, conn_params=None, os_ops=__class__.sm_os_ops)
 
     @staticmethod
     def helper__restore_envvar(name, prev_value):
