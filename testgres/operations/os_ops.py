@@ -108,6 +108,10 @@ class OsOperations:
     def get_file_size(self, filename):
         raise NotImplementedError()
 
+    def remove_file(self, filename):
+        assert type(filename) == str  # noqa: E721
+        raise NotImplementedError()
+
     # Processes control
     def kill(self, pid, signal):
         # Kill the process

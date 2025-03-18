@@ -10,7 +10,11 @@ from ..testgres.utils import get_bin_path2
 from ..testgres import ProcessType
 from ..testgres import NodeStatus
 from ..testgres import IsolationLevel
-from ..testgres import TestgresException
+
+# New name prevents to collect test-functions in TestgresException and fixes
+# the problem with pytest warning.
+from ..testgres import TestgresException as testgres_TestgresException
+
 from ..testgres import InitNodeException
 from ..testgres import StartNodeException
 from ..testgres import QueryException
@@ -336,7 +340,7 @@ class TestTestgresCommon:
         with __class__.helper__get_node(os_ops).init().start() as master:
 
             # master node doesn't have a source walsender!
-            with pytest.raises(expected_exception=TestgresException):
+            with pytest.raises(expected_exception=testgres_TestgresException):
                 master.source_walsender
 
             with master.connect() as con:
@@ -366,7 +370,7 @@ class TestTestgresCommon:
                 replica.stop()
 
                 # there should be no walsender after we've stopped replica
-                with pytest.raises(expected_exception=TestgresException):
+                with pytest.raises(expected_exception=testgres_TestgresException):
                     replica.source_walsender
 
     def test_exceptions(self):
@@ -1013,7 +1017,7 @@ class TestTestgresCommon:
                 replica.execute('select 1')
 
                 # cannot create new slot with the same name
-                with pytest.raises(expected_exception=TestgresException):
+                with pytest.raises(expected_exception=testgres_TestgresException):
                     node.replicate(slot='slot1')
 
     def test_incorrect_catchup(self, os_ops: OsOperations):
@@ -1022,7 +1026,7 @@ class TestTestgresCommon:
             node.init(allow_streaming=True).start()
 
             # node has no master, can't catch up
-            with pytest.raises(expected_exception=TestgresException):
+            with pytest.raises(expected_exception=testgres_TestgresException):
                 node.catchup()
 
     def test_promotion(self, os_ops: OsOperations):
