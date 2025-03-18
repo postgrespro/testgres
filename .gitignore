@@ -5,6 +5,7 @@
 dist/
 build/
 docs/build/
+logs/
 
 env/
 venv/
