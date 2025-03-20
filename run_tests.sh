@@ -46,15 +46,13 @@ time coverage run -a -m pytest -l -v -n 4 -k "${TEST_FILTER}"
 
 
 # run tests (PG_BIN)
-time \
-	PG_BIN=$(pg_config --bindir) \
-	coverage run -a -m pytest -l -v -n 4 -k "${TEST_FILTER}"
+PG_BIN=$(pg_config --bindir) \
+time coverage run -a -m pytest -l -v -n 4 -k "${TEST_FILTER}"
 
 
 # run tests (PG_CONFIG)
-time \
-	PG_CONFIG=$(pg_config --bindir)/pg_config \
-	coverage run -a -m pytest -l -v -n 4 -k "${TEST_FILTER}"
+PG_CONFIG=$(pg_config --bindir)/pg_config \
+time coverage run -a -m pytest -l -v -n 4 -k "${TEST_FILTER}"
 
 
 # show coverage
