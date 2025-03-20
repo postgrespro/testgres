@@ -13,19 +13,55 @@ RUN apt-get install -y time
 
 RUN apt-get install -y mc
 
-RUN apt-get update
-RUN apt-get install -y postgresql-common
-RUN apt-get install -y postgresql${PG_VERSION}-server
-RUN apt-get install -y postgresql${PG_VERSION}-server-devel
-
 RUN apt-get install -y libsqlite3-devel
 
 EXPOSE 22
 
 RUN ssh-keygen -A
 
+# --------------------------------------------- postgres
+FROM base1 as base1_with_dev_tools
+
+RUN apt-get update
+
+RUN apt-get install -y git
+RUN apt-get install -y gcc
+RUN apt-get install -y make
+
+RUN apt-get install -y meson
+RUN apt-get install -y flex
+RUN apt-get install -y bison
+
+RUN apt-get install -y pkg-config
+RUN apt-get install -y libssl-devel
+RUN apt-get install -y libicu-devel
+RUN apt-get install -y libzstd-devel
+RUN apt-get install -y zlib-devel
+RUN apt-get install -y liblz4-devel
+RUN apt-get install -y libzstd-devel
+RUN apt-get install -y libxml2-devel
+
+# --------------------------------------------- postgres
+FROM base1_with_dev_tools as base1_with_pg-17
+
+RUN git clone https://github.com/postgres/postgres.git -b REL_17_STABLE /pg/postgres/source
+
+WORKDIR /pg/postgres/source
+
+RUN ./configure --prefix=/pg/postgres/install --with-zlib --with-openssl --without-readline --with-lz4 --with-zstd --with-libxml
+RUN make -j 4 install
+RUN make -j 4 -C contrib install
+
+# SETUP PG_CONFIG
+# When pg_config symlink in /usr/local/bin it returns a real (right) result of --bindir
+RUN ln -s /pg/postgres/install/bin/pg_config -t /usr/local/bin
+
+# SETUP PG CLIENT LIBRARY
+# libpq.so.5 is enough
+RUN ln -s /pg/postgres/install/lib/libpq.so.5.17 /usr/lib64/libpq.so.5
+
 # --------------------------------------------- base2_with_python-3
-FROM base1 as base2_with_python-3
+FROM base1_with_pg-${PG_VERSION} as base2_with_python-3
 RUN apt-get install -y python3
 RUN apt-get install -y python3-dev
 RUN apt-get install -y python3-module-virtualenv
@@ -42,7 +78,7 @@ RUN sh -c "echo \"WHEEL_USERS ALL=(ALL:ALL) NOPASSWD: ALL\"" >> /etc/sudoers
 
 ADD . /pg/testgres
 WORKDIR /pg/testgres
-RUN chown -R test /pg
+RUN chown -R test /pg/testgres
 
 ENV LANG=C.UTF-8
 
