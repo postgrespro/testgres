@@ -66,6 +66,17 @@ RUN apt-get install -y python3
 RUN apt-get install -y python3-dev
 RUN apt-get install -y python3-module-virtualenv
 RUN apt-get install -y python3-modules-sqlite3
+
+# AltLinux does not have "generic" virtualenv utility. Let's create it.
+RUN if [[ -f "/usr/bin/virtualenv" ]] ; then \
+        echo AAA; \
+    elif [[ -f "/usr/bin/virtualenv3" ]] ; then \
+        ln -s /usr/bin/virtualenv3 /usr/bin/virtualenv; \
+    else \
+        echo "/usr/bin/virtualenv is not created!"; \
+        exit 1; \
+    fi
+
 ENV PYTHON_VERSION=3
 
 # --------------------------------------------- final
