@@ -8,24 +8,17 @@ if [ -z ${TEST_FILTER+x} ]; \
 then export TEST_FILTER="TestgresTests or (TestTestgresCommon and (not remote_ops))"; \
 fi
 
-# choose python version
-echo python version is $PYTHON_VERSION
-VIRTUALENV="virtualenv --python=/usr/bin/python$PYTHON_VERSION"
-PIP="pip$PYTHON_VERSION"
-
 # fail early
 echo check that pg_config is in PATH
 command -v pg_config
 
-# prepare environment
-VENV_PATH=/tmp/testgres_venv
+# prepare python environment
+VENV_PATH="/tmp/testgres_venv"
 rm -rf $VENV_PATH
-$VIRTUALENV $VENV_PATH
+virtualenv --python="/usr/bin/python${PYTHON_VERSION}" "${VENV_PATH}"
 export VIRTUAL_ENV_DISABLE_PROMPT=1
-source $VENV_PATH/bin/activate
-
-# install utilities
-$PIP install coverage flake8 psutil Sphinx pytest pytest-xdist psycopg2 six psutil
+source "${VENV_PATH}/bin/activate"
+pip install coverage flake8 psutil Sphinx pytest pytest-xdist psycopg2 six psutil
 
 # install testgres' dependencies
 export PYTHONPATH=$(pwd)
