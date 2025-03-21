@@ -45,6 +45,7 @@ class ProbackupApp:
 
     def __init__(self, test_class: unittest.TestCase,
                  pg_node, pb_log_path, test_env, auto_compress_alg, backup_dir, probackup_path=None):
+        self.process = None
         self.test_class = test_class
         self.pg_node = pg_node
         self.pb_log_path = pb_log_path
@@ -60,8 +61,35 @@ class ProbackupApp:
         self.test_class.output = None
         self.execution_time = None
 
+    def form_daemon_process(self, cmdline, env):
+        def stream_output(stream: subprocess.PIPE) -> None:
+            try:
+                for line in iter(stream.readline, ''):
+                    print(line)
+                    self.test_class.output += line
+            finally:
+                stream.close()
+
+        self.process = subprocess.Popen(
+            cmdline,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env
+        )
+        logging.info(f"Process started in background with PID: {self.process.pid}")
+
+        if self.process.stdout and self.process.stderr:
+            stdout_thread = threading.Thread(target=stream_output, args=(self.process.stdout,), daemon=True)
+            stderr_thread = threading.Thread(target=stream_output, args=(self.process.stderr,), daemon=True)
+
+            stdout_thread.start()
+            stderr_thread.start()
+
+        return self.process.pid
+
     def run(self, command, gdb=False, old_binary=False, return_id=True, env=None,
-            skip_log_directory=False, expect_error=False, use_backup_dir=True):
+            skip_log_directory=False, expect_error=False, use_backup_dir=True, daemonize=False):
         """
         Run pg_probackup
         backup_dir: target directory for making backup
@@ -118,11 +146,14 @@ class ProbackupApp:
                 logging.warning("pg_probackup gdb suspended, waiting gdb connection on localhost:{0}".format(gdb_port))
 
             start_time = time.time()
-            self.test_class.output = subprocess.check_output(
-                cmdline,
-                stderr=subprocess.STDOUT,
-                env=env
-            ).decode('utf-8', errors='replace')
+            if daemonize:
+                return self.form_daemon_process(cmdline, env)
+            else:
+                self.test_class.output = subprocess.check_output(
+                    cmdline,
+                    stderr=subprocess.STDOUT,
+                    env=env
+                ).decode('utf-8', errors='replace')
             end_time = time.time()
             self.execution_time = end_time - start_time
 
