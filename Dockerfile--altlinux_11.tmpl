@@ -1,0 +1,118 @@
+ARG PG_VERSION
+ARG PYTHON_VERSION 
+
+# --------------------------------------------- base1
+FROM alt:p11 as base1
+ARG PG_VERSION
+
+RUN apt-get update
+RUN apt-get install -y sudo curl ca-certificates
+RUN apt-get update
+RUN apt-get install -y openssh-server openssh-clients
+RUN apt-get install -y time
+
+RUN apt-get install -y mc
+
+RUN apt-get install -y libsqlite3-devel
+
+EXPOSE 22
+
+RUN ssh-keygen -A
+
+# --------------------------------------------- postgres
+FROM base1 as base1_with_dev_tools
+
+RUN apt-get update
+
+RUN apt-get install -y git
+RUN apt-get install -y gcc
+RUN apt-get install -y make
+
+RUN apt-get install -y meson
+RUN apt-get install -y flex
+RUN apt-get install -y bison
+
+RUN apt-get install -y pkg-config
+RUN apt-get install -y libssl-devel
+RUN apt-get install -y libicu-devel
+RUN apt-get install -y libzstd-devel
+RUN apt-get install -y zlib-devel
+RUN apt-get install -y liblz4-devel
+RUN apt-get install -y libzstd-devel
+RUN apt-get install -y libxml2-devel
+
+# --------------------------------------------- postgres
+FROM base1_with_dev_tools as base1_with_pg-17
+
+RUN git clone https://github.com/postgres/postgres.git -b REL_17_STABLE /pg/postgres/source
+
+WORKDIR /pg/postgres/source
+
+RUN ./configure --prefix=/pg/postgres/install --with-zlib --with-openssl --without-readline --with-lz4 --with-zstd --with-libxml
+RUN make -j 4 install
+RUN make -j 4 -C contrib install
+
+# SETUP PG_CONFIG
+# When pg_config symlink in /usr/local/bin it returns a real (right) result of --bindir
+RUN ln -s /pg/postgres/install/bin/pg_config -t /usr/local/bin
+
+# SETUP PG CLIENT LIBRARY
+# libpq.so.5 is enough
+RUN ln -s /pg/postgres/install/lib/libpq.so.5.17 /usr/lib64/libpq.so.5
+
+# --------------------------------------------- base2_with_python-3
+FROM base1_with_pg-${PG_VERSION} as base2_with_python-3
+RUN apt-get install -y python3
+RUN apt-get install -y python3-dev
+RUN apt-get install -y python3-module-virtualenv
+RUN apt-get install -y python3-modules-sqlite3
+
+# AltLinux does not have "generic" virtualenv utility. Let's create it.
+RUN if [[ -f "/usr/bin/virtualenv" ]] ; then \
+        echo AAA; \
+    elif [[ -f "/usr/bin/virtualenv3" ]] ; then \
+        ln -s /usr/bin/virtualenv3 /usr/bin/virtualenv; \
+    else \
+        echo "/usr/bin/virtualenv is not created!"; \
+        exit 1; \
+    fi
+
+ENV PYTHON_VERSION=3
+
+# --------------------------------------------- final
+FROM base2_with_python-${PYTHON_VERSION} as final
+
+RUN adduser test -G wheel
+
+# It enables execution of "sudo service ssh start" without password
+RUN sh -c "echo \"WHEEL_USERS ALL=(ALL:ALL) NOPASSWD: ALL\"" >> /etc/sudoers
+
+ADD . /pg/testgres
+WORKDIR /pg/testgres
+RUN chown -R test /pg/testgres
+
+ENV LANG=C.UTF-8
+
+USER test
+
+RUN chmod 700 ~/
+RUN mkdir -p ~/.ssh
+
+#
+# Altlinux 10 and 11 too slowly create a new SSH connection (x6).
+#
+# So, we exclude the "remote" tests until this problem has been resolved.
+# 
+
+ENTRYPOINT sh -c " \
+set -eux; \
+echo HELLO FROM ENTRYPOINT; \
+echo HOME DIR IS [`realpath ~/`]; \
+sudo /usr/sbin/sshd; \
+ssh-keyscan -H localhost >> ~/.ssh/known_hosts; \
+ssh-keyscan -H 127.0.0.1 >> ~/.ssh/known_hosts; \
+ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -N ''; \
+cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys; \
+chmod 600 ~/.ssh/authorized_keys; \
+ls -la ~/.ssh/; \
+TEST_FILTER=\"TestgresTests or (TestTestgresCommon and (not remote_ops))\" bash ./run_tests.sh;"
