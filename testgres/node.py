@@ -92,7 +92,7 @@ from .utils import \
     PgVer, \
     eprint, \
     get_bin_path2, \
-    get_pg_version, \
+    get_pg_version2, \
     execute_utility2, \
     options_string, \
     clean_on_error
@@ -148,16 +148,6 @@ class PostgresNode(object):
         """
 
         # private
-        self._pg_version = PgVer(get_pg_version(bin_dir))
-        self._should_free_port = port is None
-        self._base_dir = base_dir
-        self._bin_dir = bin_dir
-        self._prefix = prefix
-        self._logger = None
-        self._master = None
-
-        # basic
-        self.name = name or generate_app_name()
         if os_ops is None:
             os_ops = __class__._get_os_ops(conn_params)
         else:
@@ -167,6 +157,17 @@ class PostgresNode(object):
         assert os_ops is not None
         assert isinstance(os_ops, OsOperations)
         self._os_ops = os_ops
+
+        self._pg_version = PgVer(get_pg_version2(os_ops, bin_dir))
+        self._should_free_port = port is None
+        self._base_dir = base_dir
+        self._bin_dir = bin_dir
+        self._prefix = prefix
+        self._logger = None
+        self._master = None
+
+        # basic
+        self.name = name or generate_app_name()
 
         self.host = os_ops.host
         self.port = port or utils.reserve_port()
