@@ -462,45 +462,53 @@ def run_after_tests(request: pytest.FixtureRequest):
 
     yield
 
-    logging.info("--------------------------- [ACHTUNG TESTS]")
-    logging.info("")
+    C_LINE1 = "---------------------------"
 
-    assert len(TEST_PROCESS_STATS.AchtungTests) == TEST_PROCESS_STATS.cAchtungTests
+    def LOCAL__print_line1_with_header(header: str):
+        assert type(C_LINE1) == str  # noqa: E721
+        assert type(header) == str  # noqa: E721
+        assert header != ""
+        logging.info(C_LINE1 + " [" + header + "]")
 
-    if len(TEST_PROCESS_STATS.AchtungTests) > 0:
-        helper__print_test_list(TEST_PROCESS_STATS.AchtungTests)
+    def LOCAL__print_test_list(header: str, test_count: int, test_list: list[str]):
+        assert type(header) == str  # noqa: E721
+        assert type(test_count) == int  # noqa: E721
+        assert type(test_list) == list  # noqa: E721
+        assert header != ""
+        assert test_count >= 0
+        assert len(test_list) == test_count
+
+        LOCAL__print_line1_with_header(header)
         logging.info("")
+        if len(test_list) > 0:
+            helper__print_test_list(TEST_PROCESS_STATS.AchtungTests)
+            logging.info("")
 
-    logging.info("--------------------------- [FAILED TESTS]")
-    logging.info("")
-
-    assert len(TEST_PROCESS_STATS.FailedTests) == TEST_PROCESS_STATS.cFailedTests
-
-    if len(TEST_PROCESS_STATS.FailedTests) > 0:
-        helper__print_test_list(TEST_PROCESS_STATS.FailedTests)
-        logging.info("")
-
-    logging.info("--------------------------- [XFAILED TESTS]")
-    logging.info("")
-
-    assert len(TEST_PROCESS_STATS.XFailedTests) == TEST_PROCESS_STATS.cXFailedTests
-
-    if len(TEST_PROCESS_STATS.XFailedTests) > 0:
-        helper__print_test_list(TEST_PROCESS_STATS.XFailedTests)
-        logging.info("")
-
-    logging.info("--------------------------- [NOT XFAILED TESTS]")
-    logging.info("")
-
-    assert (
-        len(TEST_PROCESS_STATS.NotXFailedTests) == TEST_PROCESS_STATS.cNotXFailedTests
+    LOCAL__print_test_list(
+        "ACHTUNG TESTS",
+        TEST_PROCESS_STATS.cAchtungTests,
+        TEST_PROCESS_STATS.AchtungTests
     )
 
-    if len(TEST_PROCESS_STATS.NotXFailedTests) > 0:
-        helper__print_test_list(TEST_PROCESS_STATS.NotXFailedTests)
-        logging.info("")
+    LOCAL__print_test_list(
+        "FAILED TESTS",
+        TEST_PROCESS_STATS.cFailedTests,
+        TEST_PROCESS_STATS.FailedTests
+    )
 
-    logging.info("--------------------------- [SUMMARY STATISTICS]")
+    LOCAL__print_test_list(
+        "XFAILED TESTS",
+        TEST_PROCESS_STATS.cXFailedTests,
+        TEST_PROCESS_STATS.XFailedTests
+    )
+
+    LOCAL__print_test_list(
+        "NOT XFAILED TESTS",
+        TEST_PROCESS_STATS.cNotXFailedTests,
+        TEST_PROCESS_STATS.NotXFailedTests
+    )
+
+    LOCAL__print_line1_with_header("SUMMARY STATISTICS")
     logging.info("")
     logging.info("[TESTS]")
     logging.info(" TOTAL       : {0}".format(TEST_PROCESS_STATS.cTotalTests))
