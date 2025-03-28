@@ -185,11 +185,15 @@ def get_pg_config2(os_ops: OsOperations, pg_config_path):
         return _pg_config_data
 
     # try specified pg_config path or PG_CONFIG
+    if pg_config_path:
+        return cache_pg_config_data(pg_config_path)
+
     if isinstance(os_ops, RemoteOperations):
-        pg_config = pg_config_path or os.environ.get("PG_CONFIG_REMOTE") or os.environ.get("PG_CONFIG")
+        pg_config = os.environ.get("PG_CONFIG_REMOTE") or os.environ.get("PG_CONFIG")
     else:
         # try PG_CONFIG - get from local machine
-        pg_config = pg_config_path or os.environ.get("PG_CONFIG")
+        pg_config = os.environ.get("PG_CONFIG")
+
     if pg_config:
         return cache_pg_config_data(pg_config)
 
