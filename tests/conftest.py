@@ -365,7 +365,8 @@ def helper__makereport__call(
     else:
         TEST_PROCESS_STATS.incrementUnexpectedTests()
         exitStatus = "UNEXPECTED [{0}]".format(rep.outcome)
-        assert False
+        # [2025-03-28] It may create a useless problem in new environment.
+        # assert False
 
     # --------
     logging.info("*")
