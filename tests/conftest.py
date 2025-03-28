@@ -514,6 +514,7 @@ def run_after_tests(request: pytest.FixtureRequest):
     logging.info(" TOTAL       : {0}".format(TEST_PROCESS_STATS.cTotalTests))
     logging.info(" EXECUTED    : {0}".format(TEST_PROCESS_STATS.cExecutedTests))
     logging.info(" NOT EXECUTED: {0}".format(TEST_PROCESS_STATS.cNotExecutedTests))
+    logging.info(" ACHTUNG     : {0}".format(TEST_PROCESS_STATS.cAchtungTests))
     logging.info("")
     logging.info(" PASSED      : {0}".format(TEST_PROCESS_STATS.cPassedTests))
     logging.info(" FAILED      : {0}".format(TEST_PROCESS_STATS.cFailedTests))
