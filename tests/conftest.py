@@ -482,7 +482,7 @@ def run_after_tests(request: pytest.FixtureRequest):
         LOCAL__print_line1_with_header(header)
         logging.info("")
         if len(test_list) > 0:
-            helper__print_test_list(TEST_PROCESS_STATS.AchtungTests)
+            helper__print_test_list(test_list)
             logging.info("")
 
     LOCAL__print_test_list(
