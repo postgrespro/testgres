@@ -212,8 +212,8 @@ def get_pg_version2(os_ops: OsOperations, bin_dir=None):
 
     # Get raw version (e.g., postgres (PostgreSQL) 9.5.7)
     postgres_path = os.path.join(bin_dir, 'postgres') if bin_dir else get_bin_path2(os_ops, 'postgres')
-    _params = [postgres_path, '--version']
-    raw_ver = os_ops.exec_command(_params, encoding='utf-8')
+    cmd = [postgres_path, '--version']
+    raw_ver = os_ops.exec_command(cmd, encoding='utf-8')
 
     return parse_pg_version(raw_ver)
 
