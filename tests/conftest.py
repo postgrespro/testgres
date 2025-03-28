@@ -1,16 +1,17 @@
 # /////////////////////////////////////////////////////////////////////////////
 # PyTest Configuration
 
-import _pytest.outcomes
-
 import pluggy
 import pytest
-import _pytest
 import os
 import logging
 import pathlib
 import math
 import datetime
+
+import _pytest.outcomes
+import _pytest.unittest
+import _pytest.logging
 
 # /////////////////////////////////////////////////////////////////////////////
 
@@ -89,10 +90,6 @@ class TestStartupData:
     def GetCurrentTestWorkerSignature() -> str:
         assert type(__class__.sm_CurrentTestWorkerSignature) == str  # noqa: E721
         return __class__.sm_CurrentTestWorkerSignature
-
-
-# /////////////////////////////////////////////////////////////////////////////# /////////////////////////////////////////////////////////////////////////////
-# Fixtures
 
 
 # /////////////////////////////////////////////////////////////////////////////
@@ -198,9 +195,12 @@ def helper__makereport__setup(
     assert item is not None
     assert call is not None
     assert outcome is not None
-    assert type(item) == pytest.Function  # noqa: E721
+    # it may be pytest.Function or _pytest.unittest.TestCaseFunction
+    assert isinstance(item, pytest.Function)
     assert type(call) == pytest.CallInfo  # noqa: E721
     assert type(outcome) == pluggy.Result  # noqa: E721
+
+    C_LINE1 = "******************************************************"
 
     # logging.info("pytest_runtest_makereport - setup")
 
@@ -214,10 +214,6 @@ def helper__makereport__setup(
         TEST_PROCESS_STATS.incrementNotExecutedTestCount()
         return
 
-    assert rep.outcome == "passed"
-
-    testNumber = TEST_PROCESS_STATS.incrementExecutedTestCount()
-
     testID = ""
 
     if item.cls is not None:
@@ -225,15 +221,25 @@ def helper__makereport__setup(
 
     testID = testID + item.name
 
-    if testNumber > 1:
-        logging.info("")
+    if rep.outcome == "passed":
+        testNumber = TEST_PROCESS_STATS.incrementExecutedTestCount()
 
-    logging.info("******************************************************")
-    logging.info("* START TEST {0}".format(testID))
+        logging.info(C_LINE1)
+        logging.info("* START TEST {0}".format(testID))
+        logging.info("*")
+        logging.info("* Path  : {0}".format(item.path))
+        logging.info("* Number: {0}".format(testNumber))
+        logging.info("*")
+        return
+
+    assert rep.outcome != "passed"
+
+    logging.info(C_LINE1)
+    logging.info("* ACHTUNG TEST {0}".format(testID))
     logging.info("*")
-    logging.info("* Path  : {0}".format(item.path))
-    logging.info("* Number: {0}".format(testNumber))
+    logging.info("* Outcome is [{0}]".format(rep.outcome))
     logging.info("*")
+    return
 
 
 # ------------------------------------------------------------------------
@@ -243,11 +249,10 @@ def helper__makereport__call(
     assert item is not None
     assert call is not None
     assert outcome is not None
-    assert type(item) == pytest.Function  # noqa: E721
+    # it may be pytest.Function or _pytest.unittest.TestCaseFunction
+    assert isinstance(item, pytest.Function)
     assert type(call) == pytest.CallInfo  # noqa: E721
     assert type(outcome) == pluggy.Result  # noqa: E721
-
-    # logging.info("pytest_runtest_makereport - call")
 
     rep = outcome.get_result()
     assert rep is not None
@@ -350,6 +355,7 @@ def helper__makereport__call(
     logging.info("* EXIT STATUS : {0}".format(exitStatus))
     logging.info("*")
     logging.info("* STOP TEST {0}".format(testID))
+    logging.info("*")
 
 
 # /////////////////////////////////////////////////////////////////////////////
@@ -359,16 +365,13 @@ def helper__makereport__call(
 def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     assert item is not None
     assert call is not None
-    assert type(item) == pytest.Function  # noqa: E721
+    # it may be pytest.Function or _pytest.unittest.TestCaseFunction
+    assert isinstance(item, pytest.Function)
     assert type(call) == pytest.CallInfo  # noqa: E721
-
-    # logging.info("[pytest_runtest_makereport][#001][{0}][{1}]".format(item.name, call.when))
 
     outcome: pluggy.Result = yield
     assert outcome is not None
     assert type(outcome) == pluggy.Result  # noqa: E721
-
-    # logging.info("[pytest_runtest_makereport][#002][{0}][{1}]".format(item.name, call.when))
 
     rep: pytest.TestReport = outcome.get_result()
     assert rep is not None
@@ -503,7 +506,13 @@ def pytest_configure(config: pytest.Config) -> None:
 
     log_path.mkdir(exist_ok=True)
 
-    logging_plugin = config.pluginmanager.get_plugin("logging-plugin")
+    logging_plugin: _pytest.logging.LoggingPlugin = config.pluginmanager.get_plugin(
+        "logging-plugin"
+    )
+
+    assert logging_plugin is not None
+    assert isinstance(logging_plugin, _pytest.logging.LoggingPlugin)
+
     logging_plugin.set_log_path(str(log_path / log_name))
 
 
