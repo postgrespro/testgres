@@ -1,16 +1,17 @@
 # /////////////////////////////////////////////////////////////////////////////
 # PyTest Configuration
 
-import _pytest.outcomes
-
 import pluggy
 import pytest
-import _pytest
 import os
 import logging
 import pathlib
 import math
 import datetime
+
+import _pytest.outcomes
+import _pytest.unittest
+import _pytest.logging
 
 # /////////////////////////////////////////////////////////////////////////////
 
@@ -91,10 +92,6 @@ class TestStartupData:
         return __class__.sm_CurrentTestWorkerSignature
 
 
-# /////////////////////////////////////////////////////////////////////////////# /////////////////////////////////////////////////////////////////////////////
-# Fixtures
-
-
 # /////////////////////////////////////////////////////////////////////////////
 # TEST_PROCESS_STATS
 
@@ -109,10 +106,12 @@ class TEST_PROCESS_STATS:
     cSkippedTests: int = 0
     cNotXFailedTests: int = 0
     cUnexpectedTests: int = 0
+    cAchtungTests: int = 0
 
     FailedTests = list[str]()
     XFailedTests = list[str]()
     NotXFailedTests = list[str]()
+    AchtungTests = list[str]()
 
     # --------------------------------------------------------------------
     def incrementTotalTestCount() -> None:
@@ -163,6 +162,14 @@ class TEST_PROCESS_STATS:
     def incrementUnexpectedTests() -> None:
         __class__.cUnexpectedTests += 1
 
+    # --------------------------------------------------------------------
+    def incrementAchtungTestCount(testID: str) -> None:
+        assert type(testID) == str  # noqa: E721
+        assert type(__class__.AchtungTests) == list  # noqa: E721
+
+        __class__.AchtungTests.append(testID)  # raise?
+        __class__.cAchtungTests += 1
+
 
 # /////////////////////////////////////////////////////////////////////////////
 
@@ -198,9 +205,12 @@ def helper__makereport__setup(
     assert item is not None
     assert call is not None
     assert outcome is not None
-    assert type(item) == pytest.Function  # noqa: E721
+    # it may be pytest.Function or _pytest.unittest.TestCaseFunction
+    assert isinstance(item, pytest.Function)
     assert type(call) == pytest.CallInfo  # noqa: E721
     assert type(outcome) == pluggy.Result  # noqa: E721
+
+    C_LINE1 = "******************************************************"
 
     # logging.info("pytest_runtest_makereport - setup")
 
@@ -214,10 +224,6 @@ def helper__makereport__setup(
         TEST_PROCESS_STATS.incrementNotExecutedTestCount()
         return
 
-    assert rep.outcome == "passed"
-
-    testNumber = TEST_PROCESS_STATS.incrementExecutedTestCount()
-
     testID = ""
 
     if item.cls is not None:
@@ -225,15 +231,35 @@ def helper__makereport__setup(
 
     testID = testID + item.name
 
-    if testNumber > 1:
-        logging.info("")
+    if rep.outcome == "passed":
+        testNumber = TEST_PROCESS_STATS.incrementExecutedTestCount()
 
-    logging.info("******************************************************")
-    logging.info("* START TEST {0}".format(testID))
+        logging.info(C_LINE1)
+        logging.info("* START TEST {0}".format(testID))
+        logging.info("*")
+        logging.info("* Path  : {0}".format(item.path))
+        logging.info("* Number: {0}".format(testNumber))
+        logging.info("*")
+        return
+
+    assert rep.outcome != "passed"
+
+    TEST_PROCESS_STATS.incrementAchtungTestCount(testID)
+
+    logging.info(C_LINE1)
+    logging.info("* ACHTUNG TEST {0}".format(testID))
     logging.info("*")
     logging.info("* Path  : {0}".format(item.path))
-    logging.info("* Number: {0}".format(testNumber))
+    logging.info("* Outcome is [{0}]".format(rep.outcome))
+
+    if rep.outcome == "failed":
+        assert call.excinfo is not None
+        assert call.excinfo.value is not None
+        logging.info("*")
+        logging.error(call.excinfo.value)
+
     logging.info("*")
+    return
 
 
 # ------------------------------------------------------------------------
@@ -243,11 +269,10 @@ def helper__makereport__call(
     assert item is not None
     assert call is not None
     assert outcome is not None
-    assert type(item) == pytest.Function  # noqa: E721
+    # it may be pytest.Function or _pytest.unittest.TestCaseFunction
+    assert isinstance(item, pytest.Function)
     assert type(call) == pytest.CallInfo  # noqa: E721
     assert type(outcome) == pluggy.Result  # noqa: E721
-
-    # logging.info("pytest_runtest_makereport - call")
 
     rep = outcome.get_result()
     assert rep is not None
@@ -341,7 +366,8 @@ def helper__makereport__call(
     else:
         TEST_PROCESS_STATS.incrementUnexpectedTests()
         exitStatus = "UNEXPECTED [{0}]".format(rep.outcome)
-        assert False
+        # [2025-03-28] It may create a useless problem in new environment.
+        # assert False
 
     # --------
     logging.info("*")
@@ -350,6 +376,7 @@ def helper__makereport__call(
     logging.info("* EXIT STATUS : {0}".format(exitStatus))
     logging.info("*")
     logging.info("* STOP TEST {0}".format(testID))
+    logging.info("*")
 
 
 # /////////////////////////////////////////////////////////////////////////////
@@ -359,16 +386,13 @@ def helper__makereport__call(
 def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     assert item is not None
     assert call is not None
-    assert type(item) == pytest.Function  # noqa: E721
+    # it may be pytest.Function or _pytest.unittest.TestCaseFunction
+    assert isinstance(item, pytest.Function)
     assert type(call) == pytest.CallInfo  # noqa: E721
-
-    # logging.info("[pytest_runtest_makereport][#001][{0}][{1}]".format(item.name, call.when))
 
     outcome: pluggy.Result = yield
     assert outcome is not None
     assert type(outcome) == pluggy.Result  # noqa: E721
-
-    # logging.info("[pytest_runtest_makereport][#002][{0}][{1}]".format(item.name, call.when))
 
     rep: pytest.TestReport = outcome.get_result()
     assert rep is not None
@@ -440,41 +464,61 @@ def run_after_tests(request: pytest.FixtureRequest):
 
     yield
 
-    logging.info("--------------------------- [FAILED TESTS]")
-    logging.info("")
+    C_LINE1 = "---------------------------"
 
-    assert len(TEST_PROCESS_STATS.FailedTests) == TEST_PROCESS_STATS.cFailedTests
+    def LOCAL__print_line1_with_header(header: str):
+        assert type(C_LINE1) == str  # noqa: E721
+        assert type(header) == str  # noqa: E721
+        assert header != ""
+        logging.info(C_LINE1 + " [" + header + "]")
 
-    if len(TEST_PROCESS_STATS.FailedTests) > 0:
-        helper__print_test_list(TEST_PROCESS_STATS.FailedTests)
+    def LOCAL__print_test_list(header: str, test_count: int, test_list: list[str]):
+        assert type(header) == str  # noqa: E721
+        assert type(test_count) == int  # noqa: E721
+        assert type(test_list) == list  # noqa: E721
+        assert header != ""
+        assert test_count >= 0
+        assert len(test_list) == test_count
+
+        LOCAL__print_line1_with_header(header)
         logging.info("")
+        if len(test_list) > 0:
+            helper__print_test_list(test_list)
+            logging.info("")
 
-    logging.info("--------------------------- [XFAILED TESTS]")
-    logging.info("")
-
-    assert len(TEST_PROCESS_STATS.XFailedTests) == TEST_PROCESS_STATS.cXFailedTests
-
-    if len(TEST_PROCESS_STATS.XFailedTests) > 0:
-        helper__print_test_list(TEST_PROCESS_STATS.XFailedTests)
-        logging.info("")
-
-    logging.info("--------------------------- [NOT XFAILED TESTS]")
-    logging.info("")
-
-    assert (
-        len(TEST_PROCESS_STATS.NotXFailedTests) == TEST_PROCESS_STATS.cNotXFailedTests
+    # fmt: off
+    LOCAL__print_test_list(
+        "ACHTUNG TESTS",
+        TEST_PROCESS_STATS.cAchtungTests,
+        TEST_PROCESS_STATS.AchtungTests,
     )
 
-    if len(TEST_PROCESS_STATS.NotXFailedTests) > 0:
-        helper__print_test_list(TEST_PROCESS_STATS.NotXFailedTests)
-        logging.info("")
+    LOCAL__print_test_list(
+        "FAILED TESTS",
+        TEST_PROCESS_STATS.cFailedTests,
+        TEST_PROCESS_STATS.FailedTests
+    )
 
-    logging.info("--------------------------- [SUMMARY STATISTICS]")
+    LOCAL__print_test_list(
+        "XFAILED TESTS",
+        TEST_PROCESS_STATS.cXFailedTests,
+        TEST_PROCESS_STATS.XFailedTests,
+    )
+
+    LOCAL__print_test_list(
+        "NOT XFAILED TESTS",
+        TEST_PROCESS_STATS.cNotXFailedTests,
+        TEST_PROCESS_STATS.NotXFailedTests,
+    )
+    # fmt: on
+
+    LOCAL__print_line1_with_header("SUMMARY STATISTICS")
     logging.info("")
     logging.info("[TESTS]")
     logging.info(" TOTAL       : {0}".format(TEST_PROCESS_STATS.cTotalTests))
     logging.info(" EXECUTED    : {0}".format(TEST_PROCESS_STATS.cExecutedTests))
     logging.info(" NOT EXECUTED: {0}".format(TEST_PROCESS_STATS.cNotExecutedTests))
+    logging.info(" ACHTUNG     : {0}".format(TEST_PROCESS_STATS.cAchtungTests))
     logging.info("")
     logging.info(" PASSED      : {0}".format(TEST_PROCESS_STATS.cPassedTests))
     logging.info(" FAILED      : {0}".format(TEST_PROCESS_STATS.cFailedTests))
@@ -503,7 +547,13 @@ def pytest_configure(config: pytest.Config) -> None:
 
     log_path.mkdir(exist_ok=True)
 
-    logging_plugin = config.pluginmanager.get_plugin("logging-plugin")
+    logging_plugin: _pytest.logging.LoggingPlugin = config.pluginmanager.get_plugin(
+        "logging-plugin"
+    )
+
+    assert logging_plugin is not None
+    assert isinstance(logging_plugin, _pytest.logging.LoggingPlugin)
+
     logging_plugin.set_log_path(str(log_path / log_name))
 
 
