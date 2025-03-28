@@ -106,10 +106,12 @@ class TEST_PROCESS_STATS:
     cSkippedTests: int = 0
     cNotXFailedTests: int = 0
     cUnexpectedTests: int = 0
+    cAchtungTests: int = 0
 
     FailedTests = list[str]()
     XFailedTests = list[str]()
     NotXFailedTests = list[str]()
+    AchtungTests = list[str]()
 
     # --------------------------------------------------------------------
     def incrementTotalTestCount() -> None:
@@ -160,6 +162,13 @@ class TEST_PROCESS_STATS:
     def incrementUnexpectedTests() -> None:
         __class__.cUnexpectedTests += 1
 
+    # --------------------------------------------------------------------
+    def incrementAchtungTestCount(testID: str) -> None:
+        assert type(testID) == str  # noqa: E721
+        assert type(__class__.AchtungTests) == list  # noqa: E721
+
+        __class__.AchtungTests.append(testID)  # raise?
+        __class__.cAchtungTests += 1
 
 # /////////////////////////////////////////////////////////////////////////////
 
@@ -234,10 +243,20 @@ def helper__makereport__setup(
 
     assert rep.outcome != "passed"
 
+    TEST_PROCESS_STATS.incrementAchtungTestCount(testID)
+
     logging.info(C_LINE1)
     logging.info("* ACHTUNG TEST {0}".format(testID))
     logging.info("*")
+    logging.info("* Path  : {0}".format(item.path))
     logging.info("* Outcome is [{0}]".format(rep.outcome))
+
+    if rep.outcome == "failed":
+        assert call.excinfo is not None
+        assert call.excinfo.value is not None
+        logging.info("*")
+        logging.error(call.excinfo.value)
+
     logging.info("*")
     return
 
@@ -442,6 +461,15 @@ def run_after_tests(request: pytest.FixtureRequest):
     assert isinstance(request, pytest.FixtureRequest)
 
     yield
+
+    logging.info("--------------------------- [ACHTUNG TESTS]")
+    logging.info("")
+
+    assert len(TEST_PROCESS_STATS.AchtungTests) == TEST_PROCESS_STATS.cAchtungTests
+
+    if len(TEST_PROCESS_STATS.AchtungTests) > 0:
+        helper__print_test_list(TEST_PROCESS_STATS.AchtungTests)
+        logging.info("")
 
     logging.info("--------------------------- [FAILED TESTS]")
     logging.info("")
