@@ -170,6 +170,7 @@ class TEST_PROCESS_STATS:
         __class__.AchtungTests.append(testID)  # raise?
         __class__.cAchtungTests += 1
 
+
 # /////////////////////////////////////////////////////////////////////////////
 
 
@@ -485,10 +486,11 @@ def run_after_tests(request: pytest.FixtureRequest):
             helper__print_test_list(test_list)
             logging.info("")
 
+    # fmt: off
     LOCAL__print_test_list(
         "ACHTUNG TESTS",
         TEST_PROCESS_STATS.cAchtungTests,
-        TEST_PROCESS_STATS.AchtungTests
+        TEST_PROCESS_STATS.AchtungTests,
     )
 
     LOCAL__print_test_list(
@@ -500,14 +502,15 @@ def run_after_tests(request: pytest.FixtureRequest):
     LOCAL__print_test_list(
         "XFAILED TESTS",
         TEST_PROCESS_STATS.cXFailedTests,
-        TEST_PROCESS_STATS.XFailedTests
+        TEST_PROCESS_STATS.XFailedTests,
     )
 
     LOCAL__print_test_list(
         "NOT XFAILED TESTS",
         TEST_PROCESS_STATS.cNotXFailedTests,
-        TEST_PROCESS_STATS.NotXFailedTests
+        TEST_PROCESS_STATS.NotXFailedTests,
     )
+    # fmt: on
 
     LOCAL__print_line1_with_header("SUMMARY STATISTICS")
     logging.info("")
