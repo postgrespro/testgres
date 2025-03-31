@@ -390,6 +390,12 @@ def helper__makereport__call(
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
+    #
+    # https://docs.pytest.org/en/7.1.x/how-to/writing_hook_functions.html#hookwrapper-executing-around-other-hooks
+    #
+    # Note that hook wrappers don’t return results themselves,
+    # they merely perform tracing or other side effects around the actual hook implementations.
+    #
     assert item is not None
     assert call is not None
     # it may be pytest.Function or _pytest.unittest.TestCaseFunction
@@ -399,6 +405,8 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     outcome: pluggy.Result = yield
     assert outcome is not None
     assert type(outcome) == pluggy.Result  # noqa: E721
+
+    assert type(call.when) == str
 
     if call.when == "collect":
         return
@@ -414,7 +422,9 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     if call.when == "teardown":
         return
 
-    assert False
+    errMsg = "[pytest_runtest_makereport] unknown 'call.when' value: [{0}].".format(call.when)
+
+    raise RuntimeError(errMsg)
 
 
 # /////////////////////////////////////////////////////////////////////////////
