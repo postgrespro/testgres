@@ -399,6 +399,8 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     # Note that hook wrappers don’t return results themselves,
     # they merely perform tracing or other side effects around the actual hook implementations.
     #
+    # https://docs.pytest.org/en/7.1.x/reference/reference.html#test-running-runtest-hooks
+    #
     assert item is not None
     assert call is not None
     # it may be pytest.Function or _pytest.unittest.TestCaseFunction
@@ -425,7 +427,9 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     if call.when == "teardown":
         return
 
-    errMsg = "[pytest_runtest_makereport] unknown 'call.when' value: [{0}].".format(call.when)
+    errMsg = "[pytest_runtest_makereport] unknown 'call.when' value: [{0}].".format(
+        call.when
+    )
 
     raise RuntimeError(errMsg)
 
