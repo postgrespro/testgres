@@ -316,14 +316,14 @@ def helper__makereport__call(
 
             exitStatus = "SKIPPED"
             reasonText = str(call.excinfo.value)
-            reasonMsg = "SKIP REASON: {0}"
+            reasonMsgTempl = "SKIP REASON: {0}"
 
         elif type(call.excinfo.value) == _pytest.outcomes.XFailed:  # noqa: E721
             TEST_PROCESS_STATS.incrementXFailedTestCount(testID)
 
             exitStatus = "XFAILED"
             reasonText = str(call.excinfo.value)
-            reasonMsg = "XFAIL REASON: {0}"
+            reasonMsgTempl = "XFAIL REASON: {0}"
         else:
             exitStatus = "XFAILED"
             assert hasattr(rep, "wasxfail")
@@ -333,13 +333,16 @@ def helper__makereport__call(
             TEST_PROCESS_STATS.incrementXFailedTestCount(testID)
 
             reasonText = rep.wasxfail
-            reasonMsg = "XFAIL REASON: {0}"
+            reasonMsgTempl = "XFAIL REASON: {0}"
 
             logging.error(call.excinfo.value)
 
+        assert type(reasonText) == str  # noqa: E721
+
         if reasonText != "":
+            assert type(reasonMsgTempl) == str  # noqa: E721
             logging.info("*")
-            logging.info("* " + reasonMsg.format(reasonText))
+            logging.info("* " + reasonMsgTempl.format(reasonText))
 
     elif rep.outcome == "failed":
         assert call.excinfo is not None
