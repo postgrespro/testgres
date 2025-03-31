@@ -394,10 +394,6 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     assert outcome is not None
     assert type(outcome) == pluggy.Result  # noqa: E721
 
-    rep: pytest.TestReport = outcome.get_result()
-    assert rep is not None
-    assert type(rep) == pytest.TestReport  # noqa: E721
-
     if call.when == "collect":
         return
 
