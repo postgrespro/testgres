@@ -8,6 +8,7 @@ import logging
 import pathlib
 import math
 import datetime
+import typing
 
 import _pytest.outcomes
 import _pytest.unittest
@@ -212,6 +213,12 @@ def helper__build_test_id(item: pytest.Function) -> str:
 
     return testID
 
+
+# /////////////////////////////////////////////////////////////////////////////
+
+g_error_msg_count_key = pytest.StashKey[int]()
+g_warning_msg_count_key = pytest.StashKey[int]()
+
 # /////////////////////////////////////////////////////////////////////////////
 
 
@@ -285,6 +292,16 @@ def helper__makereport__call(
     assert type(call) == pytest.CallInfo  # noqa: E721
     assert type(outcome) == pluggy.Result  # noqa: E721
 
+    # --------
+    item_error_msg_count = item.stash.get(g_error_msg_count_key, 0)
+    assert type(item_error_msg_count) == int  # noqa: E721
+    assert item_error_msg_count >= 0
+
+    item_warning_msg_count = item.stash.get(g_warning_msg_count_key, 0)
+    assert type(item_warning_msg_count) == int  # noqa: E721
+    assert item_warning_msg_count >= 0
+
+    # --------
     rep = outcome.get_result()
     assert rep is not None
     assert type(rep) == pytest.TestReport  # noqa: E721
@@ -336,6 +353,7 @@ def helper__makereport__call(
             reasonMsgTempl = "XFAIL REASON: {0}"
 
             logging.error(call.excinfo.value)
+            item_error_msg_count += 1
 
         assert type(reasonText) == str  # noqa: E721
 
@@ -350,7 +368,13 @@ def helper__makereport__call(
 
         TEST_PROCESS_STATS.incrementFailedTestCount(testID)
 
-        logging.error(call.excinfo.value)
+        if type(call.excinfo.value) == SIGNAL_EXCEPTION:  # noqa: E721
+            assert item_error_msg_count > 0
+            pass
+        else:
+            logging.error(call.excinfo.value)
+            item_error_msg_count += 1
+
         exitStatus = "FAILED"
     elif rep.outcome == "passed":
         assert call.excinfo is None
@@ -380,9 +404,11 @@ def helper__makereport__call(
 
     # --------
     logging.info("*")
-    logging.info("* DURATION    : {0}".format(timedelta_to_human_text(testDurration)))
+    logging.info("* DURATION     : {0}".format(timedelta_to_human_text(testDurration)))
     logging.info("*")
-    logging.info("* EXIT STATUS : {0}".format(exitStatus))
+    logging.info("* EXIT STATUS  : {0}".format(exitStatus))
+    logging.info("* ERROR COUNT  : {0}".format(item_error_msg_count))
+    logging.info("* WARNING COUNT: {0}".format(item_warning_msg_count))
     logging.info("*")
     logging.info("* STOP TEST {0}".format(testID))
     logging.info("*")
@@ -432,6 +458,186 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     )
 
     raise RuntimeError(errMsg)
+
+
+# /////////////////////////////////////////////////////////////////////////////
+
+
+class LogErrorWrapper2:
+    _old_method: any
+    _counter: typing.Optional[int]
+
+    # --------------------------------------------------------------------
+    def __init__(self):
+        self._old_method = None
+        self._counter = None
+
+    # --------------------------------------------------------------------
+    def __enter__(self):
+        assert self._old_method is None
+        assert self._counter is None
+
+        self._old_method = logging.error
+        self._counter = 0
+
+        logging.error = self
+        return self
+
+    # --------------------------------------------------------------------
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        assert self._old_method is not None
+        assert self._counter is not None
+
+        assert logging.error is self
+
+        logging.error = self._old_method
+
+        self._old_method = None
+        self._counter = None
+        return False
+
+    # --------------------------------------------------------------------
+    def __call__(self, *args, **kwargs):
+        assert self._old_method is not None
+        assert self._counter is not None
+
+        assert type(self._counter) == int  # noqa: E721
+        assert self._counter >= 0
+
+        r = self._old_method(*args, **kwargs)
+
+        self._counter += 1
+        assert self._counter > 0
+
+        return r
+
+
+# /////////////////////////////////////////////////////////////////////////////
+
+
+class LogWarningWrapper2:
+    _old_method: any
+    _counter: typing.Optional[int]
+
+    # --------------------------------------------------------------------
+    def __init__(self):
+        self._old_method = None
+        self._counter = None
+
+    # --------------------------------------------------------------------
+    def __enter__(self):
+        assert self._old_method is None
+        assert self._counter is None
+
+        self._old_method = logging.warning
+        self._counter = 0
+
+        logging.warning = self
+        return self
+
+    # --------------------------------------------------------------------
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        assert self._old_method is not None
+        assert self._counter is not None
+
+        assert logging.warning is self
+
+        logging.warning = self._old_method
+
+        self._old_method = None
+        self._counter = None
+        return False
+
+    # --------------------------------------------------------------------
+    def __call__(self, *args, **kwargs):
+        assert self._old_method is not None
+        assert self._counter is not None
+
+        assert type(self._counter) == int  # noqa: E721
+        assert self._counter >= 0
+
+        r = self._old_method(*args, **kwargs)
+
+        self._counter += 1
+        assert self._counter > 0
+
+        return r
+
+
+# /////////////////////////////////////////////////////////////////////////////
+
+
+class SIGNAL_EXCEPTION(Exception):
+    def __init__(self):
+        pass
+
+
+# /////////////////////////////////////////////////////////////////////////////
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_pyfunc_call(pyfuncitem: pytest.Function):
+    assert pyfuncitem is not None
+    assert isinstance(pyfuncitem, pytest.Function)
+
+    debug__log_error_method = logging.error
+    assert debug__log_error_method is not None
+
+    debug__log_warning_method = logging.warning
+    assert debug__log_warning_method is not None
+
+    pyfuncitem.stash[g_error_msg_count_key] = 0
+    pyfuncitem.stash[g_warning_msg_count_key] = 0
+
+    try:
+        with LogErrorWrapper2() as logErrorWrapper, LogWarningWrapper2() as logWarningWrapper:
+            assert type(logErrorWrapper) == LogErrorWrapper2  # noqa: E721
+            assert logErrorWrapper._old_method is not None
+            assert type(logErrorWrapper._counter) == int  # noqa: E721
+            assert logErrorWrapper._counter == 0
+            assert logging.error is logErrorWrapper
+
+            assert type(logWarningWrapper) == LogWarningWrapper2  # noqa: E721
+            assert logWarningWrapper._old_method is not None
+            assert type(logWarningWrapper._counter) == int  # noqa: E721
+            assert logWarningWrapper._counter == 0
+            assert logging.warning is logWarningWrapper
+
+            r: pluggy.Result = yield
+
+            assert r is not None
+            assert type(r) == pluggy.Result  # noqa: E721
+
+            assert logErrorWrapper._old_method is not None
+            assert type(logErrorWrapper._counter) == int  # noqa: E721
+            assert logErrorWrapper._counter >= 0
+            assert logging.error is logErrorWrapper
+
+            assert logWarningWrapper._old_method is not None
+            assert type(logWarningWrapper._counter) == int  # noqa: E721
+            assert logWarningWrapper._counter >= 0
+            assert logging.warning is logWarningWrapper
+
+            assert g_error_msg_count_key in pyfuncitem.stash
+            assert g_warning_msg_count_key in pyfuncitem.stash
+
+            assert pyfuncitem.stash[g_error_msg_count_key] == 0
+            assert pyfuncitem.stash[g_warning_msg_count_key] == 0
+
+            pyfuncitem.stash[g_error_msg_count_key] = logErrorWrapper._counter
+            pyfuncitem.stash[g_warning_msg_count_key] = logWarningWrapper._counter
+
+            if r.exception is not None:
+                pass
+            elif logErrorWrapper._counter == 0:
+                pass
+            else:
+                assert logErrorWrapper._counter > 0
+                r.force_exception(SIGNAL_EXCEPTION())
+    finally:
+        assert logging.error is debug__log_error_method
+        assert logging.warning is debug__log_warning_method
+        pass
 
 
 # /////////////////////////////////////////////////////////////////////////////
