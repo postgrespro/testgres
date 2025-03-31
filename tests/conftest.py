@@ -406,7 +406,7 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     assert outcome is not None
     assert type(outcome) == pluggy.Result  # noqa: E721
 
-    assert type(call.when) == str
+    assert type(call.when) == str  # noqa: E721
 
     if call.when == "collect":
         return
