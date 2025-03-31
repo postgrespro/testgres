@@ -199,6 +199,22 @@ def timedelta_to_human_text(delta: datetime.timedelta) -> str:
 # /////////////////////////////////////////////////////////////////////////////
 
 
+def helper__build_test_id(item: pytest.Function) -> str:
+    assert item is not None
+    assert isinstance(item, pytest.Function)
+
+    testID = ""
+
+    if item.cls is not None:
+        testID = item.cls.__module__ + "." + item.cls.__name__ + "::"
+
+    testID = testID + item.name
+
+    return testID
+
+# /////////////////////////////////////////////////////////////////////////////
+
+
 def helper__makereport__setup(
     item: pytest.Function, call: pytest.CallInfo, outcome: pluggy.Result
 ):
@@ -224,12 +240,7 @@ def helper__makereport__setup(
         TEST_PROCESS_STATS.incrementNotExecutedTestCount()
         return
 
-    testID = ""
-
-    if item.cls is not None:
-        testID = item.cls.__module__ + "." + item.cls.__name__ + "::"
-
-    testID = testID + item.name
+    testID = helper__build_test_id(item)
 
     if rep.outcome == "passed":
         testNumber = TEST_PROCESS_STATS.incrementExecutedTestCount()
@@ -279,12 +290,7 @@ def helper__makereport__call(
     assert type(rep) == pytest.TestReport  # noqa: E721
 
     # --------
-    testID = ""
-
-    if item.cls is not None:
-        testID = item.cls.__module__ + "." + item.cls.__name__ + "::"
-
-    testID = testID + item.name
+    testID = helper__build_test_id(item)
 
     # --------
     assert call.start <= call.stop
