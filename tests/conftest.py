@@ -352,8 +352,11 @@ def helper__makereport__call(
             reasonText = rep.wasxfail
             reasonMsgTempl = "XFAIL REASON: {0}"
 
-            logging.error(call.excinfo.value)
-            item_error_msg_count += 1
+            if type(call.excinfo.value) == SIGNAL_EXCEPTION:  # noqa: E721
+                pass
+            else:
+                logging.error(call.excinfo.value)
+                item_error_msg_count += 1
 
         assert type(reasonText) == str  # noqa: E721
 
