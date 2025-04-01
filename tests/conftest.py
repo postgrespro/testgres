@@ -116,6 +116,11 @@ class TEST_PROCESS_STATS:
     WarningTests = list[str, int]()
     AchtungTests = list[str]()
 
+    cTotalDuration: datetime.timedelta = datetime.timedelta()
+
+    cTotalErrors: int = 0
+    cTotalWarnings: int = 0
+
     # --------------------------------------------------------------------
     def incrementTotalTestCount() -> None:
         assert type(__class__.cTotalTests) == int  # noqa: E721
@@ -168,6 +173,14 @@ class TEST_PROCESS_STATS:
         assert len(__class__.FailedTests) > 0
         assert __class__.cFailedTests > 0
         assert len(__class__.FailedTests) == __class__.cFailedTests
+
+        # --------
+        assert type(__class__.cTotalErrors) == int  # noqa: E721
+        assert __class__.cTotalErrors >= 0
+
+        __class__.cTotalErrors += errCount
+
+        assert __class__.cTotalErrors > 0
 
     # --------------------------------------------------------------------
     def incrementXFailedTestCount(testID: str, errCount: int) -> None:
@@ -224,6 +237,14 @@ class TEST_PROCESS_STATS:
         assert len(__class__.WarningTests) > 0
         assert __class__.cWarningTests > 0
         assert len(__class__.WarningTests) == __class__.cWarningTests
+
+        # --------
+        assert type(__class__.cTotalWarnings) == int  # noqa: E721
+        assert __class__.cTotalWarnings >= 0
+
+        __class__.cTotalWarnings += warningCount
+
+        assert __class__.cTotalWarnings > 0
 
     # --------------------------------------------------------------------
     def incrementUnexpectedTests() -> None:
@@ -454,6 +475,7 @@ def helper__makereport__call(
             logging.error(call.excinfo.value)
             item_error_msg_count += 1
 
+        assert item_error_msg_count > 0
         TEST_PROCESS_STATS.incrementFailedTestCount(testID, item_error_msg_count)
 
         exitStatus = "FAILED"
@@ -486,6 +508,14 @@ def helper__makereport__call(
     # --------
     if item_warning_msg_count > 0:
         TEST_PROCESS_STATS.incrementWarningTestCount(testID, item_warning_msg_count)
+
+    # --------
+    assert type(TEST_PROCESS_STATS.cTotalDuration) == datetime.timedelta  # noqa: E721
+    assert type(testDurration) == datetime.timedelta  # noqa: E721
+
+    TEST_PROCESS_STATS.cTotalDuration += testDurration
+
+    assert testDurration <= TEST_PROCESS_STATS.cTotalDuration
 
     # --------
     logging.info("*")
@@ -890,6 +920,23 @@ def run_after_tests(request: pytest.FixtureRequest):
     logging.info(" SKIPPED      : {0}".format(TEST_PROCESS_STATS.cSkippedTests))
     logging.info(" WITH WARNINGS: {0}".format(TEST_PROCESS_STATS.cWarningTests))
     logging.info(" UNEXPECTED   : {0}".format(TEST_PROCESS_STATS.cUnexpectedTests))
+    logging.info("")
+
+    assert type(TEST_PROCESS_STATS.cTotalDuration) == datetime.timedelta  # noqa: E721
+
+    LOCAL__print_line1_with_header("TIME")
+    logging.info("")
+    logging.info(
+        " TOTAL DURATION: {0}".format(
+            timedelta_to_human_text(TEST_PROCESS_STATS.cTotalDuration)
+        )
+    )
+    logging.info("")
+
+    LOCAL__print_line1_with_header("TOTAL INFORMATION")
+    logging.info("")
+    logging.info(" TOTAL ERROR COUNT  : {0}".format(TEST_PROCESS_STATS.cTotalErrors))
+    logging.info(" TOTAL WARNING COUNT: {0}".format(TEST_PROCESS_STATS.cTotalWarnings))
     logging.info("")
 
 
