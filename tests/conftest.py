@@ -106,12 +106,14 @@ class TEST_PROCESS_STATS:
     cXFailedTests: int = 0
     cSkippedTests: int = 0
     cNotXFailedTests: int = 0
+    cWarningTests: int = 0
     cUnexpectedTests: int = 0
     cAchtungTests: int = 0
 
     FailedTests = list[str, int]()
     XFailedTests = list[str, int]()
     NotXFailedTests = list[str]()
+    WarningTests = list[str, int]()
     AchtungTests = list[str]()
 
     # --------------------------------------------------------------------
@@ -205,6 +207,23 @@ class TEST_PROCESS_STATS:
         assert len(__class__.NotXFailedTests) > 0
         assert __class__.cNotXFailedTests > 0
         assert len(__class__.NotXFailedTests) == __class__.cNotXFailedTests
+
+    # --------------------------------------------------------------------
+    def incrementWarningTestCount(testID: str, warningCount: int) -> None:
+        assert type(testID) == str  # noqa: E721
+        assert type(warningCount) == int  # noqa: E721
+        assert testID != ""
+        assert warningCount > 0
+        assert type(__class__.WarningTests) == list  # noqa: E721
+        assert type(__class__.cWarningTests) == int  # noqa: E721
+        assert __class__.cWarningTests >= 0
+
+        __class__.WarningTests.append((testID, warningCount))  # raise?
+        __class__.cWarningTests += 1
+
+        assert len(__class__.WarningTests) > 0
+        assert __class__.cWarningTests > 0
+        assert len(__class__.WarningTests) == __class__.cWarningTests
 
     # --------------------------------------------------------------------
     def incrementUnexpectedTests() -> None:
@@ -463,6 +482,10 @@ def helper__makereport__call(
         exitStatus = "UNEXPECTED [{0}]".format(rep.outcome)
         # [2025-03-28] It may create a useless problem in new environment.
         # assert False
+
+    # --------
+    if item_warning_msg_count > 0:
+        TEST_PROCESS_STATS.incrementWarningTestCount(testID, item_warning_msg_count)
 
     # --------
     logging.info("*")
@@ -844,6 +867,12 @@ def run_after_tests(request: pytest.FixtureRequest):
         TEST_PROCESS_STATS.cNotXFailedTests,
         TEST_PROCESS_STATS.NotXFailedTests,
     )
+
+    LOCAL__print_test_list2(
+        "WARNING TESTS",
+        TEST_PROCESS_STATS.cWarningTests,
+        TEST_PROCESS_STATS.WarningTests,
+    )
     # fmt: on
 
     LOCAL__print_line1_with_header("SUMMARY STATISTICS")
@@ -859,6 +888,7 @@ def run_after_tests(request: pytest.FixtureRequest):
     logging.info(" XFAILED      : {0}".format(TEST_PROCESS_STATS.cXFailedTests))
     logging.info(" NOT XFAILED  : {0}".format(TEST_PROCESS_STATS.cNotXFailedTests))
     logging.info(" SKIPPED      : {0}".format(TEST_PROCESS_STATS.cSkippedTests))
+    logging.info(" WITH WARNINGS: {0}".format(TEST_PROCESS_STATS.cWarningTests))
     logging.info(" UNEXPECTED   : {0}".format(TEST_PROCESS_STATS.cUnexpectedTests))
     logging.info("")
 
