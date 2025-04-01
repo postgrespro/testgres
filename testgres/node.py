@@ -1038,8 +1038,7 @@ class PostgresNode(object):
                     assert nAttempt > 0
                     assert nAttempt <= __class__._C_MAX_START_ATEMPTS
                     if nAttempt == __class__._C_MAX_START_ATEMPTS:
-                        logging.error("Reached maximum retry attempts. Unable to start node.")
-                        LOCAL__raise_cannot_start_node(e, "Cannot start node after multiple attempts")
+                        LOCAL__raise_cannot_start_node(e, "Cannot start node after multiple attempts.")
 
                     log_files1 = self._collect_log_files()
                     if not self._detect_port_conflict(log_files0, log_files1):
