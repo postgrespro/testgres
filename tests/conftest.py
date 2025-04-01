@@ -109,8 +109,8 @@ class TEST_PROCESS_STATS:
     cUnexpectedTests: int = 0
     cAchtungTests: int = 0
 
-    FailedTests = list[str]()
-    XFailedTests = list[str]()
+    FailedTests = list[str, int]()
+    XFailedTests = list[str, int]()
     NotXFailedTests = list[str]()
     AchtungTests = list[str]()
 
@@ -132,19 +132,23 @@ class TEST_PROCESS_STATS:
         __class__.cPassedTests += 1
 
     # --------------------------------------------------------------------
-    def incrementFailedTestCount(testID: str) -> None:
+    def incrementFailedTestCount(testID: str, errCount: int) -> None:
         assert type(testID) == str  # noqa: E721
+        assert type(errCount) == int  # noqa: E721
+        assert errCount >= 0
         assert type(__class__.FailedTests) == list  # noqa: E721
 
-        __class__.FailedTests.append(testID)  # raise?
+        __class__.FailedTests.append((testID, errCount))  # raise?
         __class__.cFailedTests += 1
 
     # --------------------------------------------------------------------
-    def incrementXFailedTestCount(testID: str) -> None:
+    def incrementXFailedTestCount(testID: str, errCount: int) -> None:
         assert type(testID) == str  # noqa: E721
+        assert type(errCount) == int  # noqa: E721
+        assert errCount >= 0
         assert type(__class__.XFailedTests) == list  # noqa: E721
 
-        __class__.XFailedTests.append(testID)  # raise?
+        __class__.XFailedTests.append((testID, errCount))  # raise?
         __class__.cXFailedTests += 1
 
     # --------------------------------------------------------------------
@@ -329,25 +333,24 @@ def helper__makereport__call(
         if type(call.excinfo.value) == _pytest.outcomes.Skipped:  # noqa: E721
             assert not hasattr(rep, "wasxfail")
 
-            TEST_PROCESS_STATS.incrementSkippedTestCount()
-
             exitStatus = "SKIPPED"
             reasonText = str(call.excinfo.value)
             reasonMsgTempl = "SKIP REASON: {0}"
 
-        elif type(call.excinfo.value) == _pytest.outcomes.XFailed:  # noqa: E721
-            TEST_PROCESS_STATS.incrementXFailedTestCount(testID)
+            TEST_PROCESS_STATS.incrementSkippedTestCount()
 
+        elif type(call.excinfo.value) == _pytest.outcomes.XFailed:  # noqa: E721
             exitStatus = "XFAILED"
             reasonText = str(call.excinfo.value)
             reasonMsgTempl = "XFAIL REASON: {0}"
+
+            TEST_PROCESS_STATS.incrementXFailedTestCount(testID, item_error_msg_count)
+
         else:
             exitStatus = "XFAILED"
             assert hasattr(rep, "wasxfail")
             assert rep.wasxfail is not None
             assert type(rep.wasxfail) == str  # noqa: E721
-
-            TEST_PROCESS_STATS.incrementXFailedTestCount(testID)
 
             reasonText = rep.wasxfail
             reasonMsgTempl = "XFAIL REASON: {0}"
@@ -357,6 +360,8 @@ def helper__makereport__call(
             else:
                 logging.error(call.excinfo.value)
                 item_error_msg_count += 1
+
+            TEST_PROCESS_STATS.incrementXFailedTestCount(testID, item_error_msg_count)
 
         assert type(reasonText) == str  # noqa: E721
 
@@ -369,14 +374,14 @@ def helper__makereport__call(
         assert call.excinfo is not None
         assert call.excinfo.value is not None
 
-        TEST_PROCESS_STATS.incrementFailedTestCount(testID)
-
         if type(call.excinfo.value) == SIGNAL_EXCEPTION:  # noqa: E721
             assert item_error_msg_count > 0
             pass
         else:
             logging.error(call.excinfo.value)
             item_error_msg_count += 1
+
+        TEST_PROCESS_STATS.incrementFailedTestCount(testID, item_error_msg_count)
 
         exitStatus = "FAILED"
     elif rep.outcome == "passed":
@@ -676,11 +681,42 @@ def helper__print_test_list(tests: list[str]) -> None:
 
     nTest = 0
 
-    while nTest < len(tests):
-        testID = tests[nTest]
-        assert type(testID) == str  # noqa: E721
+    for t in tests:
+        assert type(t) == str  # noqa: E721
+        assert t != ""
         nTest += 1
-        logging.info(templateLine.format(nTest, testID))
+        logging.info(templateLine.format(nTest, t))
+
+
+# ------------------------------------------------------------------------
+def helper__print_test_list2(tests: list[str, int]) -> None:
+    assert type(tests) == list  # noqa: E721
+
+    assert helper__calc_W(9) == 1
+    assert helper__calc_W(10) == 2
+    assert helper__calc_W(11) == 2
+    assert helper__calc_W(99) == 2
+    assert helper__calc_W(100) == 3
+    assert helper__calc_W(101) == 3
+    assert helper__calc_W(999) == 3
+    assert helper__calc_W(1000) == 4
+    assert helper__calc_W(1001) == 4
+
+    W = helper__calc_W(len(tests))
+
+    templateLine = "{0:0" + str(W) + "d}. {1} ({2})"
+
+    nTest = 0
+
+    for t in tests:
+        assert type(t) == tuple  # noqa: E721
+        assert len(t) == 2
+        assert type(t[0]) == str  # noqa: E721
+        assert type(t[1]) == int  # noqa: E721
+        assert t[0] != ""
+        assert t[1] >= 0
+        nTest += 1
+        logging.info(templateLine.format(nTest, t[0], t[1]))
 
 
 # /////////////////////////////////////////////////////////////////////////////
@@ -714,6 +750,22 @@ def run_after_tests(request: pytest.FixtureRequest):
             helper__print_test_list(test_list)
             logging.info("")
 
+    def LOCAL__print_test_list2(
+        header: str, test_count: int, test_list: list[str, int]
+    ):
+        assert type(header) == str  # noqa: E721
+        assert type(test_count) == int  # noqa: E721
+        assert type(test_list) == list  # noqa: E721
+        assert header != ""
+        assert test_count >= 0
+        assert len(test_list) == test_count
+
+        LOCAL__print_line1_with_header(header)
+        logging.info("")
+        if len(test_list) > 0:
+            helper__print_test_list2(test_list)
+            logging.info("")
+
     # fmt: off
     LOCAL__print_test_list(
         "ACHTUNG TESTS",
@@ -721,13 +773,13 @@ def run_after_tests(request: pytest.FixtureRequest):
         TEST_PROCESS_STATS.AchtungTests,
     )
 
-    LOCAL__print_test_list(
+    LOCAL__print_test_list2(
         "FAILED TESTS",
         TEST_PROCESS_STATS.cFailedTests,
         TEST_PROCESS_STATS.FailedTests
     )
 
-    LOCAL__print_test_list(
+    LOCAL__print_test_list2(
         "XFAILED TESTS",
         TEST_PROCESS_STATS.cXFailedTests,
         TEST_PROCESS_STATS.XFailedTests,
