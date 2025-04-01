@@ -446,12 +446,12 @@ def helper__makereport__call(
 
             TEST_PROCESS_STATS.incrementNotXFailedTests(testID)
 
-            warnMsg = "Test is marked as xfail"
+            warnMsg = "NOTE: Test is marked as xfail"
 
             if rep.wasxfail != "":
                 warnMsg += " [" + rep.wasxfail + "]"
 
-            logging.warning(warnMsg)
+            logging.info(warnMsg)
             exitStatus = "NOT XFAILED"
         else:
             assert not hasattr(rep, "wasxfail")
