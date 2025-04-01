@@ -1,0 +1,80 @@
+import pytest
+import logging
+
+
+class TestConfest:
+    def test_failed(self):
+        raise Exception("TEST EXCEPTION!")
+
+    def test_ok(self):
+        pass
+
+    @pytest.mark.skip()
+    def test_mark_skip__no_reason(self):
+        pass
+
+    @pytest.mark.xfail()
+    def test_mark_xfail__no_reason(self):
+        raise Exception("XFAIL EXCEPTION")
+
+    @pytest.mark.xfail()
+    def test_mark_xfail__no_reason___no_error(self):
+        pass
+
+    @pytest.mark.skip(reason="reason")
+    def test_mark_skip__with_reason(self):
+        pass
+
+    @pytest.mark.xfail(reason="reason")
+    def test_mark_xfail__with_reason(self):
+        raise Exception("XFAIL EXCEPTION")
+
+    @pytest.mark.xfail(reason="reason")
+    def test_mark_xfail__with_reason___no_error(self):
+        pass
+
+    def test_exc_skip__no_reason(self):
+        pytest.skip()
+
+    def test_exc_xfail__no_reason(self):
+        pytest.xfail()
+
+    def test_exc_skip__with_reason(self):
+        pytest.skip(reason="SKIP REASON")
+
+    def test_exc_xfail__with_reason(self):
+        pytest.xfail(reason="XFAIL EXCEPTION")
+
+    def test_log_error(self):
+        logging.error("IT IS A LOG ERROR!")
+
+    def test_log_error_and_exc(self):
+        logging.error("IT IS A LOG ERROR!")
+
+        raise Exception("TEST EXCEPTION!")
+
+    def test_log_error_and_warning(self):
+        logging.error("IT IS A LOG ERROR!")
+        logging.warning("IT IS A LOG WARNING!")
+        logging.error("IT IS THE SECOND LOG ERROR!")
+        logging.warning("IT IS THE SECOND LOG WARNING!")
+
+    @pytest.mark.xfail()
+    def test_log_error_and_xfail_mark_without_reason(self):
+        logging.error("IT IS A LOG ERROR!")
+
+    @pytest.mark.xfail(reason="It is a reason message")
+    def test_log_error_and_xfail_mark_with_reason(self):
+        logging.error("IT IS A LOG ERROR!")
+
+    @pytest.mark.xfail()
+    def test_two_log_error_and_xfail_mark_without_reason(self):
+        logging.error("IT IS THE FIRST LOG ERROR!")
+        logging.info("----------")
+        logging.error("IT IS THE SECOND LOG ERROR!")
+
+    @pytest.mark.xfail(reason="It is a reason message")
+    def test_two_log_error_and_xfail_mark_with_reason(self):
+        logging.error("IT IS THE FIRST LOG ERROR!")
+        logging.info("----------")
+        logging.error("IT IS THE SECOND LOG ERROR!")
