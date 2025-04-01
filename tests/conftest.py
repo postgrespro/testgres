@@ -116,20 +116,40 @@ class TEST_PROCESS_STATS:
 
     # --------------------------------------------------------------------
     def incrementTotalTestCount() -> None:
+        assert type(__class__.cTotalTests) == int  # noqa: E721
+        assert __class__.cTotalTests >= 0
+
         __class__.cTotalTests += 1
+
+        assert __class__.cTotalTests > 0
 
     # --------------------------------------------------------------------
     def incrementNotExecutedTestCount() -> None:
+        assert type(__class__.cNotExecutedTests) == int  # noqa: E721
+        assert __class__.cNotExecutedTests >= 0
+
         __class__.cNotExecutedTests += 1
+
+        assert __class__.cNotExecutedTests > 0
 
     # --------------------------------------------------------------------
     def incrementExecutedTestCount() -> int:
+        assert type(__class__.cExecutedTests) == int  # noqa: E721
+        assert __class__.cExecutedTests >= 0
+
         __class__.cExecutedTests += 1
+
+        assert __class__.cExecutedTests > 0
         return __class__.cExecutedTests
 
     # --------------------------------------------------------------------
     def incrementPassedTestCount() -> None:
+        assert type(__class__.cPassedTests) == int  # noqa: E721
+        assert __class__.cPassedTests >= 0
+
         __class__.cPassedTests += 1
+
+        assert __class__.cPassedTests > 0
 
     # --------------------------------------------------------------------
     def incrementFailedTestCount(testID: str, errCount: int) -> None:
@@ -137,9 +157,15 @@ class TEST_PROCESS_STATS:
         assert type(errCount) == int  # noqa: E721
         assert errCount >= 0
         assert type(__class__.FailedTests) == list  # noqa: E721
+        assert type(__class__.cFailedTests) == int  # noqa: E721
+        assert __class__.cFailedTests >= 0
 
         __class__.FailedTests.append((testID, errCount))  # raise?
         __class__.cFailedTests += 1
+
+        assert len(__class__.FailedTests) > 0
+        assert __class__.cFailedTests > 0
+        assert len(__class__.FailedTests) == __class__.cFailedTests
 
     # --------------------------------------------------------------------
     def incrementXFailedTestCount(testID: str, errCount: int) -> None:
@@ -147,33 +173,61 @@ class TEST_PROCESS_STATS:
         assert type(errCount) == int  # noqa: E721
         assert errCount >= 0
         assert type(__class__.XFailedTests) == list  # noqa: E721
+        assert type(__class__.cXFailedTests) == int  # noqa: E721
+        assert __class__.cXFailedTests >= 0
 
         __class__.XFailedTests.append((testID, errCount))  # raise?
         __class__.cXFailedTests += 1
 
+        assert len(__class__.XFailedTests) > 0
+        assert __class__.cXFailedTests > 0
+        assert len(__class__.XFailedTests) == __class__.cXFailedTests
+
     # --------------------------------------------------------------------
     def incrementSkippedTestCount() -> None:
+        assert type(__class__.cSkippedTests) == int  # noqa: E721
+        assert __class__.cSkippedTests >= 0
+
         __class__.cSkippedTests += 1
+
+        assert __class__.cSkippedTests > 0
 
     # --------------------------------------------------------------------
     def incrementNotXFailedTests(testID: str) -> None:
         assert type(testID) == str  # noqa: E721
         assert type(__class__.NotXFailedTests) == list  # noqa: E721
+        assert type(__class__.cNotXFailedTests) == int  # noqa: E721
+        assert __class__.cNotXFailedTests >= 0
 
         __class__.NotXFailedTests.append(testID)  # raise?
         __class__.cNotXFailedTests += 1
 
+        assert len(__class__.NotXFailedTests) > 0
+        assert __class__.cNotXFailedTests > 0
+        assert len(__class__.NotXFailedTests) == __class__.cNotXFailedTests
+
     # --------------------------------------------------------------------
     def incrementUnexpectedTests() -> None:
+        assert type(__class__.cUnexpectedTests) == int  # noqa: E721
+        assert __class__.cUnexpectedTests >= 0
+
         __class__.cUnexpectedTests += 1
+
+        assert __class__.cUnexpectedTests > 0
 
     # --------------------------------------------------------------------
     def incrementAchtungTestCount(testID: str) -> None:
         assert type(testID) == str  # noqa: E721
         assert type(__class__.AchtungTests) == list  # noqa: E721
+        assert type(__class__.cAchtungTests) == int  # noqa: E721
+        assert __class__.cAchtungTests >= 0
 
         __class__.AchtungTests.append(testID)  # raise?
         __class__.cAchtungTests += 1
+
+        assert len(__class__.AchtungTests) > 0
+        assert __class__.cAchtungTests > 0
+        assert len(__class__.AchtungTests) == __class__.cAchtungTests
 
 
 # /////////////////////////////////////////////////////////////////////////////
