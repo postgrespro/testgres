@@ -157,7 +157,7 @@ class TEST_PROCESS_STATS:
     def incrementFailedTestCount(testID: str, errCount: int) -> None:
         assert type(testID) == str  # noqa: E721
         assert type(errCount) == int  # noqa: E721
-        assert errCount >= 0
+        assert errCount > 0
         assert type(__class__.FailedTests) == list  # noqa: E721
         assert type(__class__.cFailedTests) == int  # noqa: E721
         assert __class__.cFailedTests >= 0
