@@ -450,7 +450,7 @@ class TestgresTests:
 
                     with pytest.raises(
                         expected_exception=StartNodeException,
-                        match=re.escape("Cannot start node after multiple attempts")
+                        match=re.escape("Cannot start node after multiple attempts.")
                     ):
                         node2.init().start()
 
