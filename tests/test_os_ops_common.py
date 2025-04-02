@@ -2,6 +2,7 @@
 from .helpers.os_ops_descrs import OsOpsDescr
 from .helpers.os_ops_descrs import OsOpsDescrs
 from .helpers.os_ops_descrs import OsOperations
+from .helpers.run_conditions import RunConditions
 
 import os
 
@@ -26,6 +27,124 @@ class TestOsOpsCommon:
         assert isinstance(request, pytest.FixtureRequest)
         assert isinstance(request.param, OsOperations)
         return request.param
+
+    def test_listdir(self, os_ops: OsOperations):
+        """
+        Test listdir for listing directory contents.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        path = "/etc"
+        files = os_ops.listdir(path)
+        assert isinstance(files, list)
+        for f in files:
+            assert f is not None
+            assert type(f) == str  # noqa: E721
+
+    def test_path_exists_true__directory(self, os_ops: OsOperations):
+        """
+        Test path_exists for an existing directory.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        assert os_ops.path_exists("/etc") is True
+
+    def test_path_exists_true__file(self, os_ops: OsOperations):
+        """
+        Test path_exists for an existing file.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        assert os_ops.path_exists(__file__) is True
+
+    def test_path_exists_false__directory(self, os_ops: OsOperations):
+        """
+        Test path_exists for a non-existing directory.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        assert os_ops.path_exists("/nonexistent_path") is False
+
+    def test_path_exists_false__file(self, os_ops: OsOperations):
+        """
+        Test path_exists for a non-existing file.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        assert os_ops.path_exists("/etc/nonexistent_path.txt") is False
+
+    def test_write_text_file(self, os_ops: OsOperations):
+        """
+        Test write for writing data to a text file.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        filename = "/tmp/test_file.txt"
+        data = "Hello, world!"
+
+        os_ops.write(filename, data, truncate=True)
+        os_ops.write(filename, data)
+
+        response = os_ops.read(filename)
+
+        assert response == data + data
+
+    def test_write_binary_file(self, os_ops: OsOperations):
+        """
+        Test write for writing data to a binary file.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        filename = "/tmp/test_file.bin"
+        data = b"\x00\x01\x02\x03"
+
+        os_ops.write(filename, data, binary=True, truncate=True)
+
+        response = os_ops.read(filename, binary=True)
+
+        assert response == data
+
+    def test_read_text_file(self, os_ops: OsOperations):
+        """
+        Test read for reading data from a text file.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        filename = "/etc/hosts"
+
+        response = os_ops.read(filename)
+
+        assert isinstance(response, str)
+
+    def test_read_binary_file(self, os_ops: OsOperations):
+        """
+        Test read for reading data from a binary file.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        filename = "/usr/bin/python3"
+
+        response = os_ops.read(filename, binary=True)
+
+        assert isinstance(response, bytes)
 
     def test_read__text(self, os_ops: OsOperations):
         """

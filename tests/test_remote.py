@@ -2,7 +2,6 @@
 import os
 
 import pytest
-import re
 import logging
 
 from ..testgres import ExecUtilException
@@ -213,88 +212,6 @@ class TestRemoteOperations:
         assert x.value.error.strip() == "cannot remove '" + path + "': it is not a directory"
         assert type(x.value.exit_code) == int  # noqa: E721
         assert x.value.exit_code == 20
-
-    def test_listdir(self):
-        """
-        Test listdir for listing directory contents.
-        """
-        path = "/etc"
-        files = self.operations.listdir(path)
-        assert isinstance(files, list)
-        for f in files:
-            assert f is not None
-            assert type(f) == str  # noqa: E721
-
-    def test_path_exists_true__directory(self):
-        """
-        Test path_exists for an existing directory.
-        """
-        assert self.operations.path_exists("/etc") is True
-
-    def test_path_exists_true__file(self):
-        """
-        Test path_exists for an existing file.
-        """
-        assert self.operations.path_exists(__file__) is True
-
-    def test_path_exists_false__directory(self):
-        """
-        Test path_exists for a non-existing directory.
-        """
-        assert self.operations.path_exists("/nonexistent_path") is False
-
-    def test_path_exists_false__file(self):
-        """
-        Test path_exists for a non-existing file.
-        """
-        assert self.operations.path_exists("/etc/nonexistent_path.txt") is False
-
-    def test_write_text_file(self):
-        """
-        Test write for writing data to a text file.
-        """
-        filename = "/tmp/test_file.txt"
-        data = "Hello, world!"
-
-        self.operations.write(filename, data, truncate=True)
-        self.operations.write(filename, data)
-
-        response = self.operations.read(filename)
-
-        assert response == data + data
-
-    def test_write_binary_file(self):
-        """
-        Test write for writing data to a binary file.
-        """
-        filename = "/tmp/test_file.bin"
-        data = b"\x00\x01\x02\x03"
-
-        self.operations.write(filename, data, binary=True, truncate=True)
-
-        response = self.operations.read(filename, binary=True)
-
-        assert response == data
-
-    def test_read_text_file(self):
-        """
-        Test read for reading data from a text file.
-        """
-        filename = "/etc/hosts"
-
-        response = self.operations.read(filename)
-
-        assert isinstance(response, str)
-
-    def test_read_binary_file(self):
-        """
-        Test read for reading data from a binary file.
-        """
-        filename = "/usr/bin/python3"
-
-        response = self.operations.read(filename, binary=True)
-
-        assert isinstance(response, bytes)
 
     def test_read__unknown_file(self):
         """

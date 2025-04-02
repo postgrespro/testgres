@@ -85,17 +85,6 @@ class TestLocalOperations:
         assert b"nonexistent_command" in error
         assert b"not found" in error
 
-    def test_listdir(self):
-        """
-        Test listdir for listing directory contents.
-        """
-        path = "/etc"
-        files = self.operations.listdir(path)
-        assert isinstance(files, list)
-        for f in files:
-            assert f is not None
-            assert type(f) == str  # noqa: E721
-
     def test_read__unknown_file(self):
         """
         Test LocalOperations::read with unknown file.
