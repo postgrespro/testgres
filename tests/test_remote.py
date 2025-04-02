@@ -1,33 +1,35 @@
 # coding: utf-8
-import os
 
-import pytest
+from .helpers.os_ops_descrs import OsOpsDescrs
+from .helpers.os_ops_descrs import OsOperations
 
 from ..testgres import ExecUtilException
-from ..testgres import RemoteOperations
-from ..testgres import ConnectionParams
+
+import os
+import pytest
 
 
 class TestRemoteOperations:
+    @pytest.fixture
+    def os_ops(self):
+        return OsOpsDescrs.sm_remote_os_ops
 
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self):
-        conn_params = ConnectionParams(host=os.getenv('RDBMS_TESTPOOL1_HOST') or '127.0.0.1',
-                                       username=os.getenv('USER'),
-                                       ssh_key=os.getenv('RDBMS_TESTPOOL_SSHKEY'))
-        self.operations = RemoteOperations(conn_params)
+    def test_rmdirs__try_to_delete_nonexist_path(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
 
-    def test_rmdirs__try_to_delete_nonexist_path(self):
         path = "/root/test_dir"
 
-        assert self.operations.rmdirs(path, ignore_errors=False) is True
+        assert os_ops.rmdirs(path, ignore_errors=False) is True
 
-    def test_rmdirs__try_to_delete_file(self):
-        path = self.operations.mkstemp()
+    def test_rmdirs__try_to_delete_file(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        path = os_ops.mkstemp()
+        assert type(path) == str  # noqa: E721
         assert os.path.exists(path)
 
         with pytest.raises(ExecUtilException) as x:
-            self.operations.rmdirs(path, ignore_errors=False)
+            os_ops.rmdirs(path, ignore_errors=False)
 
         assert os.path.exists(path)
         assert type(x.value) == ExecUtilException   # noqa: E721
@@ -37,37 +39,40 @@ class TestRemoteOperations:
         assert type(x.value.exit_code) == int  # noqa: E721
         assert x.value.exit_code == 20
 
-    def test_read__unknown_file(self):
+    def test_read__unknown_file(self, os_ops: OsOperations):
         """
         Test RemoteOperations::read with unknown file.
         """
+        assert isinstance(os_ops, OsOperations)
 
         with pytest.raises(ExecUtilException) as x:
-            self.operations.read("/dummy")
+            os_ops.read("/dummy")
 
         assert "Utility exited with non-zero code (1)." in str(x.value)
         assert "No such file or directory" in str(x.value)
         assert "/dummy" in str(x.value)
 
-    def test_read_binary__spec__unk_file(self):
+    def test_read_binary__spec__unk_file(self, os_ops: OsOperations):
         """
         Test RemoteOperations::read_binary with unknown file.
         """
+        assert isinstance(os_ops, OsOperations)
 
         with pytest.raises(ExecUtilException) as x:
-            self.operations.read_binary("/dummy", 0)
+            os_ops.read_binary("/dummy", 0)
 
         assert "Utility exited with non-zero code (1)." in str(x.value)
         assert "No such file or directory" in str(x.value)
         assert "/dummy" in str(x.value)
 
-    def test_get_file_size__unk_file(self):
+    def test_get_file_size__unk_file(self, os_ops: OsOperations):
         """
         Test RemoteOperations::get_file_size.
         """
+        assert isinstance(os_ops, OsOperations)
 
         with pytest.raises(ExecUtilException) as x:
-            self.operations.get_file_size("/dummy")
+            os_ops.get_file_size("/dummy")
 
         assert "Utility exited with non-zero code (1)." in str(x.value)
         assert "No such file or directory" in str(x.value)
