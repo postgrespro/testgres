@@ -72,13 +72,3 @@ class TestRemoteOperations:
         assert "Utility exited with non-zero code (1)." in str(x.value)
         assert "No such file or directory" in str(x.value)
         assert "/dummy" in str(x.value)
-
-    def test_touch(self):
-        """
-        Test touch for creating a new file or updating access and modification times of an existing file.
-        """
-        filename = "/tmp/test_file.txt"
-
-        self.operations.touch(filename)
-
-        assert self.operations.isfile(filename)

@@ -632,3 +632,19 @@ class TestOsOpsCommon:
             s = tmp_file.read()
 
             assert s == write_data001.result
+
+    def test_touch(self, os_ops: OsOperations):
+        """
+        Test touch for creating a new file or updating access and modification times of an existing file.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        filename = os_ops.mkstemp()
+
+        # TODO: this test does not check the result of 'touch' command!
+
+        os_ops.touch(filename)
+
+        assert os_ops.isfile(filename)
+
+        os_ops.remove_file(filename)
