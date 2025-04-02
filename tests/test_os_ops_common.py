@@ -9,6 +9,7 @@ import os
 import pytest
 import re
 import tempfile
+import logging
 
 from ..testgres import InvalidOperationException
 from ..testgres import ExecUtilException
@@ -203,6 +204,26 @@ class TestOsOpsCommon:
         RunConditions.skip_if_windows()
 
         assert os_ops.path_exists("/etc/nonexistent_path.txt") is False
+
+    def test_mkdtemp__default(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        path = os_ops.mkdtemp()
+        logging.info("Path is [{0}].".format(path))
+        assert os.path.exists(path)
+        os.rmdir(path)
+        assert not os.path.exists(path)
+
+    def test_mkdtemp__custom(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        C_TEMPLATE = "abcdef"
+        path = os_ops.mkdtemp(C_TEMPLATE)
+        logging.info("Path is [{0}].".format(path))
+        assert os.path.exists(path)
+        assert C_TEMPLATE in os.path.basename(path)
+        os.rmdir(path)
+        assert not os.path.exists(path)
 
     def test_write_text_file(self, os_ops: OsOperations):
         """
