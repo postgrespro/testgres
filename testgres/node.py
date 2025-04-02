@@ -431,8 +431,10 @@ class PostgresNode(object):
             where application_name = %s
         """
 
-        if not self.master:
+        if self.master is None:
             raise TestgresException("Node doesn't have a master")
+
+        assert type(self.master) == PostgresNode
 
         # master should be on the same host
         assert self.master.host == self.host
