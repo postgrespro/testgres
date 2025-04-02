@@ -77,6 +77,9 @@ class OsOperations:
     def mkdtemp(self, prefix=None):
         raise NotImplementedError()
 
+    def mkstemp(self, prefix=None):
+        raise NotImplementedError()
+
     def copytree(self, src, dst):
         raise NotImplementedError()
 
