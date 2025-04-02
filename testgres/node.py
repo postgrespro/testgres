@@ -434,7 +434,7 @@ class PostgresNode(object):
         if self.master is None:
             raise TestgresException("Node doesn't have a master")
 
-        assert type(self.master) == PostgresNode
+        assert type(self.master) == PostgresNode  # noqa: E721
 
         # master should be on the same host
         assert self.master.host == self.host

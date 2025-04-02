@@ -348,7 +348,7 @@ class TestTestgresCommon:
                 assert (con.pid > 0)
 
             with master.replicate().start() as replica:
-                assert type(replica) == PostgresNode
+                assert type(replica) == PostgresNode  # noqa: E721
 
                 # test __str__ method
                 str(master.child_processes[0])
