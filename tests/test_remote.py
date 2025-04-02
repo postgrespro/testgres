@@ -6,9 +6,7 @@ import logging
 
 from ..testgres import ExecUtilException
 from ..testgres import RemoteOperations
-from ..testgres import LocalOperations
 from ..testgres import ConnectionParams
-from ..testgres import utils as testgres_utils
 
 
 class TestRemoteOperations:
@@ -19,58 +17,6 @@ class TestRemoteOperations:
                                        username=os.getenv('USER'),
                                        ssh_key=os.getenv('RDBMS_TESTPOOL_SSHKEY'))
         self.operations = RemoteOperations(conn_params)
-
-    def test_is_executable_true(self):
-        """
-        Test is_executable for an existing executable.
-        """
-        local_ops = LocalOperations()
-        cmd = testgres_utils.get_bin_path2(local_ops, "pg_config")
-        cmd = local_ops.exec_command([cmd, "--bindir"], encoding="utf-8")
-        cmd = cmd.rstrip()
-        cmd = os.path.join(cmd, "pg_config")
-        response = self.operations.is_executable(cmd)
-
-        assert response is True
-
-    def test_is_executable_false(self):
-        """
-        Test is_executable for a non-executable.
-        """
-        cmd = "python"
-        response = self.operations.is_executable(cmd)
-
-        assert response is False
-
-    def test_makedirs_and_rmdirs_success(self):
-        """
-        Test makedirs and rmdirs for successful directory creation and removal.
-        """
-        cmd = "pwd"
-        pwd = self.operations.exec_command(cmd, wait_exit=True, encoding='utf-8').strip()
-
-        path = "{}/test_dir".format(pwd)
-
-        # Test makedirs
-        self.operations.makedirs(path)
-        assert os.path.exists(path)
-        assert self.operations.path_exists(path)
-
-        # Test rmdirs
-        self.operations.rmdirs(path)
-        assert not os.path.exists(path)
-        assert not self.operations.path_exists(path)
-
-    def test_makedirs_failure(self):
-        """
-        Test makedirs for failure.
-        """
-        # Try to create a directory in a read-only location
-        path = "/root/test_dir"
-
-        # Test makedirs
-        with pytest.raises(Exception):
-            self.operations.makedirs(path)
 
     def test_mkdtemp__default(self):
         path = self.operations.mkdtemp()

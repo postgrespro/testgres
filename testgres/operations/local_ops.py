@@ -156,7 +156,8 @@ class LocalOperations(OsOperations):
 
     def is_executable(self, file):
         # Check if the file is executable
-        return os.stat(file).st_mode & stat.S_IXUSR
+        assert stat.S_IXUSR != 0
+        return (os.stat(file).st_mode & stat.S_IXUSR) == stat.S_IXUSR
 
     def set_env(self, var_name, var_val):
         # Check if the directory is already in PATH

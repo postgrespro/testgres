@@ -89,6 +89,66 @@ class TestOsOpsCommon:
         assert b"nonexistent_command" in error
         assert b"not found" in error
 
+    def test_is_executable_true(self, os_ops: OsOperations):
+        """
+        Test is_executable for an existing executable.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        response = os_ops.is_executable("/bin/sh")
+
+        assert response is True
+
+    def test_is_executable_false(self, os_ops: OsOperations):
+        """
+        Test is_executable for a non-executable.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        response = os_ops.is_executable(__file__)
+
+        assert response is False
+
+    def test_makedirs_and_rmdirs_success(self, os_ops: OsOperations):
+        """
+        Test makedirs and rmdirs for successful directory creation and removal.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        cmd = "pwd"
+        pwd = os_ops.exec_command(cmd, wait_exit=True, encoding='utf-8').strip()
+
+        path = "{}/test_dir".format(pwd)
+
+        # Test makedirs
+        os_ops.makedirs(path)
+        assert os.path.exists(path)
+        assert os_ops.path_exists(path)
+
+        # Test rmdirs
+        os_ops.rmdirs(path)
+        assert not os.path.exists(path)
+        assert not os_ops.path_exists(path)
+
+    def test_makedirs_failure(self, os_ops: OsOperations):
+        """
+        Test makedirs for failure.
+        """
+        # Try to create a directory in a read-only location
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        path = "/root/test_dir"
+
+        # Test makedirs
+        with pytest.raises(Exception):
+            os_ops.makedirs(path)
+
     def test_listdir(self, os_ops: OsOperations):
         """
         Test listdir for listing directory contents.
