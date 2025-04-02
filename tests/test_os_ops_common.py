@@ -11,6 +11,7 @@ import re
 import tempfile
 
 from ..testgres import InvalidOperationException
+from ..testgres import ExecUtilException
 
 
 class TestOsOpsCommon:
@@ -27,6 +28,66 @@ class TestOsOpsCommon:
         assert isinstance(request, pytest.FixtureRequest)
         assert isinstance(request.param, OsOperations)
         return request.param
+
+    def test_exec_command_success(self, os_ops: OsOperations):
+        """
+        Test exec_command for successful command execution.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        cmd = ["sh", "-c", "python3 --version"]
+
+        response = os_ops.exec_command(cmd)
+
+        assert b'Python 3.' in response
+
+    def test_exec_command_failure(self, os_ops: OsOperations):
+        """
+        Test exec_command for command execution failure.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        cmd = ["sh", "-c", "nonexistent_command"]
+
+        while True:
+            try:
+                os_ops.exec_command(cmd)
+            except ExecUtilException as e:
+                assert type(e.exit_code) == int  # noqa: E721
+                assert e.exit_code == 127
+
+                assert type(e.message) == str  # noqa: E721
+                assert type(e.error) == bytes  # noqa: E721
+
+                assert e.message.startswith("Utility exited with non-zero code (127). Error:")
+                assert "nonexistent_command" in e.message
+                assert "not found" in e.message
+                assert b"nonexistent_command" in e.error
+                assert b"not found" in e.error
+                break
+            raise Exception("We wait an exception!")
+
+    def test_exec_command_failure__expect_error(self, os_ops: OsOperations):
+        """
+        Test exec_command for command execution failure.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        cmd = ["sh", "-c", "nonexistent_command"]
+
+        exit_status, result, error = os_ops.exec_command(cmd, verbose=True, expect_error=True)
+
+        assert exit_status == 127
+        assert result == b''
+        assert type(error) == bytes  # noqa: E721
+        assert b"nonexistent_command" in error
+        assert b"not found" in error
 
     def test_listdir(self, os_ops: OsOperations):
         """

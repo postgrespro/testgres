@@ -20,52 +20,6 @@ class TestRemoteOperations:
                                        ssh_key=os.getenv('RDBMS_TESTPOOL_SSHKEY'))
         self.operations = RemoteOperations(conn_params)
 
-    def test_exec_command_success(self):
-        """
-        Test exec_command for successful command execution.
-        """
-        cmd = "python3 --version"
-        response = self.operations.exec_command(cmd, wait_exit=True)
-
-        assert b'Python 3.' in response
-
-    def test_exec_command_failure(self):
-        """
-        Test exec_command for command execution failure.
-        """
-        cmd = "nonexistent_command"
-        while True:
-            try:
-                self.operations.exec_command(cmd, verbose=True, wait_exit=True)
-            except ExecUtilException as e:
-                assert type(e.exit_code) == int  # noqa: E721
-                assert e.exit_code == 127
-
-                assert type(e.message) == str  # noqa: E721
-                assert type(e.error) == bytes  # noqa: E721
-
-                assert e.message.startswith("Utility exited with non-zero code (127). Error:")
-                assert "nonexistent_command" in e.message
-                assert "not found" in e.message
-                assert b"nonexistent_command" in e.error
-                assert b"not found" in e.error
-                break
-            raise Exception("We wait an exception!")
-
-    def test_exec_command_failure__expect_error(self):
-        """
-        Test exec_command for command execution failure.
-        """
-        cmd = "nonexistent_command"
-
-        exit_status, result, error = self.operations.exec_command(cmd, verbose=True, wait_exit=True, shell=True, expect_error=True)
-
-        assert exit_status == 127
-        assert result == b''
-        assert type(error) == bytes  # noqa: E721
-        assert b"nonexistent_command" in error
-        assert b"not found" in error
-
     def test_is_executable_true(self):
         """
         Test is_executable for an existing executable.
