@@ -403,7 +403,7 @@ class TestOsOpsCommon:
 
     def test_read__binary_and_encoding(self, os_ops: OsOperations):
         """
-        Test RemoteOperations::read for binary data and encoding.
+        Test OsOperations::read for binary data and encoding.
         """
         assert isinstance(os_ops, OsOperations)
 
@@ -416,7 +416,7 @@ class TestOsOpsCommon:
 
     def test_read_binary__spec(self, os_ops: OsOperations):
         """
-        Test RemoteOperations::read_binary.
+        Test OsOperations::read_binary.
         """
         assert isinstance(os_ops, OsOperations)
 
@@ -452,7 +452,7 @@ class TestOsOpsCommon:
 
     def test_read_binary__spec__negative_offset(self, os_ops: OsOperations):
         """
-        Test RemoteOperations::read_binary with negative offset.
+        Test OsOperations::read_binary with negative offset.
         """
         assert isinstance(os_ops, OsOperations)
 
@@ -463,7 +463,7 @@ class TestOsOpsCommon:
 
     def test_get_file_size(self, os_ops: OsOperations):
         """
-        Test RemoteOperations::get_file_size.
+        Test OsOperations::get_file_size.
         """
         assert isinstance(os_ops, OsOperations)
 
