@@ -212,7 +212,7 @@ class TestOsOpsCommon:
 
         RunConditions.skip_if_windows()
 
-        filename = "/tmp/test_file.txt"
+        filename = os_ops.mkstemp()
         data = "Hello, world!"
 
         os_ops.write(filename, data, truncate=True)
@@ -221,6 +221,8 @@ class TestOsOpsCommon:
         response = os_ops.read(filename)
 
         assert response == data + data
+
+        os_ops.remove_file(filename)
 
     def test_write_binary_file(self, os_ops: OsOperations):
         """
