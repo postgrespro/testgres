@@ -9,7 +9,7 @@ import os
 import pytest
 
 
-class TestRemoteOperations:
+class TestOsOpsRemote:
     @pytest.fixture
     def os_ops(self):
         return OsOpsDescrs.sm_remote_os_ops

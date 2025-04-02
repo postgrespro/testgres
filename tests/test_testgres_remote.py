@@ -47,7 +47,7 @@ def util_exists(util):
             return True
 
 
-class TestgresRemoteTests:
+class TestTestgresRemote:
     sm_os_ops = OsOpsDescrs.sm_remote_os_ops
 
     @pytest.fixture(autouse=True, scope="class")
