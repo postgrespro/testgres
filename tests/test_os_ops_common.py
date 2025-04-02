@@ -120,6 +120,32 @@ class TestOsOpsCommon:
         assert type(response5) == bytes  # noqa: E721
         assert len(response5) == 0
 
+    def test_read_binary__spec__negative_offset(self, os_ops: OsOperations):
+        """
+        Test RemoteOperations::read_binary with negative offset.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        with pytest.raises(
+                ValueError,
+                match=re.escape("Negative 'offset' is not supported.")):
+            os_ops.read_binary(__file__, -1)
+
+    def test_get_file_size(self, os_ops: OsOperations):
+        """
+        Test RemoteOperations::get_file_size.
+        """
+        assert isinstance(os_ops, OsOperations)
+
+        filename = __file__  # current file
+
+        sz0 = os.path.getsize(filename)
+        assert type(sz0) == int  # noqa: E721
+
+        sz1 = os_ops.get_file_size(filename)
+        assert type(sz1) == int  # noqa: E721
+        assert sz1 == sz0
+
     def test_isfile_true(self, os_ops: OsOperations):
         """
         Test isfile for an existing file.
