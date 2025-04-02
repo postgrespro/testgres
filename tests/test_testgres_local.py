@@ -74,7 +74,7 @@ def rm_carriage_returns(out):
         return out
 
 
-class TestgresTests:
+class TestTestgresLocal:
     def test_node_repr(self):
         with get_new_node() as node:
             pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"

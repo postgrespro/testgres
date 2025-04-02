@@ -8,7 +8,7 @@ import pytest
 import re
 
 
-class TestLocalOperations:
+class TestOsOpsLocal:
     @pytest.fixture
     def os_ops(self):
         return OsOpsDescrs.sm_local_os_ops
