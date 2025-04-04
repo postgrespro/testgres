@@ -1,7 +1,7 @@
 # coding: utf-8
 
-from .helpers.os_ops_descrs import OsOpsDescrs
-from .helpers.os_ops_descrs import OsOperations
+from .helpers.global_data import OsOpsDescrs
+from .helpers.global_data import OsOperations
 
 from ..testgres import ExecUtilException
 

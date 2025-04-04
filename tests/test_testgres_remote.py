@@ -6,8 +6,8 @@ import subprocess
 import pytest
 import logging
 
-from .helpers.os_ops_descrs import OsOpsDescrs
-from .helpers.os_ops_descrs import OsOperations
+from .helpers.global_data import PostgresNodeService
+from .helpers.global_data import PostgresNodeServices
 
 from .. import testgres
 
@@ -45,17 +45,17 @@ def util_exists(util):
 
 
 class TestTestgresRemote:
-    sm_os_ops = OsOpsDescrs.sm_remote_os_ops
-
     @pytest.fixture(autouse=True, scope="class")
     def implicit_fixture(self):
+        cur_os_ops = PostgresNodeServices.sm_remote.os_ops
+        assert cur_os_ops is not None
+
         prev_ops = testgres_config.os_ops
         assert prev_ops is not None
-        assert __class__.sm_os_ops is not None
-        testgres_config.set_os_ops(os_ops=__class__.sm_os_ops)
-        assert testgres_config.os_ops is __class__.sm_os_ops
+        testgres_config.set_os_ops(os_ops=cur_os_ops)
+        assert testgres_config.os_ops is cur_os_ops
         yield
-        assert testgres_config.os_ops is __class__.sm_os_ops
+        assert testgres_config.os_ops is cur_os_ops
         testgres_config.set_os_ops(os_ops=prev_ops)
         assert testgres_config.os_ops is prev_ops
 
@@ -258,8 +258,17 @@ class TestTestgresRemote:
 
     @staticmethod
     def helper__get_node(name=None):
-        assert isinstance(__class__.sm_os_ops, OsOperations)
-        return testgres.PostgresNode(name, conn_params=None, os_ops=__class__.sm_os_ops)
+        svc = PostgresNodeServices.sm_remote
+
+        assert isinstance(svc, PostgresNodeService)
+        assert isinstance(svc.os_ops, testgres.OsOperations)
+        assert isinstance(svc.port_manager, testgres.PostgresNodePortManager)
+
+        return testgres.PostgresNode(
+            name,
+            conn_params=None,
+            os_ops=svc.os_ops,
+            port_manager=svc.port_manager)
 
     @staticmethod
     def helper__restore_envvar(name, prev_value):
