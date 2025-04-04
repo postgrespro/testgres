@@ -640,7 +640,7 @@ class RemoteOperations(OsOperations):
         assert type(error) == str  # noqa: E721
 
         if exit_status == 0:
-            return __class__.helper__is_port_free__process_0(output)
+            return __class__.helper__is_port_free__process_0(error)
 
         if exit_status == 1:
             return __class__.helper__is_port_free__process_1(error)
@@ -656,15 +656,15 @@ class RemoteOperations(OsOperations):
         )
 
     @staticmethod
-    def helper__is_port_free__process_0(output: str) -> bool:
-        assert type(output) == str  # noqa: E721
-        # TODO: check output message
+    def helper__is_port_free__process_0(error: str) -> bool:
+        assert type(error) == str  # noqa: E721
+        # TODO: check error message?
         return False
 
     @staticmethod
     def helper__is_port_free__process_1(error: str) -> bool:
         assert type(error) == str  # noqa: E721
-        # TODO: check error message
+        # TODO: check error message?
         return True
 
     # Database control
