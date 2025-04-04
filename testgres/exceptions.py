@@ -7,6 +7,10 @@ class TestgresException(Exception):
     pass
 
 
+class PortForException(TestgresException):
+    pass
+
+
 @six.python_2_unicode_compatible
 class ExecUtilException(TestgresException):
     def __init__(self, message=None, command=None, exit_code=0, out=None, error=None):

@@ -1,11 +1,12 @@
 from .operations.os_ops import OsOperations
 
-from .helpers.port_manager import PortForException
+from .exceptions import PortForException
 
 from . import utils
 
 import threading
 import random
+
 
 class PostgresNodePortManager:
     def __init__(self):
