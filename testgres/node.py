@@ -312,7 +312,8 @@ class PostgresNode(object):
             conn_params=None,
             bin_dir=self._bin_dir,
             prefix=self._prefix,
-            os_ops=self._os_ops)
+            os_ops=self._os_ops,
+            port_manager=self._port_manager)
 
         return node
 
