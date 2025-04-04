@@ -100,27 +100,6 @@ class TestTestgresLocal:
                 # there should be no trust entries at all
                 assert not (any('trust' in s for s in lines))
 
-    def test_pgbench(self):
-        __class__.helper__skip_test_if_util_not_exist("pgbench")
-
-        with get_new_node().init().start() as node:
-
-            # initialize pgbench DB and run benchmarks
-            node.pgbench_init(scale=2, foreign_keys=True,
-                              options=['-q']).pgbench_run(time=2)
-
-            # run TPC-B benchmark
-            proc = node.pgbench(stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                                options=['-T3'])
-
-            out, _ = proc.communicate()
-            out = out.decode('utf-8')
-
-            proc.stdout.close()
-
-            assert ('tps' in out)
-
     def test_pg_config(self):
         # check same instances
         a = get_pg_config()

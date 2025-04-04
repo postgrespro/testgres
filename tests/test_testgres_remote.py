@@ -1,7 +1,6 @@
 # coding: utf-8
 import os
 import re
-import subprocess
 
 import pytest
 import logging
@@ -168,21 +167,6 @@ class TestTestgresRemote:
             __class__.helper__restore_envvar("LANGUAGE", prev_LANGUAGE)
             __class__.helper__restore_envvar("LC_CTYPE", prev_LC_CTYPE)
             __class__.helper__restore_envvar("LC_COLLATE", prev_LC_COLLATE)
-
-    def test_pgbench(self):
-        __class__.helper__skip_test_if_util_not_exist("pgbench")
-
-        with __class__.helper__get_node().init().start() as node:
-            # initialize pgbench DB and run benchmarks
-            node.pgbench_init(scale=2, foreign_keys=True,
-                              options=['-q']).pgbench_run(time=2)
-
-            # run TPC-B benchmark
-            proc = node.pgbench(stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                                options=['-T3'])
-            out = proc.communicate()[0]
-            assert (b'tps = ' in out)
 
     def test_pg_config(self):
         # check same instances

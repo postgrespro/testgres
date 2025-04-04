@@ -38,6 +38,7 @@ import tempfile
 import uuid
 import os
 import re
+import subprocess
 
 
 @contextmanager
@@ -1099,6 +1100,26 @@ class TestTestgresCommon:
             a = get_pg_config2(node_svc.os_ops, None)
             b = get_pg_config2(node_svc.os_ops, None)
             assert (id(a) != id(b))
+
+    def test_pgbench(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        __class__.helper__skip_test_if_util_not_exist(node_svc.os_ops, "pgbench")
+
+        with __class__.helper__get_node(node_svc).init().start() as node:
+            # initialize pgbench DB and run benchmarks
+            node.pgbench_init(
+                scale=2,
+                foreign_keys=True,
+                options=['-q']
+            ).pgbench_run(time=2)
+
+            # run TPC-B benchmark
+            proc = node.pgbench(stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
+                                options=['-T3'])
+            out = proc.communicate()[0]
+            assert (b'tps = ' in out)
 
     @staticmethod
     def helper__get_node(node_svc: PostgresNodeService, name=None):
