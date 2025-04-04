@@ -193,7 +193,7 @@ class RemoteOperations(OsOperations):
         RaiseError.CommandExecutionError(
             cmd=command,
             exit_code=exit_status,
-            msg_arg=errMsg,
+            message=errMsg,
             error=error,
             out=output
         )
@@ -305,7 +305,7 @@ class RemoteOperations(OsOperations):
         RaiseError.CommandExecutionError(
             cmd=command,
             exit_code=exit_status,
-            msg_arg=errMsg,
+            message=errMsg,
             error=error,
             out=output
         )
@@ -650,7 +650,7 @@ class RemoteOperations(OsOperations):
         RaiseError.CommandExecutionError(
             cmd=cmd,
             exit_code=exit_status,
-            msg_arg=errMsg,
+            message=errMsg,
             error=error,
             out=output
         )
