@@ -156,18 +156,6 @@ class TestTestgresLocal:
 
         assert (TestgresConfig.cached_initdb_dir == d0)
 
-    def test_unix_sockets(self):
-        with get_new_node() as node:
-            node.init(unix_sockets=False, allow_streaming=True)
-            node.start()
-
-            node.execute('select 1')
-            node.safe_psql('select 1')
-
-            with node.replicate().start() as r:
-                r.execute('select 1')
-                r.safe_psql('select 1')
-
     def test_ports_management(self):
         assert bound_ports is not None
         assert type(bound_ports) == set  # noqa: E721

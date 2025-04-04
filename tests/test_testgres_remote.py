@@ -224,22 +224,6 @@ class TestTestgresRemote:
 
         assert (TestgresConfig.cached_initdb_dir == d0)
 
-    def test_unix_sockets(self):
-        with __class__.helper__get_node() as node:
-            node.init(unix_sockets=False, allow_streaming=True)
-            node.start()
-
-            res_exec = node.execute('select 1')
-            res_psql = node.safe_psql('select 1')
-            assert (res_exec == [(1,)])
-            assert (res_psql == b'1\n')
-
-            with node.replicate().start() as r:
-                res_exec = r.execute('select 1')
-                res_psql = r.safe_psql('select 1')
-                assert (res_exec == [(1,)])
-                assert (res_psql == b'1\n')
-
     @staticmethod
     def helper__get_node(name=None):
         svc = PostgresNodeServices.sm_remote

@@ -1121,6 +1121,26 @@ class TestTestgresCommon:
             out = proc.communicate()[0]
             assert (b'tps = ' in out)
 
+    def test_unix_sockets(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init(unix_sockets=False, allow_streaming=True)
+            node.start()
+
+            res_exec = node.execute('select 1')
+            assert (res_exec == [(1,)])
+            res_psql = node.safe_psql('select 1')
+            assert (res_psql == b'1\n')
+
+            with node.replicate() as r:
+                assert type(r) == PostgresNode  # noqa: E721
+                r.start()
+                res_exec = r.execute('select 1')
+                assert (res_exec == [(1,)])
+                res_psql = r.safe_psql('select 1')
+                assert (res_psql == b'1\n')
+
     @staticmethod
     def helper__get_node(node_svc: PostgresNodeService, name=None):
         assert isinstance(node_svc, PostgresNodeService)
