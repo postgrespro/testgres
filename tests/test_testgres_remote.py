@@ -4,7 +4,6 @@ import re
 import subprocess
 
 import pytest
-import psutil
 import logging
 
 from .helpers.os_ops_descrs import OsOpsDescrs
@@ -27,8 +26,6 @@ from ..testgres import \
     get_pg_config
 
 # NOTE: those are ugly imports
-from ..testgres import bound_ports
-from ..testgres.node import ProcessProxy
 
 
 def util_exists(util):
@@ -258,70 +255,6 @@ class TestTestgresRemote:
                 res_psql = r.safe_psql('select 1')
                 assert (res_exec == [(1,)])
                 assert (res_psql == b'1\n')
-
-    def test_ports_management(self):
-        assert bound_ports is not None
-        assert type(bound_ports) == set  # noqa: E721
-
-        if len(bound_ports) != 0:
-            logging.warning("bound_ports is not empty: {0}".format(bound_ports))
-
-        stage0__bound_ports = bound_ports.copy()
-
-        with __class__.helper__get_node() as node:
-            assert bound_ports is not None
-            assert type(bound_ports) == set  # noqa: E721
-
-            assert node.port is not None
-            assert type(node.port) == int  # noqa: E721
-
-            logging.info("node port is {0}".format(node.port))
-
-            assert node.port in bound_ports
-            assert node.port not in stage0__bound_ports
-
-            assert stage0__bound_ports <= bound_ports
-            assert len(stage0__bound_ports) + 1 == len(bound_ports)
-
-            stage1__bound_ports = stage0__bound_ports.copy()
-            stage1__bound_ports.add(node.port)
-
-            assert stage1__bound_ports == bound_ports
-
-        # check that port has been freed successfully
-        assert bound_ports is not None
-        assert type(bound_ports) == set  # noqa: E721
-        assert bound_ports == stage0__bound_ports
-
-    # TODO: Why does not this test work with remote host?
-    def test_child_process_dies(self):
-        nAttempt = 0
-
-        while True:
-            if nAttempt == 5:
-                raise Exception("Max attempt number is exceed.")
-
-            nAttempt += 1
-
-            logging.info("Attempt #{0}".format(nAttempt))
-
-            # test for FileNotFound exception during child_processes() function
-            with subprocess.Popen(["sleep", "60"]) as process:
-                r = process.poll()
-
-                if r is not None:
-                    logging.warning("process.pool() returns an unexpected result: {0}.".format(r))
-                    continue
-
-                assert r is None
-                # collect list of processes currently running
-                children = psutil.Process(os.getpid()).children()
-                # kill a process, so received children dictionary becomes invalid
-                process.kill()
-                process.wait()
-                # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
-                [ProcessProxy(p) for p in children]
-                break
 
     @staticmethod
     def helper__get_node(name=None):

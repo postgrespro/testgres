@@ -100,6 +100,8 @@ from .utils import \
     options_string, \
     clean_on_error
 
+from .helpers.port_manager import PortForException
+
 from .backup import NodeBackup
 
 from .operations.os_ops import ConnectionParams
@@ -170,6 +172,52 @@ class PostgresNodePortManager__ThisHost(PostgresNodePortManager):
     def release_port(self, number: int) -> None:
         assert type(number) == int  # noqa: E721
         return utils.release_port(number)
+
+
+class PostgresNodePortManager__Generic(PostgresNodePortManager):
+    _os_ops: OsOperations
+    _allocated_ports_guard: object
+    _allocated_ports: set[int]
+
+    def __init__(self, os_ops: OsOperations):
+        assert os_ops is not None
+        assert isinstance(os_ops, OsOperations)
+        self._os_ops = os_ops
+        self._allocated_ports_guard = threading.Lock()
+        self._allocated_ports = set[int]()
+
+    def reserve_port(self) -> int:
+        ports = set(range(1024, 65535))
+        assert type(ports) == set  # noqa: E721
+
+        assert self._allocated_ports_guard is not None
+        assert type(self._allocated_ports) == set  # noqa: E721
+
+        with self._allocated_ports_guard:
+            ports.difference_update(self._allocated_ports)
+
+            sampled_ports = random.sample(tuple(ports), min(len(ports), 100))
+
+            for port in sampled_ports:
+                assert not (port in self._allocated_ports)
+
+                if not self._os_ops.is_port_free(port):
+                    continue
+
+                self._allocated_ports.add(port)
+                return port
+
+        raise PortForException("Can't select a port")
+
+    def release_port(self, number: int) -> None:
+        assert type(number) == int  # noqa: E721
+
+        assert self._allocated_ports_guard is not None
+        assert type(self._allocated_ports) == set  # noqa: E721
+
+        with self._allocated_ports_guard:
+            assert number in self._allocated_ports
+            self._allocated_ports.discard(number)
 
 
 class PostgresNode(object):
@@ -308,8 +356,11 @@ class PostgresNode(object):
         assert os_ops is not None
         assert isinstance(os_ops, OsOperations)
 
-        # [2025-04-03] It is our old, incorrected behaviour
-        return PostgresNodePortManager__ThisHost()
+        if isinstance(os_ops, LocalOperations):
+            return PostgresNodePortManager__ThisHost()
+
+        # TODO: Throw exception "Please define a port manager."
+        return PostgresNodePortManager__Generic(os_ops)
 
     def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
         assert name is None or type(name) == str  # noqa: E721
