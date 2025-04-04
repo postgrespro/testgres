@@ -13,6 +13,8 @@ from ..testgres import ProcessType
 from ..testgres import NodeStatus
 from ..testgres import IsolationLevel
 
+import testgres
+
 # New name prevents to collect test-functions in TestgresException and fixes
 # the problem with pytest warning.
 from ..testgres import TestgresException as testgres_TestgresException
@@ -39,6 +41,7 @@ import uuid
 import os
 import re
 import subprocess
+import typing
 
 
 @contextmanager
@@ -1169,17 +1172,177 @@ class TestTestgresCommon:
             r = node.safe_psql("SELECT 3;")
             assert (__class__.helper__rm_carriage_returns(r) == b'3\n')
 
+    class tagPortManagerProxy(PortManager):
+        m_PrevPortManager: PortManager
+
+        m_DummyPortNumber: int
+        m_DummyPortMaxUsage: int
+
+        m_DummyPortCurrentUsage: int
+        m_DummyPortTotalUsage: int
+
+        def __init__(self, prevPortManager: PortManager, dummyPortNumber: int, dummyPortMaxUsage: int):
+            assert isinstance(prevPortManager, PortManager)
+            assert type(dummyPortNumber) == int  # noqa: E721
+            assert type(dummyPortMaxUsage) == int  # noqa: E721
+            assert dummyPortNumber >= 0
+            assert dummyPortMaxUsage >= 0
+
+            super().__init__()
+
+            self.m_PrevPortManager = prevPortManager
+
+            self.m_DummyPortNumber = dummyPortNumber
+            self.m_DummyPortMaxUsage = dummyPortMaxUsage
+
+            self.m_DummyPortCurrentUsage = 0
+            self.m_DummyPortTotalUsage = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, type, value, traceback):
+            assert self.m_DummyPortCurrentUsage == 0
+
+            assert self.m_PrevPortManager is not None
+
+        def reserve_port(self) -> int:
+            assert type(self.m_DummyPortMaxUsage) == int  # noqa: E721
+            assert type(self.m_DummyPortTotalUsage) == int  # noqa: E721
+            assert type(self.m_DummyPortCurrentUsage) == int  # noqa: E721
+            assert self.m_DummyPortTotalUsage >= 0
+            assert self.m_DummyPortCurrentUsage >= 0
+
+            assert self.m_DummyPortTotalUsage <= self.m_DummyPortMaxUsage
+            assert self.m_DummyPortCurrentUsage <= self.m_DummyPortTotalUsage
+
+            assert self.m_PrevPortManager is not None
+            assert isinstance(self.m_PrevPortManager, PortManager)
+
+            if self.m_DummyPortTotalUsage == self.m_DummyPortMaxUsage:
+                return self.m_PrevPortManager.reserve_port()
+
+            self.m_DummyPortTotalUsage += 1
+            self.m_DummyPortCurrentUsage += 1
+            return self.m_DummyPortNumber
+
+        def release_port(self, dummyPortNumber: int):
+            assert type(dummyPortNumber) == int  # noqa: E721
+
+            assert type(self.m_DummyPortMaxUsage) == int  # noqa: E721
+            assert type(self.m_DummyPortTotalUsage) == int  # noqa: E721
+            assert type(self.m_DummyPortCurrentUsage) == int  # noqa: E721
+            assert self.m_DummyPortTotalUsage >= 0
+            assert self.m_DummyPortCurrentUsage >= 0
+
+            assert self.m_DummyPortTotalUsage <= self.m_DummyPortMaxUsage
+            assert self.m_DummyPortCurrentUsage <= self.m_DummyPortTotalUsage
+
+            assert self.m_PrevPortManager is not None
+            assert isinstance(self.m_PrevPortManager, PortManager)
+
+            if self.m_DummyPortCurrentUsage > 0 and dummyPortNumber == self.m_DummyPortNumber:
+                assert self.m_DummyPortTotalUsage > 0
+                self.m_DummyPortCurrentUsage -= 1
+                return
+
+            return self.m_PrevPortManager.release_port(dummyPortNumber)
+
+    def test_port_rereserve_during_node_start(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert testgres.PostgresNode._C_MAX_START_ATEMPTS == 5
+
+        C_COUNT_OF_BAD_PORT_USAGE = 3
+
+        with __class__.helper__get_node(node_svc) as node1:
+            node1.init().start()
+            assert node1._should_free_port
+            assert type(node1.port) == int  # noqa: E721
+            node1_port_copy = node1.port
+            assert __class__.helper__rm_carriage_returns(node1.safe_psql("SELECT 1;")) == b'1\n'
+
+            with __class__.tagPortManagerProxy(node_svc.port_manager, node1.port, C_COUNT_OF_BAD_PORT_USAGE) as proxy:
+                assert proxy.m_DummyPortNumber == node1.port
+                with __class__.helper__get_node(node_svc, port_manager=proxy) as node2:
+                    assert node2._should_free_port
+                    assert node2.port == node1.port
+
+                    node2.init().start()
+
+                    assert node2.port != node1.port
+                    assert node2._should_free_port
+                    assert proxy.m_DummyPortCurrentUsage == 0
+                    assert proxy.m_DummyPortTotalUsage == C_COUNT_OF_BAD_PORT_USAGE
+                    assert node2.is_started
+                    r = node2.safe_psql("SELECT 2;")
+                    assert __class__.helper__rm_carriage_returns(r) == b'2\n'
+
+            # node1 is still working
+            assert node1.port == node1_port_copy
+            assert node1._should_free_port
+            r = node1.safe_psql("SELECT 3;")
+            assert __class__.helper__rm_carriage_returns(r) == b'3\n'
+
+    def test_port_conflict(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert testgres.PostgresNode._C_MAX_START_ATEMPTS > 1
+
+        C_COUNT_OF_BAD_PORT_USAGE = testgres.PostgresNode._C_MAX_START_ATEMPTS
+
+        with __class__.helper__get_node(node_svc) as node1:
+            node1.init().start()
+            assert node1._should_free_port
+            assert type(node1.port) == int  # noqa: E721
+            node1_port_copy = node1.port
+            assert __class__.helper__rm_carriage_returns(node1.safe_psql("SELECT 1;")) == b'1\n'
+
+            with __class__.tagPortManagerProxy(node_svc.port_manager, node1.port, C_COUNT_OF_BAD_PORT_USAGE) as proxy:
+                assert proxy.m_DummyPortNumber == node1.port
+                with __class__.helper__get_node(node_svc, port_manager=proxy) as node2:
+                    assert node2._should_free_port
+                    assert node2.port == node1.port
+
+                    with pytest.raises(
+                        expected_exception=StartNodeException,
+                        match=re.escape("Cannot start node after multiple attempts.")
+                    ):
+                        node2.init().start()
+
+                    assert node2.port == node1.port
+                    assert node2._should_free_port
+                    assert proxy.m_DummyPortCurrentUsage == 1
+                    assert proxy.m_DummyPortTotalUsage == C_COUNT_OF_BAD_PORT_USAGE
+                    assert not node2.is_started
+
+                # node2 must release our dummyPort (node1.port)
+                assert (proxy.m_DummyPortCurrentUsage == 0)
+
+            # node1 is still working
+            assert node1.port == node1_port_copy
+            assert node1._should_free_port
+            r = node1.safe_psql("SELECT 3;")
+            assert __class__.helper__rm_carriage_returns(r) == b'3\n'
+
     @staticmethod
-    def helper__get_node(node_svc: PostgresNodeService, name=None, port=None):
+    def helper__get_node(
+        node_svc: PostgresNodeService,
+        name: typing.Optional[str] = None,
+        port: typing.Optional[int] = None,
+        port_manager: typing.Optional[PortManager] = None
+    ) -> PostgresNode:
         assert isinstance(node_svc, PostgresNodeService)
         assert isinstance(node_svc.os_ops, OsOperations)
         assert isinstance(node_svc.port_manager, PortManager)
+
+        if port_manager is None:
+            port_manager = node_svc.port_manager
+
         return PostgresNode(
             name,
             port=port,
             conn_params=None,
             os_ops=node_svc.os_ops,
-            port_manager=node_svc.port_manager if port is None else None
+            port_manager=port_manager if port is None else None
         )
 
     @staticmethod
