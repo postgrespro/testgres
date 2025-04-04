@@ -10,6 +10,8 @@ import pytest
 import re
 import tempfile
 import logging
+import socket
+import threading
 
 from ..testgres import InvalidOperationException
 from ..testgres import ExecUtilException
@@ -648,3 +650,100 @@ class TestOsOpsCommon:
         assert os_ops.isfile(filename)
 
         os_ops.remove_file(filename)
+
+    def test_is_port_free__true(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        C_LIMIT = 10
+
+        ports = set(range(1024, 65535))
+        assert type(ports) == set  # noqa: E721
+
+        ok_count = 0
+        no_count = 0
+
+        for port in ports:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(("", port))
+                except OSError:
+                    continue
+
+            r = os_ops.is_port_free(port)
+
+            if r:
+                ok_count += 1
+                logging.info("OK. Port {} is free.".format(port))
+            else:
+                no_count += 1
+                logging.warning("NO. Port {} is not free.".format(port))
+
+            if ok_count == C_LIMIT:
+                return
+
+            if no_count == C_LIMIT:
+                raise RuntimeError("To many false positive test attempts.")
+
+        if ok_count == 0:
+            raise RuntimeError("No one free port was found.")
+
+    def test_is_port_free__false(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        C_LIMIT = 10
+
+        ports = set(range(1024, 65535))
+        assert type(ports) == set  # noqa: E721
+
+        def LOCAL_server(s: socket.socket):
+            assert s is not None
+            assert type(s) == socket.socket  # noqa: E721
+
+            try:
+                while True:
+                    r = s.accept()
+
+                    if r is None:
+                        break
+            except Exception as e:
+                assert e is not None
+                pass
+
+        ok_count = 0
+        no_count = 0
+
+        for port in ports:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(("", port))
+                except OSError:
+                    continue
+
+                th = threading.Thread(target=LOCAL_server, args=[s])
+
+                s.listen(10)
+
+                assert type(th) == threading.Thread  # noqa: E721
+                th.start()
+
+                try:
+                    r = os_ops.is_port_free(port)
+                finally:
+                    s.shutdown(2)
+                    th.join()
+
+                if not r:
+                    ok_count += 1
+                    logging.info("OK. Port {} is not free.".format(port))
+                else:
+                    no_count += 1
+                    logging.warning("NO. Port {} does not accept connection.".format(port))
+
+                if ok_count == C_LIMIT:
+                    return
+
+                if no_count == C_LIMIT:
+                    raise RuntimeError("To many false positive test attempts.")
+
+        if ok_count == 0:
+            raise RuntimeError("No one free port was found.")
