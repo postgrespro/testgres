@@ -1141,16 +1141,46 @@ class TestTestgresCommon:
                 res_psql = r.safe_psql('select 1')
                 assert (res_psql == b'1\n')
 
+    def test_the_same_port(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init().start()
+            assert (node._should_free_port)
+            assert (type(node.port) == int)  # noqa: E721
+            node_port_copy = node.port
+            r = node.safe_psql("SELECT 1;")
+            assert (__class__.helper__rm_carriage_returns(r) == b'1\n')
+
+            with __class__.helper__get_node(node_svc, port=node.port) as node2:
+                assert (type(node2.port) == int)  # noqa: E721
+                assert (node2.port == node.port)
+                assert not (node2._should_free_port)
+
+                with pytest.raises(
+                    expected_exception=StartNodeException,
+                    match=re.escape("Cannot start node")
+                ):
+                    node2.init().start()
+
+            # node is still working
+            assert (node.port == node_port_copy)
+            assert (node._should_free_port)
+            r = node.safe_psql("SELECT 3;")
+            assert (__class__.helper__rm_carriage_returns(r) == b'3\n')
+
     @staticmethod
-    def helper__get_node(node_svc: PostgresNodeService, name=None):
+    def helper__get_node(node_svc: PostgresNodeService, name=None, port=None):
         assert isinstance(node_svc, PostgresNodeService)
         assert isinstance(node_svc.os_ops, OsOperations)
         assert isinstance(node_svc.port_manager, PortManager)
         return PostgresNode(
             name,
+            port=port,
             conn_params=None,
             os_ops=node_svc.os_ops,
-            port_manager=node_svc.port_manager)
+            port_manager=node_svc.port_manager if port is None else None
+        )
 
     @staticmethod
     def helper__skip_test_if_pg_version_is_not_ge(ver1: str, ver2: str):

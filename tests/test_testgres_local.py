@@ -244,30 +244,6 @@ class TestTestgresLocal:
         # Macos
         assert parse_pg_version("postgres (PostgreSQL) 14.9 (Homebrew)") == "14.9"
 
-    def test_the_same_port(self):
-        with get_new_node() as node:
-            node.init().start()
-            assert (node._should_free_port)
-            assert (type(node.port) == int)  # noqa: E721
-            node_port_copy = node.port
-            assert (rm_carriage_returns(node.safe_psql("SELECT 1;")) == b'1\n')
-
-            with get_new_node(port=node.port) as node2:
-                assert (type(node2.port) == int)  # noqa: E721
-                assert (node2.port == node.port)
-                assert not (node2._should_free_port)
-
-                with pytest.raises(
-                    expected_exception=StartNodeException,
-                    match=re.escape("Cannot start node")
-                ):
-                    node2.init().start()
-
-            # node is still working
-            assert (node.port == node_port_copy)
-            assert (node._should_free_port)
-            assert (rm_carriage_returns(node.safe_psql("SELECT 3;")) == b'3\n')
-
     class tagPortManagerProxy:
         sm_prev_testgres_reserve_port = None
         sm_prev_testgres_release_port = None
