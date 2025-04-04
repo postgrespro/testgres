@@ -8,27 +8,27 @@ import threading
 import random
 
 
-class PostgresNodePortManager:
+class PortManager:
     def __init__(self):
         super().__init__()
 
     def reserve_port(self) -> int:
-        raise NotImplementedError("PostgresNodePortManager::reserve_port is not implemented.")
+        raise NotImplementedError("PortManager::reserve_port is not implemented.")
 
     def release_port(self, number: int) -> None:
         assert type(number) == int  # noqa: E721
-        raise NotImplementedError("PostgresNodePortManager::release_port is not implemented.")
+        raise NotImplementedError("PortManager::release_port is not implemented.")
 
 
-class PostgresNodePortManager__ThisHost(PostgresNodePortManager):
-    sm_single_instance: PostgresNodePortManager = None
+class PortManager__ThisHost(PortManager):
+    sm_single_instance: PortManager = None
     sm_single_instance_guard = threading.Lock()
 
     def __init__(self):
         pass
 
-    def __new__(cls) -> PostgresNodePortManager:
-        assert __class__ == PostgresNodePortManager__ThisHost
+    def __new__(cls) -> PortManager:
+        assert __class__ == PortManager__ThisHost
         assert __class__.sm_single_instance_guard is not None
 
         if __class__.sm_single_instance is None:
@@ -46,7 +46,7 @@ class PostgresNodePortManager__ThisHost(PostgresNodePortManager):
         return utils.release_port(number)
 
 
-class PostgresNodePortManager__Generic(PostgresNodePortManager):
+class PortManager__Generic(PortManager):
     _os_ops: OsOperations
     _allocated_ports_guard: object
     _allocated_ports: set[int]

@@ -72,6 +72,9 @@ def internal__release_port(port):
     Free port provided by reserve_port().
     """
 
+    assert type(port) == int  # noqa: E721
+    assert port in bound_ports
+
     bound_ports.discard(port)
 
 

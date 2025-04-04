@@ -3,9 +3,9 @@ from ...testgres.operations.os_ops import ConnectionParams
 from ...testgres.operations.local_ops import LocalOperations
 from ...testgres.operations.remote_ops import RemoteOperations
 
-from ...testgres.node import PostgresNodePortManager
-from ...testgres.node import PostgresNodePortManager__ThisHost
-from ...testgres.node import PostgresNodePortManager__Generic
+from ...testgres.node import PortManager
+from ...testgres.node import PortManager__ThisHost
+from ...testgres.node import PortManager__Generic
 
 import os
 
@@ -37,22 +37,22 @@ class OsOpsDescrs:
 
 
 class PortManagers:
-    sm_remote_port_manager = PostgresNodePortManager__Generic(OsOpsDescrs.sm_remote_os_ops)
+    sm_remote_port_manager = PortManager__Generic(OsOpsDescrs.sm_remote_os_ops)
 
-    sm_local_port_manager = PostgresNodePortManager__ThisHost()
+    sm_local_port_manager = PortManager__ThisHost()
 
-    sm_local2_port_manager = PostgresNodePortManager__Generic(OsOpsDescrs.sm_local_os_ops)
+    sm_local2_port_manager = PortManager__Generic(OsOpsDescrs.sm_local_os_ops)
 
 
 class PostgresNodeService:
     sign: str
     os_ops: OsOperations
-    port_manager: PostgresNodePortManager
+    port_manager: PortManager
 
-    def __init__(self, sign: str, os_ops: OsOperations, port_manager: PostgresNodePortManager):
+    def __init__(self, sign: str, os_ops: OsOperations, port_manager: PortManager):
         assert type(sign) == str  # noqa: E721
         assert isinstance(os_ops, OsOperations)
-        assert isinstance(port_manager, PostgresNodePortManager)
+        assert isinstance(port_manager, PortManager)
         self.sign = sign
         self.os_ops = os_ops
         self.port_manager = port_manager

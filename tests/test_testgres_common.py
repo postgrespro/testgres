@@ -1,7 +1,7 @@
 from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
 from .helpers.global_data import OsOperations
-from .helpers.global_data import PostgresNodePortManager
+from .helpers.global_data import PortManager
 
 from ..testgres.node import PgVer
 from ..testgres.node import PostgresNode
@@ -70,7 +70,7 @@ class TestTestgresCommon:
         assert isinstance(request, pytest.FixtureRequest)
         assert isinstance(request.param, PostgresNodeService)
         assert isinstance(request.param.os_ops, OsOperations)
-        assert isinstance(request.param.port_manager, PostgresNodePortManager)
+        assert isinstance(request.param.port_manager, PortManager)
         return request.param
 
     def test_version_management(self, node_svc: PostgresNodeService):
@@ -1125,7 +1125,7 @@ class TestTestgresCommon:
     def helper__get_node(node_svc: PostgresNodeService, name=None):
         assert isinstance(node_svc, PostgresNodeService)
         assert isinstance(node_svc.os_ops, OsOperations)
-        assert isinstance(node_svc.port_manager, PostgresNodePortManager)
+        assert isinstance(node_svc.port_manager, PortManager)
         return PostgresNode(
             name,
             conn_params=None,

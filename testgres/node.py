@@ -83,9 +83,9 @@ from .exceptions import \
     BackupException,    \
     InvalidOperationException
 
-from .port_manager import PostgresNodePortManager
-from .port_manager import PostgresNodePortManager__ThisHost
-from .port_manager import PostgresNodePortManager__Generic
+from .port_manager import PortManager
+from .port_manager import PortManager__ThisHost
+from .port_manager import PortManager__Generic
 
 from .logger import TestgresLogger
 
@@ -146,7 +146,7 @@ class PostgresNode(object):
     _port: typing.Optional[int]
     _should_free_port: bool
     _os_ops: OsOperations
-    _port_manager: PostgresNodePortManager
+    _port_manager: PortManager
 
     def __init__(self,
                  name=None,
@@ -156,7 +156,7 @@ class PostgresNode(object):
                  bin_dir=None,
                  prefix=None,
                  os_ops: typing.Optional[OsOperations] = None,
-                 port_manager: typing.Optional[PostgresNodePortManager] = None):
+                 port_manager: typing.Optional[PortManager] = None):
         """
         PostgresNode constructor.
 
@@ -170,7 +170,7 @@ class PostgresNode(object):
         """
         assert port is None or type(port) == int  # noqa: E721
         assert os_ops is None or isinstance(os_ops, OsOperations)
-        assert port_manager is None or isinstance(port_manager, PostgresNodePortManager)
+        assert port_manager is None or isinstance(port_manager, PortManager)
 
         # private
         if os_ops is None:
@@ -203,13 +203,13 @@ class PostgresNode(object):
             self._port_manager = None
         else:
             if port_manager is not None:
-                assert isinstance(port_manager, PostgresNodePortManager)
+                assert isinstance(port_manager, PortManager)
                 self._port_manager = port_manager
             else:
                 self._port_manager = __class__._get_port_manager(self._os_ops)
 
             assert self._port_manager is not None
-            assert isinstance(self._port_manager, PostgresNodePortManager)
+            assert isinstance(self._port_manager, PortManager)
 
             self._port = self._port_manager.reserve_port()  # raises
             assert type(self._port) == int  # noqa: E721
@@ -269,15 +269,15 @@ class PostgresNode(object):
         return LocalOperations(conn_params)
 
     @staticmethod
-    def _get_port_manager(os_ops: OsOperations) -> PostgresNodePortManager:
+    def _get_port_manager(os_ops: OsOperations) -> PortManager:
         assert os_ops is not None
         assert isinstance(os_ops, OsOperations)
 
         if isinstance(os_ops, LocalOperations):
-            return PostgresNodePortManager__ThisHost()
+            return PortManager__ThisHost()
 
         # TODO: Throw exception "Please define a port manager."
-        return PostgresNodePortManager__Generic(os_ops)
+        return PortManager__Generic(os_ops)
 
     def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
         assert name is None or type(name) == str  # noqa: E721
@@ -289,7 +289,7 @@ class PostgresNode(object):
             raise InvalidOperationException("PostgresNode without PortManager can't be cloned.")
 
         assert self._port_manager is not None
-        assert isinstance(self._port_manager, PostgresNodePortManager)
+        assert isinstance(self._port_manager, PortManager)
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
 
@@ -1124,7 +1124,7 @@ class PostgresNode(object):
         else:
             assert self._should_free_port
             assert self._port_manager is not None
-            assert isinstance(self._port_manager, PostgresNodePortManager)
+            assert isinstance(self._port_manager, PortManager)
             assert __class__._C_MAX_START_ATEMPTS > 1
 
             log_files0 = self._collect_log_files()
@@ -1331,7 +1331,7 @@ class PostgresNode(object):
             assert type(self._port) == int  # noqa: E721
 
             assert self._port_manager is not None
-            assert isinstance(self._port_manager, PostgresNodePortManager)
+            assert isinstance(self._port_manager, PortManager)
 
             port = self._port
             self._should_free_port = False

@@ -246,7 +246,7 @@ class TestTestgresRemote:
 
         assert isinstance(svc, PostgresNodeService)
         assert isinstance(svc.os_ops, testgres.OsOperations)
-        assert isinstance(svc.port_manager, testgres.PostgresNodePortManager)
+        assert isinstance(svc.port_manager, testgres.PortManager)
 
         return testgres.PostgresNode(
             name,
