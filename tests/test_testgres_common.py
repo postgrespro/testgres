@@ -13,8 +13,6 @@ from ..testgres import ProcessType
 from ..testgres import NodeStatus
 from ..testgres import IsolationLevel
 
-import testgres
-
 # New name prevents to collect test-functions in TestgresException and fixes
 # the problem with pytest warning.
 from ..testgres import TestgresException as testgres_TestgresException
@@ -1250,7 +1248,7 @@ class TestTestgresCommon:
 
     def test_port_rereserve_during_node_start(self, node_svc: PostgresNodeService):
         assert type(node_svc) == PostgresNodeService  # noqa: E721
-        assert testgres.PostgresNode._C_MAX_START_ATEMPTS == 5
+        assert PostgresNode._C_MAX_START_ATEMPTS == 5
 
         C_COUNT_OF_BAD_PORT_USAGE = 3
 
@@ -1285,9 +1283,9 @@ class TestTestgresCommon:
 
     def test_port_conflict(self, node_svc: PostgresNodeService):
         assert type(node_svc) == PostgresNodeService  # noqa: E721
-        assert testgres.PostgresNode._C_MAX_START_ATEMPTS > 1
+        assert PostgresNode._C_MAX_START_ATEMPTS > 1
 
-        C_COUNT_OF_BAD_PORT_USAGE = testgres.PostgresNode._C_MAX_START_ATEMPTS
+        C_COUNT_OF_BAD_PORT_USAGE = PostgresNode._C_MAX_START_ATEMPTS
 
         with __class__.helper__get_node(node_svc) as node1:
             node1.init().start()
