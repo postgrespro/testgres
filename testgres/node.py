@@ -1,4 +1,6 @@
 # coding: utf-8
+from __future__ import annotations
+
 import logging
 import os
 import random
@@ -133,6 +135,9 @@ class ProcessProxy(object):
 
 
 class PostgresNodePortManager:
+    def __init__(self):
+        super().__init__()
+
     def reserve_port(self) -> int:
         raise NotImplementedError("PostManager::reserve_port is not implemented.")
 
@@ -141,9 +146,23 @@ class PostgresNodePortManager:
         raise NotImplementedError("PostManager::release_port is not implemented.")
 
 
-class PostgresNodePortManager__Global(PostgresNodePortManager):
+class PostgresNodePortManager__ThisHost(PostgresNodePortManager):
+    sm_single_instance: PostgresNodePortManager = None
+    sm_single_instance_guard = threading.Lock()
+
     def __init__(self):
         pass
+
+    def __new__(cls) -> PostgresNodePortManager:
+        assert __class__ == PostgresNodePortManager__ThisHost
+        assert __class__.sm_single_instance_guard is not None
+
+        if __class__.sm_single_instance is None:
+            with __class__.sm_single_instance_guard:
+                __class__.sm_single_instance = super().__new__(cls)
+        assert __class__.sm_single_instance
+        assert type(__class__.sm_single_instance) == __class__  # noqa: E721
+        return __class__.sm_single_instance
 
     def reserve_port(self) -> int:
         return utils.reserve_port()
@@ -290,7 +309,7 @@ class PostgresNode(object):
         assert isinstance(os_ops, OsOperations)
 
         # [2025-04-03] It is our old, incorrected behaviour
-        return PostgresNodePortManager__Global()
+        return PostgresNodePortManager__ThisHost()
 
     def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
         assert name is None or type(name) == str  # noqa: E721
