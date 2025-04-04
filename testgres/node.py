@@ -141,11 +141,11 @@ class PostgresNodePortManager:
         super().__init__()
 
     def reserve_port(self) -> int:
-        raise NotImplementedError("PostManager::reserve_port is not implemented.")
+        raise NotImplementedError("PostgresNodePortManager::reserve_port is not implemented.")
 
     def release_port(self, number: int) -> None:
         assert type(number) == int  # noqa: E721
-        raise NotImplementedError("PostManager::release_port is not implemented.")
+        raise NotImplementedError("PostgresNodePortManager::release_port is not implemented.")
 
 
 class PostgresNodePortManager__ThisHost(PostgresNodePortManager):
