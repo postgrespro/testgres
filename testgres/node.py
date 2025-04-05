@@ -142,7 +142,6 @@ class PostgresNode(object):
     _C_MAX_START_ATEMPTS = 5
 
     _name: typing.Optional[str]
-    _host: typing.Optional[str]
     _port: typing.Optional[int]
     _should_free_port: bool
     _os_ops: OsOperations
@@ -193,7 +192,8 @@ class PostgresNode(object):
 
         # basic
         self._name = name or generate_app_name()
-        self._host = self._os_ops.host
+
+        assert hasattr(os_ops, "host")
 
         if port is not None:
             assert type(port) == int  # noqa: E721
@@ -319,10 +319,9 @@ class PostgresNode(object):
 
     @property
     def host(self) -> str:
-        if self._host is None:
-            raise InvalidOperationException("PostgresNode host is not defined.")
-        assert type(self._host) == str  # noqa: E721
-        return self._host
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+        return self._os_ops.host
 
     @property
     def port(self) -> int:
