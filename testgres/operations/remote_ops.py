@@ -640,10 +640,10 @@ class RemoteOperations(OsOperations):
         assert type(error) == str  # noqa: E721
 
         if exit_status == 0:
-            return __class__.helper__is_port_free__process_0(error)
+            return __class__._is_port_free__process_0(error)
 
         if exit_status == 1:
-            return __class__.helper__is_port_free__process_1(error)
+            return __class__._is_port_free__process_1(error)
 
         errMsg = "nc returns an unknown result code: {0}".format(exit_status)
 
@@ -656,13 +656,13 @@ class RemoteOperations(OsOperations):
         )
 
     @staticmethod
-    def helper__is_port_free__process_0(error: str) -> bool:
+    def _is_port_free__process_0(error: str) -> bool:
         assert type(error) == str  # noqa: E721
         # TODO: check error message?
         return False
 
     @staticmethod
-    def helper__is_port_free__process_1(error: str) -> bool:
+    def _is_port_free__process_1(error: str) -> bool:
         assert type(error) == str  # noqa: E721
         # TODO: check error message?
         return True
