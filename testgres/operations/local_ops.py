@@ -6,6 +6,7 @@ import stat
 import subprocess
 import tempfile
 import time
+import socket
 
 import psutil
 
@@ -435,6 +436,16 @@ class LocalOperations(OsOperations):
     def get_process_children(self, pid):
         assert type(pid) == int  # noqa: E721
         return psutil.Process(pid).children()
+
+    def is_port_free(self, number: int) -> bool:
+        assert type(number) == int  # noqa: E721
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("", number))
+                return True
+            except OSError:
+                return False
 
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):

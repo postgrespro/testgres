@@ -34,6 +34,7 @@ from .enums import \
     DumpFormat
 
 from .node import PostgresNode, NodeApp
+from .node import PortManager
 
 from .utils import \
     reserve_port, \
@@ -53,8 +54,6 @@ from .operations.os_ops import OsOperations, ConnectionParams
 from .operations.local_ops import LocalOperations
 from .operations.remote_ops import RemoteOperations
 
-from .helpers.port_manager import PortManager
-
 __all__ = [
     "get_new_node",
     "get_remote_node",
@@ -64,7 +63,8 @@ __all__ = [
     "TestgresException", "ExecUtilException", "QueryException", "TimeoutException", "CatchUpException", "StartNodeException", "InitNodeException", "BackupException", "InvalidOperationException",
     "XLogMethod", "IsolationLevel", "NodeStatus", "ProcessType", "DumpFormat",
     "PostgresNode", "NodeApp",
+    "PortManager",
     "reserve_port", "release_port", "bound_ports", "get_bin_path", "get_pg_config", "get_pg_version",
-    "First", "Any", "PortManager",
+    "First", "Any",
     "OsOperations", "LocalOperations", "RemoteOperations", "ConnectionParams"
 ]

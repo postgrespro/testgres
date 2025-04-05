@@ -5,7 +5,7 @@
 set -eux
 
 if [ -z ${TEST_FILTER+x} ]; \
-then export TEST_FILTER="TestTestgresLocal or (TestTestgresCommon and (not remote_ops))"; \
+then export TEST_FILTER="TestTestgresLocal or (TestTestgresCommon and (not remote))"; \
 fi
 
 # fail early
