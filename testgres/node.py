@@ -1088,7 +1088,7 @@ class PostgresNode(object):
             return self
 
         if self._port is None:
-            raise InvalidOperationException("Can't start PostgresNode. Port is node defined.")
+            raise InvalidOperationException("Can't start PostgresNode. Port is not defined.")
 
         assert type(self._port) == int  # noqa: E721
 
