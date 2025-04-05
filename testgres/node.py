@@ -276,7 +276,7 @@ class PostgresNode(object):
         if isinstance(os_ops, LocalOperations):
             return PortManager__ThisHost()
 
-        # TODO: Throw exception "Please define a port manager."
+        # TODO: Throw the exception "Please define a port manager." ?
         return PortManager__Generic(os_ops)
 
     def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
