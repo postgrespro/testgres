@@ -658,13 +658,23 @@ class RemoteOperations(OsOperations):
     @staticmethod
     def _is_port_free__process_0(error: str) -> bool:
         assert type(error) == str  # noqa: E721
-        # TODO: check error message?
+        #
+        # Example of error text:
+        #  "Connection to localhost (127.0.0.1) 1024 port [tcp/*] succeeded!\n"
+        #
+        # May be here is needed to check error message?
+        #
         return False
 
     @staticmethod
     def _is_port_free__process_1(error: str) -> bool:
         assert type(error) == str  # noqa: E721
-        # TODO: check error message?
+        #
+        # Example of error text:
+        #  "nc: connect to localhost (127.0.0.1) port 1024 (tcp) failed: Connection refused\n"
+        #
+        # May be here is needed to check error message?
+        #
         return True
 
     # Database control
