@@ -193,8 +193,6 @@ class PostgresNode(object):
         # basic
         self._name = name or generate_app_name()
 
-        assert hasattr(os_ops, "host")
-
         if port is not None:
             assert type(port) == int  # noqa: E721
             assert port_manager is None
