@@ -654,7 +654,7 @@ class TestOsOpsCommon:
     def test_is_port_free__true(self, os_ops: OsOperations):
         assert isinstance(os_ops, OsOperations)
 
-        C_LIMIT = 10
+        C_LIMIT = 128
 
         ports = set(range(1024, 65535))
         assert type(ports) == set  # noqa: E721
