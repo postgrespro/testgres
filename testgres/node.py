@@ -1321,10 +1321,13 @@ class PostgresNode(object):
     def free_port(self):
         """
         Reclaim port owned by this node.
-        NOTE: does not free auto selected ports.
+        NOTE: this method does not release manually defined port but reset it.
         """
+        assert type(self._should_free_port) == bool
 
-        if self._should_free_port:
+        if not self._should_free_port:
+            self._port = None
+        else:
             assert type(self._port) == int  # noqa: E721
 
             assert self._port_manager is not None

@@ -1321,6 +1321,65 @@ class TestTestgresCommon:
             r = node1.safe_psql("SELECT 3;")
             assert __class__.helper__rm_carriage_returns(r) == b'3\n'
 
+    def test_try_to_get_port_after_free_manual_port(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with __class__.helper__get_node(node_svc) as node1:
+            assert node1 is not None
+            assert type(node1) == PostgresNode
+            assert node1.port is not None
+            assert type(node1.port) == int
+            with __class__.helper__get_node(node_svc, port=node1.port, port_manager=None) as node2:
+                assert node2 is not None
+                assert type(node1) == PostgresNode
+                assert node2 is not node1
+                assert node2.port is not None
+                assert type(node2.port) == int
+                assert node2.port == node1.port
+
+                logging.info("Release node2 port")
+                node2.free_port()
+
+                logging.info("try to get node2.port...")
+                with pytest.raises(
+                    InvalidOperationException,
+                    match="^" + re.escape("PostgresNode port is not defined.") + "$"
+                ):
+                    p = node2.port
+                    assert p is None
+
+    def test_try_to_start_node_after_free_manual_port(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with __class__.helper__get_node(node_svc) as node1:
+            assert node1 is not None
+            assert type(node1) == PostgresNode
+            assert node1.port is not None
+            assert type(node1.port) == int
+            with __class__.helper__get_node(node_svc, port=node1.port, port_manager=None) as node2:
+                assert node2 is not None
+                assert type(node1) == PostgresNode
+                assert node2 is not node1
+                assert node2.port is not None
+                assert type(node2.port) == int
+                assert node2.port == node1.port
+
+                logging.info("Release node2 port")
+                node2.free_port()
+
+                logging.info("node2 is trying to start...")
+                with pytest.raises(
+                    InvalidOperationException,
+                    match="^" + re.escape("Can't start PostgresNode. Port is not defined.") + "$"
+                ):
+                    node2.start()
+
     @staticmethod
     def helper__get_node(
         node_svc: PostgresNodeService,
