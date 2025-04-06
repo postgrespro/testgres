@@ -1,4 +1,6 @@
 # coding: utf-8
+from __future__ import annotations
+
 import logging
 import os
 import random
@@ -10,6 +12,7 @@ import platform
 from queue import Queue
 
 import time
+import typing
 
 try:
     from collections.abc import Iterable
@@ -80,13 +83,15 @@ from .exceptions import \
     BackupException,    \
     InvalidOperationException
 
+from .port_manager import PortManager
+from .port_manager import PortManager__ThisHost
+from .port_manager import PortManager__Generic
+
 from .logger import TestgresLogger
 
 from .pubsub import Publication, Subscription
 
 from .standby import First
-
-from . import utils
 
 from .utils import \
     PgVer, \
@@ -126,17 +131,31 @@ class ProcessProxy(object):
         return getattr(self.process, name)
 
     def __repr__(self):
-        return '{}(ptype={}, process={})'.format(self.__class__.__name__,
-                                                 str(self.ptype),
-                                                 repr(self.process))
+        return '{}(ptype={}, process={})'.format(
+            self.__class__.__name__,
+            str(self.ptype),
+            repr(self.process))
 
 
 class PostgresNode(object):
     # a max number of node start attempts
     _C_MAX_START_ATEMPTS = 5
 
-    def __init__(self, name=None, base_dir=None, port=None, conn_params: ConnectionParams = ConnectionParams(),
-                 bin_dir=None, prefix=None, os_ops=None):
+    _name: typing.Optional[str]
+    _port: typing.Optional[int]
+    _should_free_port: bool
+    _os_ops: OsOperations
+    _port_manager: PortManager
+
+    def __init__(self,
+                 name=None,
+                 base_dir=None,
+                 port: typing.Optional[int] = None,
+                 conn_params: ConnectionParams = ConnectionParams(),
+                 bin_dir=None,
+                 prefix=None,
+                 os_ops: typing.Optional[OsOperations] = None,
+                 port_manager: typing.Optional[PortManager] = None):
         """
         PostgresNode constructor.
 
@@ -145,21 +164,26 @@ class PostgresNode(object):
             port: port to accept connections.
             base_dir: path to node's data directory.
             bin_dir: path to node's binary directory.
+            os_ops: None or correct OS operation object.
+            port_manager: None or correct port manager object.
         """
+        assert port is None or type(port) == int  # noqa: E721
+        assert os_ops is None or isinstance(os_ops, OsOperations)
+        assert port_manager is None or isinstance(port_manager, PortManager)
 
         # private
         if os_ops is None:
-            os_ops = __class__._get_os_ops(conn_params)
+            self._os_ops = __class__._get_os_ops(conn_params)
         else:
             assert conn_params is None
+            assert isinstance(os_ops, OsOperations)
+            self._os_ops = os_ops
             pass
 
-        assert os_ops is not None
-        assert isinstance(os_ops, OsOperations)
-        self._os_ops = os_ops
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
 
-        self._pg_version = PgVer(get_pg_version2(os_ops, bin_dir))
-        self._should_free_port = port is None
+        self._pg_version = PgVer(get_pg_version2(self._os_ops, bin_dir))
         self._base_dir = base_dir
         self._bin_dir = bin_dir
         self._prefix = prefix
@@ -167,12 +191,29 @@ class PostgresNode(object):
         self._master = None
 
         # basic
-        self.name = name or generate_app_name()
+        self._name = name or generate_app_name()
 
-        self.host = os_ops.host
-        self.port = port or utils.reserve_port()
+        if port is not None:
+            assert type(port) == int  # noqa: E721
+            assert port_manager is None
+            self._port = port
+            self._should_free_port = False
+            self._port_manager = None
+        else:
+            if port_manager is not None:
+                assert isinstance(port_manager, PortManager)
+                self._port_manager = port_manager
+            else:
+                self._port_manager = __class__._get_port_manager(self._os_ops)
 
-        self.ssh_key = os_ops.ssh_key
+            assert self._port_manager is not None
+            assert isinstance(self._port_manager, PortManager)
+
+            self._port = self._port_manager.reserve_port()  # raises
+            assert type(self._port) == int  # noqa: E721
+            self._should_free_port = True
+
+        assert type(self._port) == int  # noqa: E721
 
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
@@ -207,7 +248,11 @@ class PostgresNode(object):
 
     def __repr__(self):
         return "{}(name='{}', port={}, base_dir='{}')".format(
-            self.__class__.__name__, self.name, self.port, self.base_dir)
+            self.__class__.__name__,
+            self.name,
+            str(self._port) if self._port is not None else "None",
+            self.base_dir
+        )
 
     @staticmethod
     def _get_os_ops(conn_params: ConnectionParams) -> OsOperations:
@@ -221,11 +266,30 @@ class PostgresNode(object):
 
         return LocalOperations(conn_params)
 
+    @staticmethod
+    def _get_port_manager(os_ops: OsOperations) -> PortManager:
+        assert os_ops is not None
+        assert isinstance(os_ops, OsOperations)
+
+        if isinstance(os_ops, LocalOperations):
+            return PortManager__ThisHost()
+
+        # TODO: Throw the exception "Please define a port manager." ?
+        return PortManager__Generic(os_ops)
+
     def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
         assert name is None or type(name) == str  # noqa: E721
         assert base_dir is None or type(base_dir) == str  # noqa: E721
 
         assert __class__ == PostgresNode
+
+        if self._port_manager is None:
+            raise InvalidOperationException("PostgresNode without PortManager can't be cloned.")
+
+        assert self._port_manager is not None
+        assert isinstance(self._port_manager, PortManager)
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
 
         node = PostgresNode(
             name=name,
@@ -233,7 +297,8 @@ class PostgresNode(object):
             conn_params=None,
             bin_dir=self._bin_dir,
             prefix=self._prefix,
-            os_ops=self._os_ops)
+            os_ops=self._os_ops,
+            port_manager=self._port_manager)
 
         return node
 
@@ -242,6 +307,33 @@ class PostgresNode(object):
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
         return self._os_ops
+
+    @property
+    def name(self) -> str:
+        if self._name is None:
+            raise InvalidOperationException("PostgresNode name is not defined.")
+        assert type(self._name) == str  # noqa: E721
+        return self._name
+
+    @property
+    def host(self) -> str:
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+        return self._os_ops.host
+
+    @property
+    def port(self) -> int:
+        if self._port is None:
+            raise InvalidOperationException("PostgresNode port is not defined.")
+
+        assert type(self._port) == int  # noqa: E721
+        return self._port
+
+    @property
+    def ssh_key(self) -> typing.Optional[str]:
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+        return self._os_ops.ssh_key
 
     @property
     def pid(self):
@@ -993,6 +1085,11 @@ class PostgresNode(object):
         if self.is_started:
             return self
 
+        if self._port is None:
+            raise InvalidOperationException("Can't start PostgresNode. Port is not defined.")
+
+        assert type(self._port) == int  # noqa: E721
+
         _params = [self._get_bin_path("pg_ctl"),
                    "-D", self.data_dir,
                    "-l", self.pg_log_file,
@@ -1023,6 +1120,8 @@ class PostgresNode(object):
                 LOCAL__raise_cannot_start_node__std(e)
         else:
             assert self._should_free_port
+            assert self._port_manager is not None
+            assert isinstance(self._port_manager, PortManager)
             assert __class__._C_MAX_START_ATEMPTS > 1
 
             log_files0 = self._collect_log_files()
@@ -1048,20 +1147,20 @@ class PostgresNode(object):
 
                     log_files0 = log_files1
                     logging.warning(
-                        "Detected a conflict with using the port {0}. Trying another port after a {1}-second sleep...".format(self.port, timeout)
+                        "Detected a conflict with using the port {0}. Trying another port after a {1}-second sleep...".format(self._port, timeout)
                     )
                     time.sleep(timeout)
                     timeout = min(2 * timeout, 5)
-                    cur_port = self.port
-                    new_port = utils.reserve_port()  # can raise
+                    cur_port = self._port
+                    new_port = self._port_manager.reserve_port()  # can raise
                     try:
                         options = {'port': new_port}
                         self.set_auto_conf(options)
                     except:  # noqa: E722
-                        utils.release_port(new_port)
+                        self._port_manager.release_port(new_port)
                         raise
-                    self.port = new_port
-                    utils.release_port(cur_port)
+                    self._port = new_port
+                    self._port_manager.release_port(cur_port)
                     continue
                 break
         self._maybe_start_logger()
@@ -1222,14 +1321,22 @@ class PostgresNode(object):
     def free_port(self):
         """
         Reclaim port owned by this node.
-        NOTE: does not free auto selected ports.
+        NOTE: this method does not release manually defined port but reset it.
         """
+        assert type(self._should_free_port) == bool  # noqa: E721
 
-        if self._should_free_port:
-            port = self.port
+        if not self._should_free_port:
+            self._port = None
+        else:
+            assert type(self._port) == int  # noqa: E721
+
+            assert self._port_manager is not None
+            assert isinstance(self._port_manager, PortManager)
+
+            port = self._port
             self._should_free_port = False
-            self.port = None
-            utils.release_port(port)
+            self._port = None
+            self._port_manager.release_port(port)
 
     def cleanup(self, max_attempts=3, full=False):
         """

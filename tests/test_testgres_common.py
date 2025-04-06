@@ -1,6 +1,7 @@
-from .helpers.os_ops_descrs import OsOpsDescr
-from .helpers.os_ops_descrs import OsOpsDescrs
-from .helpers.os_ops_descrs import OsOperations
+from .helpers.global_data import PostgresNodeService
+from .helpers.global_data import PostgresNodeServices
+from .helpers.global_data import OsOperations
+from .helpers.global_data import PortManager
 
 from ..testgres.node import PgVer
 from ..testgres.node import PostgresNode
@@ -37,6 +38,8 @@ import tempfile
 import uuid
 import os
 import re
+import subprocess
+import typing
 
 
 @contextmanager
@@ -54,22 +57,25 @@ def removing(os_ops: OsOperations, f):
 
 
 class TestTestgresCommon:
-    sm_os_ops_descrs: list[OsOpsDescr] = [
-        OsOpsDescrs.sm_local_os_ops_descr,
-        OsOpsDescrs.sm_remote_os_ops_descr
+    sm_node_svcs: list[PostgresNodeService] = [
+        PostgresNodeServices.sm_local,
+        PostgresNodeServices.sm_local2,
+        PostgresNodeServices.sm_remote,
     ]
 
     @pytest.fixture(
-        params=[descr.os_ops for descr in sm_os_ops_descrs],
-        ids=[descr.sign for descr in sm_os_ops_descrs]
+        params=sm_node_svcs,
+        ids=[descr.sign for descr in sm_node_svcs]
     )
-    def os_ops(self, request: pytest.FixtureRequest) -> OsOperations:
+    def node_svc(self, request: pytest.FixtureRequest) -> PostgresNodeService:
         assert isinstance(request, pytest.FixtureRequest)
-        assert isinstance(request.param, OsOperations)
+        assert isinstance(request.param, PostgresNodeService)
+        assert isinstance(request.param.os_ops, OsOperations)
+        assert isinstance(request.param.port_manager, PortManager)
         return request.param
 
-    def test_version_management(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_version_management(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
         a = PgVer('10.0')
         b = PgVer('10')
@@ -93,42 +99,42 @@ class TestTestgresCommon:
         assert (g == k)
         assert (g > h)
 
-        version = get_pg_version2(os_ops)
+        version = get_pg_version2(node_svc.os_ops)
 
-        with __class__.helper__get_node(os_ops) as node:
+        with __class__.helper__get_node(node_svc) as node:
             assert (isinstance(version, six.string_types))
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
 
-    def test_double_init(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_double_init(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(os_ops).init() as node:
+        with __class__.helper__get_node(node_svc).init() as node:
             # can't initialize node more than once
             with pytest.raises(expected_exception=InitNodeException):
                 node.init()
 
-    def test_init_after_cleanup(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_init_after_cleanup(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(os_ops) as node:
+        with __class__.helper__get_node(node_svc) as node:
             node.init().start().execute('select 1')
             node.cleanup()
             node.init().start().execute('select 1')
 
-    def test_init_unique_system_id(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_init_unique_system_id(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
         # this function exists in PostgreSQL 9.6+
-        current_version = get_pg_version2(os_ops)
+        current_version = get_pg_version2(node_svc.os_ops)
 
-        __class__.helper__skip_test_if_util_not_exist(os_ops, "pg_resetwal")
+        __class__.helper__skip_test_if_util_not_exist(node_svc.os_ops, "pg_resetwal")
         __class__.helper__skip_test_if_pg_version_is_not_ge(current_version, '9.6')
 
         query = 'select system_identifier from pg_control_system()'
 
         with scoped_config(cache_initdb=False):
-            with __class__.helper__get_node(os_ops).init().start() as node0:
+            with __class__.helper__get_node(node_svc).init().start() as node0:
                 id0 = node0.execute(query)[0]
 
         with scoped_config(cache_initdb=True,
@@ -137,8 +143,8 @@ class TestTestgresCommon:
             assert (config.cached_initdb_unique)
 
             # spawn two nodes; ids must be different
-            with __class__.helper__get_node(os_ops).init().start() as node1, \
-                    __class__.helper__get_node(os_ops).init().start() as node2:
+            with __class__.helper__get_node(node_svc).init().start() as node1, \
+                    __class__.helper__get_node(node_svc).init().start() as node2:
                 id1 = node1.execute(query)[0]
                 id2 = node2.execute(query)[0]
 
@@ -146,44 +152,44 @@ class TestTestgresCommon:
                 assert (id1 > id0)
                 assert (id2 > id1)
 
-    def test_node_exit(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_node_exit(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
         with pytest.raises(expected_exception=QueryException):
-            with __class__.helper__get_node(os_ops).init() as node:
+            with __class__.helper__get_node(node_svc).init() as node:
                 base_dir = node.base_dir
                 node.safe_psql('select 1')
 
         # we should save the DB for "debugging"
-        assert (os_ops.path_exists(base_dir))
-        os_ops.rmdirs(base_dir, ignore_errors=True)
+        assert (node_svc.os_ops.path_exists(base_dir))
+        node_svc.os_ops.rmdirs(base_dir, ignore_errors=True)
 
-        with __class__.helper__get_node(os_ops).init() as node:
+        with __class__.helper__get_node(node_svc).init() as node:
             base_dir = node.base_dir
 
         # should have been removed by default
-        assert not (os_ops.path_exists(base_dir))
+        assert not (node_svc.os_ops.path_exists(base_dir))
 
-    def test_double_start(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_double_start(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(os_ops).init().start() as node:
+        with __class__.helper__get_node(node_svc).init().start() as node:
             # can't start node more than once
             node.start()
             assert (node.is_started)
 
-    def test_uninitialized_start(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_uninitialized_start(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(os_ops) as node:
+        with __class__.helper__get_node(node_svc) as node:
             # node is not initialized yet
             with pytest.raises(expected_exception=StartNodeException):
                 node.start()
 
-    def test_restart(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_restart(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(os_ops) as node:
+        with __class__.helper__get_node(node_svc) as node:
             node.init().start()
 
             # restart, ok
@@ -198,10 +204,10 @@ class TestTestgresCommon:
                 node.append_conf('pg_hba.conf', 'DUMMY')
                 node.restart()
 
-    def test_reload(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_reload(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(os_ops) as node:
+        with __class__.helper__get_node(node_svc) as node:
             node.init().start()
 
             # change client_min_messages and save old value
@@ -216,24 +222,24 @@ class TestTestgresCommon:
             assert ('debug1' == cmm_new[0][0].lower())
             assert (cmm_old != cmm_new)
 
-    def test_pg_ctl(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_pg_ctl(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(os_ops) as node:
+        with __class__.helper__get_node(node_svc) as node:
             node.init().start()
 
             status = node.pg_ctl(['status'])
             assert ('PID' in status)
 
-    def test_status(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_status(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
         assert (NodeStatus.Running)
         assert not (NodeStatus.Stopped)
         assert not (NodeStatus.Uninitialized)
 
         # check statuses after each operation
-        with __class__.helper__get_node(os_ops) as node:
+        with __class__.helper__get_node(node_svc) as node:
             assert (node.pid == 0)
             assert (node.status() == NodeStatus.Uninitialized)
 
@@ -257,8 +263,8 @@ class TestTestgresCommon:
             assert (node.pid == 0)
             assert (node.status() == NodeStatus.Uninitialized)
 
-    def test_child_pids(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_child_pids(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
         master_processes = [
             ProcessType.AutovacuumLauncher,
@@ -269,7 +275,7 @@ class TestTestgresCommon:
             ProcessType.WalWriter,
         ]
 
-        postgresVersion = get_pg_version2(os_ops)
+        postgresVersion = get_pg_version2(node_svc.os_ops)
 
         if __class__.helper__pg_version_ge(postgresVersion, '10'):
             master_processes.append(ProcessType.LogicalReplicationLauncher)
@@ -338,7 +344,7 @@ class TestTestgresCommon:
                 absenceList
             ))
 
-        with __class__.helper__get_node(os_ops).init().start() as master:
+        with __class__.helper__get_node(node_svc).init().start() as master:
 
             # master node doesn't have a source walsender!
             with pytest.raises(expected_exception=testgres_TestgresException):
@@ -380,10 +386,10 @@ class TestTestgresCommon:
         str(ExecUtilException('msg', 'cmd', 1, 'out'))
         str(QueryException('msg', 'query'))
 
-    def test_auto_name(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_auto_name(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(os_ops).init(allow_streaming=True).start() as m:
+        with __class__.helper__get_node(node_svc).init(allow_streaming=True).start() as m:
             with m.replicate().start() as r:
                 # check that nodes are running
                 assert (m.status())
@@ -417,9 +423,9 @@ class TestTestgresCommon:
             lines = file_tail(f, 1)
             assert (lines[0] == s3)
 
-    def test_isolation_levels(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops).init().start() as node:
+    def test_isolation_levels(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init().start() as node:
             with node.connect() as con:
                 # string levels
                 con.begin('Read Uncommitted').commit()
@@ -437,17 +443,17 @@ class TestTestgresCommon:
                 with pytest.raises(expected_exception=QueryException):
                     con.begin('Garbage').commit()
 
-    def test_users(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops).init().start() as node:
+    def test_users(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init().start() as node:
             node.psql('create role test_user login')
             value = node.safe_psql('select 1', username='test_user')
             value = __class__.helper__rm_carriage_returns(value)
             assert (value == b'1\n')
 
-    def test_poll_query_until(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops) as node:
+    def test_poll_query_until(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc) as node:
             node.init().start()
 
             get_time = 'select extract(epoch from now())'
@@ -507,8 +513,8 @@ class TestTestgresCommon:
             # check 1 arg, ok
             node.poll_query_until('select true')
 
-    def test_logging(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_logging(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
         C_MAX_ATTEMPTS = 50
         # This name is used for testgres logging, too.
         C_NODE_NAME = "testgres_tests." + __class__.__name__ + "test_logging-master-" + uuid.uuid4().hex
@@ -529,7 +535,7 @@ class TestTestgresCommon:
                 logger.addHandler(handler)
 
                 with scoped_config(use_python_logging=True):
-                    with __class__.helper__get_node(os_ops, name=C_NODE_NAME) as master:
+                    with __class__.helper__get_node(node_svc, name=C_NODE_NAME) as master:
                         logging.info("Master node is initilizing")
                         master.init()
 
@@ -599,9 +605,9 @@ class TestTestgresCommon:
         # GO HOME!
         return
 
-    def test_psql(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops).init().start() as node:
+    def test_psql(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init().start() as node:
 
             # check returned values (1 arg)
             res = node.psql('select 1')
@@ -636,17 +642,20 @@ class TestTestgresCommon:
 
             # check psql's default args, fails
             with pytest.raises(expected_exception=QueryException):
-                node.psql()
+                r = node.psql()  # raises!
+                logging.error("node.psql returns [{}]".format(r))
 
             node.stop()
 
             # check psql on stopped node, fails
             with pytest.raises(expected_exception=QueryException):
-                node.safe_psql('select 1')
+                # [2025-04-03] This call does not raise exception! I do not know why.
+                r = node.safe_psql('select 1')  # raises!
+                logging.error("node.safe_psql returns [{}]".format(r))
 
-    def test_safe_psql__expect_error(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops).init().start() as node:
+    def test_safe_psql__expect_error(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init().start() as node:
             err = node.safe_psql('select_or_not_select 1', expect_error=True)
             assert (type(err) == str)  # noqa: E721
             assert ('select_or_not_select' in err)
@@ -663,9 +672,9 @@ class TestTestgresCommon:
             res = node.safe_psql("select 1;", expect_error=False)
             assert (__class__.helper__rm_carriage_returns(res) == b'1\n')
 
-    def test_transactions(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops).init().start() as node:
+    def test_transactions(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init().start() as node:
 
             with node.connect() as con:
                 con.begin()
@@ -688,9 +697,9 @@ class TestTestgresCommon:
                 con.execute('drop table test')
                 con.commit()
 
-    def test_control_data(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops) as node:
+    def test_control_data(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc) as node:
 
             # node is not initialized yet
             with pytest.raises(expected_exception=ExecUtilException):
@@ -703,9 +712,9 @@ class TestTestgresCommon:
             assert data is not None
             assert (any('pg_control' in s for s in data.keys()))
 
-    def test_backup_simple(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops) as master:
+    def test_backup_simple(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc) as master:
 
             # enable streaming for backups
             master.init(allow_streaming=True)
@@ -725,9 +734,9 @@ class TestTestgresCommon:
                     res = slave.execute('select * from test order by i asc')
                     assert (res == [(1, ), (2, ), (3, ), (4, )])
 
-    def test_backup_multiple(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops) as node:
+    def test_backup_multiple(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc) as node:
             node.init(allow_streaming=True).start()
 
             with node.backup(xlog_method='fetch') as backup1, \
@@ -739,9 +748,9 @@ class TestTestgresCommon:
                         backup.spawn_primary('node2', destroy=False) as node2:
                     assert (node1.base_dir != node2.base_dir)
 
-    def test_backup_exhaust(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops) as node:
+    def test_backup_exhaust(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc) as node:
             node.init(allow_streaming=True).start()
 
             with node.backup(xlog_method='fetch') as backup:
@@ -753,9 +762,9 @@ class TestTestgresCommon:
                 with pytest.raises(expected_exception=BackupException):
                     backup.spawn_primary()
 
-    def test_backup_wrong_xlog_method(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops) as node:
+    def test_backup_wrong_xlog_method(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc) as node:
             node.init(allow_streaming=True).start()
 
             with pytest.raises(
@@ -764,11 +773,11 @@ class TestTestgresCommon:
             ):
                 node.backup(xlog_method='wrong')
 
-    def test_pg_ctl_wait_option(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_pg_ctl_wait_option(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
         C_MAX_ATTEMPTS = 50
 
-        node = __class__.helper__get_node(os_ops)
+        node = __class__.helper__get_node(node_svc)
         assert node.status() == NodeStatus.Uninitialized
         node.init()
         assert node.status() == NodeStatus.Stopped
@@ -835,9 +844,9 @@ class TestTestgresCommon:
         logging.info("OK. Node is stopped.")
         node.cleanup()
 
-    def test_replicate(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops) as node:
+    def test_replicate(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc) as node:
             node.init(allow_streaming=True).start()
 
             with node.replicate().start() as replica:
@@ -851,14 +860,14 @@ class TestTestgresCommon:
                 res = node.execute('select * from test')
                 assert (res == [])
 
-    def test_synchronous_replication(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_synchronous_replication(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
-        current_version = get_pg_version2(os_ops)
+        current_version = get_pg_version2(node_svc.os_ops)
 
         __class__.helper__skip_test_if_pg_version_is_not_ge(current_version, "9.6")
 
-        with __class__.helper__get_node(os_ops) as master:
+        with __class__.helper__get_node(node_svc) as master:
             old_version = not __class__.helper__pg_version_ge(current_version, '9.6')
 
             master.init(allow_streaming=True).start()
@@ -897,14 +906,14 @@ class TestTestgresCommon:
                     res = standby1.safe_psql('select count(*) from abc')
                     assert (__class__.helper__rm_carriage_returns(res) == b'1000000\n')
 
-    def test_logical_replication(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_logical_replication(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
-        current_version = get_pg_version2(os_ops)
+        current_version = get_pg_version2(node_svc.os_ops)
 
         __class__.helper__skip_test_if_pg_version_is_not_ge(current_version, "10")
 
-        with __class__.helper__get_node(os_ops) as node1, __class__.helper__get_node(os_ops) as node2:
+        with __class__.helper__get_node(node_svc) as node1, __class__.helper__get_node(node_svc) as node2:
             node1.init(allow_logical=True)
             node1.start()
             node2.init().start()
@@ -971,15 +980,15 @@ class TestTestgresCommon:
             res = node2.execute('select * from test2')
             assert (res == [('a', ), ('b', )])
 
-    def test_logical_catchup(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_logical_catchup(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
         """ Runs catchup for 100 times to be sure that it is consistent """
 
-        current_version = get_pg_version2(os_ops)
+        current_version = get_pg_version2(node_svc.os_ops)
 
         __class__.helper__skip_test_if_pg_version_is_not_ge(current_version, "10")
 
-        with __class__.helper__get_node(os_ops) as node1, __class__.helper__get_node(os_ops) as node2:
+        with __class__.helper__get_node(node_svc) as node1, __class__.helper__get_node(node_svc) as node2:
             node1.init(allow_logical=True)
             node1.start()
             node2.init().start()
@@ -999,20 +1008,20 @@ class TestTestgresCommon:
                 assert (res == [(i, i, )])
                 node1.execute('delete from test')
 
-    def test_logical_replication_fail(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_logical_replication_fail(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
-        current_version = get_pg_version2(os_ops)
+        current_version = get_pg_version2(node_svc.os_ops)
 
         __class__.helper__skip_test_if_pg_version_is_ge(current_version, "10")
 
-        with __class__.helper__get_node(os_ops) as node:
+        with __class__.helper__get_node(node_svc) as node:
             with pytest.raises(expected_exception=InitNodeException):
                 node.init(allow_logical=True)
 
-    def test_replication_slots(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops) as node:
+    def test_replication_slots(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc) as node:
             node.init(allow_streaming=True).start()
 
             with node.replicate(slot='slot1').start() as replica:
@@ -1022,18 +1031,18 @@ class TestTestgresCommon:
                 with pytest.raises(expected_exception=testgres_TestgresException):
                     node.replicate(slot='slot1')
 
-    def test_incorrect_catchup(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops) as node:
+    def test_incorrect_catchup(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc) as node:
             node.init(allow_streaming=True).start()
 
             # node has no master, can't catch up
             with pytest.raises(expected_exception=testgres_TestgresException):
                 node.catchup()
 
-    def test_promotion(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
-        with __class__.helper__get_node(os_ops) as master:
+    def test_promotion(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc) as master:
             master.init().start()
             master.safe_psql('create table abc(id serial)')
 
@@ -1046,17 +1055,17 @@ class TestTestgresCommon:
                 res = replica.safe_psql('select * from abc')
                 assert (__class__.helper__rm_carriage_returns(res) == b'1\n')
 
-    def test_dump(self, os_ops: OsOperations):
-        assert isinstance(os_ops, OsOperations)
+    def test_dump(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
         query_create = 'create table test as select generate_series(1, 2) as val'
         query_select = 'select * from test order by val asc'
 
-        with __class__.helper__get_node(os_ops).init().start() as node1:
+        with __class__.helper__get_node(node_svc).init().start() as node1:
 
             node1.execute(query_create)
             for format in ['plain', 'custom', 'directory', 'tar']:
-                with removing(os_ops, node1.dump(format=format)) as dump:
-                    with __class__.helper__get_node(os_ops).init().start() as node3:
+                with removing(node_svc.os_ops, node1.dump(format=format)) as dump:
+                    with __class__.helper__get_node(node_svc).init().start() as node3:
                         if format == 'directory':
                             assert (os.path.isdir(dump))
                         else:
@@ -1066,14 +1075,16 @@ class TestTestgresCommon:
                         res = node3.execute(query_select)
                         assert (res == [(1, ), (2, )])
 
-    def test_get_pg_config2(self, os_ops: OsOperations):
+    def test_get_pg_config2(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
         # check same instances
-        a = get_pg_config2(os_ops, None)
-        b = get_pg_config2(os_ops, None)
+        a = get_pg_config2(node_svc.os_ops, None)
+        b = get_pg_config2(node_svc.os_ops, None)
         assert (id(a) == id(b))
 
         # save right before config change
-        c1 = get_pg_config2(os_ops, None)
+        c1 = get_pg_config2(node_svc.os_ops, None)
 
         # modify setting for this scope
         with scoped_config(cache_pg_config=False) as config:
@@ -1081,20 +1092,315 @@ class TestTestgresCommon:
             assert not (config.cache_pg_config)
 
             # save right after config change
-            c2 = get_pg_config2(os_ops, None)
+            c2 = get_pg_config2(node_svc.os_ops, None)
 
             # check different instances after config change
             assert (id(c1) != id(c2))
 
             # check different instances
-            a = get_pg_config2(os_ops, None)
-            b = get_pg_config2(os_ops, None)
+            a = get_pg_config2(node_svc.os_ops, None)
+            b = get_pg_config2(node_svc.os_ops, None)
             assert (id(a) != id(b))
 
+    def test_pgbench(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        __class__.helper__skip_test_if_util_not_exist(node_svc.os_ops, "pgbench")
+
+        with __class__.helper__get_node(node_svc).init().start() as node:
+            # initialize pgbench DB and run benchmarks
+            node.pgbench_init(
+                scale=2,
+                foreign_keys=True,
+                options=['-q']
+            ).pgbench_run(time=2)
+
+            # run TPC-B benchmark
+            proc = node.pgbench(stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
+                                options=['-T3'])
+            out = proc.communicate()[0]
+            assert (b'tps = ' in out)
+
+    def test_unix_sockets(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init(unix_sockets=False, allow_streaming=True)
+            node.start()
+
+            res_exec = node.execute('select 1')
+            assert (res_exec == [(1,)])
+            res_psql = node.safe_psql('select 1')
+            assert (res_psql == b'1\n')
+
+            with node.replicate() as r:
+                assert type(r) == PostgresNode  # noqa: E721
+                r.start()
+                res_exec = r.execute('select 1')
+                assert (res_exec == [(1,)])
+                res_psql = r.safe_psql('select 1')
+                assert (res_psql == b'1\n')
+
+    def test_the_same_port(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init().start()
+            assert (node._should_free_port)
+            assert (type(node.port) == int)  # noqa: E721
+            node_port_copy = node.port
+            r = node.safe_psql("SELECT 1;")
+            assert (__class__.helper__rm_carriage_returns(r) == b'1\n')
+
+            with __class__.helper__get_node(node_svc, port=node.port) as node2:
+                assert (type(node2.port) == int)  # noqa: E721
+                assert (node2.port == node.port)
+                assert not (node2._should_free_port)
+
+                with pytest.raises(
+                    expected_exception=StartNodeException,
+                    match=re.escape("Cannot start node")
+                ):
+                    node2.init().start()
+
+            # node is still working
+            assert (node.port == node_port_copy)
+            assert (node._should_free_port)
+            r = node.safe_psql("SELECT 3;")
+            assert (__class__.helper__rm_carriage_returns(r) == b'3\n')
+
+    class tagPortManagerProxy(PortManager):
+        m_PrevPortManager: PortManager
+
+        m_DummyPortNumber: int
+        m_DummyPortMaxUsage: int
+
+        m_DummyPortCurrentUsage: int
+        m_DummyPortTotalUsage: int
+
+        def __init__(self, prevPortManager: PortManager, dummyPortNumber: int, dummyPortMaxUsage: int):
+            assert isinstance(prevPortManager, PortManager)
+            assert type(dummyPortNumber) == int  # noqa: E721
+            assert type(dummyPortMaxUsage) == int  # noqa: E721
+            assert dummyPortNumber >= 0
+            assert dummyPortMaxUsage >= 0
+
+            super().__init__()
+
+            self.m_PrevPortManager = prevPortManager
+
+            self.m_DummyPortNumber = dummyPortNumber
+            self.m_DummyPortMaxUsage = dummyPortMaxUsage
+
+            self.m_DummyPortCurrentUsage = 0
+            self.m_DummyPortTotalUsage = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, type, value, traceback):
+            assert self.m_DummyPortCurrentUsage == 0
+
+            assert self.m_PrevPortManager is not None
+
+        def reserve_port(self) -> int:
+            assert type(self.m_DummyPortMaxUsage) == int  # noqa: E721
+            assert type(self.m_DummyPortTotalUsage) == int  # noqa: E721
+            assert type(self.m_DummyPortCurrentUsage) == int  # noqa: E721
+            assert self.m_DummyPortTotalUsage >= 0
+            assert self.m_DummyPortCurrentUsage >= 0
+
+            assert self.m_DummyPortTotalUsage <= self.m_DummyPortMaxUsage
+            assert self.m_DummyPortCurrentUsage <= self.m_DummyPortTotalUsage
+
+            assert self.m_PrevPortManager is not None
+            assert isinstance(self.m_PrevPortManager, PortManager)
+
+            if self.m_DummyPortTotalUsage == self.m_DummyPortMaxUsage:
+                return self.m_PrevPortManager.reserve_port()
+
+            self.m_DummyPortTotalUsage += 1
+            self.m_DummyPortCurrentUsage += 1
+            return self.m_DummyPortNumber
+
+        def release_port(self, dummyPortNumber: int):
+            assert type(dummyPortNumber) == int  # noqa: E721
+
+            assert type(self.m_DummyPortMaxUsage) == int  # noqa: E721
+            assert type(self.m_DummyPortTotalUsage) == int  # noqa: E721
+            assert type(self.m_DummyPortCurrentUsage) == int  # noqa: E721
+            assert self.m_DummyPortTotalUsage >= 0
+            assert self.m_DummyPortCurrentUsage >= 0
+
+            assert self.m_DummyPortTotalUsage <= self.m_DummyPortMaxUsage
+            assert self.m_DummyPortCurrentUsage <= self.m_DummyPortTotalUsage
+
+            assert self.m_PrevPortManager is not None
+            assert isinstance(self.m_PrevPortManager, PortManager)
+
+            if self.m_DummyPortCurrentUsage > 0 and dummyPortNumber == self.m_DummyPortNumber:
+                assert self.m_DummyPortTotalUsage > 0
+                self.m_DummyPortCurrentUsage -= 1
+                return
+
+            return self.m_PrevPortManager.release_port(dummyPortNumber)
+
+    def test_port_rereserve_during_node_start(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert PostgresNode._C_MAX_START_ATEMPTS == 5
+
+        C_COUNT_OF_BAD_PORT_USAGE = 3
+
+        with __class__.helper__get_node(node_svc) as node1:
+            node1.init().start()
+            assert node1._should_free_port
+            assert type(node1.port) == int  # noqa: E721
+            node1_port_copy = node1.port
+            assert __class__.helper__rm_carriage_returns(node1.safe_psql("SELECT 1;")) == b'1\n'
+
+            with __class__.tagPortManagerProxy(node_svc.port_manager, node1.port, C_COUNT_OF_BAD_PORT_USAGE) as proxy:
+                assert proxy.m_DummyPortNumber == node1.port
+                with __class__.helper__get_node(node_svc, port_manager=proxy) as node2:
+                    assert node2._should_free_port
+                    assert node2.port == node1.port
+
+                    node2.init().start()
+
+                    assert node2.port != node1.port
+                    assert node2._should_free_port
+                    assert proxy.m_DummyPortCurrentUsage == 0
+                    assert proxy.m_DummyPortTotalUsage == C_COUNT_OF_BAD_PORT_USAGE
+                    assert node2.is_started
+                    r = node2.safe_psql("SELECT 2;")
+                    assert __class__.helper__rm_carriage_returns(r) == b'2\n'
+
+            # node1 is still working
+            assert node1.port == node1_port_copy
+            assert node1._should_free_port
+            r = node1.safe_psql("SELECT 3;")
+            assert __class__.helper__rm_carriage_returns(r) == b'3\n'
+
+    def test_port_conflict(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert PostgresNode._C_MAX_START_ATEMPTS > 1
+
+        C_COUNT_OF_BAD_PORT_USAGE = PostgresNode._C_MAX_START_ATEMPTS
+
+        with __class__.helper__get_node(node_svc) as node1:
+            node1.init().start()
+            assert node1._should_free_port
+            assert type(node1.port) == int  # noqa: E721
+            node1_port_copy = node1.port
+            assert __class__.helper__rm_carriage_returns(node1.safe_psql("SELECT 1;")) == b'1\n'
+
+            with __class__.tagPortManagerProxy(node_svc.port_manager, node1.port, C_COUNT_OF_BAD_PORT_USAGE) as proxy:
+                assert proxy.m_DummyPortNumber == node1.port
+                with __class__.helper__get_node(node_svc, port_manager=proxy) as node2:
+                    assert node2._should_free_port
+                    assert node2.port == node1.port
+
+                    with pytest.raises(
+                        expected_exception=StartNodeException,
+                        match=re.escape("Cannot start node after multiple attempts.")
+                    ):
+                        node2.init().start()
+
+                    assert node2.port == node1.port
+                    assert node2._should_free_port
+                    assert proxy.m_DummyPortCurrentUsage == 1
+                    assert proxy.m_DummyPortTotalUsage == C_COUNT_OF_BAD_PORT_USAGE
+                    assert not node2.is_started
+
+                # node2 must release our dummyPort (node1.port)
+                assert (proxy.m_DummyPortCurrentUsage == 0)
+
+            # node1 is still working
+            assert node1.port == node1_port_copy
+            assert node1._should_free_port
+            r = node1.safe_psql("SELECT 3;")
+            assert __class__.helper__rm_carriage_returns(r) == b'3\n'
+
+    def test_try_to_get_port_after_free_manual_port(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with __class__.helper__get_node(node_svc) as node1:
+            assert node1 is not None
+            assert type(node1) == PostgresNode  # noqa: E721
+            assert node1.port is not None
+            assert type(node1.port) == int  # noqa: E721
+            with __class__.helper__get_node(node_svc, port=node1.port, port_manager=None) as node2:
+                assert node2 is not None
+                assert type(node1) == PostgresNode  # noqa: E721
+                assert node2 is not node1
+                assert node2.port is not None
+                assert type(node2.port) == int  # noqa: E721
+                assert node2.port == node1.port
+
+                logging.info("Release node2 port")
+                node2.free_port()
+
+                logging.info("try to get node2.port...")
+                with pytest.raises(
+                    InvalidOperationException,
+                    match="^" + re.escape("PostgresNode port is not defined.") + "$"
+                ):
+                    p = node2.port
+                    assert p is None
+
+    def test_try_to_start_node_after_free_manual_port(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with __class__.helper__get_node(node_svc) as node1:
+            assert node1 is not None
+            assert type(node1) == PostgresNode  # noqa: E721
+            assert node1.port is not None
+            assert type(node1.port) == int  # noqa: E721
+            with __class__.helper__get_node(node_svc, port=node1.port, port_manager=None) as node2:
+                assert node2 is not None
+                assert type(node1) == PostgresNode  # noqa: E721
+                assert node2 is not node1
+                assert node2.port is not None
+                assert type(node2.port) == int  # noqa: E721
+                assert node2.port == node1.port
+
+                logging.info("Release node2 port")
+                node2.free_port()
+
+                logging.info("node2 is trying to start...")
+                with pytest.raises(
+                    InvalidOperationException,
+                    match="^" + re.escape("Can't start PostgresNode. Port is not defined.") + "$"
+                ):
+                    node2.start()
+
     @staticmethod
-    def helper__get_node(os_ops: OsOperations, name=None):
-        assert isinstance(os_ops, OsOperations)
-        return PostgresNode(name, conn_params=None, os_ops=os_ops)
+    def helper__get_node(
+        node_svc: PostgresNodeService,
+        name: typing.Optional[str] = None,
+        port: typing.Optional[int] = None,
+        port_manager: typing.Optional[PortManager] = None
+    ) -> PostgresNode:
+        assert isinstance(node_svc, PostgresNodeService)
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        if port_manager is None:
+            port_manager = node_svc.port_manager
+
+        return PostgresNode(
+            name,
+            port=port,
+            conn_params=None,
+            os_ops=node_svc.os_ops,
+            port_manager=port_manager if port is None else None
+        )
 
     @staticmethod
     def helper__skip_test_if_pg_version_is_not_ge(ver1: str, ver2: str):

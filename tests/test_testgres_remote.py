@@ -1,14 +1,12 @@
 # coding: utf-8
 import os
 import re
-import subprocess
 
 import pytest
-import psutil
 import logging
 
-from .helpers.os_ops_descrs import OsOpsDescrs
-from .helpers.os_ops_descrs import OsOperations
+from .helpers.global_data import PostgresNodeService
+from .helpers.global_data import PostgresNodeServices
 
 from .. import testgres
 
@@ -27,8 +25,6 @@ from ..testgres import \
     get_pg_config
 
 # NOTE: those are ugly imports
-from ..testgres import bound_ports
-from ..testgres.node import ProcessProxy
 
 
 def util_exists(util):
@@ -48,17 +44,17 @@ def util_exists(util):
 
 
 class TestTestgresRemote:
-    sm_os_ops = OsOpsDescrs.sm_remote_os_ops
-
     @pytest.fixture(autouse=True, scope="class")
     def implicit_fixture(self):
+        cur_os_ops = PostgresNodeServices.sm_remote.os_ops
+        assert cur_os_ops is not None
+
         prev_ops = testgres_config.os_ops
         assert prev_ops is not None
-        assert __class__.sm_os_ops is not None
-        testgres_config.set_os_ops(os_ops=__class__.sm_os_ops)
-        assert testgres_config.os_ops is __class__.sm_os_ops
+        testgres_config.set_os_ops(os_ops=cur_os_ops)
+        assert testgres_config.os_ops is cur_os_ops
         yield
-        assert testgres_config.os_ops is __class__.sm_os_ops
+        assert testgres_config.os_ops is cur_os_ops
         testgres_config.set_os_ops(os_ops=prev_ops)
         assert testgres_config.os_ops is prev_ops
 
@@ -172,21 +168,6 @@ class TestTestgresRemote:
             __class__.helper__restore_envvar("LC_CTYPE", prev_LC_CTYPE)
             __class__.helper__restore_envvar("LC_COLLATE", prev_LC_COLLATE)
 
-    def test_pgbench(self):
-        __class__.helper__skip_test_if_util_not_exist("pgbench")
-
-        with __class__.helper__get_node().init().start() as node:
-            # initialize pgbench DB and run benchmarks
-            node.pgbench_init(scale=2, foreign_keys=True,
-                              options=['-q']).pgbench_run(time=2)
-
-            # run TPC-B benchmark
-            proc = node.pgbench(stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                                options=['-T3'])
-            out = proc.communicate()[0]
-            assert (b'tps = ' in out)
-
     def test_pg_config(self):
         # check same instances
         a = get_pg_config()
@@ -243,90 +224,19 @@ class TestTestgresRemote:
 
         assert (TestgresConfig.cached_initdb_dir == d0)
 
-    def test_unix_sockets(self):
-        with __class__.helper__get_node() as node:
-            node.init(unix_sockets=False, allow_streaming=True)
-            node.start()
-
-            res_exec = node.execute('select 1')
-            res_psql = node.safe_psql('select 1')
-            assert (res_exec == [(1,)])
-            assert (res_psql == b'1\n')
-
-            with node.replicate().start() as r:
-                res_exec = r.execute('select 1')
-                res_psql = r.safe_psql('select 1')
-                assert (res_exec == [(1,)])
-                assert (res_psql == b'1\n')
-
-    def test_ports_management(self):
-        assert bound_ports is not None
-        assert type(bound_ports) == set  # noqa: E721
-
-        if len(bound_ports) != 0:
-            logging.warning("bound_ports is not empty: {0}".format(bound_ports))
-
-        stage0__bound_ports = bound_ports.copy()
-
-        with __class__.helper__get_node() as node:
-            assert bound_ports is not None
-            assert type(bound_ports) == set  # noqa: E721
-
-            assert node.port is not None
-            assert type(node.port) == int  # noqa: E721
-
-            logging.info("node port is {0}".format(node.port))
-
-            assert node.port in bound_ports
-            assert node.port not in stage0__bound_ports
-
-            assert stage0__bound_ports <= bound_ports
-            assert len(stage0__bound_ports) + 1 == len(bound_ports)
-
-            stage1__bound_ports = stage0__bound_ports.copy()
-            stage1__bound_ports.add(node.port)
-
-            assert stage1__bound_ports == bound_ports
-
-        # check that port has been freed successfully
-        assert bound_ports is not None
-        assert type(bound_ports) == set  # noqa: E721
-        assert bound_ports == stage0__bound_ports
-
-    # TODO: Why does not this test work with remote host?
-    def test_child_process_dies(self):
-        nAttempt = 0
-
-        while True:
-            if nAttempt == 5:
-                raise Exception("Max attempt number is exceed.")
-
-            nAttempt += 1
-
-            logging.info("Attempt #{0}".format(nAttempt))
-
-            # test for FileNotFound exception during child_processes() function
-            with subprocess.Popen(["sleep", "60"]) as process:
-                r = process.poll()
-
-                if r is not None:
-                    logging.warning("process.pool() returns an unexpected result: {0}.".format(r))
-                    continue
-
-                assert r is None
-                # collect list of processes currently running
-                children = psutil.Process(os.getpid()).children()
-                # kill a process, so received children dictionary becomes invalid
-                process.kill()
-                process.wait()
-                # try to handle children list -- missing processes will have ptype "ProcessType.Unknown"
-                [ProcessProxy(p) for p in children]
-                break
-
     @staticmethod
     def helper__get_node(name=None):
-        assert isinstance(__class__.sm_os_ops, OsOperations)
-        return testgres.PostgresNode(name, conn_params=None, os_ops=__class__.sm_os_ops)
+        svc = PostgresNodeServices.sm_remote
+
+        assert isinstance(svc, PostgresNodeService)
+        assert isinstance(svc.os_ops, testgres.OsOperations)
+        assert isinstance(svc.port_manager, testgres.PortManager)
+
+        return testgres.PostgresNode(
+            name,
+            conn_params=None,
+            os_ops=svc.os_ops,
+            port_manager=svc.port_manager)
 
     @staticmethod
     def helper__restore_envvar(name, prev_value):

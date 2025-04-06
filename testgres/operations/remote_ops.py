@@ -629,6 +629,54 @@ class RemoteOperations(OsOperations):
 
         raise ExecUtilException(f"Error in getting process children. Error: {result.stderr}")
 
+    def is_port_free(self, number: int) -> bool:
+        assert type(number) == int  # noqa: E721
+
+        cmd = ["nc", "-w", "5", "-z", "-v", "localhost", str(number)]
+
+        exit_status, output, error = self.exec_command(cmd=cmd, encoding=get_default_encoding(), ignore_errors=True, verbose=True)
+
+        assert type(output) == str  # noqa: E721
+        assert type(error) == str  # noqa: E721
+
+        if exit_status == 0:
+            return __class__._is_port_free__process_0(error)
+
+        if exit_status == 1:
+            return __class__._is_port_free__process_1(error)
+
+        errMsg = "nc returns an unknown result code: {0}".format(exit_status)
+
+        RaiseError.CommandExecutionError(
+            cmd=cmd,
+            exit_code=exit_status,
+            message=errMsg,
+            error=error,
+            out=output
+        )
+
+    @staticmethod
+    def _is_port_free__process_0(error: str) -> bool:
+        assert type(error) == str  # noqa: E721
+        #
+        # Example of error text:
+        #  "Connection to localhost (127.0.0.1) 1024 port [tcp/*] succeeded!\n"
+        #
+        # May be here is needed to check error message?
+        #
+        return False
+
+    @staticmethod
+    def _is_port_free__process_1(error: str) -> bool:
+        assert type(error) == str  # noqa: E721
+        #
+        # Example of error text:
+        #  "nc: connect to localhost (127.0.0.1) port 1024 (tcp) failed: Connection refused\n"
+        #
+        # May be here is needed to check error message?
+        #
+        return True
+
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
         conn = pglib.connect(

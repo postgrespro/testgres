@@ -127,6 +127,10 @@ class OsOperations:
     def get_process_children(self, pid):
         raise NotImplementedError()
 
+    def is_port_free(self, number: int):
+        assert type(number) == int  # noqa: E721
+        raise NotImplementedError()
+
     # Database control
     def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
         raise NotImplementedError()

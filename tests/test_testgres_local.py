@@ -100,27 +100,6 @@ class TestTestgresLocal:
                 # there should be no trust entries at all
                 assert not (any('trust' in s for s in lines))
 
-    def test_pgbench(self):
-        __class__.helper__skip_test_if_util_not_exist("pgbench")
-
-        with get_new_node().init().start() as node:
-
-            # initialize pgbench DB and run benchmarks
-            node.pgbench_init(scale=2, foreign_keys=True,
-                              options=['-q']).pgbench_run(time=2)
-
-            # run TPC-B benchmark
-            proc = node.pgbench(stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                                options=['-T3'])
-
-            out, _ = proc.communicate()
-            out = out.decode('utf-8')
-
-            proc.stdout.close()
-
-            assert ('tps' in out)
-
     def test_pg_config(self):
         # check same instances
         a = get_pg_config()
@@ -176,18 +155,6 @@ class TestTestgresLocal:
             assert (c1.cached_initdb_dir == d1)
 
         assert (TestgresConfig.cached_initdb_dir == d0)
-
-    def test_unix_sockets(self):
-        with get_new_node() as node:
-            node.init(unix_sockets=False, allow_streaming=True)
-            node.start()
-
-            node.execute('select 1')
-            node.safe_psql('select 1')
-
-            with node.replicate().start() as r:
-                r.execute('select 1')
-                r.safe_psql('select 1')
 
     def test_ports_management(self):
         assert bound_ports is not None
@@ -276,30 +243,6 @@ class TestTestgresLocal:
         assert parse_pg_version("postgres (PostgreSQL) 11.4") == "11.4"
         # Macos
         assert parse_pg_version("postgres (PostgreSQL) 14.9 (Homebrew)") == "14.9"
-
-    def test_the_same_port(self):
-        with get_new_node() as node:
-            node.init().start()
-            assert (node._should_free_port)
-            assert (type(node.port) == int)  # noqa: E721
-            node_port_copy = node.port
-            assert (rm_carriage_returns(node.safe_psql("SELECT 1;")) == b'1\n')
-
-            with get_new_node(port=node.port) as node2:
-                assert (type(node2.port) == int)  # noqa: E721
-                assert (node2.port == node.port)
-                assert not (node2._should_free_port)
-
-                with pytest.raises(
-                    expected_exception=StartNodeException,
-                    match=re.escape("Cannot start node")
-                ):
-                    node2.init().start()
-
-            # node is still working
-            assert (node.port == node_port_copy)
-            assert (node._should_free_port)
-            assert (rm_carriage_returns(node.safe_psql("SELECT 3;")) == b'3\n')
 
     class tagPortManagerProxy:
         sm_prev_testgres_reserve_port = None
