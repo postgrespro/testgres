@@ -19,7 +19,7 @@ from ..testgres import get_pg_config
 from ..testgres import get_pg_version
 
 # NOTE: those are ugly imports
-from ..testgres import bound_ports
+from ..testgres.utils import bound_ports
 from ..testgres.utils import PgVer
 from ..testgres.node import ProcessProxy
 
