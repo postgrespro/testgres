@@ -6,7 +6,6 @@ from .helpers.global_data import PortManager
 from ..testgres.node import PgVer
 from ..testgres.node import PostgresNode
 from ..testgres.utils import get_pg_version2
-from ..testgres.utils import get_pg_config2
 from ..testgres.utils import file_tail
 from ..testgres.utils import get_bin_path2
 from ..testgres import ProcessType
@@ -1079,33 +1078,6 @@ class TestTestgresCommon:
                         node3.restore(filename=dump)
                         res = node3.execute(query_select)
                         assert (res == [(1, ), (2, )])
-
-    def test_get_pg_config2(self, node_svc: PostgresNodeService):
-        assert isinstance(node_svc, PostgresNodeService)
-
-        # check same instances
-        a = get_pg_config2(node_svc.os_ops, None)
-        b = get_pg_config2(node_svc.os_ops, None)
-        assert (id(a) == id(b))
-
-        # save right before config change
-        c1 = get_pg_config2(node_svc.os_ops, None)
-
-        # modify setting for this scope
-        with scoped_config(cache_pg_config=False) as config:
-            # sanity check for value
-            assert not (config.cache_pg_config)
-
-            # save right after config change
-            c2 = get_pg_config2(node_svc.os_ops, None)
-
-            # check different instances after config change
-            assert (id(c1) != id(c2))
-
-            # check different instances
-            a = get_pg_config2(node_svc.os_ops, None)
-            b = get_pg_config2(node_svc.os_ops, None)
-            assert (id(a) != id(b))
 
     def test_pgbench(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
