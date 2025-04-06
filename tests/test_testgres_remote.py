@@ -9,16 +9,14 @@ from .helpers.global_data import PostgresNodeServices
 
 from .. import testgres
 
-from ..testgres.exceptions import \
-    InitNodeException, \
-    ExecUtilException
+from ..testgres.exceptions import InitNodeException
+from ..testgres.exceptions import ExecUtilException
 
 from ..testgres.config import scoped_config
 from ..testgres.config import testgres_config
 
-from ..testgres import \
-    get_bin_path, \
-    get_pg_config
+from ..testgres import get_bin_path
+from ..testgres import get_pg_config
 
 # NOTE: those are ugly imports
 

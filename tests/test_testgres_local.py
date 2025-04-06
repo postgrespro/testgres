@@ -9,20 +9,14 @@ import logging
 
 from .. import testgres
 
-from ..testgres import \
-    StartNodeException, \
-    ExecUtilException, \
-    NodeApp
-
+from ..testgres import StartNodeException
+from ..testgres import ExecUtilException
+from ..testgres import NodeApp
 from ..testgres import scoped_config
-
-from ..testgres import \
-    get_new_node
-
-from ..testgres import \
-    get_bin_path, \
-    get_pg_config, \
-    get_pg_version
+from ..testgres import get_new_node
+from ..testgres import get_bin_path
+from ..testgres import get_pg_config
+from ..testgres import get_pg_version
 
 # NOTE: those are ugly imports
 from ..testgres import bound_ports
