@@ -1329,15 +1329,15 @@ class TestTestgresCommon:
 
         with __class__.helper__get_node(node_svc) as node1:
             assert node1 is not None
-            assert type(node1) == PostgresNode
+            assert type(node1) == PostgresNode  # noqa: E721
             assert node1.port is not None
-            assert type(node1.port) == int
+            assert type(node1.port) == int  # noqa: E721
             with __class__.helper__get_node(node_svc, port=node1.port, port_manager=None) as node2:
                 assert node2 is not None
-                assert type(node1) == PostgresNode
+                assert type(node1) == PostgresNode  # noqa: E721
                 assert node2 is not node1
                 assert node2.port is not None
-                assert type(node2.port) == int
+                assert type(node2.port) == int  # noqa: E721
                 assert node2.port == node1.port
 
                 logging.info("Release node2 port")
@@ -1359,15 +1359,15 @@ class TestTestgresCommon:
 
         with __class__.helper__get_node(node_svc) as node1:
             assert node1 is not None
-            assert type(node1) == PostgresNode
+            assert type(node1) == PostgresNode  # noqa: E721
             assert node1.port is not None
-            assert type(node1.port) == int
+            assert type(node1.port) == int  # noqa: E721
             with __class__.helper__get_node(node_svc, port=node1.port, port_manager=None) as node2:
                 assert node2 is not None
-                assert type(node1) == PostgresNode
+                assert type(node1) == PostgresNode  # noqa: E721
                 assert node2 is not node1
                 assert node2.port is not None
-                assert type(node2.port) == int
+                assert type(node2.port) == int  # noqa: E721
                 assert node2.port == node1.port
 
                 logging.info("Release node2 port")

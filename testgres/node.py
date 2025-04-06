@@ -1323,7 +1323,7 @@ class PostgresNode(object):
         Reclaim port owned by this node.
         NOTE: this method does not release manually defined port but reset it.
         """
-        assert type(self._should_free_port) == bool
+        assert type(self._should_free_port) == bool  # noqa: E721
 
         if not self._should_free_port:
             self._port = None
