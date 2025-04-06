@@ -110,6 +110,27 @@ class TestTestgresCommon:
             pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
             assert re.match(pattern, str(node)) is not None
 
+    def test_custom_init(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            # enable page checksums
+            node.init(initdb_params=['-k']).start()
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init(
+                allow_streaming=True,
+                initdb_params=['--auth-local=reject', '--auth-host=reject'])
+
+            hba_file = os.path.join(node.data_dir, 'pg_hba.conf')
+            lines = node.os_ops.readlines(hba_file)
+
+            # check number of lines
+            assert (len(lines) >= 6)
+
+            # there should be no trust entries at all
+            assert not (any('trust' in s for s in lines))
+
     def test_double_init(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
 

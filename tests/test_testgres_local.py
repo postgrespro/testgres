@@ -75,26 +75,6 @@ def rm_carriage_returns(out):
 
 
 class TestTestgresLocal:
-    def test_custom_init(self):
-        with get_new_node() as node:
-            # enable page checksums
-            node.init(initdb_params=['-k']).start()
-
-        with get_new_node() as node:
-            node.init(
-                allow_streaming=True,
-                initdb_params=['--auth-local=reject', '--auth-host=reject'])
-
-            hba_file = os.path.join(node.data_dir, 'pg_hba.conf')
-            with open(hba_file, 'r') as conf:
-                lines = conf.readlines()
-
-                # check number of lines
-                assert (len(lines) >= 6)
-
-                # there should be no trust entries at all
-                assert not (any('trust' in s for s in lines))
-
     def test_pg_config(self):
         # check same instances
         a = get_pg_config()

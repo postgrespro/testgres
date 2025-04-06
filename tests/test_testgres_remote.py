@@ -57,25 +57,6 @@ class TestTestgresRemote:
         testgres_config.set_os_ops(os_ops=prev_ops)
         assert testgres_config.os_ops is prev_ops
 
-    def test_custom_init(self):
-        with __class__.helper__get_node() as node:
-            # enable page checksums
-            node.init(initdb_params=['-k']).start()
-
-        with __class__.helper__get_node() as node:
-            node.init(
-                allow_streaming=True,
-                initdb_params=['--auth-local=reject', '--auth-host=reject'])
-
-            hba_file = os.path.join(node.data_dir, 'pg_hba.conf')
-            lines = node.os_ops.readlines(hba_file)
-
-            # check number of lines
-            assert (len(lines) >= 6)
-
-            # there should be no trust entries at all
-            assert not (any('trust' in s for s in lines))
-
     def test_init__LANG_С(self):
         # PBCKP-1744
         prev_LANG = os.environ.get("LANG")
