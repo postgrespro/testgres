@@ -106,6 +106,11 @@ class TestTestgresCommon:
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
 
+    def test_node_repr(self, node_svc: PostgresNodeService):
+        with __class__.helper__get_node(node_svc).init() as node:
+            pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
+            assert re.match(pattern, str(node)) is not None
+
     def test_double_init(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
 

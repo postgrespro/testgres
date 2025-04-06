@@ -75,11 +75,6 @@ def rm_carriage_returns(out):
 
 
 class TestTestgresLocal:
-    def test_node_repr(self):
-        with get_new_node() as node:
-            pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
-            assert re.match(pattern, str(node)) is not None
-
     def test_custom_init(self):
         with get_new_node() as node:
             # enable page checksums

@@ -1,6 +1,5 @@
 # coding: utf-8
 import os
-import re
 
 import pytest
 import logging
@@ -57,11 +56,6 @@ class TestTestgresRemote:
         assert testgres_config.os_ops is cur_os_ops
         testgres_config.set_os_ops(os_ops=prev_ops)
         assert testgres_config.os_ops is prev_ops
-
-    def test_node_repr(self):
-        with __class__.helper__get_node() as node:
-            pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
-            assert re.match(pattern, str(node)) is not None
 
     def test_custom_init(self):
         with __class__.helper__get_node() as node:
