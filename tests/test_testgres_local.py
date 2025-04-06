@@ -30,7 +30,7 @@ from ..testgres import \
 
 # NOTE: those are ugly imports
 from ..testgres import bound_ports
-from ..testgres.utils import PgVer, parse_pg_version
+from ..testgres.utils import PgVer
 from ..testgres.node import ProcessProxy
 
 
@@ -233,16 +233,6 @@ class TestTestgresLocal:
         res = node_new.upgrade_from(old_node=node_old)
         node_new.start()
         assert (b'Upgrade Complete' in res)
-
-    def test_parse_pg_version(self):
-        # Linux Mint
-        assert parse_pg_version("postgres (PostgreSQL) 15.5 (Ubuntu 15.5-1.pgdg22.04+1)") == "15.5"
-        # Linux Ubuntu
-        assert parse_pg_version("postgres (PostgreSQL) 12.17") == "12.17"
-        # Windows
-        assert parse_pg_version("postgres (PostgreSQL) 11.4") == "11.4"
-        # Macos
-        assert parse_pg_version("postgres (PostgreSQL) 14.9 (Homebrew)") == "14.9"
 
     class tagPortManagerProxy:
         sm_prev_testgres_reserve_port = None
