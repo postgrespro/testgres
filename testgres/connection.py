@@ -43,7 +43,7 @@ class NodeConnection(object):
         self._node = node
 
         self._connection = pglib.connect(
-            dbname=dbname,
+            database=dbname,
             user=username,
             password=password,
             host=node.host,
