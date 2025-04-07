@@ -6,7 +6,6 @@ from .helpers.global_data import PortManager
 from ..testgres.node import PgVer
 from ..testgres.node import PostgresNode
 from ..testgres.utils import get_pg_version2
-from ..testgres.utils import get_pg_config2
 from ..testgres.utils import file_tail
 from ..testgres.utils import get_bin_path2
 from ..testgres import ProcessType
@@ -105,6 +104,32 @@ class TestTestgresCommon:
             assert (isinstance(version, six.string_types))
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
+
+    def test_node_repr(self, node_svc: PostgresNodeService):
+        with __class__.helper__get_node(node_svc).init() as node:
+            pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
+            assert re.match(pattern, str(node)) is not None
+
+    def test_custom_init(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            # enable page checksums
+            node.init(initdb_params=['-k']).start()
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init(
+                allow_streaming=True,
+                initdb_params=['--auth-local=reject', '--auth-host=reject'])
+
+            hba_file = os.path.join(node.data_dir, 'pg_hba.conf')
+            lines = node.os_ops.readlines(hba_file)
+
+            # check number of lines
+            assert (len(lines) >= 6)
+
+            # there should be no trust entries at all
+            assert not (any('trust' in s for s in lines))
 
     def test_double_init(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -1074,33 +1099,6 @@ class TestTestgresCommon:
                         node3.restore(filename=dump)
                         res = node3.execute(query_select)
                         assert (res == [(1, ), (2, )])
-
-    def test_get_pg_config2(self, node_svc: PostgresNodeService):
-        assert isinstance(node_svc, PostgresNodeService)
-
-        # check same instances
-        a = get_pg_config2(node_svc.os_ops, None)
-        b = get_pg_config2(node_svc.os_ops, None)
-        assert (id(a) == id(b))
-
-        # save right before config change
-        c1 = get_pg_config2(node_svc.os_ops, None)
-
-        # modify setting for this scope
-        with scoped_config(cache_pg_config=False) as config:
-            # sanity check for value
-            assert not (config.cache_pg_config)
-
-            # save right after config change
-            c2 = get_pg_config2(node_svc.os_ops, None)
-
-            # check different instances after config change
-            assert (id(c1) != id(c2))
-
-            # check different instances
-            a = get_pg_config2(node_svc.os_ops, None)
-            b = get_pg_config2(node_svc.os_ops, None)
-            assert (id(a) != id(b))
 
     def test_pgbench(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)

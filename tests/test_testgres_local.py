@@ -9,28 +9,18 @@ import logging
 
 from .. import testgres
 
-from ..testgres import \
-    StartNodeException, \
-    ExecUtilException, \
-    NodeApp
-
-from ..testgres import \
-    TestgresConfig, \
-    configure_testgres, \
-    scoped_config, \
-    pop_config
-
-from ..testgres import \
-    get_new_node
-
-from ..testgres import \
-    get_bin_path, \
-    get_pg_config, \
-    get_pg_version
+from ..testgres import StartNodeException
+from ..testgres import ExecUtilException
+from ..testgres import NodeApp
+from ..testgres import scoped_config
+from ..testgres import get_new_node
+from ..testgres import get_bin_path
+from ..testgres import get_pg_config
+from ..testgres import get_pg_version
 
 # NOTE: those are ugly imports
-from ..testgres import bound_ports
-from ..testgres.utils import PgVer, parse_pg_version
+from ..testgres.utils import bound_ports
+from ..testgres.utils import PgVer
 from ..testgres.node import ProcessProxy
 
 
@@ -75,31 +65,6 @@ def rm_carriage_returns(out):
 
 
 class TestTestgresLocal:
-    def test_node_repr(self):
-        with get_new_node() as node:
-            pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
-            assert re.match(pattern, str(node)) is not None
-
-    def test_custom_init(self):
-        with get_new_node() as node:
-            # enable page checksums
-            node.init(initdb_params=['-k']).start()
-
-        with get_new_node() as node:
-            node.init(
-                allow_streaming=True,
-                initdb_params=['--auth-local=reject', '--auth-host=reject'])
-
-            hba_file = os.path.join(node.data_dir, 'pg_hba.conf')
-            with open(hba_file, 'r') as conf:
-                lines = conf.readlines()
-
-                # check number of lines
-                assert (len(lines) >= 6)
-
-                # there should be no trust entries at all
-                assert not (any('trust' in s for s in lines))
-
     def test_pg_config(self):
         # check same instances
         a = get_pg_config()
@@ -124,37 +89,6 @@ class TestTestgresLocal:
             a = get_pg_config()
             b = get_pg_config()
             assert (id(a) != id(b))
-
-    def test_config_stack(self):
-        # no such option
-        with pytest.raises(expected_exception=TypeError):
-            configure_testgres(dummy=True)
-
-        # we have only 1 config in stack
-        with pytest.raises(expected_exception=IndexError):
-            pop_config()
-
-        d0 = TestgresConfig.cached_initdb_dir
-        d1 = 'dummy_abc'
-        d2 = 'dummy_def'
-
-        with scoped_config(cached_initdb_dir=d1) as c1:
-            assert (c1.cached_initdb_dir == d1)
-
-            with scoped_config(cached_initdb_dir=d2) as c2:
-                stack_size = len(testgres.config.config_stack)
-
-                # try to break a stack
-                with pytest.raises(expected_exception=TypeError):
-                    with scoped_config(dummy=True):
-                        pass
-
-                assert (c2.cached_initdb_dir == d2)
-                assert (len(testgres.config.config_stack) == stack_size)
-
-            assert (c1.cached_initdb_dir == d1)
-
-        assert (TestgresConfig.cached_initdb_dir == d0)
 
     def test_ports_management(self):
         assert bound_ports is not None
@@ -233,16 +167,6 @@ class TestTestgresLocal:
         res = node_new.upgrade_from(old_node=node_old)
         node_new.start()
         assert (b'Upgrade Complete' in res)
-
-    def test_parse_pg_version(self):
-        # Linux Mint
-        assert parse_pg_version("postgres (PostgreSQL) 15.5 (Ubuntu 15.5-1.pgdg22.04+1)") == "15.5"
-        # Linux Ubuntu
-        assert parse_pg_version("postgres (PostgreSQL) 12.17") == "12.17"
-        # Windows
-        assert parse_pg_version("postgres (PostgreSQL) 11.4") == "11.4"
-        # Macos
-        assert parse_pg_version("postgres (PostgreSQL) 14.9 (Homebrew)") == "14.9"
 
     class tagPortManagerProxy:
         sm_prev_testgres_reserve_port = None

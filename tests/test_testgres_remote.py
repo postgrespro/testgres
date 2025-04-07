@@ -1,6 +1,5 @@
 # coding: utf-8
 import os
-import re
 
 import pytest
 import logging
@@ -10,19 +9,14 @@ from .helpers.global_data import PostgresNodeServices
 
 from .. import testgres
 
-from ..testgres.exceptions import \
-    InitNodeException, \
-    ExecUtilException
+from ..testgres.exceptions import InitNodeException
+from ..testgres.exceptions import ExecUtilException
 
-from ..testgres.config import \
-    TestgresConfig, \
-    configure_testgres, \
-    scoped_config, \
-    pop_config, testgres_config
+from ..testgres.config import scoped_config
+from ..testgres.config import testgres_config
 
-from ..testgres import \
-    get_bin_path, \
-    get_pg_config
+from ..testgres import get_bin_path
+from ..testgres import get_pg_config
 
 # NOTE: those are ugly imports
 
@@ -57,30 +51,6 @@ class TestTestgresRemote:
         assert testgres_config.os_ops is cur_os_ops
         testgres_config.set_os_ops(os_ops=prev_ops)
         assert testgres_config.os_ops is prev_ops
-
-    def test_node_repr(self):
-        with __class__.helper__get_node() as node:
-            pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
-            assert re.match(pattern, str(node)) is not None
-
-    def test_custom_init(self):
-        with __class__.helper__get_node() as node:
-            # enable page checksums
-            node.init(initdb_params=['-k']).start()
-
-        with __class__.helper__get_node() as node:
-            node.init(
-                allow_streaming=True,
-                initdb_params=['--auth-local=reject', '--auth-host=reject'])
-
-            hba_file = os.path.join(node.data_dir, 'pg_hba.conf')
-            lines = node.os_ops.readlines(hba_file)
-
-            # check number of lines
-            assert (len(lines) >= 6)
-
-            # there should be no trust entries at all
-            assert not (any('trust' in s for s in lines))
 
     def test_init__LANG_С(self):
         # PBCKP-1744
@@ -192,37 +162,6 @@ class TestTestgresRemote:
             a = get_pg_config()
             b = get_pg_config()
             assert (id(a) != id(b))
-
-    def test_config_stack(self):
-        # no such option
-        with pytest.raises(expected_exception=TypeError):
-            configure_testgres(dummy=True)
-
-        # we have only 1 config in stack
-        with pytest.raises(expected_exception=IndexError):
-            pop_config()
-
-        d0 = TestgresConfig.cached_initdb_dir
-        d1 = 'dummy_abc'
-        d2 = 'dummy_def'
-
-        with scoped_config(cached_initdb_dir=d1) as c1:
-            assert (c1.cached_initdb_dir == d1)
-
-            with scoped_config(cached_initdb_dir=d2) as c2:
-                stack_size = len(testgres.config.config_stack)
-
-                # try to break a stack
-                with pytest.raises(expected_exception=TypeError):
-                    with scoped_config(dummy=True):
-                        pass
-
-                assert (c2.cached_initdb_dir == d2)
-                assert (len(testgres.config.config_stack) == stack_size)
-
-            assert (c1.cached_initdb_dir == d1)
-
-        assert (TestgresConfig.cached_initdb_dir == d0)
 
     @staticmethod
     def helper__get_node(name=None):
