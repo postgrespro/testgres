@@ -6,15 +6,6 @@ import tempfile
 import io
 import logging
 
-# we support both pg8000 and psycopg2
-try:
-    import psycopg2 as pglib
-except ImportError:
-    try:
-        import pg8000 as pglib
-    except ImportError:
-        raise ImportError("You must have psycopg2 or pg8000 modules installed")
-
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
 from .os_ops import OsOperations, ConnectionParams, get_default_encoding
@@ -676,17 +667,6 @@ class RemoteOperations(OsOperations):
         # May be here is needed to check error message?
         #
         return True
-
-    # Database control
-    def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
-        conn = pglib.connect(
-            host=host,
-            port=port,
-            database=dbname,
-            user=user,
-            password=password,
-        )
-        return conn
 
     @staticmethod
     def _make_exec_env_list() -> list[str]:

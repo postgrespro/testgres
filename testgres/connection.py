@@ -42,11 +42,13 @@ class NodeConnection(object):
 
         self._node = node
 
-        self._connection = node.os_ops.db_connect(dbname=dbname,
-                                                  user=username,
-                                                  password=password,
-                                                  host=node.host,
-                                                  port=node.port)
+        self._connection = pglib.connect(
+            dbname=dbname,
+            user=username,
+            password=password,
+            host=node.host,
+            port=node.port
+        )
 
         self._connection.autocommit = autocommit
         self._cursor = self.connection.cursor()

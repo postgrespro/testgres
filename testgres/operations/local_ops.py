@@ -12,7 +12,7 @@ import psutil
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
-from .os_ops import ConnectionParams, OsOperations, pglib, get_default_encoding
+from .os_ops import ConnectionParams, OsOperations, get_default_encoding
 from .raise_error import RaiseError
 from .helpers import Helpers
 
@@ -446,14 +446,3 @@ class LocalOperations(OsOperations):
                 return True
             except OSError:
                 return False
-
-    # Database control
-    def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
-        conn = pglib.connect(
-            host=host,
-            port=port,
-            database=dbname,
-            user=user,
-            password=password,
-        )
-        return conn
