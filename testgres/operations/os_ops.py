@@ -1,14 +1,6 @@
 import getpass
 import locale
 
-try:
-    import psycopg2 as pglib  # noqa: F401
-except ImportError:
-    try:
-        import pg8000 as pglib  # noqa: F401
-    except ImportError:
-        raise ImportError("You must have psycopg2 or pg8000 modules installed")
-
 
 class ConnectionParams:
     def __init__(self, host='127.0.0.1', port=None, ssh_key=None, username=None):
@@ -129,8 +121,4 @@ class OsOperations:
 
     def is_port_free(self, number: int):
         assert type(number) == int  # noqa: E721
-        raise NotImplementedError()
-
-    # Database control
-    def db_connect(self, dbname, user, password=None, host="localhost", port=5432):
         raise NotImplementedError()
