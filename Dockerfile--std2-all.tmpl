@@ -1,0 +1,93 @@
+ARG PG_VERSION
+ARG PYTHON_VERSION 
+
+# --------------------------------------------- base1
+FROM postgres:${PG_VERSION}-alpine as base1
+
+# --------------------------------------------- base2_with_python-3
+FROM base1 as base2_with_python-3
+RUN apk add --no-cache curl python3 python3-dev build-base musl-dev linux-headers py-virtualenv
+
+# For pyenv
+RUN apk add build-base gcc-doc
+RUN apk add patch
+RUN apk add git
+RUN apk add xz-dev
+RUN apk add zip
+RUN apk add zlib-dev
+RUN apk add libffi-dev
+RUN apk add readline-dev
+RUN apk add openssl openssl-dev
+RUN apk add sqlite-dev
+RUN apk add bzip2-dev
+
+# --------------------------------------------- base3_with_python-3.8
+FROM base2_with_python-3 as base3_with_python-3.8
+ENV PYTHON_VERSION=3.8
+
+# --------------------------------------------- base3_with_python-3.9
+FROM base2_with_python-3 as base3_with_python-3.9
+ENV PYTHON_VERSION=3.9
+
+# --------------------------------------------- base3_with_python-3.10
+FROM base2_with_python-3 as base3_with_python-3.10
+ENV PYTHON_VERSION=3.10
+
+# --------------------------------------------- base3_with_python-3.11
+FROM base2_with_python-3 as base3_with_python-3.11
+ENV PYTHON_VERSION=3.11
+
+# --------------------------------------------- final
+FROM base3_with_python-${PYTHON_VERSION} as final
+
+#RUN apk add --no-cache mc
+
+# Full version of "ps" command
+RUN apk add --no-cache procps
+
+RUN apk add --no-cache openssh
+RUN apk add --no-cache sudo
+
+ENV LANG=C.UTF-8
+
+RUN addgroup -S sudo
+RUN adduser postgres sudo
+
+EXPOSE 22
+RUN ssh-keygen -A
+
+ADD . /pg/testgres
+WORKDIR /pg/testgres
+RUN chown -R postgres:postgres /pg
+
+# It allows to use sudo without password
+RUN sh -c "echo \"postgres ALL=(ALL:ALL) NOPASSWD:ALL\"">>/etc/sudoers
+
+# THIS CMD IS NEEDED TO CONNECT THROUGH SSH WITHOUT PASSWORD
+RUN sh -c "echo "postgres:*" | chpasswd -e"
+
+USER postgres
+
+RUN curl https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer | bash
+
+RUN ~/.pyenv/bin/pyenv install ${PYTHON_VERSION}
+
+# THIS CMD IS NEEDED TO CONNECT THROUGH SSH WITHOUT PASSWORD
+RUN chmod 700 ~/
+
+RUN mkdir -p ~/.ssh
+#RUN chmod 700 ~/.ssh
+
+ENTRYPOINT sh -c " \
+set -eux; \
+echo HELLO FROM ENTRYPOINT; \
+echo HOME DIR IS [`realpath ~/`]; \
+ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -N ''; \
+cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys; \
+chmod 600 ~/.ssh/authorized_keys; \
+ls -la ~/.ssh/; \
+sudo /usr/sbin/sshd; \
+ssh-keyscan -H localhost >> ~/.ssh/known_hosts; \
+ssh-keyscan -H 127.0.0.1 >> ~/.ssh/known_hosts; \
+export PATH=\"~/.pyenv/bin:$PATH\"; \
+TEST_FILTER=\"\" bash run_tests2.sh;"
