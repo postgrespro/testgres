@@ -7,10 +7,11 @@ from ..testgres.utils import get_pg_config2
 from ..testgres import scoped_config
 
 import pytest
+import typing
 
 
 class TestUtils:
-    sm_os_ops_descrs: list[OsOpsDescr] = [
+    sm_os_ops_descrs: typing.List[OsOpsDescr] = [
         OsOpsDescrs.sm_local_os_ops_descr,
         OsOpsDescrs.sm_remote_os_ops_descr
     ]

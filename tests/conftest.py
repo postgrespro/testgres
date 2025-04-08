@@ -27,6 +27,10 @@ class TestConfigPropNames:
 
 
 # /////////////////////////////////////////////////////////////////////////////
+
+T_TUPLE__str_int = typing.Tuple[str, int]
+
+# /////////////////////////////////////////////////////////////////////////////
 # TestStartupData__Helper
 
 
@@ -110,11 +114,11 @@ class TEST_PROCESS_STATS:
     cUnexpectedTests: int = 0
     cAchtungTests: int = 0
 
-    FailedTests = list[str, int]()
-    XFailedTests = list[str, int]()
-    NotXFailedTests = list[str]()
-    WarningTests = list[str, int]()
-    AchtungTests = list[str]()
+    FailedTests: typing.List[T_TUPLE__str_int] = list()
+    XFailedTests: typing.List[T_TUPLE__str_int] = list()
+    NotXFailedTests: typing.List[str] = list()
+    WarningTests: typing.List[T_TUPLE__str_int] = list()
+    AchtungTests: typing.List[str] = list()
 
     cTotalDuration: datetime.timedelta = datetime.timedelta()
 
@@ -769,7 +773,7 @@ def helper__calc_W(n: int) -> int:
 
 
 # ------------------------------------------------------------------------
-def helper__print_test_list(tests: list[str]) -> None:
+def helper__print_test_list(tests: typing.List[str]) -> None:
     assert type(tests) == list  # noqa: E721
 
     assert helper__calc_W(9) == 1
@@ -796,7 +800,7 @@ def helper__print_test_list(tests: list[str]) -> None:
 
 
 # ------------------------------------------------------------------------
-def helper__print_test_list2(tests: list[str, int]) -> None:
+def helper__print_test_list2(tests: typing.List[T_TUPLE__str_int]) -> None:
     assert type(tests) == list  # noqa: E721
 
     assert helper__calc_W(9) == 1
@@ -843,7 +847,7 @@ def run_after_tests(request: pytest.FixtureRequest):
         assert header != ""
         logging.info(C_LINE1 + " [" + header + "]")
 
-    def LOCAL__print_test_list(header: str, test_count: int, test_list: list[str]):
+    def LOCAL__print_test_list(header: str, test_count: int, test_list: typing.List[str]):
         assert type(header) == str  # noqa: E721
         assert type(test_count) == int  # noqa: E721
         assert type(test_list) == list  # noqa: E721
@@ -858,7 +862,7 @@ def run_after_tests(request: pytest.FixtureRequest):
             logging.info("")
 
     def LOCAL__print_test_list2(
-        header: str, test_count: int, test_list: list[str, int]
+        header: str, test_count: int, test_list: typing.List[T_TUPLE__str_int]
     ):
         assert type(header) == str  # noqa: E721
         assert type(test_count) == int  # noqa: E721

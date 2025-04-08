@@ -12,13 +12,14 @@ import tempfile
 import logging
 import socket
 import threading
+import typing
 
 from ..testgres import InvalidOperationException
 from ..testgres import ExecUtilException
 
 
 class TestOsOpsCommon:
-    sm_os_ops_descrs: list[OsOpsDescr] = [
+    sm_os_ops_descrs: typing.List[OsOpsDescr] = [
         OsOpsDescrs.sm_local_os_ops_descr,
         OsOpsDescrs.sm_remote_os_ops_descr
     ]

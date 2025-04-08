@@ -56,7 +56,7 @@ def removing(os_ops: OsOperations, f):
 
 
 class TestTestgresCommon:
-    sm_node_svcs: list[PostgresNodeService] = [
+    sm_node_svcs: typing.List[PostgresNodeService] = [
         PostgresNodeServices.sm_local,
         PostgresNodeServices.sm_local2,
         PostgresNodeServices.sm_remote,
@@ -315,8 +315,8 @@ class TestTestgresCommon:
 
         def LOCAL__test_auxiliary_pids(
             node: PostgresNode,
-            expectedTypes: list[ProcessType]
-        ) -> list[ProcessType]:
+            expectedTypes: typing.List[ProcessType]
+        ) -> typing.List[ProcessType]:
             # returns list of the absence processes
             assert node is not None
             assert type(node) == PostgresNode  # noqa: E721
@@ -327,7 +327,7 @@ class TestTestgresCommon:
             assert pids is not None  # noqa: E721
             assert type(pids) == dict  # noqa: E721
 
-            result = list[ProcessType]()
+            result: typing.List[ProcessType] = list()
             for ptype in expectedTypes:
                 if not (ptype in pids):
                     result.append(ptype)
@@ -335,7 +335,7 @@ class TestTestgresCommon:
 
         def LOCAL__check_auxiliary_pids__multiple_attempts(
                 node: PostgresNode,
-                expectedTypes: list[ProcessType]):
+                expectedTypes: typing.List[ProcessType]):
             assert node is not None
             assert type(node) == PostgresNode  # noqa: E721
             assert expectedTypes is not None

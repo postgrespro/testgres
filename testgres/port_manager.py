@@ -6,6 +6,7 @@ from . import utils
 
 import threading
 import random
+import typing
 
 
 class PortManager:
@@ -50,16 +51,16 @@ class PortManager__Generic(PortManager):
     _os_ops: OsOperations
     _guard: object
     # TODO: is there better to use bitmap fot _available_ports?
-    _available_ports: set[int]
-    _reserved_ports: set[int]
+    _available_ports: typing.Set[int]
+    _reserved_ports: typing.Set[int]
 
     def __init__(self, os_ops: OsOperations):
         assert os_ops is not None
         assert isinstance(os_ops, OsOperations)
         self._os_ops = os_ops
         self._guard = threading.Lock()
-        self._available_ports = set[int](range(1024, 65535))
-        self._reserved_ports = set[int]()
+        self._available_ports: typing.Set[int] = set(range(1024, 65535))
+        self._reserved_ports: typing.Set[int] = set()
 
     def reserve_port(self) -> int:
         assert self._guard is not None
