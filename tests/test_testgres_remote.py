@@ -7,16 +7,29 @@ import logging
 from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
 
-from .. import testgres
+try:
+    # Python 3.8
+    import testgres
 
-from ..testgres.exceptions import InitNodeException
-from ..testgres.exceptions import ExecUtilException
+    from testgres.exceptions import InitNodeException
+    from testgres.exceptions import ExecUtilException
 
-from ..testgres.config import scoped_config
-from ..testgres.config import testgres_config
+    from testgres.config import scoped_config
+    from testgres.config import testgres_config
 
-from ..testgres import get_bin_path
-from ..testgres import get_pg_config
+    from testgres import get_bin_path
+    from testgres import get_pg_config
+except ImportError:
+    from .. import testgres
+
+    from ..testgres.exceptions import InitNodeException
+    from ..testgres.exceptions import ExecUtilException
+
+    from ..testgres.config import scoped_config
+    from ..testgres.config import testgres_config
+
+    from ..testgres import get_bin_path
+    from ..testgres import get_pg_config
 
 # NOTE: those are ugly imports
 

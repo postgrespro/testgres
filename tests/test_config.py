@@ -1,9 +1,18 @@
-from ..testgres import TestgresConfig
-from ..testgres import configure_testgres
-from ..testgres import scoped_config
-from ..testgres import pop_config
+try:
+    # Python 3.8
+    import testgres
 
-from .. import testgres
+    from testgres.config import TestgresConfig
+    from testgres import configure_testgres
+    from testgres import scoped_config
+    from testgres import pop_config
+except ImportError:
+    from .. import testgres
+
+    from ..testgres.config import TestgresConfig
+    from ..testgres import configure_testgres
+    from ..testgres import scoped_config
+    from ..testgres import pop_config
 
 import pytest
 

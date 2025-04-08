@@ -4,6 +4,14 @@ from .helpers.global_data import OsOpsDescrs
 from .helpers.global_data import OsOperations
 from .helpers.run_conditions import RunConditions
 
+try:
+    # Python 3.8
+    from testgres import InvalidOperationException
+    from testgres import ExecUtilException
+except ImportError:
+    from ..testgres import InvalidOperationException
+    from ..testgres import ExecUtilException
+
 import os
 
 import pytest
@@ -13,9 +21,6 @@ import logging
 import socket
 import threading
 import typing
-
-from ..testgres import InvalidOperationException
-from ..testgres import ExecUtilException
 
 
 class TestOsOpsCommon:

@@ -4,7 +4,12 @@ import os
 import shutil
 import pytest
 
-from ...... import testgres
+try:
+    # Python 3.8
+    import testgres
+except ImportError:
+    from ...... import testgres
+
 from ...pg_probackup2.app import ProbackupApp
 from ...pg_probackup2.init_helpers import Init, init_params
 from ..storage.fs_backup import FSTestBackupDir

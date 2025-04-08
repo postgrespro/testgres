@@ -1,11 +1,22 @@
-from ...testgres.operations.os_ops import OsOperations
-from ...testgres.operations.os_ops import ConnectionParams
-from ...testgres.operations.local_ops import LocalOperations
-from ...testgres.operations.remote_ops import RemoteOperations
+try:
+    # Python 3.8
+    from testgres.operations.os_ops import OsOperations
+    from testgres.operations.os_ops import ConnectionParams
+    from testgres.operations.local_ops import LocalOperations
+    from testgres.operations.remote_ops import RemoteOperations
 
-from ...testgres.node import PortManager
-from ...testgres.node import PortManager__ThisHost
-from ...testgres.node import PortManager__Generic
+    from testgres.port_manager import PortManager
+    from testgres.port_manager import PortManager__ThisHost
+    from testgres.port_manager import PortManager__Generic
+except ImportError:
+    from ...testgres.operations.os_ops import OsOperations
+    from ...testgres.operations.os_ops import ConnectionParams
+    from ...testgres.operations.local_ops import LocalOperations
+    from ...testgres.operations.remote_ops import RemoteOperations
+
+    from ...testgres.port_manager import PortManager
+    from ...testgres.port_manager import PortManager__ThisHost
+    from ...testgres.port_manager import PortManager__Generic
 
 import os
 
