@@ -21,6 +21,10 @@ RUN apk add openssl openssl-dev
 RUN apk add sqlite-dev
 RUN apk add bzip2-dev
 
+# --------------------------------------------- base3_with_python-3.8.0
+FROM base2_with_python-3 as base3_with_python-3.8.0
+ENV PYTHON_VERSION=3.8.0
+
 # --------------------------------------------- base3_with_python-3.8
 FROM base2_with_python-3 as base3_with_python-3.8
 ENV PYTHON_VERSION=3.8
