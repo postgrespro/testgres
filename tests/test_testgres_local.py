@@ -7,40 +7,21 @@ import psutil
 import platform
 import logging
 
+from .. import testgres
 
-try:
-    # Python 3.8
-    import testgres
+from ..testgres import StartNodeException
+from ..testgres import ExecUtilException
+from ..testgres import NodeApp
+from ..testgres import scoped_config
+from ..testgres import get_new_node
+from ..testgres import get_bin_path
+from ..testgres import get_pg_config
+from ..testgres import get_pg_version
 
-    from testgres import StartNodeException
-    from testgres import ExecUtilException
-    from testgres import NodeApp
-    from testgres import scoped_config
-    from testgres import get_new_node
-    from testgres import get_bin_path
-    from testgres import get_pg_config
-    from testgres import get_pg_version
-
-    # NOTE: those are ugly imports
-    from testgres.utils import bound_ports
-    from testgres.utils import PgVer
-    from testgres.node import ProcessProxy
-except ImportError:
-    from .. import testgres
-
-    from ..testgres import StartNodeException
-    from ..testgres import ExecUtilException
-    from ..testgres import NodeApp
-    from ..testgres import scoped_config
-    from ..testgres import get_new_node
-    from ..testgres import get_bin_path
-    from ..testgres import get_pg_config
-    from ..testgres import get_pg_version
-
-    # NOTE: those are ugly imports
-    from ..testgres.utils import bound_ports
-    from ..testgres.utils import PgVer
-    from ..testgres.node import ProcessProxy
+# NOTE: those are ugly imports
+from ..testgres.utils import bound_ports
+from ..testgres.utils import PgVer
+from ..testgres.node import ProcessProxy
 
 
 def pg_version_ge(version):

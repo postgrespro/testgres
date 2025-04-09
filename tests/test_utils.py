@@ -2,15 +2,9 @@ from .helpers.global_data import OsOpsDescr
 from .helpers.global_data import OsOpsDescrs
 from .helpers.global_data import OsOperations
 
-try:
-    # Python 3.8
-    from testgres.utils import parse_pg_version
-    from testgres.utils import get_pg_config2
-    from testgres import scoped_config
-except ImportError:
-    from ..testgres.utils import parse_pg_version
-    from ..testgres.utils import get_pg_config2
-    from ..testgres import scoped_config
+from ..testgres.utils import parse_pg_version
+from ..testgres.utils import get_pg_config2
+from ..testgres import scoped_config
 
 import pytest
 import typing
