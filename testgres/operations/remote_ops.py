@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import io
 import logging
+import typing
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
@@ -669,8 +670,8 @@ class RemoteOperations(OsOperations):
         return True
 
     @staticmethod
-    def _make_exec_env_list() -> list[str]:
-        result = list[str]()
+    def _make_exec_env_list() -> typing.List[str]:
+        result: typing.List[str] = list()
         for envvar in os.environ.items():
             if not __class__._does_put_envvar_into_exec_cmd(envvar[0]):
                 continue
