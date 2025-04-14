@@ -9,6 +9,7 @@ import time
 import socket
 
 import psutil
+import typing
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
@@ -46,8 +47,33 @@ class LocalOperations(OsOperations):
                 output = output.decode(encoding)
             return output, None  # In Windows stderr writing in stdout
 
-    def _run_command__nt(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
+    def _run_command__nt(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=None):
+        assert exec_env is None or type(exec_env) == dict  # noqa: E721
+
         # TODO: why don't we use the data from input?
+
+        extParams: typing.Dict[str, str] = dict()
+
+        if exec_env is None:
+            pass
+        elif len(exec_env) == 0:
+            pass
+        else:
+            env = os.environ.copy()
+            assert type(env) == dict  # noqa: E721
+            for v in exec_env.items():
+                assert type(v) == tuple  # noqa: E721
+                assert len(v) == 2
+                assert type(v[0]) == str  # noqa: E721
+                assert v[0] != ""
+
+                if v[1] is None:
+                    env.pop(v[0], None)
+                else:
+                    assert type(v[1]) == str  # noqa: E721
+                    env[v[0]] = v[1]
+
+            extParams["env"] = env
 
         with tempfile.NamedTemporaryFile(mode='w+b', delete=False) as temp_file:
             stdout = temp_file
@@ -58,6 +84,7 @@ class LocalOperations(OsOperations):
                 stdin=stdin or subprocess.PIPE if input is not None else None,
                 stdout=stdout,
                 stderr=stderr,
+                **extParams,
             )
             if get_process:
                 return process, None, None
@@ -69,12 +96,37 @@ class LocalOperations(OsOperations):
         output, error = self._process_output(encoding, temp_file_path)
         return process, output, error
 
-    def _run_command__generic(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
+    def _run_command__generic(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=None):
+        assert exec_env is None or type(exec_env) == dict  # noqa: E721
+
         input_prepared = None
         if not get_process:
             input_prepared = Helpers.PrepareProcessInput(input, encoding)  # throw
 
         assert input_prepared is None or (type(input_prepared) == bytes)  # noqa: E721
+
+        extParams: typing.Dict[str, str] = dict()
+
+        if exec_env is None:
+            pass
+        elif len(exec_env) == 0:
+            pass
+        else:
+            env = os.environ.copy()
+            assert type(env) == dict  # noqa: E721
+            for v in exec_env.items():
+                assert type(v) == tuple  # noqa: E721
+                assert len(v) == 2
+                assert type(v[0]) == str  # noqa: E721
+                assert v[0] != ""
+
+                if v[1] is None:
+                    env.pop(v[0], None)
+                else:
+                    assert type(v[1]) == str  # noqa: E721
+                    env[v[0]] = v[1]
+
+            extParams["env"] = env
 
         process = subprocess.Popen(
             cmd,
@@ -82,6 +134,7 @@ class LocalOperations(OsOperations):
             stdin=stdin or subprocess.PIPE if input is not None else None,
             stdout=stdout or subprocess.PIPE,
             stderr=stderr or subprocess.PIPE,
+            **extParams
         )
         assert not (process is None)
         if get_process:
@@ -100,25 +153,26 @@ class LocalOperations(OsOperations):
             error = error.decode(encoding)
         return process, output, error
 
-    def _run_command(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding):
+    def _run_command(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=None):
         """Execute a command and return the process and its output."""
         if os.name == 'nt' and stdout is None:  # Windows
             method = __class__._run_command__nt
         else:  # Other OS
             method = __class__._run_command__generic
 
-        return method(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding)
+        return method(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=exec_env)
 
     def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False, encoding=None, shell=False,
                      text=False, input=None, stdin=None, stdout=None, stderr=None, get_process=False, timeout=None,
-                     ignore_errors=False):
+                     ignore_errors=False, exec_env=None):
         """
         Execute a command in a subprocess and handle the output based on the provided parameters.
         """
         assert type(expect_error) == bool  # noqa: E721
         assert type(ignore_errors) == bool  # noqa: E721
+        assert exec_env is None or type(exec_env) == dict  # noqa: E721
 
-        process, output, error = self._run_command(cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding)
+        process, output, error = self._run_command(cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=exec_env)
         if get_process:
             return process
 

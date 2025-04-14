@@ -64,7 +64,8 @@ class RemoteOperations(OsOperations):
 
     def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False,
                      encoding=None, shell=True, text=False, input=None, stdin=None, stdout=None,
-                     stderr=None, get_process=None, timeout=None, ignore_errors=False):
+                     stderr=None, get_process=None, timeout=None, ignore_errors=False,
+                     exec_env=None):
         """
         Execute a command in the SSH session.
         Args:
@@ -72,6 +73,7 @@ class RemoteOperations(OsOperations):
         """
         assert type(expect_error) == bool  # noqa: E721
         assert type(ignore_errors) == bool  # noqa: E721
+        assert exec_env is None or type(exec_env) == dict  # noqa: E721
 
         input_prepared = None
         if not get_process:
@@ -88,7 +90,7 @@ class RemoteOperations(OsOperations):
 
         assert type(cmd_s) == str  # noqa: E721
 
-        cmd_items = __class__._make_exec_env_list()
+        cmd_items = __class__._make_exec_env_list(exec_env=exec_env)
         cmd_items.append(cmd_s)
 
         env_cmd_s = ';'.join(cmd_items)
@@ -670,14 +672,38 @@ class RemoteOperations(OsOperations):
         return True
 
     @staticmethod
-    def _make_exec_env_list() -> typing.List[str]:
-        result: typing.List[str] = list()
+    def _make_exec_env_list(exec_env: typing.Dict) -> typing.List[str]:
+        env: typing.Dict[str, str] = dict()
+
+        # ---------------------------------- SYSTEM ENV
         for envvar in os.environ.items():
-            if not __class__._does_put_envvar_into_exec_cmd(envvar[0]):
-                continue
-            qvalue = __class__._quote_envvar(envvar[1])
-            assert type(qvalue) == str   # noqa: E721
-            result.append(envvar[0] + "=" + qvalue)
+            if __class__._does_put_envvar_into_exec_cmd(envvar[0]):
+                env[envvar[0]] = envvar[1]
+
+        # ---------------------------------- EXEC (LOCAL) ENV
+        if exec_env is None:
+            pass
+        else:
+            for envvar in exec_env.items():
+                assert type(envvar) == tuple  # noqa: E721
+                assert len(envvar) == 2
+                assert type(envvar[0]) == str  # noqa: E721
+                env[envvar[0]] = envvar[1]
+
+        # ---------------------------------- FINAL BUILD
+        result: typing.List[str] = list()
+        for envvar in env.items():
+            assert type(envvar) == tuple  # noqa: E721
+            assert len(envvar) == 2
+            assert type(envvar[0]) == str  # noqa: E721
+
+            if envvar[1] is None:
+                result.append("unset " + envvar[0])
+            else:
+                assert type(envvar[1]) == str  # noqa: E721
+                qvalue = __class__._quote_envvar(envvar[1])
+                assert type(qvalue) == str  # noqa: E721
+                result.append(envvar[0] + "=" + qvalue)
             continue
 
         return result

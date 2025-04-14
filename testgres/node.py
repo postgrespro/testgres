@@ -1020,7 +1020,7 @@ class PostgresNode(object):
 
         return out_dict
 
-    def slow_start(self, replica=False, dbname='template1', username=None, max_attempts=0):
+    def slow_start(self, replica=False, dbname='template1', username=None, max_attempts=0, exec_env=None):
         """
         Starts the PostgreSQL instance and then polls the instance
         until it reaches the expected state (primary or replica). The state is checked
@@ -1033,7 +1033,9 @@ class PostgresNode(object):
                         If False, waits for the instance to be in primary mode. Default is False.
                max_attempts:
         """
-        self.start()
+        assert exec_env is None or type(exec_env) == dict  # noqa: E721
+
+        self.start(exec_env=exec_env)
 
         if replica:
             query = 'SELECT pg_is_in_recovery()'
@@ -1065,7 +1067,7 @@ class PostgresNode(object):
                 return True
         return False
 
-    def start(self, params=[], wait=True):
+    def start(self, params=[], wait=True, exec_env=None):
         """
         Starts the PostgreSQL node using pg_ctl if node has not been started.
         By default, it waits for the operation to complete before returning.
@@ -1079,7 +1081,7 @@ class PostgresNode(object):
         Returns:
             This instance of :class:`.PostgresNode`.
         """
-
+        assert exec_env is None or type(exec_env) == dict  # noqa: E721
         assert __class__._C_MAX_START_ATEMPTS > 1
 
         if self.is_started:
@@ -1098,7 +1100,7 @@ class PostgresNode(object):
 
         def LOCAL__start_node():
             # 'error' will be None on Windows
-            _, _, error = execute_utility2(self.os_ops, _params, self.utils_log_file, verbose=True)
+            _, _, error = execute_utility2(self.os_ops, _params, self.utils_log_file, verbose=True, exec_env=exec_env)
             assert error is None or type(error) == str  # noqa: E721
             if error and 'does not exist' in error:
                 raise Exception(error)

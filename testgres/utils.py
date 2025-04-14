@@ -96,17 +96,26 @@ def execute_utility(args, logfile=None, verbose=False):
     return execute_utility2(tconf.os_ops, args, logfile, verbose)
 
 
-def execute_utility2(os_ops: OsOperations, args, logfile=None, verbose=False, ignore_errors=False):
+def execute_utility2(
+        os_ops: OsOperations,
+        args,
+        logfile=None,
+        verbose=False,
+        ignore_errors=False,
+        exec_env=None,
+):
     assert os_ops is not None
     assert isinstance(os_ops, OsOperations)
     assert type(verbose) == bool  # noqa: E721
     assert type(ignore_errors) == bool  # noqa: E721
+    assert exec_env is None or type(exec_env) == dict  # noqa: E721
 
     exit_status, out, error = os_ops.exec_command(
         args,
         verbose=True,
         ignore_errors=ignore_errors,
-        encoding=OsHelpers.GetDefaultEncoding())
+        encoding=OsHelpers.GetDefaultEncoding(),
+        exec_env=exec_env)
 
     out = '' if not out else out
 
