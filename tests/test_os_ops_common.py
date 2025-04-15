@@ -93,6 +93,70 @@ class TestOsOpsCommon:
         assert b"nonexistent_command" in error
         assert b"not found" in error
 
+    def test_exec_command_with_exec_env(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        C_ENV_NAME = "TESTGRES_TEST__EXEC_ENV_20250414"
+
+        cmd = ["sh", "-c", "echo ${}".format(C_ENV_NAME)]
+
+        exec_env = {C_ENV_NAME: "Hello!"}
+
+        response = os_ops.exec_command(cmd, exec_env=exec_env)
+        assert response is not None
+        assert type(response) == bytes  # noqa: E721
+        assert response == b'Hello!\n'
+
+        response = os_ops.exec_command(cmd)
+        assert response is not None
+        assert type(response) == bytes  # noqa: E721
+        assert response == b'\n'
+
+    def test_exec_command__test_unset(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        C_ENV_NAME = "LANG"
+
+        cmd = ["sh", "-c", "echo ${}".format(C_ENV_NAME)]
+
+        response1 = os_ops.exec_command(cmd)
+        assert response1 is not None
+        assert type(response1) == bytes  # noqa: E721
+
+        if response1 == b'\n':
+            logging.warning("Environment variable {} is not defined.".format(C_ENV_NAME))
+            return
+
+        exec_env = {C_ENV_NAME: None}
+        response2 = os_ops.exec_command(cmd, exec_env=exec_env)
+        assert response2 is not None
+        assert type(response2) == bytes  # noqa: E721
+        assert response2 == b'\n'
+
+        response3 = os_ops.exec_command(cmd)
+        assert response3 is not None
+        assert type(response3) == bytes  # noqa: E721
+        assert response3 == response1
+
+    def test_exec_command__test_unset_dummy_var(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        C_ENV_NAME = "TESTGRES_TEST__DUMMY_VAR_20250414"
+
+        cmd = ["sh", "-c", "echo ${}".format(C_ENV_NAME)]
+
+        exec_env = {C_ENV_NAME: None}
+        response2 = os_ops.exec_command(cmd, exec_env=exec_env)
+        assert response2 is not None
+        assert type(response2) == bytes  # noqa: E721
+        assert response2 == b'\n'
+
     def test_is_executable_true(self, os_ops: OsOperations):
         """
         Test is_executable for an existing executable.
