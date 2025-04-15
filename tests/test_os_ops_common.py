@@ -98,7 +98,7 @@ class TestOsOpsCommon:
 
         RunConditions.skip_if_windows()
 
-        C_ENV_NAME = "EXEC_TEST_TESTGRES_ENV_1975"
+        C_ENV_NAME = "TESTGRES_TEST__EXEC_ENV_20250414"
 
         cmd = ["sh", "-c", "echo ${}".format(C_ENV_NAME)]
 
@@ -147,7 +147,7 @@ class TestOsOpsCommon:
 
         RunConditions.skip_if_windows()
 
-        C_ENV_NAME = "IT_IS_A_TEST_DUMMY_VAR"
+        C_ENV_NAME = "TESTGRES_TEST__DUMMY_VAR_20250414"
 
         cmd = ["sh", "-c", "echo ${}".format(C_ENV_NAME)]
 
