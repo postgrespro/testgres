@@ -842,5 +842,22 @@ class ProbackupApp:
         ]
         return self.run(cmd + options, expect_error=expect_error)
 
+    def maintain(
+            self, instance=None, backup_id=None,
+            options=None, old_binary=False, gdb=False, expect_error=False
+    ):
+        if options is None:
+            options = []
+        cmd_list = [
+            'maintain',
+        ]
+        if instance:
+            cmd_list += ['--instance={0}'.format(instance)]
+        if backup_id:
+            cmd_list += ['-i', backup_id]
+
+        return self.run(cmd_list + options, old_binary=old_binary, gdb=gdb,
+                        expect_error=expect_error)
+
     def build_backup_dir(self, backup='backup'):
         return fs_backup_class(rel_path=self.rel_path, backup=backup)
