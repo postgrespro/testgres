@@ -3,7 +3,7 @@
 from .helpers.global_data import OsOpsDescrs
 from .helpers.global_data import OsOperations
 
-from ..testgres import ExecUtilException
+from testgres import ExecUtilException
 
 import os
 import pytest

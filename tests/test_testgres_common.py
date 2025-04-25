@@ -3,29 +3,29 @@ from .helpers.global_data import PostgresNodeServices
 from .helpers.global_data import OsOperations
 from .helpers.global_data import PortManager
 
-from ..testgres.node import PgVer
-from ..testgres.node import PostgresNode
-from ..testgres.utils import get_pg_version2
-from ..testgres.utils import file_tail
-from ..testgres.utils import get_bin_path2
-from ..testgres import ProcessType
-from ..testgres import NodeStatus
-from ..testgres import IsolationLevel
+from testgres.node import PgVer
+from testgres.node import PostgresNode
+from testgres.utils import get_pg_version2
+from testgres.utils import file_tail
+from testgres.utils import get_bin_path2
+from testgres import ProcessType
+from testgres import NodeStatus
+from testgres import IsolationLevel
 
 # New name prevents to collect test-functions in TestgresException and fixes
 # the problem with pytest warning.
-from ..testgres import TestgresException as testgres_TestgresException
+from testgres import TestgresException as testgres_TestgresException
 
-from ..testgres import InitNodeException
-from ..testgres import StartNodeException
-from ..testgres import QueryException
-from ..testgres import ExecUtilException
-from ..testgres import TimeoutException
-from ..testgres import InvalidOperationException
-from ..testgres import BackupException
-from ..testgres import ProgrammingError
-from ..testgres import scoped_config
-from ..testgres import First, Any
+from testgres import InitNodeException
+from testgres import StartNodeException
+from testgres import QueryException
+from testgres import ExecUtilException
+from testgres import TimeoutException
+from testgres import InvalidOperationException
+from testgres import BackupException
+from testgres import ProgrammingError
+from testgres import scoped_config
+from testgres import First, Any
 
 from contextlib import contextmanager
 

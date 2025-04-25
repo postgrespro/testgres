@@ -1,9 +1,9 @@
-from ..testgres import TestgresConfig
-from ..testgres import configure_testgres
-from ..testgres import scoped_config
-from ..testgres import pop_config
+from testgres import TestgresConfig
+from testgres import configure_testgres
+from testgres import scoped_config
+from testgres import pop_config
 
-from .. import testgres
+import testgres
 
 import pytest
 
