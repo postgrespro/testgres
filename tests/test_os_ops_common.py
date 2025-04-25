@@ -14,8 +14,8 @@ import socket
 import threading
 import typing
 
-from ..testgres import InvalidOperationException
-from ..testgres import ExecUtilException
+from testgres import InvalidOperationException
+from testgres import ExecUtilException
 
 
 class TestOsOpsCommon:
