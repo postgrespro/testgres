@@ -1372,6 +1372,8 @@ class PostgresNode(object):
              dbname=None,
              username=None,
              input=None,
+             host: typing.Optional[str] = None,
+             port: typing.Optional[int] = None,
              **variables):
         """
         Execute a query using psql.
@@ -1382,6 +1384,8 @@ class PostgresNode(object):
             dbname: database name to connect to.
             username: database user name.
             input: raw input to be passed.
+            host: an explicit host of server.
+            port: an explicit port of server.
             **variables: vars to be set before execution.
 
         Returns:
@@ -1393,6 +1397,10 @@ class PostgresNode(object):
             >>> psql(query='select 3', ON_ERROR_STOP=1)
         """
 
+        assert host is None or type(host) == str  # noqa: E721
+        assert port is None or type(port) == int  # noqa: E721
+        assert type(variables) == dict  # noqa: E721
+
         return self._psql(
             ignore_errors=True,
             query=query,
@@ -1400,6 +1408,8 @@ class PostgresNode(object):
             dbname=dbname,
             username=username,
             input=input,
+            host=host,
+            port=port,
             **variables
         )
 
@@ -1411,7 +1421,11 @@ class PostgresNode(object):
             dbname=None,
             username=None,
             input=None,
+            host: typing.Optional[str] = None,
+            port: typing.Optional[int] = None,
             **variables):
+        assert host is None or type(host) == str  # noqa: E721
+        assert port is None or type(port) == int  # noqa: E721
         assert type(variables) == dict  # noqa: E721
 
         #
@@ -1424,10 +1438,21 @@ class PostgresNode(object):
         else:
             raise Exception("Input data must be None or bytes.")
 
+        if host is None:
+            host = self.host
+
+        if port is None:
+            port = self.port
+
+        assert host is not None
+        assert port is not None
+        assert type(host) == str  # noqa: E721
+        assert type(port) == int  # noqa: E721
+
         psql_params = [
             self._get_bin_path("psql"),
-            "-p", str(self.port),
-            "-h", self.host,
+            "-p", str(port),
+            "-h", host,
             "-U", username or self.os_ops.username,
             "-d", dbname or default_dbname(),
             "-X",  # no .psqlrc

@@ -678,6 +678,89 @@ class TestTestgresCommon:
                 r = node.safe_psql('select 1')  # raises!
                 logging.error("node.safe_psql returns [{}]".format(r))
 
+    def test_psql__another_port(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init() as node1:
+            with __class__.helper__get_node(node_svc).init() as node2:
+                node1.start()
+                node2.start()
+                assert node1.port != node2.port
+                assert node1.host == node2.host
+
+                node1.stop()
+
+                logging.info("test table in node2 is creating ...")
+                node2.safe_psql(
+                    dbname="postgres",
+                    query="create table test (id integer);"
+                )
+
+                logging.info("try to find test table through node1.psql ...")
+                res = node1.psql(
+                    dbname="postgres",
+                    query="select count(*) from pg_class where relname='test'",
+                    host=node2.host,
+                    port=node2.port,
+                )
+                assert (__class__.helper__rm_carriage_returns(res) == (0, b'1\n', b''))
+
+    def test_psql__another_bad_host(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init() as node:
+            logging.info("try to execute node1.psql ...")
+            res = node.psql(
+                dbname="postgres",
+                query="select count(*) from pg_class where relname='test'",
+                host="DUMMY_HOST_NAME",
+                port=node.port,
+            )
+
+            res2 = __class__.helper__rm_carriage_returns(res)
+
+            assert res2[0] != 0
+            assert b"DUMMY_HOST_NAME" in res[2]
+
+    def test_safe_psql__another_port(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init() as node1:
+            with __class__.helper__get_node(node_svc).init() as node2:
+                node1.start()
+                node2.start()
+                assert node1.port != node2.port
+                assert node1.host == node2.host
+
+                node1.stop()
+
+                logging.info("test table in node2 is creating ...")
+                node2.safe_psql(
+                    dbname="postgres",
+                    query="create table test (id integer);"
+                )
+
+                logging.info("try to find test table through node1.psql ...")
+                res = node1.safe_psql(
+                    dbname="postgres",
+                    query="select count(*) from pg_class where relname='test'",
+                    host=node2.host,
+                    port=node2.port,
+                )
+                assert (__class__.helper__rm_carriage_returns(res) == b'1\n')
+
+    def test_safe_psql__another_bad_host(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc).init() as node:
+            logging.info("try to execute node1.psql ...")
+
+            with pytest.raises(expected_exception=Exception) as x:
+                node.safe_psql(
+                    dbname="postgres",
+                    query="select count(*) from pg_class where relname='test'",
+                    host="DUMMY_HOST_NAME",
+                    port=node.port,
+                )
+
+            assert "DUMMY_HOST_NAME" in str(x.value)
+
     def test_safe_psql__expect_error(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
         with __class__.helper__get_node(node_svc).init().start() as node:
