@@ -171,7 +171,7 @@ class PostgresNode(object):
         assert port_manager is None or isinstance(port_manager, PortManager)
 
         if conn_params is not None:
-            assert type(conn_params) == ConnectionParams
+            assert type(conn_params) == ConnectionParams  # noqa: E721
 
             raise InvalidOperationException("conn_params is deprecated, please use os_ops parameter instead.")
 
