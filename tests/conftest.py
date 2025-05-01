@@ -51,6 +51,17 @@ class TestStartupData__Helper:
         return r
 
     # --------------------------------------------------------------------
+    def CalcRootLogDir() -> str:
+        if TestConfigPropNames.TEST_CFG__LOG_DIR in os.environ:
+            resultPath = os.environ[TestConfigPropNames.TEST_CFG__LOG_DIR]
+        else:
+            rootDir = __class__.CalcRootDir()
+            resultPath = os.path.join(rootDir, "logs")
+
+        assert type(resultPath) == str  # noqa: E721
+        return resultPath
+
+    # --------------------------------------------------------------------
     def CalcCurrentTestWorkerSignature() -> str:
         currentPID = os.getpid()
         assert type(currentPID)
@@ -86,10 +97,17 @@ class TestStartupData:
         TestStartupData__Helper.CalcCurrentTestWorkerSignature()
     )
 
+    sm_RootLogDir: str = TestStartupData__Helper.CalcRootLogDir()
+
     # --------------------------------------------------------------------
     def GetRootDir() -> str:
         assert type(__class__.sm_RootDir) == str  # noqa: E721
         return __class__.sm_RootDir
+
+    # --------------------------------------------------------------------
+    def GetRootLogDir() -> str:
+        assert type(__class__.sm_RootLogDir) == str  # noqa: E721
+        return __class__.sm_RootLogDir
 
     # --------------------------------------------------------------------
     def GetCurrentTestWorkerSignature() -> str:
@@ -954,13 +972,9 @@ def pytest_configure(config: pytest.Config) -> None:
     log_name = TestStartupData.GetCurrentTestWorkerSignature()
     log_name += ".log"
 
-    if TestConfigPropNames.TEST_CFG__LOG_DIR in os.environ:
-        log_path_v = os.environ[TestConfigPropNames.TEST_CFG__LOG_DIR]
-        log_path = pathlib.Path(log_path_v)
-    else:
-        log_path = config.rootpath.joinpath("logs")
+    log_dir = TestStartupData.GetRootLogDir()
 
-    log_path.mkdir(exist_ok=True)
+    pathlib.Path(log_dir).mkdir(exist_ok=True)
 
     logging_plugin: _pytest.logging.LoggingPlugin = config.pluginmanager.get_plugin(
         "logging-plugin"
@@ -969,7 +983,7 @@ def pytest_configure(config: pytest.Config) -> None:
     assert logging_plugin is not None
     assert isinstance(logging_plugin, _pytest.logging.LoggingPlugin)
 
-    logging_plugin.set_log_path(str(log_path / log_name))
+    logging_plugin.set_log_path(os.path.join(log_dir, log_name))
 
 
 # /////////////////////////////////////////////////////////////////////////////
