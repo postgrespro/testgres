@@ -158,15 +158,15 @@ class TestTestgresLocal:
     def test_upgrade_node(self):
         old_bin_dir = os.path.dirname(get_bin_path("pg_config"))
         new_bin_dir = os.path.dirname(get_bin_path("pg_config"))
-        node_old = get_new_node(prefix='node_old', bin_dir=old_bin_dir)
-        node_old.init()
-        node_old.start()
-        node_old.stop()
-        node_new = get_new_node(prefix='node_new', bin_dir=new_bin_dir)
-        node_new.init(cached=False)
-        res = node_new.upgrade_from(old_node=node_old)
-        node_new.start()
-        assert (b'Upgrade Complete' in res)
+        with get_new_node(prefix='node_old', bin_dir=old_bin_dir) as node_old:
+            node_old.init()
+            node_old.start()
+            node_old.stop()
+            with get_new_node(prefix='node_new', bin_dir=new_bin_dir) as node_new:
+                node_new.init(cached=False)
+                res = node_new.upgrade_from(old_node=node_old)
+                node_new.start()
+                assert (b'Upgrade Complete' in res)
 
     class tagPortManagerProxy:
         sm_prev_testgres_reserve_port = None
