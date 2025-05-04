@@ -341,10 +341,10 @@ class TestTestgresLocal:
             bin_dir = node.bin_dir
 
         app = NodeApp()
-        correct_bin_dir = app.make_simple(base_dir=node.base_dir, bin_dir=bin_dir)
-        correct_bin_dir.slow_start()
-        correct_bin_dir.safe_psql("SELECT 1;")
-        correct_bin_dir.stop()
+        with app.make_simple(base_dir=node.base_dir, bin_dir=bin_dir) as correct_bin_dir:
+            correct_bin_dir.slow_start()
+            correct_bin_dir.safe_psql("SELECT 1;")
+            correct_bin_dir.stop()
 
         while True:
             try:

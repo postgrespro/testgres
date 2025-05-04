@@ -883,10 +883,20 @@ class TestTestgresCommon:
 
     def test_pg_ctl_wait_option(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
+        with __class__.helper__get_node(node_svc) as node:
+            self.impl__test_pg_ctl_wait_option(node_svc, node)
+
+    def impl__test_pg_ctl_wait_option(
+        self,
+        node_svc: PostgresNodeService,
+        node: PostgresNode
+    ) -> None:
+        assert isinstance(node_svc, PostgresNodeService)
+        assert isinstance(node, PostgresNode)
+        assert node.status() == NodeStatus.Uninitialized
+
         C_MAX_ATTEMPTS = 50
 
-        node = __class__.helper__get_node(node_svc)
-        assert node.status() == NodeStatus.Uninitialized
         node.init()
         assert node.status() == NodeStatus.Stopped
         node.start(wait=False)
@@ -950,7 +960,6 @@ class TestTestgresCommon:
             raise Exception("Unexpected node status: {0}.".format(s1))
 
         logging.info("OK. Node is stopped.")
-        node.cleanup()
 
     def test_replicate(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
