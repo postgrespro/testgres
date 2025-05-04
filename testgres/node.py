@@ -1343,7 +1343,7 @@ class PostgresNode(object):
             self._port = None
             self._port_manager.release_port(port)
 
-    def cleanup(self, max_attempts=3, full=False):
+    def cleanup(self, max_attempts=3, full=False, release_resources=False):
         """
         Stop node if needed and remove its data/logs directory.
         NOTE: take a look at TestgresConfig.node_cleanup_full.
@@ -1365,6 +1365,9 @@ class PostgresNode(object):
             rm_dir = self.data_dir    # just data, save logs
 
         self.os_ops.rmdirs(rm_dir, ignore_errors=False)
+
+        if release_resources:
+            self._release_resources()
 
         return self
 
