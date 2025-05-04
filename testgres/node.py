@@ -231,8 +231,6 @@ class PostgresNode(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        self.free_port()
-
         # NOTE: Ctrl+C does not count!
         got_exception = type is not None and type != KeyboardInterrupt
 
@@ -245,6 +243,8 @@ class PostgresNode(object):
             self.cleanup(attempts)
         else:
             self._try_shutdown(attempts)
+
+        self.free_port()
 
     def __repr__(self):
         return "{}(name='{}', port={}, base_dir='{}')".format(
