@@ -244,7 +244,7 @@ class PostgresNode(object):
         else:
             self._try_shutdown(attempts)
 
-        self.free_port()
+        self._release_resources()
 
     def __repr__(self):
         return "{}(name='{}', port={}, base_dir='{}')".format(
@@ -662,6 +662,9 @@ class PostgresNode(object):
         __class__._throw_bugcheck__unexpected_result_of_ps(
             ps_output,
             ps_command)
+
+    def _release_resources(self):
+        self.free_port()
 
     @staticmethod
     def _throw_bugcheck__unexpected_result_of_ps(result, cmd):
