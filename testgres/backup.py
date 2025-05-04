@@ -184,14 +184,19 @@ class NodeBackup(object):
         """
 
         # Build a new PostgresNode
-        with clean_on_error(self.spawn_primary(name=name,
-                                               destroy=destroy)) as node:
+        node = self.spawn_primary(name=name, destroy=destroy)
+        assert node is not None
 
+        try:
             # Assign it a master and a recovery file (private magic)
             node._assign_master(self.original_node)
             node._create_recovery_conf(username=self.username, slot=slot)
+        except:  # noqa: E722
+            # TODO: Pass 'final=True' ?
+            node.cleanup(release_resources=True)
+            raise
 
-            return node
+        return node
 
     def cleanup(self):
         """

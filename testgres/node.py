@@ -237,8 +237,6 @@ class PostgresNode(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        self.free_port()
-
         # NOTE: Ctrl+C does not count!
         got_exception = type is not None and type != KeyboardInterrupt
 
@@ -251,6 +249,8 @@ class PostgresNode(object):
             self.cleanup(attempts)
         else:
             self._try_shutdown(attempts)
+
+        self._release_resources()
 
     def __repr__(self):
         return "{}(name='{}', port={}, base_dir='{}')".format(
@@ -662,6 +662,9 @@ class PostgresNode(object):
         __class__._throw_bugcheck__unexpected_result_of_ps(
             ps_output,
             ps_command)
+
+    def _release_resources(self):
+        self.free_port()
 
     @staticmethod
     def _throw_bugcheck__unexpected_result_of_ps(result, cmd):
@@ -1340,7 +1343,7 @@ class PostgresNode(object):
             self._port = None
             self._port_manager.release_port(port)
 
-    def cleanup(self, max_attempts=3, full=False):
+    def cleanup(self, max_attempts=3, full=False, release_resources=False):
         """
         Stop node if needed and remove its data/logs directory.
         NOTE: take a look at TestgresConfig.node_cleanup_full.
@@ -1362,6 +1365,9 @@ class PostgresNode(object):
             rm_dir = self.data_dir    # just data, save logs
 
         self.os_ops.rmdirs(rm_dir, ignore_errors=False)
+
+        if release_resources:
+            self._release_resources()
 
         return self
 
