@@ -84,8 +84,8 @@ from .exceptions import \
     InvalidOperationException
 
 from .port_manager import PortManager
-from .port_manager import PortManager__ThisHost
-from .port_manager import PortManager__Generic
+from .impl.port_manager__this_host import PortManager__ThisHost
+from .impl.port_manager__generic import PortManager__Generic
 
 from .logger import TestgresLogger
 
@@ -272,7 +272,7 @@ class PostgresNode(object):
         assert isinstance(os_ops, OsOperations)
 
         if isinstance(os_ops, LocalOperations):
-            return PortManager__ThisHost()
+            return PortManager__ThisHost.get_single_instance()
 
         # TODO: Throw the exception "Please define a port manager." ?
         return PortManager__Generic(os_ops)

@@ -6,8 +6,6 @@ from __future__ import print_function
 import os
 
 import sys
-import socket
-import random
 
 from contextlib import contextmanager
 from packaging.version import Version, InvalidVersion
@@ -15,18 +13,27 @@ import re
 
 from six import iteritems
 
-from .exceptions import PortForException
 from .exceptions import ExecUtilException
 from .config import testgres_config as tconf
 from .operations.os_ops import OsOperations
 from .operations.remote_ops import RemoteOperations
+from .operations.local_ops import LocalOperations
 from .operations.helpers import Helpers as OsHelpers
+
+from .impl.port_manager__generic import PortManager__Generic
 
 # rows returned by PG_CONFIG
 _pg_config_data = {}
 
+_local_operations = LocalOperations()
+
+#
+# The old, global "port manager" always worked with LOCAL system
+#
+_old_port_manager = PortManager__Generic(_local_operations)
+
 # ports used by nodes
-bound_ports = set()
+bound_ports = _old_port_manager._reserved_ports
 
 
 # re-export version type
@@ -43,28 +50,7 @@ def internal__reserve_port():
     """
     Generate a new port and add it to 'bound_ports'.
     """
-    def LOCAL__is_port_free(port: int) -> bool:
-        """Check if a port is free to use."""
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
-                s.bind(("", port))
-                return True
-            except OSError:
-                return False
-
-    ports = set(range(1024, 65535))
-    assert type(ports) == set  # noqa: E721
-    assert type(bound_ports) == set  # noqa: E721
-    ports.difference_update(bound_ports)
-
-    sampled_ports = random.sample(tuple(ports), min(len(ports), 100))
-
-    for port in sampled_ports:
-        if LOCAL__is_port_free(port):
-            bound_ports.add(port)
-            return port
-
-    raise PortForException("Can't select a port")
+    return _old_port_manager.reserve_port()
 
 
 def internal__release_port(port):
@@ -73,9 +59,7 @@ def internal__release_port(port):
     """
 
     assert type(port) == int  # noqa: E721
-    assert port in bound_ports
-
-    bound_ports.discard(port)
+    return _old_port_manager.release_port(port)
 
 
 reserve_port = internal__reserve_port
