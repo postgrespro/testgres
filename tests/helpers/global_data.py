@@ -39,7 +39,7 @@ class OsOpsDescrs:
 class PortManagers:
     sm_remote_port_manager = PortManager__Generic(OsOpsDescrs.sm_remote_os_ops)
 
-    sm_local_port_manager = PortManager__ThisHost()
+    sm_local_port_manager = PortManager__ThisHost.get_single_instance()
 
     sm_local2_port_manager = PortManager__Generic(OsOpsDescrs.sm_local_os_ops)
 

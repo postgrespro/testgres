@@ -9,17 +9,19 @@ class PortManager__ThisHost(PortManager):
     sm_single_instance: PortManager = None
     sm_single_instance_guard = threading.Lock()
 
-    def __init__(self):
-        pass
-
-    def __new__(cls) -> PortManager:
+    @staticmethod
+    def get_single_instance() -> PortManager:
         assert __class__ == PortManager__ThisHost
         assert __class__.sm_single_instance_guard is not None
 
-        if __class__.sm_single_instance is None:
-            with __class__.sm_single_instance_guard:
-                __class__.sm_single_instance = super().__new__(cls)
-        assert __class__.sm_single_instance
+        if __class__.sm_single_instance is not None:
+            assert type(__class__.sm_single_instance) == __class__  # noqa: E721
+            return __class__.sm_single_instance
+
+        with __class__.sm_single_instance_guard:
+            if __class__.sm_single_instance is None:
+                __class__.sm_single_instance = __class__()
+        assert __class__.sm_single_instance is not None
         assert type(__class__.sm_single_instance) == __class__  # noqa: E721
         return __class__.sm_single_instance
 

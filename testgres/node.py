@@ -272,7 +272,7 @@ class PostgresNode(object):
         assert isinstance(os_ops, OsOperations)
 
         if isinstance(os_ops, LocalOperations):
-            return PortManager__ThisHost()
+            return PortManager__ThisHost.get_single_instance()
 
         # TODO: Throw the exception "Please define a port manager." ?
         return PortManager__Generic(os_ops)
