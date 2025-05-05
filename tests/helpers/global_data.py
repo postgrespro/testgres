@@ -31,7 +31,7 @@ class OsOpsDescrs:
 
     sm_remote_os_ops_descr = OsOpsDescr("remote_ops", sm_remote_os_ops)
 
-    sm_local_os_ops = LocalOperations()
+    sm_local_os_ops = LocalOperations.get_single_instance()
 
     sm_local_os_ops_descr = OsOpsDescr("local_ops", sm_local_os_ops)
 
