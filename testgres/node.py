@@ -276,7 +276,7 @@ class PostgresNode(object):
 
         if os_ops is LocalOperations.get_single_instance():
             assert utils._old_port_manager is not None
-            assert type(utils._old_port_manager) == PortManager__Generic
+            assert type(utils._old_port_manager) == PortManager__Generic  # noqa: E721
             assert utils._old_port_manager._os_ops is os_ops
             return PortManager__ThisHost.get_single_instance()
 
