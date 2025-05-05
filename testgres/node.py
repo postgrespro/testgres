@@ -107,7 +107,6 @@ from .backup import NodeBackup
 from .operations.os_ops import ConnectionParams
 from .operations.os_ops import OsOperations
 from .operations.local_ops import LocalOperations
-from .operations.remote_ops import RemoteOperations
 
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
@@ -151,7 +150,7 @@ class PostgresNode(object):
                  name=None,
                  base_dir=None,
                  port: typing.Optional[int] = None,
-                 conn_params: ConnectionParams = ConnectionParams(),
+                 conn_params: ConnectionParams = None,
                  bin_dir=None,
                  prefix=None,
                  os_ops: typing.Optional[OsOperations] = None,
@@ -171,11 +170,15 @@ class PostgresNode(object):
         assert os_ops is None or isinstance(os_ops, OsOperations)
         assert port_manager is None or isinstance(port_manager, PortManager)
 
+        if conn_params is not None:
+            assert type(conn_params) == ConnectionParams  # noqa: E721
+
+            raise InvalidOperationException("conn_params is deprecated, please use os_ops parameter instead.")
+
         # private
         if os_ops is None:
-            self._os_ops = __class__._get_os_ops(conn_params)
+            self._os_ops = __class__._get_os_ops()
         else:
-            assert conn_params is None
             assert isinstance(os_ops, OsOperations)
             self._os_ops = os_ops
             pass
@@ -200,11 +203,14 @@ class PostgresNode(object):
             self._should_free_port = False
             self._port_manager = None
         else:
-            if port_manager is not None:
-                assert isinstance(port_manager, PortManager)
-                self._port_manager = port_manager
-            else:
+            if port_manager is None:
                 self._port_manager = __class__._get_port_manager(self._os_ops)
+            elif os_ops is None:
+                raise InvalidOperationException("When port_manager is not None you have to define os_ops, too.")
+            else:
+                assert isinstance(port_manager, PortManager)
+                assert self._os_ops is os_ops
+                self._port_manager = port_manager
 
             assert self._port_manager is not None
             assert isinstance(self._port_manager, PortManager)
@@ -255,16 +261,11 @@ class PostgresNode(object):
         )
 
     @staticmethod
-    def _get_os_ops(conn_params: ConnectionParams) -> OsOperations:
+    def _get_os_ops() -> OsOperations:
         if testgres_config.os_ops:
             return testgres_config.os_ops
 
-        assert type(conn_params) == ConnectionParams  # noqa: E721
-
-        if conn_params.ssh_key:
-            return RemoteOperations(conn_params)
-
-        return LocalOperations(conn_params)
+        return LocalOperations()
 
     @staticmethod
     def _get_port_manager(os_ops: OsOperations) -> PortManager:
@@ -294,7 +295,6 @@ class PostgresNode(object):
         node = PostgresNode(
             name=name,
             base_dir=base_dir,
-            conn_params=None,
             bin_dir=self._bin_dir,
             prefix=self._prefix,
             os_ops=self._os_ops,

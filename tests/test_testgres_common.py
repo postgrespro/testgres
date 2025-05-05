@@ -1487,7 +1487,6 @@ class TestTestgresCommon:
         return PostgresNode(
             name,
             port=port,
-            conn_params=None,
             os_ops=node_svc.os_ops,
             port_manager=port_manager if port is None else None
         )

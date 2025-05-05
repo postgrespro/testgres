@@ -173,7 +173,6 @@ class TestTestgresRemote:
 
         return testgres.PostgresNode(
             name,
-            conn_params=None,
             os_ops=svc.os_ops,
             port_manager=svc.port_manager)
 
