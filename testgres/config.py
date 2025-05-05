@@ -50,8 +50,9 @@ class GlobalConfig(object):
     _cached_initdb_dir = None
     """ underlying class attribute for cached_initdb_dir property """
 
-    os_ops = LocalOperations()
+    os_ops = LocalOperations.get_single_instance()
     """ OsOperation object that allows work on remote host """
+
     @property
     def cached_initdb_dir(self):
         """ path to a temp directory for cached initdb. """

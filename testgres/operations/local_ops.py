@@ -10,6 +10,7 @@ import socket
 
 import psutil
 import typing
+import threading
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
@@ -28,6 +29,9 @@ CMD_TIMEOUT_SEC = 60
 
 
 class LocalOperations(OsOperations):
+    sm_single_instance: OsOperations = None
+    sm_single_instance_guard = threading.Lock()
+
     def __init__(self, conn_params=None):
         if conn_params is None:
             conn_params = ConnectionParams()
@@ -37,6 +41,22 @@ class LocalOperations(OsOperations):
         self.ssh_key = None
         self.remote = False
         self.username = conn_params.username or getpass.getuser()
+
+    @staticmethod
+    def get_single_instance() -> OsOperations:
+        assert __class__ == LocalOperations
+        assert __class__.sm_single_instance_guard is not None
+
+        if __class__.sm_single_instance is not None:
+            assert type(__class__.sm_single_instance) == __class__  # noqa: E721
+            return __class__.sm_single_instance
+
+        with __class__.sm_single_instance_guard:
+            if __class__.sm_single_instance is None:
+                __class__.sm_single_instance = __class__()
+        assert __class__.sm_single_instance is not None
+        assert type(__class__.sm_single_instance) == __class__  # noqa: E721
+        return __class__.sm_single_instance
 
     @staticmethod
     def _process_output(encoding, temp_file_path):

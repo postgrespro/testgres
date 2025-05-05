@@ -22,12 +22,16 @@ from .operations.local_ops import LocalOperations
 from .operations.os_ops import OsOperations
 
 
-def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = LocalOperations(), bin_path=None, cached=True):
+def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = None, bin_path=None, cached=True):
     """
     Perform initdb or use cached node files.
     """
 
-    assert os_ops is not None
+    assert os_ops is None or isinstance(os_ops, OsOperations)
+
+    if os_ops is None:
+        os_ops = LocalOperations.get_single_instance()
+
     assert isinstance(os_ops, OsOperations)
 
     def make_utility_path(name):
