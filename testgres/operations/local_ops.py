@@ -250,6 +250,10 @@ class LocalOperations(OsOperations):
         except FileExistsError:
             pass
 
+    def makedir(self, path: str):
+        assert type(path) == str  # noqa: E721
+        os.mkdir(path)
+
     # [2025-02-03] Old name of parameter attempts is "retries".
     def rmdirs(self, path, ignore_errors=True, attempts=3, delay=1):
         """
@@ -292,6 +296,10 @@ class LocalOperations(OsOperations):
 
             # OK!
             return True
+
+    def rmdir(self, path: str):
+        assert type(path) == str  # noqa: E721
+        os.rmdir(path)
 
     def listdir(self, path):
         return os.listdir(path)
