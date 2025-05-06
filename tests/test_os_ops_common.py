@@ -817,6 +817,39 @@ class TestOsOpsCommon:
         if ok_count == 0:
             raise RuntimeError("No one free port was found.")
 
+    def test_get_tmpdir(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        dir = os_ops.get_tempdir()
+        assert type(dir) == str  # noqa: E721
+        assert os_ops.path_exists(dir)
+        assert os.path.exists(dir)
+
+        file_path = os.path.join(dir, "testgres--" + uuid.uuid4().hex + ".tmp")
+
+        os_ops.write(file_path, "1234", binary=False)
+
+        assert os_ops.path_exists(file_path)
+        assert os.path.exists(file_path)
+
+        d = os_ops.read(file_path, binary=False)
+
+        assert d == "1234"
+
+        os_ops.remove_file(file_path)
+
+        assert not os_ops.path_exists(file_path)
+        assert not os.path.exists(file_path)
+
+    def test_get_tmpdir__compare_with_py_info(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        actual_dir = os_ops.get_tempdir()
+        assert actual_dir is not None
+        assert type(actual_dir) == str  # noqa: E721
+        expected_dir = str(tempfile.tempdir)
+        assert actual_dir == expected_dir
+
     class tagData_OS_OPS__NUMS:
         os_ops_descr: OsOpsDescr
         nums: int

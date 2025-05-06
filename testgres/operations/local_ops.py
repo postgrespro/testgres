@@ -528,3 +528,10 @@ class LocalOperations(OsOperations):
                 return True
             except OSError:
                 return False
+
+    def get_tempdir(self) -> str:
+        r = tempfile.gettempdir()
+        assert r is not None
+        assert type(r) == str  # noqa: E721
+        assert os.path.exists(r)
+        return r

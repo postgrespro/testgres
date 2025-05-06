@@ -130,3 +130,6 @@ class OsOperations:
     def is_port_free(self, number: int):
         assert type(number) == int  # noqa: E721
         raise NotImplementedError()
+
+    def get_tempdir(self) -> str:
+        raise NotImplementedError()
