@@ -93,6 +93,8 @@ from .pubsub import Publication, Subscription
 
 from .standby import First
 
+from . import utils
+
 from .utils import \
     PgVer, \
     eprint, \
@@ -265,14 +267,17 @@ class PostgresNode(object):
         if testgres_config.os_ops:
             return testgres_config.os_ops
 
-        return LocalOperations()
+        return LocalOperations.get_single_instance()
 
     @staticmethod
     def _get_port_manager(os_ops: OsOperations) -> PortManager:
         assert os_ops is not None
         assert isinstance(os_ops, OsOperations)
 
-        if isinstance(os_ops, LocalOperations):
+        if os_ops is LocalOperations.get_single_instance():
+            assert utils._old_port_manager is not None
+            assert type(utils._old_port_manager) == PortManager__Generic  # noqa: E721
+            assert utils._old_port_manager._os_ops is os_ops
             return PortManager__ThisHost.get_single_instance()
 
         # TODO: Throw the exception "Please define a port manager." ?
@@ -816,10 +821,13 @@ class PostgresNode(object):
         """
 
         # initialize this PostgreSQL node
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
         cached_initdb(
             data_dir=self.data_dir,
             logfile=self.utils_log_file,
-            os_ops=self.os_ops,
+            os_ops=self._os_ops,
             params=initdb_params,
             bin_path=self.bin_dir,
             cached=False)
@@ -2186,7 +2194,14 @@ class PostgresNode(object):
 
 class NodeApp:
 
-    def __init__(self, test_path=None, nodes_to_cleanup=None, os_ops=LocalOperations()):
+    def __init__(self, test_path=None, nodes_to_cleanup=None, os_ops=None):
+        assert os_ops is None or isinstance(os_ops, OsOperations)
+
+        if os_ops is None:
+            os_ops = LocalOperations.get_single_instance()
+
+        assert isinstance(os_ops, OsOperations)
+
         if test_path:
             if os.path.isabs(test_path):
                 self.test_path = test_path

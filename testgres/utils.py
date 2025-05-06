@@ -25,12 +25,10 @@ from .impl.port_manager__generic import PortManager__Generic
 # rows returned by PG_CONFIG
 _pg_config_data = {}
 
-_local_operations = LocalOperations()
-
 #
 # The old, global "port manager" always worked with LOCAL system
 #
-_old_port_manager = PortManager__Generic(_local_operations)
+_old_port_manager = PortManager__Generic(LocalOperations.get_single_instance())
 
 # ports used by nodes
 bound_ports = _old_port_manager._reserved_ports
