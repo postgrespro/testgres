@@ -6,7 +6,7 @@
 
 # testgres
 
-PostgreSQL testing utility. Both Python 2.7 and 3.3+ are supported.
+PostgreSQL testing utility. Python 3.8+ is supported.
 
 
 ## Installation
