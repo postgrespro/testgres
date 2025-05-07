@@ -24,21 +24,28 @@ class PortManager__Generic(PortManager):
         assert isinstance(os_ops, OsOperations)
         self._os_ops = os_ops
         self._guard = threading.Lock()
-        self._available_ports: typing.Set[int] = set(range(1024, 65535))
-        self._reserved_ports: typing.Set[int] = set()
-
-        temp_dir = os_ops.get_tempdir()
-        assert type(temp_dir) == str  # noqa: E721
-        self._lock_dir = os.path.join(temp_dir, consts.TMP_TESTGRES_PORTS)
-        assert type(self._lock_dir) == str  # noqa: E721
-        os_ops.makedirs(self._lock_dir)
+        self._available_ports = set(range(1024, 65535))
+        self._reserved_ports = set()
+        self._lock_dir = None
 
     def reserve_port(self) -> int:
         assert self._guard is not None
         assert type(self._available_ports) == set  # noqa: E721t
         assert type(self._reserved_ports) == set  # noqa: E721
+        assert isinstance(self._os_ops, OsOperations)
 
         with self._guard:
+            if self._lock_dir is None:
+                temp_dir = self._os_ops.get_tempdir()
+                assert type(temp_dir) == str  # noqa: E721
+                lock_dir = os.path.join(temp_dir, consts.TMP_TESTGRES_PORTS)
+                assert type(lock_dir) == str  # noqa: E721
+                self._os_ops.makedirs(lock_dir)
+                self._lock_dir = lock_dir
+
+            assert self._lock_dir is not None
+            assert type(self._lock_dir) == str  # noqa: E721
+
             t = tuple(self._available_ports)
             assert len(t) == len(self._available_ports)
             sampled_ports = random.sample(t, min(len(t), 100))
@@ -53,7 +60,7 @@ class PortManager__Generic(PortManager):
 
                 try:
                     lock_path = self.helper__make_lock_path(port)
-                    self._os_ops.makedir(lock_path)
+                    self._os_ops.makedir(lock_path)  # raise
                 except:  # noqa: 722
                     continue
 
@@ -97,6 +104,7 @@ class PortManager__Generic(PortManager):
 
     def helper__make_lock_path(self, port_number: int) -> str:
         assert type(port_number) == int  # noqa: E721
+        # You have to call the reserve_port at first!
         assert type(self._lock_dir) == str  # noqa: E721
 
         result = os.path.join(self._lock_dir, str(port_number) + ".lock")
