@@ -24,7 +24,7 @@ class PortManager__Generic(PortManager):
         assert isinstance(os_ops, OsOperations)
         self._os_ops = os_ops
         self._guard = threading.Lock()
-        self._available_ports = set(range(1024, 65535))
+        self._available_ports = set(range(1024, 65536))
         self._reserved_ports = set()
         self._lock_dir = None
 
@@ -52,8 +52,12 @@ class PortManager__Generic(PortManager):
             t = None
 
             for port in sampled_ports:
+                assert type(port) == int  # noqa: E721
                 assert not (port in self._reserved_ports)
                 assert port in self._available_ports
+
+                assert port >= 0
+                assert port <= 65535
 
                 if not self._os_ops.is_port_free(port):
                     continue
@@ -82,6 +86,8 @@ class PortManager__Generic(PortManager):
 
     def release_port(self, number: int) -> None:
         assert type(number) == int  # noqa: E721
+        assert number >= 0
+        assert number <= 65535
 
         assert self._guard is not None
         assert type(self._reserved_ports) == set  # noqa: E721
