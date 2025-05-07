@@ -2245,7 +2245,7 @@ class PostgresNodeLogReader:
             assert type(file_content_b) == bytes  # noqa: E721
 
             #
-            # A POTENTIAL PROBLEM: file_content_b may contain an incompeted UTF-8 symbol.
+            # A POTENTIAL PROBLEM: file_content_b may contain an incompleted UTF-8 symbol.
             #
             file_content_s = file_content_b.decode()
             assert type(file_content_s) == str  # noqa: E721
