@@ -5,6 +5,8 @@ from .helpers.global_data import PortManager
 
 from testgres.node import PgVer
 from testgres.node import PostgresNode
+from testgres.node import PostgresNodeLogReader
+from testgres.node import PostgresNodeUtils
 from testgres.utils import get_pg_version2
 from testgres.utils import file_tail
 from testgres.utils import get_bin_path2
@@ -883,8 +885,29 @@ class TestTestgresCommon:
 
     def test_pg_ctl_wait_option(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
-        with __class__.helper__get_node(node_svc) as node:
-            self.impl__test_pg_ctl_wait_option(node_svc, node)
+
+        C_MAX_ATTEMPT = 5
+
+        nAttempt = 0
+
+        while True:
+            if nAttempt == C_MAX_ATTEMPT:
+                raise Exception("PostgresSQL did not start.")
+
+            nAttempt += 1
+            logging.info("------------------------ NODE #{}".format(
+                nAttempt
+            ))
+
+            with __class__.helper__get_node(node_svc, port=12345) as node:
+                if self.impl__test_pg_ctl_wait_option(node_svc, node):
+                    break
+            continue
+
+        logging.info("OK. Test is passed. Number of attempts is {}".format(
+            nAttempt
+        ))
+        return
 
     def impl__test_pg_ctl_wait_option(
         self,
@@ -899,9 +922,18 @@ class TestTestgresCommon:
 
         node.init()
         assert node.status() == NodeStatus.Stopped
+
+        node_log_reader = PostgresNodeLogReader(node, from_beginnig=True)
+
         node.start(wait=False)
         nAttempt = 0
         while True:
+            if PostgresNodeUtils.delect_port_conflict(node_log_reader):
+                logging.info("Node port {} conflicted with another PostgreSQL instance.".format(
+                    node.port
+                ))
+                return False
+
             if nAttempt == C_MAX_ATTEMPTS:
                 #
                 # [2025-03-11]
@@ -960,6 +992,7 @@ class TestTestgresCommon:
             raise Exception("Unexpected node status: {0}.".format(s1))
 
         logging.info("OK. Node is stopped.")
+        return True
 
     def test_replicate(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
