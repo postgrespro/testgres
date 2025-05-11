@@ -11,7 +11,7 @@ from ..storage.fs_backup import FSTestBackupDir
 
 
 class ProbackupTest:
-    pg_node: testgres.PostgresNode
+    pg_node: testgres.NodeApp
 
     @staticmethod
     def probackup_is_available() -> bool:
@@ -75,6 +75,11 @@ class ProbackupTest:
 @pytest.mark.skipif(not ProbackupTest.probackup_is_available(), reason="Check that PGPROBACKUPBIN is defined and is valid.")
 class TestBasic(ProbackupTest):
     def test_full_backup(self):
+        assert self.pg_node is not None
+        assert type(self.pg_node) == testgres.NodeApp  # noqa: E721
+        assert self.pb is not None
+        assert type(self.pb) == ProbackupApp  # noqa: E721
+
         # Setting up a simple test node
         node = self.pg_node.make_simple('node', pg_options={"fsync": "off", "synchronous_commit": "off"})
 
