@@ -83,18 +83,22 @@ class TestBasic(ProbackupTest):
         # Setting up a simple test node
         node = self.pg_node.make_simple('node', pg_options={"fsync": "off", "synchronous_commit": "off"})
 
-        # Initialize and configure Probackup
-        self.pb.init()
-        self.pb.add_instance('node', node)
-        self.pb.set_archiving('node', node)
+        assert node is not None
+        assert type(node) == testgres.PostgresNode
 
-        # Start the node and initialize pgbench
-        node.slow_start()
-        node.pgbench_init(scale=100, no_vacuum=True)
+        with node:
+            # Initialize and configure Probackup
+            self.pb.init()
+            self.pb.add_instance('node', node)
+            self.pb.set_archiving('node', node)
 
-        # Perform backup and validation
-        backup_id = self.pb.backup_node('node', node)
-        out = self.pb.validate('node', backup_id)
+            # Start the node and initialize pgbench
+            node.slow_start()
+            node.pgbench_init(scale=100, no_vacuum=True)
 
-        # Check if the backup is valid
-        assert f"INFO: Backup {backup_id} is valid" in out
+            # Perform backup and validation
+            backup_id = self.pb.backup_node('node', node)
+            out = self.pb.validate('node', backup_id)
+
+            # Check if the backup is valid
+            assert f"INFO: Backup {backup_id} is valid" in out
