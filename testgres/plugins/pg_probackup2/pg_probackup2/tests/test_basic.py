@@ -84,7 +84,7 @@ class TestBasic(ProbackupTest):
         node = self.pg_node.make_simple('node', pg_options={"fsync": "off", "synchronous_commit": "off"})
 
         assert node is not None
-        assert type(node) == testgres.PostgresNode
+        assert type(node) == testgres.PostgresNode  # noqa: E721
 
         with node:
             # Initialize and configure Probackup
