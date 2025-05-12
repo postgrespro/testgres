@@ -11,7 +11,7 @@ from ..storage.fs_backup import FSTestBackupDir
 
 
 class ProbackupTest:
-    pg_node: testgres.PostgresNode
+    pg_node: testgres.NodeApp
 
     @staticmethod
     def probackup_is_available() -> bool:
@@ -75,21 +75,30 @@ class ProbackupTest:
 @pytest.mark.skipif(not ProbackupTest.probackup_is_available(), reason="Check that PGPROBACKUPBIN is defined and is valid.")
 class TestBasic(ProbackupTest):
     def test_full_backup(self):
+        assert self.pg_node is not None
+        assert type(self.pg_node) == testgres.NodeApp  # noqa: E721
+        assert self.pb is not None
+        assert type(self.pb) == ProbackupApp  # noqa: E721
+
         # Setting up a simple test node
         node = self.pg_node.make_simple('node', pg_options={"fsync": "off", "synchronous_commit": "off"})
 
-        # Initialize and configure Probackup
-        self.pb.init()
-        self.pb.add_instance('node', node)
-        self.pb.set_archiving('node', node)
+        assert node is not None
+        assert type(node) == testgres.PostgresNode  # noqa: E721
 
-        # Start the node and initialize pgbench
-        node.slow_start()
-        node.pgbench_init(scale=100, no_vacuum=True)
+        with node:
+            # Initialize and configure Probackup
+            self.pb.init()
+            self.pb.add_instance('node', node)
+            self.pb.set_archiving('node', node)
 
-        # Perform backup and validation
-        backup_id = self.pb.backup_node('node', node)
-        out = self.pb.validate('node', backup_id)
+            # Start the node and initialize pgbench
+            node.slow_start()
+            node.pgbench_init(scale=100, no_vacuum=True)
 
-        # Check if the backup is valid
-        assert f"INFO: Backup {backup_id} is valid" in out
+            # Perform backup and validation
+            backup_id = self.pb.backup_node('node', node)
+            out = self.pb.validate('node', backup_id)
+
+            # Check if the backup is valid
+            assert f"INFO: Backup {backup_id} is valid" in out
