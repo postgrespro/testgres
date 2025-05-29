@@ -8,6 +8,7 @@ import os
 import threading
 import random
 import typing
+import logging
 
 
 class PortManager__Generic(PortManager):
@@ -76,22 +77,29 @@ class PortManager__Generic(PortManager):
 
                 try:
                     lock_path = self.helper__make_lock_path(port)
+                    __class__.helper__send_debug_msg("Attempting to create lock object {}.", lock_path)
                     self._os_ops.makedir(lock_path)  # raise
                 except:  # noqa: 722
+                    __class__.helper__send_debug_msg("Lock object {} is not created.", lock_path)
                     continue
 
                 assert self._os_ops.path_exists(lock_path)
 
                 try:
+                    __class__.helper__send_debug_msg("Lock object {} is created.", lock_path)
                     self._reserved_ports.add(port)
                 except:  # noqa: 722
                     assert not (port in self._reserved_ports)
                     self._os_ops.rmdir(lock_path)
+                    __class__.helper__send_debug_msg("Lock object {} was deleted during processing of failure.", lock_path)
                     raise
 
                 assert port in self._reserved_ports
                 self._available_ports.discard(port)
                 assert not (port in self._available_ports)
+
+                __class__.helper__send_debug_msg("Port {} is reserved.".format(port))
+
                 return port
 
         raise PortForException("Can't select a port.")
@@ -117,8 +125,21 @@ class PortManager__Generic(PortManager):
             assert isinstance(self._os_ops, OsOperations)
             assert self._os_ops.path_exists(lock_path)
             self._os_ops.rmdir(lock_path)
+            __class__.helper__send_debug_msg("Lock object {} was deleted.", lock_path)
 
+        __class__.helper__send_debug_msg("Port {} is released.", number)
         return
+
+    @staticmethod
+    def helper__send_debug_msg(msg_template: str, *args) -> None:
+        assert msg_template is not None
+        assert str is not None
+        assert type(msg_template) == str  # noqa: E721
+        assert type(args) == tuple  # noqa: E721
+        assert msg_template != ""
+        s = "[port manager] "
+        s += msg_template.format(*args)
+        logging.debug(s)
 
     def helper__make_lock_path(self, port_number: int) -> str:
         assert type(port_number) == int  # noqa: E721
