@@ -1,4 +1,5 @@
 from ..operations.os_ops import OsOperations
+from ..operations.os_ops import OsLockObj
 
 from ..port_manager import PortManager
 from ..exceptions import PortForException
@@ -19,7 +20,7 @@ class PortManager__Generic(PortManager):
     _guard: object
     # TODO: is there better to use bitmap fot _available_ports?
     _available_ports: typing.Set[int]
-    _reserved_ports: typing.Set[int]
+    _reserved_ports: typing.Dict[int, OsLockObj]
 
     _lock_dir: str
 
@@ -38,13 +39,13 @@ class PortManager__Generic(PortManager):
             (__class__.C_MAX_PORT_NUMBER - __class__.C_MIN_PORT_NUMBER) + 1
         )
 
-        self._reserved_ports = set()
+        self._reserved_ports = dict()
         self._lock_dir = None
 
     def reserve_port(self) -> int:
         assert self._guard is not None
         assert type(self._available_ports) == set  # noqa: E721t
-        assert type(self._reserved_ports) == set  # noqa: E721
+        assert type(self._reserved_ports) == dict  # noqa: E721
         assert isinstance(self._os_ops, OsOperations)
 
         with self._guard:
@@ -77,29 +78,24 @@ class PortManager__Generic(PortManager):
 
                 try:
                     lock_path = self.helper__make_lock_path(port)
-                    __class__.helper__send_debug_msg("Attempting to create lock object {}.", lock_path)
-                    self._os_ops.makedir(lock_path)  # raise
+                    lock_obj = self._os_ops.create_lock_fs_obj(lock_path)  # raise
                 except:  # noqa: 722
-                    __class__.helper__send_debug_msg("Lock object {} is not created.", lock_path)
                     continue
 
+                assert isinstance(lock_obj, OsLockObj)
                 assert self._os_ops.path_exists(lock_path)
 
                 try:
-                    __class__.helper__send_debug_msg("Lock object {} is created.", lock_path)
-                    self._reserved_ports.add(port)
+                    self._reserved_ports[port] = lock_obj
                 except:  # noqa: 722
                     assert not (port in self._reserved_ports)
-                    self._os_ops.rmdir(lock_path)
-                    __class__.helper__send_debug_msg("Lock object {} was deleted during processing of failure.", lock_path)
+                    lock_obj.release()
                     raise
 
                 assert port in self._reserved_ports
                 self._available_ports.discard(port)
                 assert not (port in self._available_ports)
-
                 __class__.helper__send_debug_msg("Port {} is reserved.".format(port))
-
                 return port
 
         raise PortForException("Can't select a port.")
@@ -110,22 +106,17 @@ class PortManager__Generic(PortManager):
         assert number <= __class__.C_MAX_PORT_NUMBER
 
         assert self._guard is not None
-        assert type(self._reserved_ports) == set  # noqa: E721
-
-        lock_path = self.helper__make_lock_path(number)
+        assert type(self._reserved_ports) == dict  # noqa: E721
 
         with self._guard:
             assert number in self._reserved_ports
             assert not (number in self._available_ports)
             self._available_ports.add(number)
-            self._reserved_ports.discard(number)
+            lock_obj = self._reserved_ports.pop(number)
             assert not (number in self._reserved_ports)
             assert number in self._available_ports
-
-            assert isinstance(self._os_ops, OsOperations)
-            assert self._os_ops.path_exists(lock_path)
-            self._os_ops.rmdir(lock_path)
-            __class__.helper__send_debug_msg("Lock object {} was deleted.", lock_path)
+            assert isinstance(lock_obj, OsLockObj)
+            lock_obj.release()
 
         __class__.helper__send_debug_msg("Port {} is released.", number)
         return

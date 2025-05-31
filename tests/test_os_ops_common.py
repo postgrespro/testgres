@@ -17,6 +17,7 @@ import uuid
 
 from testgres import InvalidOperationException
 from testgres import ExecUtilException
+from testgres.operations.os_ops import OsLockObj
 
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import Future as ThreadFuture
@@ -1113,3 +1114,37 @@ class TestOsOpsCommon:
 
         logging.info("Test is finished! Total error count is {}.".format(nErrors))
         return
+
+    def test_create_lock_fs_obj(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        tmp = os_ops.mkdtemp()
+        assert type(tmp) == str  # noqa: E721
+        assert os_ops.path_exists(tmp)
+        logging.info("tmp dir is [{}]".format(tmp))
+
+        p1 = os.path.join(tmp, "a.lock")
+        obj1 = os_ops.create_lock_fs_obj(p1)
+        assert obj1 is not None
+        assert isinstance(obj1, OsLockObj)
+        assert os_ops.path_exists(tmp)
+        assert os_ops.path_exists(p1)
+
+        while True:
+            try:
+                os_ops.create_lock_fs_obj(p1)
+            except Exception as e:
+                logging.info("OK. We got the error ({}): {}".format(type(e).__name__, e))
+                break
+            raise Exception("We wait the exception!")
+
+        assert isinstance(obj1, OsLockObj)
+        assert os_ops.path_exists(tmp)
+        assert os_ops.path_exists(p1)
+
+        obj1.release()
+        assert not os_ops.path_exists(p1)
+
+        assert os_ops.path_exists(tmp)
+        os_ops.rmdir(tmp)
+        assert not os_ops.path_exists(tmp)

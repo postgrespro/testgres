@@ -30,9 +30,6 @@ _pg_config_data = {}
 #
 _old_port_manager = PortManager__Generic(LocalOperations.get_single_instance())
 
-# ports used by nodes
-bound_ports = _old_port_manager._reserved_ports
-
 
 # re-export version type
 class PgVer(Version):
@@ -46,7 +43,7 @@ class PgVer(Version):
 
 def internal__reserve_port():
     """
-    Generate a new port and add it to 'bound_ports'.
+    Reserve a port.
     """
     return _old_port_manager.reserve_port()
 
