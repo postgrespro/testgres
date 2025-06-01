@@ -30,20 +30,20 @@ CMD_TIMEOUT_SEC = 60
 
 
 class LocalOsLockFsObj(OsLockObj):
-    m_path: str
+    _path: str
 
     def __init__(self, path: str):
         assert type(path) == str  # noqa: str
-        self.m_path = path
+        self._path = path
         os.mkdir(path)  # throw
         assert os.path.exists(path)
-        self.m_path = path
+        self._path = path
 
     def release(self) -> None:
-        assert type(self.m_path) == str  # noqa: str
-        assert os.path.exists(self.m_path)
-        os.rmdir(self.m_path)
-        self.m_path = None
+        assert type(self._path) == str  # noqa: str
+        assert os.path.exists(self._path)
+        os.rmdir(self._path)
+        self._path = None
 
 
 class LocalOperations(OsOperations):

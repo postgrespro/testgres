@@ -44,8 +44,8 @@ class PsUtilProcessProxy:
 
 
 class RemoteOsLockFsObj(OsLockObj):
-    m_os_ops: RemoteOperations
-    m_path: str
+    _os_ops: RemoteOperations
+    _path: str
 
     def __init__(self, os_ops: RemoteOperations, path: str):
         assert isinstance(os_ops, RemoteOperations)
@@ -54,18 +54,18 @@ class RemoteOsLockFsObj(OsLockObj):
         os_ops.makedir(path)  # throw
         assert os_ops.path_exists(path)
 
-        self.m_os_ops = os_ops
-        self.m_path = path
+        self._os_ops = os_ops
+        self._path = path
 
     def release(self) -> None:
-        assert type(self.m_path) == str  # noqa: str
-        assert isinstance(self.m_os_ops, RemoteOperations)
-        assert self.m_os_ops.path_exists(self.m_path)
+        assert type(self._path) == str  # noqa: str
+        assert isinstance(self._os_ops, RemoteOperations)
+        assert self._os_ops.path_exists(self._path)
 
-        self.m_os_ops.rmdir(self.m_path)  # throw
+        self._os_ops.rmdir(self._path)  # throw
 
-        self.m_path = None
-        self.m_os_ops = None
+        self._path = None
+        self._os_ops = None
 
 
 class RemoteOperations(OsOperations):
