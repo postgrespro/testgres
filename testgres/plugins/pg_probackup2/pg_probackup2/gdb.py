@@ -57,13 +57,6 @@ class GDBobj:
         else:
             self.cmd = self.base_cmd + ['--args'] + cmd
 
-        # Get version
-        gdb_version_number = re.search(
-            br"^GNU gdb [^\d]*(\d+)\.(\d)",
-            gdb_version)
-        self.major_version = int(gdb_version_number.group(1))
-        self.minor_version = int(gdb_version_number.group(2))
-
         if self.verbose:
             print([' '.join(map(str, self.cmd))])
 
