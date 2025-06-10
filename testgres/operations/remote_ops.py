@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import getpass
 import os
 import platform
@@ -10,6 +12,7 @@ import typing
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
 from .os_ops import OsOperations, ConnectionParams, get_default_encoding
+from .os_ops import OsLockObj
 from .raise_error import RaiseError
 from .helpers import Helpers
 
@@ -38,6 +41,31 @@ class PsUtilProcessProxy:
         cmdline = output.strip()
         # TODO: This code work wrong if command line contains quoted values. Yes?
         return cmdline.split()
+
+
+class RemoteOsLockFsObj(OsLockObj):
+    _os_ops: RemoteOperations
+    _path: str
+
+    def __init__(self, os_ops: RemoteOperations, path: str):
+        assert isinstance(os_ops, RemoteOperations)
+        assert type(path) == str  # noqa: str
+
+        os_ops.makedir(path)  # throw
+        assert os_ops.path_exists(path)
+
+        self._os_ops = os_ops
+        self._path = path
+
+    def release(self) -> None:
+        assert type(self._path) == str  # noqa: str
+        assert isinstance(self._os_ops, RemoteOperations)
+        assert self._os_ops.path_exists(self._path)
+
+        self._os_ops.rmdir(self._path)  # throw
+
+        self._path = None
+        self._os_ops = None
 
 
 class RemoteOperations(OsOperations):
@@ -686,6 +714,10 @@ class RemoteOperations(OsOperations):
         temp_dir = os.path.dirname(temp_subdir)
         assert type(temp_dir) == str  # noqa: E721
         return temp_dir
+
+    def create_lock_fs_obj(self, path: str) -> OsLockObj:
+        assert type(path) == str  # noqa: E721
+        return RemoteOsLockFsObj(self, path)
 
     @staticmethod
     def _is_port_free__process_0(error: str) -> bool:
