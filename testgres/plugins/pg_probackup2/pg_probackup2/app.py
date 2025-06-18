@@ -60,6 +60,7 @@ class ProbackupApp:
         self.archive_compress = init_params.archive_compress
         self.test_class.output = None
         self.execution_time = None
+        self.valgrind_sup_path = init_params.valgrind_sup_path
 
     def form_daemon_process(self, cmdline, env):
         def stream_output(stream: subprocess.PIPE) -> None:
@@ -88,6 +89,7 @@ class ProbackupApp:
 
         return self.process.pid
 
+    # ---- Start run function ---- #
     def run(self, command, gdb=False, old_binary=False, return_id=True, env=None,
             skip_log_directory=False, expect_error=False, use_backup_dir=True, daemonize=False):
         """
@@ -98,26 +100,46 @@ class ProbackupApp:
         gdb: when True it returns GDBObj(), when tuple('suspend', port) it runs probackup
              in suspended gdb mode with attachable gdb port, for local debugging
         """
-        if isinstance(use_backup_dir, TestBackupDir):
-            command = [command[0], *use_backup_dir.pb_args, *command[1:]]
-        elif use_backup_dir:
-            command = [command[0], *self.backup_dir.pb_args, *command[1:]]
-        else:
-            command = [command[0], *self.backup_dir.pb_args[2:], *command[1:]]
-
-        if not self.probackup_old_path and old_binary:
-            logging.error('PGPROBACKUPBIN_OLD is not set')
-            exit(1)
-
-        if old_binary:
-            binary_path = self.probackup_old_path
-        else:
-            binary_path = self.probackup_path
+        command = self._add_backup_dir_to_cmd(command, use_backup_dir)
+        # Old bin or regular one
+        binary_path = self._get_binary_path(old_binary)
 
         if not env:
             env = self.test_env
+        # Add additional options if needed
+        command, strcommand = self._add_options(command, skip_log_directory)
 
+        self.test_class.cmd = f"{binary_path} {strcommand}"
+        if self.verbose:
+            print(self.test_class.cmd)
+
+        cmdline = self._form_cmdline(binary_path, command)
+
+        if gdb is True:
+            # general test flow for using GDBObj
+            return GDBobj(cmdline, self.test_class)
+
+        return self._execute_command(cmdline, env, command, gdb, expect_error, return_id, daemonize)
+
+    def _add_backup_dir_to_cmd(self, command: list, use_backup_dir: TestBackupDir):
+        if isinstance(use_backup_dir, TestBackupDir):
+            return [command[0], *use_backup_dir.pb_args, *command[1:]]
+        elif use_backup_dir:
+            return [command[0], *self.backup_dir.pb_args, *command[1:]]
+        else:
+            return [command[0], *self.backup_dir.pb_args[2:], *command[1:]]
+
+    def _get_binary_path(self, old_binary):
+        if old_binary:
+            if not self.probackup_old_path:
+                logging.error('PGPROBACKUPBIN_OLD is not set')
+                exit(1)
+            return self.probackup_old_path
+        return self.probackup_path
+
+    def _add_options(self, command: list, skip_log_directory: bool):
         strcommand = ' '.join(str(p) for p in command)
+
         if '--log-level-file' in strcommand and \
                 '--log-directory' not in strcommand and \
                 not skip_log_directory:
@@ -125,26 +147,46 @@ class ProbackupApp:
             strcommand += ' ' + command[-1]
 
         if 'pglz' in strcommand and \
-                ' -j' not in strcommand and '--thread' not in strcommand:
+                ' -j' not in strcommand and \
+                '--thread' not in strcommand:
             command += ['-j', '1']
             strcommand += ' -j 1'
 
-        self.test_class.cmd = binary_path + ' ' + strcommand
-        if self.verbose:
-            print(self.test_class.cmd)
+        return command, strcommand
 
+    def _form_cmdline(self, binary_path, command):
         cmdline = [binary_path, *command]
-        if gdb is True:
-            # general test flow for using GDBObj
-            return GDBobj(cmdline, self.test_class)
 
+        if self.valgrind_sup_path and command[0] != "--version":
+            os.makedirs(self.pb_log_path, exist_ok=True)
+            if self.valgrind_sup_path and not os.path.isfile(self.valgrind_sup_path):
+                raise FileNotFoundError(f"PG_PROBACKUP_VALGRIND_SUP should contain path to valgrind suppression file, "
+                                        f"but found: {self.valgrind_sup_path}")
+            valgrind_cmd = [
+                "valgrind",
+                "--gen-suppressions=all",
+                "--leak-check=full",
+                "--show-reachable=yes",
+                "--error-limit=no",
+                "--show-leak-kinds=all",
+                "--errors-for-leak-kinds=all",
+                "--error-exitcode=0",
+                f"--log-file={os.path.join(self.pb_log_path, f'valgrind-{command[0]}-%p.log')}",
+                f"--suppressions={self.valgrind_sup_path}",
+                "--"
+            ]
+            cmdline = valgrind_cmd + cmdline
+
+        return cmdline
+
+    def _execute_command(self, cmdline, env, command, gdb, expect_error, return_id, daemonize):
         try:
-            if type(gdb) is tuple and gdb[0] == 'suspend':
-                # special test flow for manually debug probackup
+            if isinstance(gdb, tuple) and gdb[0] == 'suspend':
                 gdb_port = gdb[1]
                 cmdline = ['gdbserver'] + ['localhost:' + str(gdb_port)] + cmdline
                 logging.warning("pg_probackup gdb suspended, waiting gdb connection on localhost:{0}".format(gdb_port))
 
+            # Execute command
             start_time = time.time()
             if daemonize:
                 return self.form_daemon_process(cmdline, env)
@@ -174,6 +216,7 @@ class ProbackupApp:
                 return self.test_class.output
             else:
                 raise ProbackupException(self.test_class.output, self.test_class.cmd)
+    # ---- End run function ---- #
 
     def get_backup_id(self):
         if init_params.major_version > 2:
