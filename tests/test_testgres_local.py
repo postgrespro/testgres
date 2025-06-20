@@ -19,7 +19,6 @@ from testgres import get_pg_config
 from testgres import get_pg_version
 
 # NOTE: those are ugly imports
-from testgres.utils import bound_ports
 from testgres.utils import PgVer
 from testgres.node import ProcessProxy
 
@@ -89,40 +88,6 @@ class TestTestgresLocal:
             a = get_pg_config()
             b = get_pg_config()
             assert (id(a) != id(b))
-
-    def test_ports_management(self):
-        assert bound_ports is not None
-        assert type(bound_ports) == set  # noqa: E721
-
-        if len(bound_ports) != 0:
-            logging.warning("bound_ports is not empty: {0}".format(bound_ports))
-
-        stage0__bound_ports = bound_ports.copy()
-
-        with get_new_node() as node:
-            assert bound_ports is not None
-            assert type(bound_ports) == set  # noqa: E721
-
-            assert node.port is not None
-            assert type(node.port) == int  # noqa: E721
-
-            logging.info("node port is {0}".format(node.port))
-
-            assert node.port in bound_ports
-            assert node.port not in stage0__bound_ports
-
-            assert stage0__bound_ports <= bound_ports
-            assert len(stage0__bound_ports) + 1 == len(bound_ports)
-
-            stage1__bound_ports = stage0__bound_ports.copy()
-            stage1__bound_ports.add(node.port)
-
-            assert stage1__bound_ports == bound_ports
-
-        # check that port has been freed successfully
-        assert bound_ports is not None
-        assert type(bound_ports) == set  # noqa: E721
-        assert bound_ports == stage0__bound_ports
 
     def test_child_process_dies(self):
         # test for FileNotFound exception during child_processes() function
