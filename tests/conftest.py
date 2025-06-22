@@ -64,10 +64,10 @@ class TestStartupData__Helper:
     # --------------------------------------------------------------------
     def CalcCurrentTestWorkerSignature() -> str:
         currentPID = os.getpid()
-        assert type(currentPID)
+        assert type(currentPID) == int  # noqa: E721
 
         startTS = __class__.sm_StartTS
-        assert type(startTS)
+        assert type(startTS) == datetime.datetime  # noqa: E721
 
         result = "pytest-{0:04d}{1:02d}{2:02d}_{3:02d}{4:02d}{5:02d}".format(
             startTS.year,

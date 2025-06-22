@@ -214,6 +214,8 @@ class Init(object):
         else:
             raise Exception('Can\'t process pg_probackup version \"{}\": the major version is expected to be a number'.format(self.probackup_version))
 
+        self.valgrind_sup_path = test_env.get('PG_PROBACKUP_VALGRIND_SUP', None)
+
     def test_env(self):
         return self._test_env.copy()
 
