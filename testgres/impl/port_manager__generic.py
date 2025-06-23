@@ -9,6 +9,9 @@ import typing
 
 
 class PortManager__Generic(PortManager):
+    _C_MIN_PORT_NUMBER = 1024
+    _C_MAX_PORT_NUMBER = 65535
+
     _os_ops: OsOperations
     _guard: object
     # TODO: is there better to use bitmap fot _available_ports?
@@ -16,12 +19,21 @@ class PortManager__Generic(PortManager):
     _reserved_ports: typing.Set[int]
 
     def __init__(self, os_ops: OsOperations):
+        assert __class__._C_MIN_PORT_NUMBER <= __class__._C_MAX_PORT_NUMBER
+
         assert os_ops is not None
         assert isinstance(os_ops, OsOperations)
         self._os_ops = os_ops
         self._guard = threading.Lock()
-        self._available_ports: typing.Set[int] = set(range(1024, 65535))
-        self._reserved_ports: typing.Set[int] = set()
+
+        self._available_ports = set(
+            range(__class__._C_MIN_PORT_NUMBER, __class__._C_MAX_PORT_NUMBER + 1)
+        )
+        assert len(self._available_ports) == (
+            (__class__._C_MAX_PORT_NUMBER - __class__._C_MIN_PORT_NUMBER) + 1
+        )
+        self._reserved_ports = set()
+        return
 
     def reserve_port(self) -> int:
         assert self._guard is not None
@@ -35,8 +47,12 @@ class PortManager__Generic(PortManager):
             t = None
 
             for port in sampled_ports:
+                assert type(port) == int  # noqa: E721
                 assert not (port in self._reserved_ports)
                 assert port in self._available_ports
+
+                assert port >= __class__._C_MIN_PORT_NUMBER
+                assert port <= __class__._C_MAX_PORT_NUMBER
 
                 if not self._os_ops.is_port_free(port):
                     continue
@@ -51,6 +67,8 @@ class PortManager__Generic(PortManager):
 
     def release_port(self, number: int) -> None:
         assert type(number) == int  # noqa: E721
+        assert number >= __class__._C_MIN_PORT_NUMBER
+        assert number <= __class__._C_MAX_PORT_NUMBER
 
         assert self._guard is not None
         assert type(self._reserved_ports) == set  # noqa: E721
@@ -62,3 +80,4 @@ class PortManager__Generic(PortManager):
             self._reserved_ports.discard(number)
             assert not (number in self._reserved_ports)
             assert number in self._available_ports
+        return
