@@ -1503,6 +1503,88 @@ class TestTestgresCommon:
                 ):
                     node2.start()
 
+    def test_node__os_ops(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert node_svc.os_ops is not None
+        assert isinstance(node_svc.os_ops, OsOperations)
+
+        with PostgresNode(name="node", os_ops=node_svc.os_ops, port_manager=node_svc.port_manager) as node:
+            # retest
+            assert node_svc.os_ops is not None
+            assert isinstance(node_svc.os_ops, OsOperations)
+
+            assert node.os_ops is node_svc.os_ops
+            # one more time
+            assert node.os_ops is node_svc.os_ops
+
+    def test_node__port_manager(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with PostgresNode(name="node", os_ops=node_svc.os_ops, port_manager=node_svc.port_manager) as node:
+            # retest
+            assert node_svc.port_manager is not None
+            assert isinstance(node_svc.port_manager, PortManager)
+
+            assert node.port_manager is node_svc.port_manager
+            # one more time
+            assert node.port_manager is node_svc.port_manager
+
+    def test_node__port_manager_and_explicit_port(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        port = node_svc.port_manager.reserve_port()
+        assert type(port) == int  # noqa: E721
+
+        try:
+            with PostgresNode(name="node", port=port, os_ops=node_svc.os_ops) as node:
+                # retest
+                assert isinstance(node_svc.os_ops, OsOperations)
+                assert node_svc.port_manager is not None
+                assert isinstance(node_svc.port_manager, PortManager)
+
+                assert node.port_manager is None
+                assert node.os_ops is node_svc.os_ops
+
+                # one more time
+                assert node.port_manager is None
+                assert node.os_ops is node_svc.os_ops
+        finally:
+            node_svc.port_manager.release_port(port)
+
+    def test_node__no_port_manager(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        port = node_svc.port_manager.reserve_port()
+        assert type(port) == int  # noqa: E721
+
+        try:
+            with PostgresNode(name="node", port=port, os_ops=node_svc.os_ops, port_manager=None) as node:
+                # retest
+                assert isinstance(node_svc.os_ops, OsOperations)
+                assert node_svc.port_manager is not None
+                assert isinstance(node_svc.port_manager, PortManager)
+
+                assert node.port_manager is None
+                assert node.os_ops is node_svc.os_ops
+
+                # one more time
+                assert node.port_manager is None
+                assert node.os_ops is node_svc.os_ops
+        finally:
+            node_svc.port_manager.release_port(port)
+
     @staticmethod
     def helper__get_node(
         node_svc: PostgresNodeService,

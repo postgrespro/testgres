@@ -146,7 +146,7 @@ class PostgresNode(object):
     _port: typing.Optional[int]
     _should_free_port: bool
     _os_ops: OsOperations
-    _port_manager: PortManager
+    _port_manager: typing.Optional[PortManager]
 
     def __init__(self,
                  name=None,
@@ -312,6 +312,11 @@ class PostgresNode(object):
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
         return self._os_ops
+
+    @property
+    def port_manager(self) -> typing.Optional[PortManager]:
+        assert self._port_manager is None or isinstance(self._port_manager, PortManager)
+        return self._port_manager
 
     @property
     def name(self) -> str:
