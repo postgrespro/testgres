@@ -13,8 +13,8 @@ import logging
 
 
 class PortManager__Generic(PortManager):
-    C_MIN_PORT_NUMBER = 1024
-    C_MAX_PORT_NUMBER = 65535
+    _C_MIN_PORT_NUMBER = 1024
+    _C_MAX_PORT_NUMBER = 65535
 
     _os_ops: OsOperations
     _guard: object
@@ -25,7 +25,7 @@ class PortManager__Generic(PortManager):
     _lock_dir: str
 
     def __init__(self, os_ops: OsOperations):
-        assert __class__.C_MIN_PORT_NUMBER <= __class__.C_MAX_PORT_NUMBER
+        assert __class__._C_MIN_PORT_NUMBER <= __class__._C_MAX_PORT_NUMBER
 
         assert os_ops is not None
         assert isinstance(os_ops, OsOperations)
@@ -33,10 +33,10 @@ class PortManager__Generic(PortManager):
         self._guard = threading.Lock()
 
         self._available_ports = set(
-            range(__class__.C_MIN_PORT_NUMBER, __class__.C_MAX_PORT_NUMBER + 1)
+            range(__class__._C_MIN_PORT_NUMBER, __class__._C_MAX_PORT_NUMBER + 1)
         )
         assert len(self._available_ports) == (
-            (__class__.C_MAX_PORT_NUMBER - __class__.C_MIN_PORT_NUMBER) + 1
+            (__class__._C_MAX_PORT_NUMBER - __class__._C_MIN_PORT_NUMBER) + 1
         )
 
         self._reserved_ports = dict()
@@ -70,8 +70,8 @@ class PortManager__Generic(PortManager):
                 assert not (port in self._reserved_ports)
                 assert port in self._available_ports
 
-                assert port >= __class__.C_MIN_PORT_NUMBER
-                assert port <= __class__.C_MAX_PORT_NUMBER
+                assert port >= __class__._C_MIN_PORT_NUMBER
+                assert port <= __class__._C_MAX_PORT_NUMBER
 
                 if not self._os_ops.is_port_free(port):
                     continue
@@ -102,8 +102,8 @@ class PortManager__Generic(PortManager):
 
     def release_port(self, number: int) -> None:
         assert type(number) == int  # noqa: E721
-        assert number >= __class__.C_MIN_PORT_NUMBER
-        assert number <= __class__.C_MAX_PORT_NUMBER
+        assert number >= __class__._C_MIN_PORT_NUMBER
+        assert number <= __class__._C_MAX_PORT_NUMBER
 
         assert self._guard is not None
         assert type(self._reserved_ports) == dict  # noqa: E721
