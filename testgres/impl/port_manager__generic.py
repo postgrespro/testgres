@@ -6,6 +6,7 @@ from ..exceptions import PortForException
 import threading
 import random
 import typing
+import logging
 
 
 class PortManager__Generic(PortManager):
@@ -61,6 +62,7 @@ class PortManager__Generic(PortManager):
                 self._available_ports.discard(port)
                 assert port in self._reserved_ports
                 assert not (port in self._available_ports)
+                __class__.helper__send_debug_msg("Port {} is reserved.", port)
                 return port
 
         raise PortForException("Can't select a port.")
@@ -80,4 +82,16 @@ class PortManager__Generic(PortManager):
             self._reserved_ports.discard(number)
             assert not (number in self._reserved_ports)
             assert number in self._available_ports
+            __class__.helper__send_debug_msg("Port {} is released.", number)
         return
+
+    @staticmethod
+    def helper__send_debug_msg(msg_template: str, *args) -> None:
+        assert msg_template is not None
+        assert args is not None
+        assert type(msg_template) == str  # noqa: E721
+        assert type(args) == tuple  # noqa: E721
+        assert msg_template != ""
+        s = "[port manager] "
+        s += msg_template.format(*args)
+        logging.debug(s)
