@@ -38,9 +38,9 @@ class PortManager__Generic(PortManager):
         assert len(self._available_ports) == (
             (__class__._C_MAX_PORT_NUMBER - __class__._C_MIN_PORT_NUMBER) + 1
         )
-
         self._reserved_ports = dict()
         self._lock_dir = None
+        return
 
     def reserve_port(self) -> int:
         assert self._guard is not None
