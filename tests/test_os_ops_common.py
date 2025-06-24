@@ -118,6 +118,23 @@ class TestOsOpsCommon:
         assert type(response) == bytes  # noqa: E721
         assert response == b'\n'
 
+    def test_exec_command_with_cwd(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        cmd = ["pwd"]
+
+        response = os_ops.exec_command(cmd, cwd="/tmp")
+        assert response is not None
+        assert type(response) == bytes  # noqa: E721
+        assert response == b'/tmp\n'
+
+        response = os_ops.exec_command(cmd)
+        assert response is not None
+        assert type(response) == bytes  # noqa: E721
+        assert response != b'/tmp\n'
+
     def test_exec_command__test_unset(self, os_ops: OsOperations):
         assert isinstance(os_ops, OsOperations)
 
