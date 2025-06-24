@@ -117,8 +117,7 @@ class PortManager__Generic(PortManager):
             assert number in self._available_ports
             assert isinstance(lock_obj, OsLockObj)
             lock_obj.release()
-
-        __class__.helper__send_debug_msg("Port {} is released.", number)
+            __class__.helper__send_debug_msg("Port {} is released.", number)
         return
 
     @staticmethod
