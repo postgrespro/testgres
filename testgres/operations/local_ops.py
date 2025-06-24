@@ -101,6 +101,7 @@ class LocalOperations(OsOperations):
             process = subprocess.Popen(
                 cmd,
                 shell=shell,
+                cwd=self.cwd,
                 stdin=stdin or subprocess.PIPE if input is not None else None,
                 stdout=stdout,
                 stderr=stderr,
@@ -151,6 +152,7 @@ class LocalOperations(OsOperations):
         process = subprocess.Popen(
             cmd,
             shell=shell,
+            cwd=self.cwd,
             stdin=stdin or subprocess.PIPE if input is not None else None,
             stdout=stdout or subprocess.PIPE,
             stderr=stderr or subprocess.PIPE,

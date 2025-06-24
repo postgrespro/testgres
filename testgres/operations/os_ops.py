@@ -1,5 +1,6 @@
 import getpass
 import locale
+import os
 
 
 class ConnectionParams:
@@ -18,6 +19,7 @@ def get_default_encoding():
 
 class OsOperations:
     def __init__(self, username=None):
+        self.cwd = os.getcwd()
         self.ssh_key = None
         self.username = username or getpass.getuser()
 
@@ -133,3 +135,7 @@ class OsOperations:
 
     def get_tempdir(self) -> str:
         raise NotImplementedError()
+
+    def set_cwd(self, cwd):
+        if cwd:
+            self.cwd = cwd
