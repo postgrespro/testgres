@@ -95,7 +95,7 @@ class PortManager__Generic(PortManager):
                 self._available_ports.discard(port)
                 assert port in self._reserved_ports
                 assert not (port in self._available_ports)
-                __class__.helper__send_debug_msg("Port {} is reserved.".format(port))
+                __class__.helper__send_debug_msg("Port {} is reserved.", port)
                 return port
 
         raise PortForException("Can't select a port.")
