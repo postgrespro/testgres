@@ -123,7 +123,7 @@ class PortManager__Generic(PortManager):
     @staticmethod
     def helper__send_debug_msg(msg_template: str, *args) -> None:
         assert msg_template is not None
-        assert str is not None
+        assert args is not None
         assert type(msg_template) == str  # noqa: E721
         assert type(args) == tuple  # noqa: E721
         assert msg_template != ""
