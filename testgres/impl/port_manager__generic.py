@@ -44,7 +44,7 @@ class PortManager__Generic(PortManager):
 
     def reserve_port(self) -> int:
         assert self._guard is not None
-        assert type(self._available_ports) == set  # noqa: E721t
+        assert type(self._available_ports) == set  # noqa: E721
         assert type(self._reserved_ports) == dict  # noqa: E721
         assert isinstance(self._os_ops, OsOperations)
 
