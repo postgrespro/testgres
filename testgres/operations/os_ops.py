@@ -25,6 +25,13 @@ class OsOperations:
     def exec_command(self, cmd, **kwargs):
         raise NotImplementedError()
 
+    def build_path(self, a: str, *parts: str) -> str:
+        assert a is not None
+        assert parts is not None
+        assert type(a) == str  # noqa: E721
+        assert type(parts) == tuple  # noqa: E721
+        raise NotImplementedError()
+
     # Environment setup
     def environ(self, var_name):
         raise NotImplementedError()

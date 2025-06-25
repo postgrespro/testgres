@@ -1,5 +1,6 @@
 import getpass
 import os
+import posixpath
 import platform
 import subprocess
 import tempfile
@@ -138,6 +139,13 @@ class RemoteOperations(OsOperations):
 
         return output
 
+    def build_path(self, a: str, *parts: str) -> str:
+        assert a is not None
+        assert parts is not None
+        assert type(a) == str  # noqa: E721
+        assert type(parts) == tuple  # noqa: E721
+        return __class__._build_path(a, *parts)
+
     # Environment setup
     def environ(self, var_name: str) -> str:
         """
@@ -159,7 +167,7 @@ class RemoteOperations(OsOperations):
 
         search_paths = search_paths.split(self.pathsep)
         for path in search_paths:
-            remote_file = os.path.join(path, executable)
+            remote_file = __class__._build_path(path, executable)
             if self.isfile(remote_file):
                 return remote_file
 
@@ -383,7 +391,7 @@ class RemoteOperations(OsOperations):
 
     def copytree(self, src, dst):
         if not os.path.isabs(dst):
-            dst = os.path.join('~', dst)
+            dst = __class__._build_path('~', dst)
         if self.isdir(dst):
             raise FileExistsError("Directory {} already exists.".format(dst))
         return self.exec_command("cp -r {} {}".format(src, dst))
@@ -771,6 +779,14 @@ class RemoteOperations(OsOperations):
                 result += ch
         result += "\""
         return result
+
+    @staticmethod
+    def _build_path(a: str, *parts: str) -> str:
+        assert a is not None
+        assert parts is not None
+        assert type(a) == str  # noqa: E721
+        assert type(parts) == tuple  # noqa: E721
+        return posixpath.join(a, *parts)
 
 
 def normalize_error(error):
