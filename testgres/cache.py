@@ -1,7 +1,5 @@
 # coding: utf-8
 
-import os
-
 from six import raise_from
 
 from .config import testgres_config
@@ -39,7 +37,7 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = No
         assert type(name) == str  # noqa: E721
 
         if bin_path:
-            return os.path.join(bin_path, name)
+            return os_ops.build_path(bin_path, name)
 
         return get_bin_path2(os_ops, name)
 
@@ -72,7 +70,7 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = No
                 # XXX: write new unique system id to control file
                 # Some users might rely upon unique system ids, but
                 # our initdb caching mechanism breaks this contract.
-                pg_control = os.path.join(data_dir, XLOG_CONTROL_FILE)
+                pg_control = os_ops.build_path(data_dir, XLOG_CONTROL_FILE)
                 system_id = generate_system_id()
                 cur_pg_control = os_ops.read(pg_control, binary=True)
                 new_pg_control = system_id + cur_pg_control[len(system_id):]
