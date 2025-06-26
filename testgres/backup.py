@@ -163,10 +163,6 @@ class NodeBackup(object):
         assert type(node) == self.original_node.__class__  # noqa: E721
 
         with clean_on_error(node) as node:
-
-            # New nodes should always remove dir tree
-            node._should_rm_dirs = True
-
             # Set a new port
             node.append_conf(filename=PG_CONF_FILE, line='\n')
             node.append_conf(filename=PG_CONF_FILE, port=node.port)
