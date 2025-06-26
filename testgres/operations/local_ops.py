@@ -67,8 +67,13 @@ class LocalOperations(OsOperations):
                 output = output.decode(encoding)
             return output, None  # In Windows stderr writing in stdout
 
-    def _run_command__nt(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=None):
+    def _run_command__nt(
+            self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding,
+            exec_env: typing.Optional[dict],
+            cwd: typing.Optional[str],
+    ):
         assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert cwd is None or type(cwd) == str  # noqa: E721
 
         # TODO: why don't we use the data from input?
 
@@ -104,6 +109,7 @@ class LocalOperations(OsOperations):
                 stdin=stdin or subprocess.PIPE if input is not None else None,
                 stdout=stdout,
                 stderr=stderr,
+                cwd=cwd,
                 **extParams,
             )
             if get_process:
@@ -116,8 +122,13 @@ class LocalOperations(OsOperations):
         output, error = self._process_output(encoding, temp_file_path)
         return process, output, error
 
-    def _run_command__generic(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=None):
+    def _run_command__generic(
+            self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding,
+            exec_env: typing.Optional[dict],
+            cwd: typing.Optional[str],
+    ):
         assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert cwd is None or type(cwd) == str  # noqa: E721
 
         input_prepared = None
         if not get_process:
@@ -154,6 +165,7 @@ class LocalOperations(OsOperations):
             stdin=stdin or subprocess.PIPE if input is not None else None,
             stdout=stdout or subprocess.PIPE,
             stderr=stderr or subprocess.PIPE,
+            cwd=cwd,
             **extParams
         )
         assert not (process is None)
@@ -173,26 +185,44 @@ class LocalOperations(OsOperations):
             error = error.decode(encoding)
         return process, output, error
 
-    def _run_command(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=None):
+    def _run_command(
+            self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding,
+            exec_env: typing.Optional[dict],
+            cwd: typing.Optional[str],
+    ):
         """Execute a command and return the process and its output."""
+
+        assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert cwd is None or type(cwd) == str  # noqa: E721
+
         if os.name == 'nt' and stdout is None:  # Windows
             method = __class__._run_command__nt
         else:  # Other OS
             method = __class__._run_command__generic
 
-        return method(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=exec_env)
+        return method(self, cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env, cwd)
 
-    def exec_command(self, cmd, wait_exit=False, verbose=False, expect_error=False, encoding=None, shell=False,
-                     text=False, input=None, stdin=None, stdout=None, stderr=None, get_process=False, timeout=None,
-                     ignore_errors=False, exec_env=None):
+    def exec_command(
+        self, cmd, wait_exit=False, verbose=False, expect_error=False, encoding=None, shell=False,
+        text=False, input=None, stdin=None, stdout=None, stderr=None, get_process=False, timeout=None,
+        ignore_errors=False,
+        exec_env: typing.Optional[dict] = None,
+        cwd: typing.Optional[str] = None
+    ):
         """
         Execute a command in a subprocess and handle the output based on the provided parameters.
         """
         assert type(expect_error) == bool  # noqa: E721
         assert type(ignore_errors) == bool  # noqa: E721
         assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert cwd is None or type(cwd) == str  # noqa: E721
 
-        process, output, error = self._run_command(cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding, exec_env=exec_env)
+        process, output, error = self._run_command(
+            cmd, shell, input, stdin, stdout, stderr, get_process, timeout, encoding,
+            exec_env,
+            cwd
+        )
+
         if get_process:
             return process
 
