@@ -5,36 +5,67 @@ from .node import PostgresNode
 import os
 import platform
 import tempfile
+import typing
+
+
+T_DICT_STR_STR = typing.Dict[str, str]
+T_LIST_STR = typing.List[str]
 
 
 class NodeApp:
+    _os_ops: OsOperations
+    _test_path: str
 
-    def __init__(self, test_path=None, nodes_to_cleanup=None, os_ops=None):
+    def __init__(
+        self,
+        test_path: typing.Optional[str] = None,
+        nodes_to_cleanup: typing.Optional[list] = None,
+        os_ops: typing.Optional[OsOperations] = None
+    ):
+        assert test_path is None or type(test_path) == str  # noqa: E721
         assert os_ops is None or isinstance(os_ops, OsOperations)
 
         if os_ops is None:
             os_ops = LocalOperations.get_single_instance()
 
         assert isinstance(os_ops, OsOperations)
+        self._os_ops = os_ops
 
-        if test_path:
-            if os.path.isabs(test_path):
-                self.test_path = test_path
-            else:
-                self.test_path = os_ops.build_path(os_ops.cwd(), test_path)
+        if test_path is None:
+            self._test_path = os_ops.cwd()
+        elif os.path.isabs(test_path):
+            self._test_path = test_path
         else:
-            self.test_path = os_ops.cwd()
+            self._test_path = os_ops.build_path(os_ops.cwd(), test_path)
+
         self.nodes_to_cleanup = nodes_to_cleanup if nodes_to_cleanup else []
-        self.os_ops = os_ops
+
+    @property
+    def os_ops(self) -> OsOperations:
+        assert isinstance(self._os_ops, OsOperations)
+        return self._os_ops
+
+    @property
+    def test_path(self) -> str:
+        assert isinstance(self._test_path, OsOperations)
+        return self._test_path
 
     def make_empty(
             self,
-            base_dir=None,
-            port=None,
-            bin_dir=None):
-        real_base_dir = self.os_ops.build_path(self.test_path, base_dir)
-        self.os_ops.rmdirs(real_base_dir, ignore_errors=True)
-        self.os_ops.makedirs(real_base_dir)
+            base_dir: typing.Optional[str] = None,
+            port: typing.Optional[int] = None,
+            bin_dir: typing.Optional[str] = None
+    ) -> PostgresNode:
+        assert base_dir is None or type(base_dir) == str  # noqa: E721
+        assert port is None or type(port) == int  # noqa: E721
+        assert bin_dir is None or type(bin_dir) == str  # noqa: E721
+
+        assert isinstance(self._os_ops, OsOperations)
+        assert type(self._test_path) == str  # noqa: E721
+
+        real_base_dir = self._os_ops.build_path(self._test_path, base_dir)
+        self._os_ops.rmdirs(real_base_dir, ignore_errors=True)
+        self._os_ops.makedirs(real_base_dir)
 
         node = PostgresNode(base_dir=real_base_dir, port=port, bin_dir=bin_dir)
         self.nodes_to_cleanup.append(node)
@@ -43,24 +74,40 @@ class NodeApp:
 
     def make_simple(
             self,
-            base_dir=None,
-            port=None,
-            set_replication=False,
-            ptrack_enable=False,
-            initdb_params=[],
-            pg_options={},
-            checksum=True,
-            bin_dir=None):
+            base_dir: typing.Optional[str] = None,
+            port: typing.Optional[int] = None,
+            set_replication: bool = False,
+            ptrack_enable: bool = False,
+            initdb_params: T_LIST_STR = [],
+            pg_options: T_DICT_STR_STR = {},
+            checksum: bool = True,
+            bin_dir: typing.Optional[str] = None
+    ) -> PostgresNode:
+        assert base_dir is None or type(base_dir) == str  # noqa: E721
+        assert port is None or type(port) == int  # noqa: E721
+        assert type(set_replication) == bool  # noqa: E721
+        assert type(ptrack_enable) == bool  # noqa: E721
+        assert type(initdb_params) == list  # noqa: E721
         assert type(pg_options) == dict  # noqa: E721
+        assert type(checksum) == bool  # noqa: E721
+        assert bin_dir is None or type(bin_dir) == str  # noqa: E721
 
         if checksum and '--data-checksums' not in initdb_params:
             initdb_params.append('--data-checksums')
-        node = self.make_empty(base_dir, port, bin_dir=bin_dir)
+
+        node = self.make_empty(
+            base_dir,
+            port,
+            bin_dir=bin_dir
+        )
+
         node.init(
-            initdb_params=initdb_params, allow_streaming=set_replication)
+            initdb_params=initdb_params,
+            allow_streaming=set_replication
+        )
 
         # set major version
-        pg_version_file = self.os_ops.read(self.os_ops.build_path(node.data_dir, 'PG_VERSION'))
+        pg_version_file = self._os_ops.read(self._os_ops.build_path(node.data_dir, 'PG_VERSION'))
         node.major_version_str = str(pg_version_file.rstrip())
         node.major_version = float(node.major_version_str)
 
@@ -115,7 +162,7 @@ class NodeApp:
         return node
 
     @staticmethod
-    def _gettempdir_for_socket():
+    def _gettempdir_for_socket() -> str:
         platform_system_name = platform.system().lower()
 
         if platform_system_name == "windows":
@@ -143,7 +190,7 @@ class NodeApp:
         return "/tmp"
 
     @staticmethod
-    def _gettempdir():
+    def _gettempdir() -> str:
         v = tempfile.gettempdir()
 
         #
