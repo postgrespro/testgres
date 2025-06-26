@@ -47,7 +47,7 @@ class NodeApp:
 
     @property
     def test_path(self) -> str:
-        assert isinstance(self._test_path, OsOperations)
+        assert type(self._test_path) == str  # noqa: E721
         return self._test_path
 
     def make_empty(
