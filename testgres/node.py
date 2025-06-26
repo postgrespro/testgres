@@ -573,7 +573,11 @@ class PostgresNode(object):
 
     @property
     def logs_dir(self):
-        path = os.path.join(self.base_dir, LOGS_DIR)
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
+        path = self._os_ops.build_path(self.base_dir, LOGS_DIR)
+        assert type(path) == str  # noqa: E721
 
         # NOTE: it's safe to create a new dir
         if not self.os_ops.path_exists(path):
@@ -583,16 +587,31 @@ class PostgresNode(object):
 
     @property
     def data_dir(self):
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
         # NOTE: we can't run initdb without user's args
-        return os.path.join(self.base_dir, DATA_DIR)
+        path = self._os_ops.build_path(self.base_dir, DATA_DIR)
+        assert type(path) == str  # noqa: E721
+        return path
 
     @property
     def utils_log_file(self):
-        return os.path.join(self.logs_dir, UTILS_LOG_FILE)
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
+        path = self._os_ops.build_path(self.logs_dir, UTILS_LOG_FILE)
+        assert type(path) == str  # noqa: E721
+        return path
 
     @property
     def pg_log_file(self):
-        return os.path.join(self.logs_dir, PG_LOG_FILE)
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
+        path = self._os_ops.build_path(self.logs_dir, PG_LOG_FILE)
+        assert type(path) == str  # noqa: E721
+        return path
 
     @property
     def version(self):
@@ -719,7 +738,11 @@ class PostgresNode(object):
         ).format(options_string(**conninfo))  # yapf: disable
         # Since 12 recovery.conf had disappeared
         if self.version >= PgVer('12'):
-            signal_name = os.path.join(self.data_dir, "standby.signal")
+            assert self._os_ops is not None
+            assert isinstance(self._os_ops, OsOperations)
+
+            signal_name = self._os_ops.build_path(self.data_dir, "standby.signal")
+            assert type(signal_name) == str  # noqa: E721
             self.os_ops.touch(signal_name)
         else:
             line += "standby_mode=on\n"
@@ -768,11 +791,14 @@ class PostgresNode(object):
         result = []
 
         # list of important files + last N lines
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
         files = [
-            (os.path.join(self.data_dir, PG_CONF_FILE), 0),
-            (os.path.join(self.data_dir, PG_AUTO_CONF_FILE), 0),
-            (os.path.join(self.data_dir, RECOVERY_CONF_FILE), 0),
-            (os.path.join(self.data_dir, HBA_CONF_FILE), 0),
+            (self._os_ops.build_path(self.data_dir, PG_CONF_FILE), 0),
+            (self._os_ops.build_path(self.data_dir, PG_AUTO_CONF_FILE), 0),
+            (self._os_ops.build_path(self.data_dir, RECOVERY_CONF_FILE), 0),
+            (self._os_ops.build_path(self.data_dir, HBA_CONF_FILE), 0),
             (self.pg_log_file, testgres_config.error_log_lines)
         ]  # yapf: disable
 
@@ -840,8 +866,11 @@ class PostgresNode(object):
             This instance of :class:`.PostgresNode`.
         """
 
-        postgres_conf = os.path.join(self.data_dir, PG_CONF_FILE)
-        hba_conf = os.path.join(self.data_dir, HBA_CONF_FILE)
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
+        postgres_conf = self._os_ops.build_path(self.data_dir, PG_CONF_FILE)
+        hba_conf = self._os_ops.build_path(self.data_dir, HBA_CONF_FILE)
 
         # filter lines in hba file
         # get rid of comments and blank lines
@@ -956,7 +985,7 @@ class PostgresNode(object):
                 # format a new config line
                 lines.append('{} = {}'.format(option, value))
 
-        config_name = os.path.join(self.data_dir, filename)
+        config_name = self._os_ops.build_path(self.data_dir, filename)
         conf_text = ''
         for line in lines:
             conf_text += text_type(line) + '\n'
@@ -2040,8 +2069,11 @@ class PostgresNode(object):
             rm_options (set, optional): A set containing the names of the options to remove.
                                          Defaults to an empty set.
         """
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
         # parse postgresql.auto.conf
-        path = os.path.join(self.data_dir, config)
+        path = self.os_ops.build_path(self.data_dir, config)
 
         lines = self.os_ops.readlines(path)
         current_options = {}
@@ -2127,8 +2159,11 @@ class PostgresNode(object):
         return self.os_ops.exec_command(upgrade_command, expect_error=expect_error)
 
     def _get_bin_path(self, filename):
+        assert self._os_ops is not None
+        assert isinstance(self._os_ops, OsOperations)
+
         if self.bin_dir:
-            bin_path = os.path.join(self.bin_dir, filename)
+            bin_path = self._os_ops.build_path(self.bin_dir, filename)
         else:
             bin_path = get_bin_path2(self.os_ops, filename)
         return bin_path
@@ -2333,7 +2368,7 @@ class NodeApp:
             if os.path.isabs(test_path):
                 self.test_path = test_path
             else:
-                self.test_path = os.path.join(os_ops.cwd(), test_path)
+                self.test_path = os_ops.build_path(os_ops.cwd(), test_path)
         else:
             self.test_path = os_ops.cwd()
         self.nodes_to_cleanup = nodes_to_cleanup if nodes_to_cleanup else []
@@ -2344,12 +2379,11 @@ class NodeApp:
             base_dir=None,
             port=None,
             bin_dir=None):
-        real_base_dir = os.path.join(self.test_path, base_dir)
+        real_base_dir = self.os_ops.build_path(self.test_path, base_dir)
         self.os_ops.rmdirs(real_base_dir, ignore_errors=True)
         self.os_ops.makedirs(real_base_dir)
 
         node = PostgresNode(base_dir=real_base_dir, port=port, bin_dir=bin_dir)
-        node.should_rm_dirs = True
         self.nodes_to_cleanup.append(node)
 
         return node
@@ -2373,7 +2407,7 @@ class NodeApp:
             initdb_params=initdb_params, allow_streaming=set_replication)
 
         # set major version
-        pg_version_file = self.os_ops.read(os.path.join(node.data_dir, 'PG_VERSION'))
+        pg_version_file = self.os_ops.read(self.os_ops.build_path(node.data_dir, 'PG_VERSION'))
         node.major_version_str = str(pg_version_file.rstrip())
         node.major_version = float(node.major_version_str)
 

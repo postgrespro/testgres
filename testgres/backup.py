@@ -1,7 +1,5 @@
 # coding: utf-8
 
-import os
-
 from six import raise_from
 
 from .enums import XLogMethod
@@ -29,7 +27,9 @@ class NodeBackup(object):
     """
     @property
     def log_file(self):
-        return os.path.join(self.base_dir, BACKUP_LOG_FILE)
+        assert self.os_ops is not None
+        assert isinstance(self.os_ops, OsOperations)
+        return self.os_ops.build_path(self.base_dir, BACKUP_LOG_FILE)
 
     def __init__(self,
                  node,
@@ -75,7 +75,7 @@ class NodeBackup(object):
         # private
         self._available = True
 
-        data_dir = os.path.join(self.base_dir, DATA_DIR)
+        data_dir = self.os_ops.build_path(self.base_dir, DATA_DIR)
 
         _params = [
             get_bin_path2(self.os_ops, "pg_basebackup"),
@@ -112,10 +112,13 @@ class NodeBackup(object):
         available = not destroy
 
         if available:
+            assert self.os_ops is not None
+            assert isinstance(self.os_ops, OsOperations)
+
             dest_base_dir = self.os_ops.mkdtemp(prefix=TMP_NODE)
 
-            data1 = os.path.join(self.base_dir, DATA_DIR)
-            data2 = os.path.join(dest_base_dir, DATA_DIR)
+            data1 = self.os_ops.build_path(self.base_dir, DATA_DIR)
+            data2 = self.os_ops.build_path(dest_base_dir, DATA_DIR)
 
             try:
                 # Copy backup to new data dir
@@ -160,10 +163,6 @@ class NodeBackup(object):
         assert type(node) == self.original_node.__class__  # noqa: E721
 
         with clean_on_error(node) as node:
-
-            # New nodes should always remove dir tree
-            node._should_rm_dirs = True
-
             # Set a new port
             node.append_conf(filename=PG_CONF_FILE, line='\n')
             node.append_conf(filename=PG_CONF_FILE, port=node.port)

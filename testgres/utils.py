@@ -138,17 +138,17 @@ def get_bin_path2(os_ops: OsOperations, filename):
 
     if pg_config:
         bindir = get_pg_config(pg_config, os_ops)["BINDIR"]
-        return os.path.join(bindir, filename)
+        return os_ops.build_path(bindir, filename)
 
     # try PG_BIN
     pg_bin = os_ops.environ("PG_BIN")
     if pg_bin:
-        return os.path.join(pg_bin, filename)
+        return os_ops.build_path(pg_bin, filename)
 
     pg_config_path = os_ops.find_executable('pg_config')
     if pg_config_path:
         bindir = get_pg_config(pg_config_path)["BINDIR"]
-        return os.path.join(bindir, filename)
+        return os_ops.build_path(bindir, filename)
 
     return filename
 
@@ -210,7 +210,7 @@ def get_pg_config2(os_ops: OsOperations, pg_config_path):
     # try PG_BIN
     pg_bin = os.environ.get("PG_BIN")
     if pg_bin:
-        cmd = os.path.join(pg_bin, "pg_config")
+        cmd = os_ops.build_path(pg_bin, "pg_config")
         return cache_pg_config_data(cmd)
 
     # try plain name
@@ -224,8 +224,17 @@ def get_pg_version2(os_ops: OsOperations, bin_dir=None):
     assert os_ops is not None
     assert isinstance(os_ops, OsOperations)
 
+    C_POSTGRES_BINARY = "postgres"
+
     # Get raw version (e.g., postgres (PostgreSQL) 9.5.7)
-    postgres_path = os.path.join(bin_dir, 'postgres') if bin_dir else get_bin_path2(os_ops, 'postgres')
+    if bin_dir is None:
+        postgres_path = get_bin_path2(os_ops, C_POSTGRES_BINARY)
+    else:
+        # [2025-06-25] OK ?
+        assert type(bin_dir) == str  # noqa: E721
+        assert bin_dir != ""
+        postgres_path = os_ops.build_path(bin_dir, 'postgres')
+
     cmd = [postgres_path, '--version']
     raw_ver = os_ops.exec_command(cmd, encoding='utf-8')
 
