@@ -1,4 +1,5 @@
-import getpass
+from __future__ import annotations
+
 import locale
 
 
@@ -17,9 +18,11 @@ def get_default_encoding():
 
 
 class OsOperations:
-    def __init__(self, username=None):
-        self.ssh_key = None
-        self.username = username or getpass.getuser()
+    def __init__(self):
+        pass
+
+    def create_clone(self) -> OsOperations:
+        raise NotImplementedError()
 
     # Command execution
     def exec_command(self, cmd, **kwargs):
