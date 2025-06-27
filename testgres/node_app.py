@@ -52,16 +52,22 @@ class NodeApp:
 
     def make_empty(
             self,
-            base_dir: typing.Optional[str] = None,
+            base_dir: str,
             port: typing.Optional[int] = None,
             bin_dir: typing.Optional[str] = None
     ) -> PostgresNode:
-        assert base_dir is None or type(base_dir) == str  # noqa: E721
+        assert type(base_dir) == str  # noqa: E721
         assert port is None or type(port) == int  # noqa: E721
         assert bin_dir is None or type(bin_dir) == str  # noqa: E721
 
         assert isinstance(self._os_ops, OsOperations)
         assert type(self._test_path) == str  # noqa: E721
+
+        if base_dir is None:
+            raise ValueError("Argument 'base_dir' is not defined.")
+
+        if base_dir == "":
+            raise ValueError("Argument 'base_dir' is empty.")
 
         real_base_dir = self._os_ops.build_path(self._test_path, base_dir)
         self._os_ops.rmdirs(real_base_dir, ignore_errors=True)
@@ -74,7 +80,7 @@ class NodeApp:
 
     def make_simple(
             self,
-            base_dir: typing.Optional[str] = None,
+            base_dir: str,
             port: typing.Optional[int] = None,
             set_replication: bool = False,
             ptrack_enable: bool = False,
@@ -83,7 +89,7 @@ class NodeApp:
             checksum: bool = True,
             bin_dir: typing.Optional[str] = None
     ) -> PostgresNode:
-        assert base_dir is None or type(base_dir) == str  # noqa: E721
+        assert type(base_dir) == str  # noqa: E721
         assert port is None or type(port) == int  # noqa: E721
         assert type(set_replication) == bool  # noqa: E721
         assert type(ptrack_enable) == bool  # noqa: E721
