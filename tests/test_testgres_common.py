@@ -1703,9 +1703,8 @@ class TestTestgresCommon:
             assert node.port_manager is node_svc.port_manager
 
             node.slow_start()
-        except:  # noqa: E722
+        finally:
             node.stop()
-            raise
 
         node.cleanup(release_resources=True)
 
