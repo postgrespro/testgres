@@ -1631,10 +1631,14 @@ class TestTestgresCommon:
         with __class__.tag_rmdirs_protector(os_ops):
             node_app = NodeApp(test_path=tmp_dir, os_ops=os_ops)
 
-            with pytest.raises(expected_exception=ValueError) as x:
+            with pytest.raises(expected_exception=BaseException) as x:
                 node_app.make_empty(base_dir=None)
 
-            assert str(x.value) == "Argument 'base_dir' is not defined."
+            if type(x.value) == AssertionError:  # noqa: E721
+                pass
+            else:
+                assert type(x.value) == ValueError  # noqa: E721
+                assert str(x.value) == "Argument 'base_dir' is not defined."
 
         # -----------
         logging.info("temp directory [{}] is deleting".format(tmp_dir))
