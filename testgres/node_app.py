@@ -1,6 +1,7 @@
 from .node import OsOperations
 from .node import LocalOperations
 from .node import PostgresNode
+from .node import PortManager
 
 import os
 import platform
@@ -13,23 +14,27 @@ T_LIST_STR = typing.List[str]
 
 
 class NodeApp:
-    _os_ops: OsOperations
     _test_path: str
+    _os_ops: OsOperations
+    _port_manager: PortManager
 
     def __init__(
         self,
         test_path: typing.Optional[str] = None,
         nodes_to_cleanup: typing.Optional[list] = None,
-        os_ops: typing.Optional[OsOperations] = None
+        os_ops: typing.Optional[OsOperations] = None,
+        port_manager: typing.Optional[PortManager] = None,
     ):
         assert test_path is None or type(test_path) == str  # noqa: E721
         assert os_ops is None or isinstance(os_ops, OsOperations)
+        assert port_manager is None or isinstance(port_manager, PortManager)
 
         if os_ops is None:
             os_ops = LocalOperations.get_single_instance()
 
         assert isinstance(os_ops, OsOperations)
         self._os_ops = os_ops
+        self._port_manager = port_manager
 
         if test_path is None:
             self._test_path = os_ops.cwd()
@@ -44,6 +49,11 @@ class NodeApp:
     def os_ops(self) -> OsOperations:
         assert isinstance(self._os_ops, OsOperations)
         return self._os_ops
+
+    @property
+    def port_manager(self) -> PortManager:
+        assert self._port_manager is None or isinstance(self._port_manager, PortManager)
+        return self._port_manager
 
     @property
     def test_path(self) -> str:
@@ -73,7 +83,19 @@ class NodeApp:
         self._os_ops.rmdirs(real_base_dir, ignore_errors=True)
         self._os_ops.makedirs(real_base_dir)
 
-        node = PostgresNode(base_dir=real_base_dir, port=port, bin_dir=bin_dir)
+        port_manager: PortManager = None
+
+        if port is None:
+            port_manager = self._port_manager
+
+        node = PostgresNode(
+            base_dir=real_base_dir,
+            port=port,
+            bin_dir=bin_dir,
+            os_ops=self._os_ops,
+            port_manager=port_manager
+        )
+
         self.nodes_to_cleanup.append(node)
 
         return node
