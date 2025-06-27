@@ -17,6 +17,7 @@ class NodeApp:
     _test_path: str
     _os_ops: OsOperations
     _port_manager: PortManager
+    _nodes_to_cleanup: typing.List[PostgresNode]
 
     def __init__(
         self,
@@ -43,7 +44,15 @@ class NodeApp:
         else:
             self._test_path = os_ops.build_path(os_ops.cwd(), test_path)
 
-        self.nodes_to_cleanup = nodes_to_cleanup if nodes_to_cleanup else []
+        if nodes_to_cleanup is None:
+            self._nodes_to_cleanup = []
+        else:
+            self._nodes_to_cleanup = nodes_to_cleanup
+
+    @property
+    def test_path(self) -> str:
+        assert type(self._test_path) == str  # noqa: E721
+        return self._test_path
 
     @property
     def os_ops(self) -> OsOperations:
@@ -56,9 +65,9 @@ class NodeApp:
         return self._port_manager
 
     @property
-    def test_path(self) -> str:
-        assert type(self._test_path) == str  # noqa: E721
-        return self._test_path
+    def nodes_to_cleanup(self) -> typing.List[PostgresNode]:
+        assert type(self._nodes_to_cleanup) == list  # noqa: E721
+        return self._nodes_to_cleanup
 
     def make_empty(
             self,
@@ -96,7 +105,8 @@ class NodeApp:
             port_manager=port_manager
         )
 
-        self.nodes_to_cleanup.append(node)
+        assert type(self._nodes_to_cleanup) == list
+        self._nodes_to_cleanup.append(node)
 
         return node
 
