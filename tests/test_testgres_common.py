@@ -1696,17 +1696,17 @@ class TestTestgresCommon:
 
         assert node_app.os_ops is node_svc.os_ops
         assert node_app.port_manager is node_svc.port_manager
-        assert type(node_app.nodes_to_cleanup) == list
+        assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
         assert len(node_app.nodes_to_cleanup) == 0
 
         try:
             node = node_app.make_simple("node")
             assert node is not None
-            assert isinstance(node, PostgresNode)            
+            assert isinstance(node, PostgresNode)
             assert node.os_ops is node_svc.os_ops
             assert node.port_manager is node_svc.port_manager
 
-            assert type(node_app.nodes_to_cleanup) == list
+            assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
             assert len(node_app.nodes_to_cleanup) == 1
             assert node_app.nodes_to_cleanup[0] is node
 
