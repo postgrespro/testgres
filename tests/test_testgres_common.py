@@ -1669,6 +1669,54 @@ class TestTestgresCommon:
         logging.info("temp directory [{}] is deleting".format(tmp_dir))
         node_svc.os_ops.rmdir(tmp_dir)
 
+    def test_node_app__make_simple__checksum(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+
+        logging.info("temp directory is [{}]".format(tmp_dir))
+        node_app = NodeApp(test_path=tmp_dir, os_ops=node_svc.os_ops)
+
+        C_NODE = "node"
+
+        # -----------
+        def LOCAL__test(checksum: bool, initdb_params: typing.Optional[list]):
+            initdb_params0 = initdb_params
+            initdb_params0_copy = initdb_params0.copy() if initdb_params0 is not None else None
+
+            with node_app.make_simple(C_NODE, checksum=checksum, initdb_params=initdb_params):
+                assert initdb_params is initdb_params0
+                if initdb_params0 is not None:
+                    assert initdb_params0 == initdb_params0_copy
+
+            assert initdb_params is initdb_params0
+            if initdb_params0 is not None:
+                assert initdb_params0 == initdb_params0_copy
+
+        # -----------
+        LOCAL__test(checksum=False, initdb_params=None)
+        LOCAL__test(checksum=True, initdb_params=None)
+
+        # -----------
+        params = []
+        LOCAL__test(checksum=False, initdb_params=params)
+        LOCAL__test(checksum=True, initdb_params=params)
+
+        # -----------
+        params = ["--no-sync"]
+        LOCAL__test(checksum=False, initdb_params=params)
+        LOCAL__test(checksum=True, initdb_params=params)
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
+
     @staticmethod
     def helper__get_node(
         node_svc: PostgresNodeService,

@@ -84,7 +84,7 @@ class NodeApp:
             port: typing.Optional[int] = None,
             set_replication: bool = False,
             ptrack_enable: bool = False,
-            initdb_params: T_LIST_STR = [],
+            initdb_params: typing.Optional[T_LIST_STR] = None,
             pg_options: typing.Optional[T_DICT_STR_STR] = None,
             checksum: bool = True,
             bin_dir: typing.Optional[str] = None
@@ -93,13 +93,10 @@ class NodeApp:
         assert port is None or type(port) == int  # noqa: E721
         assert type(set_replication) == bool  # noqa: E721
         assert type(ptrack_enable) == bool  # noqa: E721
-        assert type(initdb_params) == list  # noqa: E721
+        assert initdb_params is None or type(initdb_params) == list  # noqa: E721
         assert pg_options is None or type(pg_options) == dict  # noqa: E721
         assert type(checksum) == bool  # noqa: E721
         assert bin_dir is None or type(bin_dir) == str  # noqa: E721
-
-        if checksum and '--data-checksums' not in initdb_params:
-            initdb_params.append('--data-checksums')
 
         node = self.make_empty(
             base_dir,
@@ -107,8 +104,20 @@ class NodeApp:
             bin_dir=bin_dir
         )
 
+        final_initdb_params = initdb_params
+
+        if checksum:
+            final_initdb_params = __class__._paramlist_append_is_not_exist(
+                initdb_params,
+                final_initdb_params,
+                '--data-checksums'
+            )
+            assert final_initdb_params is not initdb_params
+            assert final_initdb_params is not None
+            assert '--data-checksums' in final_initdb_params
+
         node.init(
-            initdb_params=initdb_params,
+            initdb_params=final_initdb_params,
             allow_streaming=set_replication
         )
 
@@ -150,7 +159,7 @@ class NodeApp:
 
         # Apply given parameters
         if pg_options is not None:
-            assert type(pg_options) == dict
+            assert type(pg_options) == dict  # noqa: E721
             for option_name, option_value in pg_options.items():
                 options[option_name] = option_value
 
@@ -168,6 +177,56 @@ class NodeApp:
             node.set_auto_conf({}, 'postgresql.conf', ['wal_keep_segments'])
 
         return node
+
+    @staticmethod
+    def _paramlist_has_param(
+        params: typing.Optional[T_LIST_STR],
+        param: str
+    ) -> bool:
+        assert type(param) == str  # noqa: E721
+
+        if params is None:
+            return False
+
+        assert type(params) == list  # noqa: E721
+
+        if param in params:
+            return True
+
+        return False
+
+    @staticmethod
+    def _paramlist_append(
+        user_params: typing.Optional[T_LIST_STR],
+        updated_params: typing.Optional[T_LIST_STR],
+        param: str,
+    ) -> T_LIST_STR:
+        assert user_params is None or type(user_params) == list  # noqa: E721
+        assert updated_params is None or type(updated_params) == list  # noqa: E721
+        assert type(param) == str  # noqa: E721
+
+        if updated_params is None:
+            if user_params is None:
+                return [param]
+
+            return [*user_params, param]
+
+        assert updated_params is not None
+        if updated_params is user_params:
+            return [*user_params, param]
+
+        updated_params.append(param)
+        return updated_params
+
+    @staticmethod
+    def _paramlist_append_is_not_exist(
+        user_params: typing.Optional[T_LIST_STR],
+        updated_params: typing.Optional[T_LIST_STR],
+        param: str,
+    ) -> typing.Optional[T_LIST_STR]:
+        if __class__._paramlist_has_param(updated_params, param):
+            return updated_params
+        return __class__._paramlist_append(user_params, updated_params, param)
 
     @staticmethod
     def _gettempdir_for_socket() -> str:
