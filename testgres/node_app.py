@@ -79,7 +79,7 @@ class NodeApp:
             set_replication: bool = False,
             ptrack_enable: bool = False,
             initdb_params: T_LIST_STR = [],
-            pg_options: T_DICT_STR_STR = {},
+            pg_options: typing.Optional[T_DICT_STR_STR] = None,
             checksum: bool = True,
             bin_dir: typing.Optional[str] = None
     ) -> PostgresNode:
@@ -88,7 +88,7 @@ class NodeApp:
         assert type(set_replication) == bool  # noqa: E721
         assert type(ptrack_enable) == bool  # noqa: E721
         assert type(initdb_params) == list  # noqa: E721
-        assert type(pg_options) == dict  # noqa: E721
+        assert pg_options is None or type(pg_options) == dict  # noqa: E721
         assert type(checksum) == bool  # noqa: E721
         assert bin_dir is None or type(bin_dir) == str  # noqa: E721
 
@@ -143,8 +143,10 @@ class NodeApp:
             options['wal_keep_segments'] = '12'
 
         # Apply given parameters
-        for option_name, option_value in pg_options.items():
-            options[option_name] = option_value
+        if pg_options is not None:
+            assert type(pg_options) == dict
+            for option_name, option_value in pg_options.items():
+                options[option_name] = option_value
 
         # Define delayed propertyes
         if not ("unix_socket_directories" in options.keys()):
