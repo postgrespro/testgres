@@ -39,7 +39,6 @@ from .node import PortManager
 from .utils import \
     reserve_port, \
     release_port, \
-    bound_ports, \
     get_bin_path, \
     get_pg_config, \
     get_pg_version
@@ -51,6 +50,7 @@ from .standby import \
 from .config import testgres_config
 
 from .operations.os_ops import OsOperations, ConnectionParams
+from .operations.os_ops import OsLockObj
 from .operations.local_ops import LocalOperations
 from .operations.remote_ops import RemoteOperations
 
@@ -64,7 +64,8 @@ __all__ = [
     "XLogMethod", "IsolationLevel", "NodeStatus", "ProcessType", "DumpFormat",
     "PostgresNode", "NodeApp",
     "PortManager",
-    "reserve_port", "release_port", "bound_ports", "get_bin_path", "get_pg_config", "get_pg_version",
+    "reserve_port", "release_port", "get_bin_path", "get_pg_config", "get_pg_version",
     "First", "Any",
-    "OsOperations", "LocalOperations", "RemoteOperations", "ConnectionParams"
+    "OsOperations", "LocalOperations", "RemoteOperations", "ConnectionParams",
+    "OsLockObj",
 ]
