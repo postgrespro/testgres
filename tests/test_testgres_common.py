@@ -622,13 +622,12 @@ class TestTestgresCommon:
                         assert (master._logger.is_alive())
             finally:
                 # It is a hack code to logging cleanup
-                logging._acquireLock()
-                assert logging.Logger.manager is not None
-                assert C_NODE_NAME in logging.Logger.manager.loggerDict.keys()
-                logging.Logger.manager.loggerDict.pop(C_NODE_NAME, None)
-                assert not (C_NODE_NAME in logging.Logger.manager.loggerDict.keys())
-                assert not (handler in logging._handlers.values())
-                logging._releaseLock()
+                with logging._lock:
+                    assert logging.Logger.manager is not None
+                    assert C_NODE_NAME in logging.Logger.manager.loggerDict.keys()
+                    logging.Logger.manager.loggerDict.pop(C_NODE_NAME, None)
+                    assert not (C_NODE_NAME in logging.Logger.manager.loggerDict.keys())
+                    assert not (handler in logging._handlers.values())
         # GO HOME!
         return
 
