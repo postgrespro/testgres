@@ -1630,6 +1630,7 @@ class TestTestgresCommon:
         # -----------
         with __class__.tag_rmdirs_protector(os_ops):
             node_app = NodeApp(test_path=tmp_dir, os_ops=os_ops)
+            assert node_app.os_ops is os_ops
 
             with pytest.raises(expected_exception=BaseException) as x:
                 node_app.make_empty(base_dir=None)
@@ -1663,6 +1664,7 @@ class TestTestgresCommon:
         # -----------
         with __class__.tag_rmdirs_protector(os_ops):
             node_app = NodeApp(test_path=tmp_dir, os_ops=os_ops)
+            assert node_app.os_ops is os_ops
 
             with pytest.raises(expected_exception=ValueError) as x:
                 node_app.make_empty(base_dir="")
