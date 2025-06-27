@@ -112,7 +112,6 @@ class NodeApp:
                 final_initdb_params,
                 '--data-checksums'
             )
-            assert final_initdb_params is not initdb_params
             assert final_initdb_params is not None
             assert '--data-checksums' in final_initdb_params
 

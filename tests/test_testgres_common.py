@@ -1718,6 +1718,11 @@ class TestTestgresCommon:
         LOCAL__test(checksum=True, initdb_params=params)
 
         # -----------
+        params = ["--data-checksums"]
+        LOCAL__test(checksum=False, initdb_params=params)
+        LOCAL__test(checksum=True, initdb_params=params)
+
+        # -----------
         logging.info("temp directory [{}] is deleting".format(tmp_dir))
         node_svc.os_ops.rmdir(tmp_dir)
 
