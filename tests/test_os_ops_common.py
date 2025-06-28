@@ -37,6 +37,13 @@ class TestOsOpsCommon:
         assert isinstance(request.param, OsOperations)
         return request.param
 
+    def test_create_clone(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        clone = os_ops.create_clone()
+        assert clone is not None
+        assert clone is not os_ops
+        assert type(clone) == type(os_ops)  # noqa: E721
+
     def test_exec_command_success(self, os_ops: OsOperations):
         """
         Test exec_command for successful command execution.

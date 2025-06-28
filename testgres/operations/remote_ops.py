@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import getpass
 import os
 import posixpath
@@ -7,6 +9,7 @@ import tempfile
 import io
 import logging
 import typing
+import copy
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
@@ -42,11 +45,29 @@ class PsUtilProcessProxy:
 
 
 class RemoteOperations(OsOperations):
+    sm_dummy_conn_params = ConnectionParams()
+
+    conn_params: ConnectionParams
+    host: str
+    port: int
+    ssh_key: str
+    ssh_args: list
+    remote: bool
+    username: str
+    ssh_dest: str
+
     def __init__(self, conn_params: ConnectionParams):
         if not platform.system().lower() == "linux":
             raise EnvironmentError("Remote operations are supported only on Linux!")
 
-        super().__init__(conn_params.username)
+        if conn_params is None:
+            raise ValueError("Argument 'conn_params' is None.")
+
+        super().__init__()
+
+        if conn_params is __class__.sm_dummy_conn_params:
+            return
+
         self.conn_params = conn_params
         self.host = conn_params.host
         self.port = conn_params.port
@@ -62,6 +83,18 @@ class RemoteOperations(OsOperations):
 
     def __enter__(self):
         return self
+
+    def create_clone(self) -> RemoteOperations:
+        clone = __class__(__class__.sm_dummy_conn_params)
+        clone.conn_params = copy.copy(self.conn_params)
+        clone.host = self.host
+        clone.port = self.port
+        clone.ssh_key = self.ssh_key
+        clone.ssh_args = copy.copy(self.ssh_args)
+        clone.remote = self.remote
+        clone.username = self.username
+        clone.ssh_dest = self.ssh_dest
+        return clone
 
     def exec_command(
         self, cmd, wait_exit=False, verbose=False, expect_error=False,
