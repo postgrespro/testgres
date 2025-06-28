@@ -1776,6 +1776,62 @@ class TestTestgresCommon:
         logging.info("temp directory [{}] is deleting".format(tmp_dir))
         node_svc.os_ops.rmdir(tmp_dir)
 
+    def test_node_app__make_empty_with_explicit_port(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+        logging.info("temp directory is [{}]".format(tmp_dir))
+
+        # -----------
+        node_app = NodeApp(
+            test_path=tmp_dir,
+            os_ops=node_svc.os_ops,
+            port_manager=node_svc.port_manager
+        )
+
+        assert node_app.os_ops is node_svc.os_ops
+        assert node_app.port_manager is node_svc.port_manager
+        assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+        assert len(node_app.nodes_to_cleanup) == 0
+
+        port = node_app.port_manager.reserve_port()
+        assert type(port) == int  # noqa: E721
+
+        node: PostgresNode = None
+        try:
+            node = node_app.make_simple("node", port=port)
+            assert node is not None
+            assert isinstance(node, PostgresNode)
+            assert node.os_ops is node_svc.os_ops
+            assert node.port_manager is None  # <---------
+            assert node.port == port
+            assert node._should_free_port == False  # noqa: E712
+
+            assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+            assert len(node_app.nodes_to_cleanup) == 1
+            assert node_app.nodes_to_cleanup[0] is node
+
+            node.slow_start()
+        finally:
+            if node is not None:
+                node.stop()
+                node.free_port()
+
+        assert node._port is None
+        assert not node._should_free_port
+
+        node.cleanup(release_resources=True)
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
+
     @staticmethod
     def helper__get_node(
         node_svc: PostgresNodeService,
