@@ -1699,6 +1699,7 @@ class TestTestgresCommon:
         assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
         assert len(node_app.nodes_to_cleanup) == 0
 
+        node: PostgresNode = None
         try:
             node = node_app.make_simple("node")
             assert node is not None
@@ -1712,7 +1713,9 @@ class TestTestgresCommon:
 
             node.slow_start()
         finally:
-            node.stop()
+            if node is not None:
+                node.stop()
+                node.release_resources()
 
         node.cleanup(release_resources=True)
 
