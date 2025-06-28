@@ -690,9 +690,6 @@ class PostgresNode(object):
             ps_output,
             ps_command)
 
-    def _release_resources(self):
-        self.free_port()
-
     @staticmethod
     def _throw_bugcheck__unexpected_result_of_ps(result, cmd):
         assert type(result) == str  # noqa: E721
@@ -1324,25 +1321,18 @@ class PostgresNode(object):
 
         return execute_utility2(self.os_ops, _params, self.utils_log_file)
 
+    def release_resources(self):
+        """
+        Release resorces owned by this node.
+        """
+        return self._release_resources()
+
     def free_port(self):
         """
         Reclaim port owned by this node.
         NOTE: this method does not release manually defined port but reset it.
         """
-        assert type(self._should_free_port) == bool  # noqa: E721
-
-        if not self._should_free_port:
-            self._port = None
-        else:
-            assert type(self._port) == int  # noqa: E721
-
-            assert self._port_manager is not None
-            assert isinstance(self._port_manager, PortManager)
-
-            port = self._port
-            self._should_free_port = False
-            self._port = None
-            self._port_manager.release_port(port)
+        return self._free_port()
 
     def cleanup(self, max_attempts=3, full=False, release_resources=False):
         """
@@ -2155,6 +2145,25 @@ class PostgresNode(object):
         upgrade_command += options
 
         return self.os_ops.exec_command(upgrade_command, expect_error=expect_error)
+
+    def _release_resources(self):
+        self._free_port()
+
+    def _free_port(self):
+        assert type(self._should_free_port) == bool  # noqa: E721
+
+        if not self._should_free_port:
+            self._port = None
+        else:
+            assert type(self._port) == int  # noqa: E721
+
+            assert self._port_manager is not None
+            assert isinstance(self._port_manager, PortManager)
+
+            port = self._port
+            self._should_free_port = False
+            self._port = None
+            self._port_manager.release_port(port)
 
     def _get_bin_path(self, filename):
         assert self._os_ops is not None
