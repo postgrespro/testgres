@@ -105,8 +105,12 @@ class NodeApp:
             port_manager=port_manager
         )
 
-        assert type(self._nodes_to_cleanup) == list  # noqa: E721
-        self._nodes_to_cleanup.append(node)
+        try:
+            assert type(self._nodes_to_cleanup) == list  # noqa: E721
+            self._nodes_to_cleanup.append(node)
+        except:  # noqa: E722
+            node.cleanup(release_resources=True)
+            raise
 
         return node
 
