@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import getpass
 import logging
 import os
@@ -11,6 +13,7 @@ import socket
 import psutil
 import typing
 import threading
+import copy
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
@@ -47,13 +50,26 @@ class LocalOsLockFsObj(OsLockObj):
 
 
 class LocalOperations(OsOperations):
+    sm_dummy_conn_params = ConnectionParams()
     sm_single_instance: OsOperations = None
     sm_single_instance_guard = threading.Lock()
 
+    # TODO: make it read-only
+    conn_params: ConnectionParams
+    host: str
+    ssh_key: typing.Optional[str]
+    remote: bool
+    username: str
+
     def __init__(self, conn_params=None):
+        super().__init__()
+
+        if conn_params is __class__.sm_dummy_conn_params:
+            return
+
         if conn_params is None:
             conn_params = ConnectionParams()
-        super(LocalOperations, self).__init__(conn_params.username)
+
         self.conn_params = conn_params
         self.host = conn_params.host
         self.ssh_key = None
@@ -75,6 +91,15 @@ class LocalOperations(OsOperations):
         assert __class__.sm_single_instance is not None
         assert type(__class__.sm_single_instance) == __class__  # noqa: E721
         return __class__.sm_single_instance
+
+    def create_clone(self) -> LocalOperations:
+        clone = __class__(__class__.sm_dummy_conn_params)
+        clone.conn_params = copy.copy(self.conn_params)
+        clone.host = self.host
+        clone.ssh_key = self.ssh_key
+        clone.remote = self.remote
+        clone.username = self.username
+        return clone
 
     @staticmethod
     def _process_output(encoding, temp_file_path):

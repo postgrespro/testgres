@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
 from .helpers.global_data import OsOperations
@@ -13,6 +15,7 @@ from testgres.utils import get_bin_path2
 from testgres import ProcessType
 from testgres import NodeStatus
 from testgres import IsolationLevel
+from testgres import NodeApp
 
 # New name prevents to collect test-functions in TestgresException and fixes
 # the problem with pytest warning.
@@ -1583,6 +1586,251 @@ class TestTestgresCommon:
                 assert node.os_ops is node_svc.os_ops
         finally:
             node_svc.port_manager.release_port(port)
+
+    class tag_rmdirs_protector:
+        _os_ops: OsOperations
+        _cwd: str
+        _old_rmdirs: any
+        _cwd: str
+
+        def __init__(self, os_ops: OsOperations):
+            self._os_ops = os_ops
+            self._cwd = os.path.abspath(os_ops.cwd())
+            self._old_rmdirs = os_ops.rmdirs
+
+        def __enter__(self):
+            assert self._os_ops.rmdirs == self._old_rmdirs
+            self._os_ops.rmdirs = self.proxy__rmdirs
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            assert self._os_ops.rmdirs == self.proxy__rmdirs
+            self._os_ops.rmdirs = self._old_rmdirs
+            return False
+
+        def proxy__rmdirs(self, path, ignore_errors=True):
+            raise Exception("Call of rmdirs is not expected!")
+
+    def test_node_app__make_empty__base_dir_is_None(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+        logging.info("temp directory is [{}]".format(tmp_dir))
+
+        # -----------
+        os_ops = node_svc.os_ops.create_clone()
+        assert os_ops is not node_svc.os_ops
+
+        # -----------
+        with __class__.tag_rmdirs_protector(os_ops):
+            node_app = NodeApp(test_path=tmp_dir, os_ops=os_ops)
+            assert node_app.os_ops is os_ops
+
+            with pytest.raises(expected_exception=BaseException) as x:
+                node_app.make_empty(base_dir=None)
+
+            if type(x.value) == AssertionError:  # noqa: E721
+                pass
+            else:
+                assert type(x.value) == ValueError  # noqa: E721
+                assert str(x.value) == "Argument 'base_dir' is not defined."
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
+
+    def test_node_app__make_empty__base_dir_is_Empty(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+        logging.info("temp directory is [{}]".format(tmp_dir))
+
+        # -----------
+        os_ops = node_svc.os_ops.create_clone()
+        assert os_ops is not node_svc.os_ops
+
+        # -----------
+        with __class__.tag_rmdirs_protector(os_ops):
+            node_app = NodeApp(test_path=tmp_dir, os_ops=os_ops)
+            assert node_app.os_ops is os_ops
+
+            with pytest.raises(expected_exception=ValueError) as x:
+                node_app.make_empty(base_dir="")
+
+            assert str(x.value) == "Argument 'base_dir' is empty."
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
+
+    def test_node_app__make_empty(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+        logging.info("temp directory is [{}]".format(tmp_dir))
+
+        # -----------
+        node_app = NodeApp(
+            test_path=tmp_dir,
+            os_ops=node_svc.os_ops,
+            port_manager=node_svc.port_manager
+        )
+
+        assert node_app.os_ops is node_svc.os_ops
+        assert node_app.port_manager is node_svc.port_manager
+        assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+        assert len(node_app.nodes_to_cleanup) == 0
+
+        node: PostgresNode = None
+        try:
+            node = node_app.make_simple("node")
+            assert node is not None
+            assert isinstance(node, PostgresNode)
+            assert node.os_ops is node_svc.os_ops
+            assert node.port_manager is node_svc.port_manager
+
+            assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+            assert len(node_app.nodes_to_cleanup) == 1
+            assert node_app.nodes_to_cleanup[0] is node
+
+            node.slow_start()
+        finally:
+            if node is not None:
+                node.stop()
+                node.release_resources()
+
+        node.cleanup(release_resources=True)
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
+
+    def test_node_app__make_simple__checksum(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+
+        logging.info("temp directory is [{}]".format(tmp_dir))
+        node_app = NodeApp(test_path=tmp_dir, os_ops=node_svc.os_ops)
+
+        C_NODE = "node"
+
+        # -----------
+        def LOCAL__test(checksum: bool, initdb_params: typing.Optional[list]):
+            initdb_params0 = initdb_params
+            initdb_params0_copy = initdb_params0.copy() if initdb_params0 is not None else None
+
+            with node_app.make_simple(C_NODE, checksum=checksum, initdb_params=initdb_params):
+                assert initdb_params is initdb_params0
+                if initdb_params0 is not None:
+                    assert initdb_params0 == initdb_params0_copy
+
+            assert initdb_params is initdb_params0
+            if initdb_params0 is not None:
+                assert initdb_params0 == initdb_params0_copy
+
+        # -----------
+        LOCAL__test(checksum=False, initdb_params=None)
+        LOCAL__test(checksum=True, initdb_params=None)
+
+        # -----------
+        params = []
+        LOCAL__test(checksum=False, initdb_params=params)
+        LOCAL__test(checksum=True, initdb_params=params)
+
+        # -----------
+        params = ["--no-sync"]
+        LOCAL__test(checksum=False, initdb_params=params)
+        LOCAL__test(checksum=True, initdb_params=params)
+
+        # -----------
+        params = ["--data-checksums"]
+        LOCAL__test(checksum=False, initdb_params=params)
+        LOCAL__test(checksum=True, initdb_params=params)
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
+
+    def test_node_app__make_empty_with_explicit_port(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) == str  # noqa: E721
+        logging.info("temp directory is [{}]".format(tmp_dir))
+
+        # -----------
+        node_app = NodeApp(
+            test_path=tmp_dir,
+            os_ops=node_svc.os_ops,
+            port_manager=node_svc.port_manager
+        )
+
+        assert node_app.os_ops is node_svc.os_ops
+        assert node_app.port_manager is node_svc.port_manager
+        assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+        assert len(node_app.nodes_to_cleanup) == 0
+
+        port = node_app.port_manager.reserve_port()
+        assert type(port) == int  # noqa: E721
+
+        node: PostgresNode = None
+        try:
+            node = node_app.make_simple("node", port=port)
+            assert node is not None
+            assert isinstance(node, PostgresNode)
+            assert node.os_ops is node_svc.os_ops
+            assert node.port_manager is None  # <---------
+            assert node.port == port
+            assert node._should_free_port == False  # noqa: E712
+
+            assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+            assert len(node_app.nodes_to_cleanup) == 1
+            assert node_app.nodes_to_cleanup[0] is node
+
+            node.slow_start()
+        finally:
+            if node is not None:
+                node.stop()
+                node.free_port()
+
+        assert node._port is None
+        assert not node._should_free_port
+
+        node.cleanup(release_resources=True)
+
+        # -----------
+        logging.info("temp directory [{}] is deleting".format(tmp_dir))
+        node_svc.os_ops.rmdir(tmp_dir)
 
     @staticmethod
     def helper__get_node(
