@@ -4,7 +4,6 @@
 import pluggy
 import pytest
 import os
-import sys
 import logging
 import pathlib
 import math
@@ -15,16 +14,19 @@ import _pytest.outcomes
 import _pytest.unittest
 import _pytest.logging
 
-# /////////////////////////////////////////////////////////////////////////////
-
-if sys.version_info < (3, 8):
-    T_PLUGGY_RESULT = pluggy._result._Result
-else:
-    T_PLUGGY_RESULT = pluggy.Result
+from packaging.version import Version
 
 # /////////////////////////////////////////////////////////////////////////////
 
 C_ROOT_DIR__RELATIVE = ".."
+
+# /////////////////////////////////////////////////////////////////////////////
+# T_PLUGGY_RESULT
+
+if Version(pluggy.__version__) <= Version("1.2"):
+    T_PLUGGY_RESULT = pluggy._result._Result
+else:
+    T_PLUGGY_RESULT = pluggy.Result
 
 # /////////////////////////////////////////////////////////////////////////////
 # TestConfigPropNames
