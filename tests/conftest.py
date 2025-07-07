@@ -14,9 +14,19 @@ import _pytest.outcomes
 import _pytest.unittest
 import _pytest.logging
 
+from packaging.version import Version
+
 # /////////////////////////////////////////////////////////////////////////////
 
 C_ROOT_DIR__RELATIVE = ".."
+
+# /////////////////////////////////////////////////////////////////////////////
+# T_PLUGGY_RESULT
+
+if Version(pluggy.__version__) <= Version("1.2"):
+    T_PLUGGY_RESULT = pluggy._result._Result
+else:
+    T_PLUGGY_RESULT = pluggy.Result
 
 # /////////////////////////////////////////////////////////////////////////////
 # TestConfigPropNames
@@ -344,7 +354,7 @@ g_critical_msg_count_key = pytest.StashKey[int]()
 
 
 def helper__makereport__setup(
-    item: pytest.Function, call: pytest.CallInfo, outcome: pluggy.Result
+    item: pytest.Function, call: pytest.CallInfo, outcome: T_PLUGGY_RESULT
 ):
     assert item is not None
     assert call is not None
@@ -352,7 +362,7 @@ def helper__makereport__setup(
     # it may be pytest.Function or _pytest.unittest.TestCaseFunction
     assert isinstance(item, pytest.Function)
     assert type(call) == pytest.CallInfo  # noqa: E721
-    assert type(outcome) == pluggy.Result  # noqa: E721
+    assert type(outcome) == T_PLUGGY_RESULT  # noqa: E721
 
     C_LINE1 = "******************************************************"
 
@@ -403,7 +413,7 @@ def helper__makereport__setup(
 
 # ------------------------------------------------------------------------
 def helper__makereport__call(
-    item: pytest.Function, call: pytest.CallInfo, outcome: pluggy.Result
+    item: pytest.Function, call: pytest.CallInfo, outcome: T_PLUGGY_RESULT
 ):
     assert item is not None
     assert call is not None
@@ -411,7 +421,7 @@ def helper__makereport__call(
     # it may be pytest.Function or _pytest.unittest.TestCaseFunction
     assert isinstance(item, pytest.Function)
     assert type(call) == pytest.CallInfo  # noqa: E721
-    assert type(outcome) == pluggy.Result  # noqa: E721
+    assert type(outcome) == T_PLUGGY_RESULT  # noqa: E721
 
     # --------
     item_error_msg_count1 = item.stash.get(g_error_msg_count_key, 0)
@@ -578,9 +588,9 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     assert isinstance(item, pytest.Function)
     assert type(call) == pytest.CallInfo  # noqa: E721
 
-    outcome: pluggy.Result = yield
+    outcome = yield
     assert outcome is not None
-    assert type(outcome) == pluggy.Result  # noqa: E721
+    assert type(outcome) == T_PLUGGY_RESULT  # noqa: E721
 
     assert type(call.when) == str  # noqa: E721
 
@@ -738,10 +748,10 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function):
             assert logWrapper._critical_counter == 0
             assert logging.root.handle is logWrapper
 
-            r: pluggy.Result = yield
+            r = yield
 
             assert r is not None
-            assert type(r) == pluggy.Result  # noqa: E721
+            assert type(r) == T_PLUGGY_RESULT  # noqa: E721
 
             assert logWrapper._old_method is not None
             assert type(logWrapper._err_counter) == int  # noqa: E721
