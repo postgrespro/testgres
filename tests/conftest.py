@@ -873,7 +873,9 @@ def run_after_tests(request: pytest.FixtureRequest):
         assert header != ""
         logging.info(C_LINE1 + " [" + header + "]")
 
-    def LOCAL__print_test_list(header: str, test_count: int, test_list: typing.List[str]):
+    def LOCAL__print_test_list(
+        header: str, test_count: int, test_list: typing.List[str]
+    ):
         assert type(header) == str  # noqa: E721
         assert type(test_count) == int  # noqa: E721
         assert type(test_list) == list  # noqa: E721
