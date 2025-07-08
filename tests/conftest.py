@@ -9,6 +9,7 @@ import pathlib
 import math
 import datetime
 import typing
+import enum
 
 import _pytest.outcomes
 import _pytest.unittest
@@ -37,6 +38,30 @@ else:
 g_error_msg_count_key = pytest.StashKey[int]()
 g_warning_msg_count_key = pytest.StashKey[int]()
 g_critical_msg_count_key = pytest.StashKey[int]()
+
+
+# /////////////////////////////////////////////////////////////////////////////
+# T_TEST_PROCESS_KIND
+
+class T_TEST_PROCESS_KIND(enum.Enum):
+    Master = 1
+    Worker = 2
+
+
+# /////////////////////////////////////////////////////////////////////////////
+# T_TEST_PROCESS_MODE
+
+class T_TEST_PROCESS_MODE(enum.Enum):
+    Collect = 1
+    ExecTests = 2
+
+
+# /////////////////////////////////////////////////////////////////////////////
+
+g_test_process_kind: typing.Optional[T_TEST_PROCESS_KIND] = None
+g_test_process_mode: typing.Optional[T_TEST_PROCESS_MODE] = None
+
+g_worker_log_is_created: typing.Optional[bool] = None
 
 
 # /////////////////////////////////////////////////////////////////////////////
@@ -857,13 +882,37 @@ def helper__print_test_list2(tests: typing.List[T_TUPLE__str_int]) -> None:
 
 
 # /////////////////////////////////////////////////////////////////////////////
+# SUMMARY BUILDER
 
 
-@pytest.fixture(autouse=True, scope="session")
-def run_after_tests(request: pytest.FixtureRequest):
-    assert isinstance(request, pytest.FixtureRequest)
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish():
+    #
+    # NOTE: It should execute after logging.pytest_sessionfinish
+    #
 
-    yield
+    global g_test_process_kind  # noqa: F824
+    global g_test_process_mode  # noqa: F824
+    global g_worker_log_is_created  # noqa: F824
+
+    assert g_test_process_kind is not None
+    assert type(g_test_process_kind) == T_TEST_PROCESS_KIND  # noqa: E721
+
+    if g_test_process_kind == T_TEST_PROCESS_KIND.Master:
+        return
+
+    assert g_test_process_kind == T_TEST_PROCESS_KIND.Worker
+
+    assert g_test_process_mode is not None
+    assert type(g_test_process_mode) == T_TEST_PROCESS_MODE  # noqa: E721
+
+    if g_test_process_mode == T_TEST_PROCESS_MODE.Collect:
+        return
+
+    assert g_test_process_mode == T_TEST_PROCESS_MODE.ExecTests
+
+    assert type(g_worker_log_is_created) == bool  # noqa: E721
+    assert g_worker_log_is_created
 
     C_LINE1 = "---------------------------"
 
@@ -975,8 +1024,33 @@ def run_after_tests(request: pytest.FixtureRequest):
 # /////////////////////////////////////////////////////////////////////////////
 
 
+def helper__detect_test_process_kind(config: pytest.Config) -> T_TEST_PROCESS_KIND:
+    assert isinstance(config, pytest.Config)
+
+    #
+    # xdist' master process registers DSession plugin.
+    #
+    p = config.pluginmanager.get_plugin("dsession")
+
+    if p is not None:
+        return T_TEST_PROCESS_KIND.Master
+
+    return T_TEST_PROCESS_KIND.Worker
+
+
+# ------------------------------------------------------------------------
+def helper__detect_test_process_mode(config: pytest.Config) -> T_TEST_PROCESS_MODE:
+    assert isinstance(config, pytest.Config)
+
+    if config.getvalue("collectonly"):
+        return T_TEST_PROCESS_MODE.Collect
+
+    return T_TEST_PROCESS_MODE.ExecTests
+
+
+# ------------------------------------------------------------------------
 @pytest.hookimpl(trylast=True)
-def pytest_configure(config: pytest.Config) -> None:
+def helper__pytest_configure__logging(config: pytest.Config) -> None:
     assert isinstance(config, pytest.Config)
 
     log_name = TestStartupData.GetCurrentTestWorkerSignature()
@@ -993,7 +1067,45 @@ def pytest_configure(config: pytest.Config) -> None:
     assert logging_plugin is not None
     assert isinstance(logging_plugin, _pytest.logging.LoggingPlugin)
 
-    logging_plugin.set_log_path(os.path.join(log_dir, log_name))
+    log_file_path = os.path.join(log_dir, log_name)
+    assert log_file_path is not None
+    assert type(log_file_path) == str  # noqa: E721
 
+    logging_plugin.set_log_path(log_file_path)
+    return
+
+
+# ------------------------------------------------------------------------
+@pytest.hookimpl(trylast=True)
+def pytest_configure(config: pytest.Config) -> None:
+    assert isinstance(config, pytest.Config)
+
+    global g_test_process_kind
+    global g_test_process_mode
+    global g_worker_log_is_created
+
+    assert g_test_process_kind is None
+    assert g_test_process_mode is None
+    assert g_worker_log_is_created is None
+
+    g_test_process_mode = helper__detect_test_process_mode(config)
+    g_test_process_kind = helper__detect_test_process_kind(config)
+
+    assert type(g_test_process_kind) == T_TEST_PROCESS_KIND  # noqa: E721
+    assert type(g_test_process_mode) == T_TEST_PROCESS_MODE  # noqa: E721
+
+    if g_test_process_kind == T_TEST_PROCESS_KIND.Master:
+        pass
+    else:
+        assert g_test_process_kind == T_TEST_PROCESS_KIND.Worker
+
+        if g_test_process_mode == T_TEST_PROCESS_MODE.Collect:
+            g_worker_log_is_created = False
+        else:
+            assert g_test_process_mode == T_TEST_PROCESS_MODE.ExecTests
+            helper__pytest_configure__logging(config)
+            g_worker_log_is_created = True
+
+    return
 
 # /////////////////////////////////////////////////////////////////////////////
