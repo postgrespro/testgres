@@ -21,6 +21,10 @@ from packaging.version import Version
 C_ROOT_DIR__RELATIVE = ".."
 
 # /////////////////////////////////////////////////////////////////////////////
+
+T_TUPLE__str_int = typing.Tuple[str, int]
+
+# /////////////////////////////////////////////////////////////////////////////
 # T_PLUGGY_RESULT
 
 if Version(pluggy.__version__) <= Version("1.2"):
@@ -29,20 +33,21 @@ else:
     T_PLUGGY_RESULT = pluggy.Result
 
 # /////////////////////////////////////////////////////////////////////////////
-# TestConfigPropNames
 
+g_error_msg_count_key = pytest.StashKey[int]()
+g_warning_msg_count_key = pytest.StashKey[int]()
+g_critical_msg_count_key = pytest.StashKey[int]()
+
+
+# /////////////////////////////////////////////////////////////////////////////
+# TestConfigPropNames
 
 class TestConfigPropNames:
     TEST_CFG__LOG_DIR = "TEST_CFG__LOG_DIR"
 
 
 # /////////////////////////////////////////////////////////////////////////////
-
-T_TUPLE__str_int = typing.Tuple[str, int]
-
-# /////////////////////////////////////////////////////////////////////////////
 # TestStartupData__Helper
-
 
 class TestStartupData__Helper:
     sm_StartTS = datetime.datetime.now()
@@ -345,13 +350,6 @@ def helper__build_test_id(item: pytest.Function) -> str:
 
 
 # /////////////////////////////////////////////////////////////////////////////
-
-g_error_msg_count_key = pytest.StashKey[int]()
-g_warning_msg_count_key = pytest.StashKey[int]()
-g_critical_msg_count_key = pytest.StashKey[int]()
-
-# /////////////////////////////////////////////////////////////////////////////
-
 
 def helper__makereport__setup(
     item: pytest.Function, call: pytest.CallInfo, outcome: T_PLUGGY_RESULT
