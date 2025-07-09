@@ -39,9 +39,9 @@ g_error_msg_count_key = pytest.StashKey[int]()
 g_warning_msg_count_key = pytest.StashKey[int]()
 g_critical_msg_count_key = pytest.StashKey[int]()
 
-
 # /////////////////////////////////////////////////////////////////////////////
 # T_TEST_PROCESS_KIND
+
 
 class T_TEST_PROCESS_KIND(enum.Enum):
     Master = 1
@@ -50,6 +50,7 @@ class T_TEST_PROCESS_KIND(enum.Enum):
 
 # /////////////////////////////////////////////////////////////////////////////
 # T_TEST_PROCESS_MODE
+
 
 class T_TEST_PROCESS_MODE(enum.Enum):
     Collect = 1
@@ -63,9 +64,9 @@ g_test_process_mode: typing.Optional[T_TEST_PROCESS_MODE] = None
 
 g_worker_log_is_created: typing.Optional[bool] = None
 
-
 # /////////////////////////////////////////////////////////////////////////////
 # TestConfigPropNames
+
 
 class TestConfigPropNames:
     TEST_CFG__LOG_DIR = "TEST_CFG__LOG_DIR"
@@ -73,6 +74,7 @@ class TestConfigPropNames:
 
 # /////////////////////////////////////////////////////////////////////////////
 # TestStartupData__Helper
+
 
 class TestStartupData__Helper:
     sm_StartTS = datetime.datetime.now()
@@ -375,6 +377,7 @@ def helper__build_test_id(item: pytest.Function) -> str:
 
 
 # /////////////////////////////////////////////////////////////////////////////
+
 
 def helper__makereport__setup(
     item: pytest.Function, call: pytest.CallInfo, outcome: T_PLUGGY_RESULT
@@ -1107,5 +1110,6 @@ def pytest_configure(config: pytest.Config) -> None:
             g_worker_log_is_created = True
 
     return
+
 
 # /////////////////////////////////////////////////////////////////////////////
