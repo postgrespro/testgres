@@ -589,7 +589,7 @@ def helper__makereport__call(
 
     # --------
     assert exitStatus is not None
-    assert type(exitStatus) == str
+    assert type(exitStatus) == str  # noqa: E721
 
     if exitStatus == ExitStatusNames.FAILED:
         assert item_error_msg_count > 0
