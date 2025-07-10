@@ -438,6 +438,16 @@ def helper__makereport__setup(
 
 
 # ------------------------------------------------------------------------
+class ExitStatusNames:
+    FAILED = "FAILED"
+    PASSED = "PASSED"
+    XFAILED = "XFAILED"
+    NOT_XFAILED = "NOT XFAILED"
+    SKIPPED = "SKIPPED"
+    UNEXPECTED = "UNEXPECTED"
+
+
+# ------------------------------------------------------------------------
 def helper__makereport__call(
     item: pytest.Function, call: pytest.CallInfo, outcome: T_PLUGGY_RESULT
 ):
@@ -486,6 +496,7 @@ def helper__makereport__call(
 
     # --------
     exitStatus = None
+    exitStatusInfo = None
     if rep.outcome == "skipped":
         assert call.excinfo is not None  # research
         assert call.excinfo.value is not None  # research
@@ -493,21 +504,21 @@ def helper__makereport__call(
         if type(call.excinfo.value) == _pytest.outcomes.Skipped:  # noqa: E721
             assert not hasattr(rep, "wasxfail")
 
-            exitStatus = "SKIPPED"
+            exitStatus = ExitStatusNames.SKIPPED
             reasonText = str(call.excinfo.value)
             reasonMsgTempl = "SKIP REASON: {0}"
 
             TEST_PROCESS_STATS.incrementSkippedTestCount()
 
-        elif type(call.excinfo.value) == _pytest.outcomes.XFailed:  # noqa: E721
-            exitStatus = "XFAILED"
+        elif type(call.excinfo.value) == _pytest.outcomes.XFailed:  # noqa: E721 E501
+            exitStatus = ExitStatusNames.XFAILED
             reasonText = str(call.excinfo.value)
             reasonMsgTempl = "XFAIL REASON: {0}"
 
             TEST_PROCESS_STATS.incrementXFailedTestCount(testID, item_error_msg_count)
 
         else:
-            exitStatus = "XFAILED"
+            exitStatus = ExitStatusNames.XFAILED
             assert hasattr(rep, "wasxfail")
             assert rep.wasxfail is not None
             assert type(rep.wasxfail) == str  # noqa: E721
@@ -544,7 +555,7 @@ def helper__makereport__call(
         assert item_error_msg_count > 0
         TEST_PROCESS_STATS.incrementFailedTestCount(testID, item_error_msg_count)
 
-        exitStatus = "FAILED"
+        exitStatus = ExitStatusNames.FAILED
     elif rep.outcome == "passed":
         assert call.excinfo is None
 
@@ -559,21 +570,30 @@ def helper__makereport__call(
                 warnMsg += " [" + rep.wasxfail + "]"
 
             logging.info(warnMsg)
-            exitStatus = "NOT XFAILED"
+            exitStatus = ExitStatusNames.NOT_XFAILED
         else:
             assert not hasattr(rep, "wasxfail")
 
             TEST_PROCESS_STATS.incrementPassedTestCount()
-            exitStatus = "PASSED"
+            exitStatus = ExitStatusNames.PASSED
     else:
         TEST_PROCESS_STATS.incrementUnexpectedTests()
-        exitStatus = "UNEXPECTED [{0}]".format(rep.outcome)
+        exitStatus = ExitStatusNames.UNEXPECTED
+        exitStatusInfo = rep.outcome
         # [2025-03-28] It may create a useless problem in new environment.
         # assert False
 
     # --------
     if item_warning_msg_count > 0:
         TEST_PROCESS_STATS.incrementWarningTestCount(testID, item_warning_msg_count)
+
+    # --------
+    assert exitStatus is not None
+    assert type(exitStatus) == str  # noqa: E721
+
+    if exitStatus == ExitStatusNames.FAILED:
+        assert item_error_msg_count > 0
+        pass
 
     # --------
     assert type(TEST_PROCESS_STATS.cTotalDuration) == datetime.timedelta  # noqa: E721
@@ -584,10 +604,16 @@ def helper__makereport__call(
     assert testDurration <= TEST_PROCESS_STATS.cTotalDuration
 
     # --------
+    exitStatusLineData = exitStatus
+
+    if exitStatusInfo is not None:
+        exitStatusLineData += " [{}]".format(exitStatusInfo)
+
+    # --------
     logging.info("*")
     logging.info("* DURATION     : {0}".format(timedelta_to_human_text(testDurration)))
     logging.info("*")
-    logging.info("* EXIT STATUS  : {0}".format(exitStatus))
+    logging.info("* EXIT STATUS  : {0}".format(exitStatusLineData))
     logging.info("* ERROR COUNT  : {0}".format(item_error_msg_count))
     logging.info("* WARNING COUNT: {0}".format(item_warning_msg_count))
     logging.info("*")
