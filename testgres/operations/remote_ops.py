@@ -10,6 +10,7 @@ import io
 import logging
 import typing
 import copy
+import socket
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
@@ -685,7 +686,7 @@ class RemoteOperations(OsOperations):
         port_hex = format(number, '04X')
 
         # Search /proc/net/tcp and tcp6 for any entry with this port
-        cmd = ['/bin/bash', '-lc',
+        cmd = ['/bin/bash', '-c',
                f"grep -q ':{port_hex} ' /proc/net/tcp /proc/net/tcp6"]
 
         exit_status, output, error = self.exec_command(
