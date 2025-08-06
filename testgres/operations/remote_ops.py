@@ -10,6 +10,7 @@ import io
 import logging
 import typing
 import copy
+import socket
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
@@ -681,22 +682,31 @@ class RemoteOperations(OsOperations):
     def is_port_free(self, number: int) -> bool:
         assert type(number) == int  # noqa: E721
 
-        cmd = ["nc", "-w", "5", "-z", "-v", "localhost", str(number)]
+        # grep -q returns 0 if a listening socket on that port is found
+        port_hex = format(number, '04X')
 
-        exit_status, output, error = self.exec_command(cmd=cmd, encoding=get_default_encoding(), ignore_errors=True, verbose=True)
+        # Search /proc/net/tcp and tcp6 for any entry with this port
+        cmd = ['/bin/bash', '-lc',
+               f"grep -q ':{port_hex} ' /proc/net/tcp /proc/net/tcp6"]
 
-        assert type(output) == str  # noqa: E721
-        assert type(error) == str  # noqa: E721
+        exit_status, output, error = self.exec_command(
+            cmd=cmd,
+            encoding=get_default_encoding(),
+            ignore_errors=True,
+            verbose=True
+        )
 
+        # grep exit 0 -> port is busy
         if exit_status == 0:
-            return __class__._is_port_free__process_0(error)
+            return False
 
+        # grep exit 1 -> port is free
         if exit_status == 1:
-            return __class__._is_port_free__process_1(error)
+            return True
 
-        errMsg = "nc returns an unknown result code: {0}".format(exit_status)
-
-        RaiseError.CommandExecutionError(
+        # any other code is an unexpected error
+        errMsg = f"grep returned unexpected exit code: {exit_status}"
+        raise RaiseError.CommandExecutionError(
             cmd=cmd,
             exit_code=exit_status,
             message=errMsg,
@@ -746,12 +756,7 @@ class RemoteOperations(OsOperations):
     @staticmethod
     def _is_port_free__process_1(error: str) -> bool:
         assert type(error) == str  # noqa: E721
-        #
-        # Example of error text:
-        #  "nc: connect to localhost (127.0.0.1) port 1024 (tcp) failed: Connection refused\n"
-        #
         # May be here is needed to check error message?
-        #
         return True
 
     @staticmethod
