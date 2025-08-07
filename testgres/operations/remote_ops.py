@@ -10,7 +10,6 @@ import io
 import logging
 import typing
 import copy
-import socket
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
