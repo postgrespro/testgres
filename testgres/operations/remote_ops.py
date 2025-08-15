@@ -681,6 +681,8 @@ class RemoteOperations(OsOperations):
 
     def is_port_free(self, number: int) -> bool:
         assert type(number) == int  # noqa: E721
+        assert number >= 0
+        assert number <= 65535  # OK?
 
         # grep -q returns 0 if a listening socket on that port is found
         port_hex = format(number, '04X')
