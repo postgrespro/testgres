@@ -1,3 +1,7 @@
+# Deprecated
+The project was moved to https://github.com/postgrespro/testgres-pg_probackup2  
+Use the new repository for commits.
+
 # testgres - pg_probackup2
 
 Ccontrol and testing utility for [pg_probackup2](https://github.com/postgrespro/pg_probackup). Python 3.5+ is supported.
