@@ -10,6 +10,7 @@ import io
 import logging
 import typing
 import copy
+import re
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
@@ -684,9 +685,20 @@ class RemoteOperations(OsOperations):
         # grep -q returns 0 if a listening socket on that port is found
         port_hex = format(number, '04X')
 
-        # Search /proc/net/tcp and tcp6 for any entry with this port
-        cmd = ['/bin/bash', '-c',
-               f"grep -q ':{port_hex} ' /proc/net/tcp /proc/net/tcp6"]
+        #   sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt ...
+        #  137: 0A01A8C0:EC08 1DA2A959:01BB 01 00000000:00000000 02:00000000 00000000 ...
+        C_REGEXP = r"^\s*[0-9]+:\s*[0-9a-fA-F]{8}:" + re.escape(port_hex) + r"\s+[0-9a-fA-F]{8}:[0-9a-fA-F]{4}\s+"
+
+        # Search /proc/net/tcp for any entry with this port
+        # NOTE: grep requires quote string with regular expression
+        # TODO: added a support for tcp/ip v6
+        grep_cmd_s = "grep -q -E \"" + C_REGEXP + "\" /proc/net/tcp"
+
+        cmd = [
+            "/bin/bash",
+            "-c",
+            grep_cmd_s,
+        ]
 
         exit_status, output, error = self.exec_command(
             cmd=cmd,
