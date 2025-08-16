@@ -30,6 +30,7 @@ setup(
     version='1.11.0',
     name='testgres',
     packages=['testgres', 'testgres.operations', 'testgres.impl'],
+    package_dir={"testgres": "src"},
     description='Testing utility for PostgreSQL and its extensions',
     url='https://github.com/postgrespro/testgres',
     long_description=readme,

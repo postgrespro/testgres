@@ -15,8 +15,8 @@ import threading
 import typing
 import uuid
 
-from testgres import InvalidOperationException
-from testgres import ExecUtilException
+from src import InvalidOperationException
+from src import ExecUtilException
 
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import Future as ThreadFuture

@@ -7,16 +7,16 @@ import logging
 from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
 
-import testgres
+import src as testgres
 
-from testgres.exceptions import InitNodeException
-from testgres.exceptions import ExecUtilException
+from src.exceptions import InitNodeException
+from src.exceptions import ExecUtilException
 
-from testgres.config import scoped_config
-from testgres.config import testgres_config
+from src.config import scoped_config
+from src.config import testgres_config
 
-from testgres import get_bin_path
-from testgres import get_pg_config
+from src import get_bin_path
+from src import get_pg_config
 
 # NOTE: those are ugly imports
 
