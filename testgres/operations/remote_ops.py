@@ -10,6 +10,7 @@ import io
 import logging
 import typing
 import copy
+import re
 
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
@@ -680,23 +681,45 @@ class RemoteOperations(OsOperations):
 
     def is_port_free(self, number: int) -> bool:
         assert type(number) == int  # noqa: E721
+        assert number >= 0
+        assert number <= 65535  # OK?
 
-        cmd = ["nc", "-w", "5", "-z", "-v", "localhost", str(number)]
+        # grep -q returns 0 if a listening socket on that port is found
+        port_hex = format(number, '04X')
 
-        exit_status, output, error = self.exec_command(cmd=cmd, encoding=get_default_encoding(), ignore_errors=True, verbose=True)
+        #   sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt ...
+        #  137: 0A01A8C0:EC08 1DA2A959:01BB 01 00000000:00000000 02:00000000 00000000 ...
+        C_REGEXP = r"^\s*[0-9]+:\s*[0-9a-fA-F]{8}:" + re.escape(port_hex) + r"\s+[0-9a-fA-F]{8}:[0-9a-fA-F]{4}\s+"
 
-        assert type(output) == str  # noqa: E721
-        assert type(error) == str  # noqa: E721
+        # Search /proc/net/tcp for any entry with this port
+        # NOTE: grep requires quote string with regular expression
+        # TODO: added a support for tcp/ip v6
+        grep_cmd_s = "grep -q -E \"" + C_REGEXP + "\" /proc/net/tcp"
 
+        cmd = [
+            "/bin/bash",
+            "-c",
+            grep_cmd_s,
+        ]
+
+        exit_status, output, error = self.exec_command(
+            cmd=cmd,
+            encoding=get_default_encoding(),
+            ignore_errors=True,
+            verbose=True
+        )
+
+        # grep exit 0 -> port is busy
         if exit_status == 0:
-            return __class__._is_port_free__process_0(error)
+            return False
 
+        # grep exit 1 -> port is free
         if exit_status == 1:
-            return __class__._is_port_free__process_1(error)
+            return True
 
-        errMsg = "nc returns an unknown result code: {0}".format(exit_status)
-
-        RaiseError.CommandExecutionError(
+        # any other code is an unexpected error
+        errMsg = f"grep returned unexpected exit code: {exit_status}"
+        raise RaiseError.CommandExecutionError(
             cmd=cmd,
             exit_code=exit_status,
             message=errMsg,
@@ -746,12 +769,7 @@ class RemoteOperations(OsOperations):
     @staticmethod
     def _is_port_free__process_1(error: str) -> bool:
         assert type(error) == str  # noqa: E721
-        #
-        # Example of error text:
-        #  "nc: connect to localhost (127.0.0.1) port 1024 (tcp) failed: Connection refused\n"
-        #
         # May be here is needed to check error message?
-        #
         return True
 
     @staticmethod

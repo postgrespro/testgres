@@ -583,6 +583,8 @@ class LocalOperations(OsOperations):
 
     def is_port_free(self, number: int) -> bool:
         assert type(number) == int  # noqa: E721
+        assert number >= 0
+        assert number <= 65535  # OK?
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
