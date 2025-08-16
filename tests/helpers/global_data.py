@@ -1,7 +1,7 @@
-from src.operations.os_ops import OsOperations
-from src.operations.os_ops import ConnectionParams
-from src.operations.local_ops import LocalOperations
-from src.operations.remote_ops import RemoteOperations
+from  testgres.operations.os_ops import OsOperations
+from  testgres.operations.os_ops import ConnectionParams
+from  testgres.operations.local_ops import LocalOperations
+from  testgres.operations.remote_ops import RemoteOperations
 
 from src.node import PortManager
 from src.node import PortManager__ThisHost

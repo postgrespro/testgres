@@ -16,8 +16,8 @@ from .utils import \
     get_bin_path2, \
     execute_utility2
 
-from .operations.local_ops import LocalOperations
-from .operations.os_ops import OsOperations
+from testgres.operations.local_ops import LocalOperations
+from testgres.operations.os_ops import OsOperations
 
 
 def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = None, bin_path=None, cached=True):

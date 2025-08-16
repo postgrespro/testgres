@@ -22,6 +22,10 @@ if sys.version_info < (3, 4):
 if sys.version_info < (3, 3):
     install_requires.append("ipaddress")
 
+install_requires.append(
+    "git+https://git.postgrespro.ru/d.kovalenko/preview-testgres.os_ops.git"
+)
+
 # Get contents of README file
 with open('README.md', 'r') as f:
     readme = f.read()
@@ -29,7 +33,7 @@ with open('README.md', 'r') as f:
 setup(
     version='1.11.0',
     name='testgres',
-    packages=['testgres', 'testgres.operations', 'testgres.impl'],
+    packages=['testgres', 'testgres.impl'],
     package_dir={"testgres": "src"},
     description='Testing utility for PostgreSQL and its extensions',
     url='https://github.com/postgrespro/testgres',

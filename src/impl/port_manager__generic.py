@@ -1,4 +1,4 @@
-from ..operations.os_ops import OsOperations
+from testgres.operations.os_ops import OsOperations
 
 from ..port_manager import PortManager
 from ..exceptions import PortForException
