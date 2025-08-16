@@ -23,7 +23,7 @@ if sys.version_info < (3, 3):
     install_requires.append("ipaddress")
 
 install_requires.append(
-    "git+https://git.postgrespro.ru/d.kovalenko/preview-testgres.os_ops.git"
+    "testgres.os_ops @ git+https://git.postgrespro.ru/d.kovalenko/preview-testgres.os_ops.git"
 )
 
 # Get contents of README file
