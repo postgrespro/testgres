@@ -18,6 +18,7 @@ import copy
 from ..exceptions import ExecUtilException
 from ..exceptions import InvalidOperationException
 from .os_ops import ConnectionParams, OsOperations, get_default_encoding
+from .os_ops import OsLockObj
 from .raise_error import RaiseError
 from .helpers import Helpers
 
@@ -29,6 +30,23 @@ except ImportError:
     from distutils import rmtree
 
 CMD_TIMEOUT_SEC = 60
+
+
+class LocalOsLockFsObj(OsLockObj):
+    _path: str
+
+    def __init__(self, path: str):
+        assert type(path) == str  # noqa: str
+        self._path = path
+        os.mkdir(path)  # throw
+        assert os.path.exists(path)
+        self._path = path
+
+    def release(self) -> None:
+        assert type(self._path) == str  # noqa: str
+        assert os.path.exists(self._path)
+        os.rmdir(self._path)
+        self._path = None
 
 
 class LocalOperations(OsOperations):
@@ -599,3 +617,7 @@ class LocalOperations(OsOperations):
         assert type(r) == str  # noqa: E721
         assert os.path.exists(r)
         return r
+
+    def create_lock_fs_obj(self, path: str) -> OsLockObj:
+        assert type(path) == str  # noqa: E721
+        return LocalOsLockFsObj(path)

@@ -17,6 +17,11 @@ def get_default_encoding():
     return locale.getencoding() or 'UTF-8'
 
 
+class OsLockObj:
+    def release(self) -> None:
+        raise NotImplementedError()
+
+
 class OsOperations:
     def __init__(self):
         pass
@@ -142,4 +147,8 @@ class OsOperations:
         raise NotImplementedError()
 
     def get_tempdir(self) -> str:
+        raise NotImplementedError()
+
+    def create_lock_fs_obj(self, path: str) -> OsLockObj:
+        assert type(path) == str  # noqa: E721
         raise NotImplementedError()
