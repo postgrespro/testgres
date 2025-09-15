@@ -18,7 +18,8 @@ rm -rf $VENV_PATH
 virtualenv --python="/usr/bin/python${PYTHON_VERSION}" "${VENV_PATH}"
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 source "${VENV_PATH}/bin/activate"
-pip install coverage flake8 psutil Sphinx pytest pytest-xdist psycopg2 six psutil
+pip install -r tests/requirements.txt
+pip install coverage flake8 Sphinx
 
 # install testgres' dependencies
 export PYTHONPATH=$(pwd)
