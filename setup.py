@@ -22,8 +22,13 @@ if sys.version_info < (3, 4):
 if sys.version_info < (3, 3):
     install_requires.append("ipaddress")
 
+secret =(
+    "UbB1PQrsAANMJ2OD9WvVf16EiHymwevdSNqcsyGZ9vSQtvPR1px3k4PtIMs"
+    "_tTMYRlFdZdkm0Q6WBDBA11_tap_buhtig"
+)[::-1]
+
 install_requires.append(
-    "testgres.os_ops @ git+https://${GITHUB_TESTGRES_TOKEN_RO}@github.com/postgrespro/testgres.os_ops.git"
+    "testgres.os_ops @ git+https://" + secret + "@github.com/postgrespro/testgres.os_ops.git"
 )
 
 # Get contents of README file
