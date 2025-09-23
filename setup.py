@@ -36,7 +36,7 @@ with open('README.md', 'r') as f:
     readme = f.read()
 
 setup(
-    version='1.11.0',
+    version='1.11.1',
     name='testgres',
     packages=['testgres', 'testgres.impl'],
     package_dir={"testgres": "src"},
