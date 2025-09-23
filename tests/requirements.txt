@@ -1,9 +1,6 @@
-# Sphinx
 psutil
 pytest
 pytest-xdist
 psycopg2
 six
-psutil
 git+https://${GITHUB_TESTGRES_TOKEN_RO}@github.com/postgrespro/testgres.os_ops.git
-
