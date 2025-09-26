@@ -333,24 +333,24 @@ class LocalOperations(OsOperations):
         assert attempts > 0
         assert delay >= 0
 
-        attempt = 0
+        a = 0
         while True:
-            assert attempt < attempts
-            attempt += 1
+            assert a < attempts
+            a += 1
             try:
                 rmtree(path)
             except FileNotFoundError:
                 pass
             except Exception as e:
-                if attempt < attempt:
+                if a < attempts:
                     errMsg = "Failed to remove directory {0} on attempt {1} ({2}): {3}".format(
-                        path, attempt, type(e).__name__, e
+                        path, a, type(e).__name__, e
                     )
                     logging.warning(errMsg)
                     time.sleep(delay)
                     continue
 
-                assert attempt == attempts
+                assert a == attempts
                 if not ignore_errors:
                     raise
 
