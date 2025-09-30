@@ -29,7 +29,7 @@ class ExecUtilException(TestgresException):
             msg.append(self.message)
 
         if self.command:
-            command_s = ' '.join(self.command) if isinstance(self.command, list) else self.command,
+            command_s = ' '.join(self.command) if isinstance(self.command, list) else self.command
             msg.append(u'Command: {}'.format(command_s))
 
         if self.exit_code:
