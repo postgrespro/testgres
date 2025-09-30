@@ -47,6 +47,9 @@ ENV PYTHON_VERSION=3
 # --------------------------------------------- final
 FROM base2_with_python-${PYTHON_VERSION} as final
 
+# it is required for getting external packages
+RUN apk add --no-cache git
+
 ADD . /pg/testgres
 WORKDIR /pg/testgres
 RUN chown -R postgres /pg
