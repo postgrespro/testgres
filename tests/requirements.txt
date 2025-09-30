@@ -3,4 +3,4 @@ pytest
 pytest-xdist
 psycopg2
 six
-git+https://${GITHUB_TESTGRES_TOKEN_RO}@github.com/postgrespro/testgres.os_ops.git
+git+https://github.com/postgrespro/testgres.os_ops.git
