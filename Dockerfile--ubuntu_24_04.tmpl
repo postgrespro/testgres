@@ -48,7 +48,7 @@ ENV PYTHON_VERSION=3
 FROM base2_with_python-${PYTHON_VERSION} as final
 
 # it is required for getting external packages
-RUN apk install --no-cache git
+RUN apt install -y git
 
 ADD . /pg/testgres
 WORKDIR /pg/testgres
