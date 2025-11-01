@@ -3,4 +3,4 @@ pytest
 pytest-xdist
 psycopg2
 six
-git+https://github.com/postgrespro/testgres.os_ops.git
+testgres.os_ops>=0.0.2,<1.0.0

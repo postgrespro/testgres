@@ -11,7 +11,8 @@ install_requires = [
     "port-for>=0.4",
     "six>=1.9.0",
     "psutil",
-    "packaging"
+    "packaging",
+    "testgres.os_ops>=0.0.2,<1.0.0"
 ]
 
 # Add compatibility enum class
@@ -21,10 +22,6 @@ if sys.version_info < (3, 4):
 # Add compatibility ipaddress module
 if sys.version_info < (3, 3):
     install_requires.append("ipaddress")
-
-install_requires.append(
-    "testgres.os_ops @ git+https://github.com/postgrespro/testgres.os_ops.git"
-)
 
 # Get contents of README file
 with open('README.md', 'r') as f:
