@@ -6,69 +6,69 @@
 
 # testgres
 
-PostgreSQL testing utility. Python 3.7.17+ is supported.
-
+Utility for orchestrating temporary PostgreSQL clusters in Python tests. Supports Python 3.7.17 and newer.
 
 ## Installation
 
-To install `testgres`, run:
+Install `testgres` from PyPI:
 
-```
+```sh
 pip install testgres
 ```
 
-We encourage you to use `virtualenv` for your testing environment.
-
+Use a dedicated virtual environment for isolated test dependencies.
 
 ## Usage
 
 ### Environment
 
-> Note: by default testgres runs `initdb`, `pg_ctl`, `psql` provided by `PATH`.
+> Note: by default `testgres` invokes `initdb`, `pg_ctl`, and `psql` binaries found in `PATH`.
 
-There are several ways to specify a custom postgres installation:
+Specify a custom PostgreSQL installation in one of the following ways:
 
-* export `PG_CONFIG` environment variable pointing to the `pg_config` executable;
-* export `PG_BIN` environment variable pointing to the directory with executable files.
+- Set the `PG_CONFIG` environment variable to point to the `pg_config` executable.
+- Set the `PG_BIN` environment variable to point to the directory with PostgreSQL binaries.
 
 Example:
 
-```bash
-export PG_BIN=$HOME/pg_10/bin
+```sh
+export PG_BIN=$HOME/pg_16/bin
 python my_tests.py
 ```
 
-
 ### Examples
 
-Here is an example of what you can do with `testgres`:
+Create a temporary node, run queries, and let `testgres` clean up automatically:
 
 ```python
-# create a node with random name, port, etc
+# create a node with a random name, port, and data directory
 with testgres.get_new_node() as node:
 
-    # run inidb
+    # run initdb
     node.init()
 
     # start PostgreSQL
     node.start()
 
-    # execute a query in a default DB
+    # execute a query in the default database
     print(node.execute('select 1'))
 
-# ... node stops and its files are about to be removed
+# the node is stopped and its files are removed automatically
 ```
 
-There are four API methods for running queries:
+### Query helpers
+
+`testgres` provides four helpers for executing queries against the node:
 
 | Command | Description |
-|----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| `node.psql(query, ...)` | Runs query via `psql` command and returns tuple `(error code, stdout, stderr)`. |
-| `node.safe_psql(query, ...)` | Same as `psql()` except that it returns only `stdout`. If an error occurs during the execution, an exception will be thrown. |
-| `node.execute(query, ...)` | Connects to PostgreSQL using `psycopg2` or `pg8000` (depends on which one is installed in your system) and returns two-dimensional array with data. |
-| `node.connect(dbname, ...)` | Returns connection wrapper (`NodeConnection`) capable of running several queries within a single transaction. |
+|---------|-------------|
+| `node.psql(query, ...)` | Runs the query via `psql` and returns a tuple `(returncode, stdout, stderr)`. |
+| `node.safe_psql(query, ...)` | Same as `psql()` but returns only `stdout` and raises if the command fails. |
+| `node.execute(query, ...)` | Connects via `psycopg2` or `pg8000` (whichever is available) and returns a list of tuples. |
+| `node.connect(dbname, ...)` | Returns a `NodeConnection` wrapper for executing multiple statements within a transaction. |
 
-The last one is the most powerful: you can use `begin(isolation_level)`, `commit()` and `rollback()`:
+Example of transactional usage:
+
 ```python
 with node.connect() as con:
     con.begin('serializable')
@@ -76,16 +76,13 @@ with node.connect() as con:
     con.rollback()
 ```
 
-
 ### Logging
 
-By default, `cleanup()` removes all temporary files (DB files, logs etc) that were created by testgres' API methods.
-If you'd like to keep logs, execute `configure_testgres(node_cleanup_full=False)` before running any tests.
+By default `cleanup()` removes all temporary files (data directories, logs, and so on) created by the API. Call `configure_testgres(node_cleanup_full=False)` before starting nodes if you want to keep logs for inspection.
 
-> Note: context managers (aka `with`) call `stop()` and `cleanup()` automatically.
+> Note: context managers (the `with` statement) call `stop()` and `cleanup()` automatically.
 
-`testgres` supports [python logging](https://docs.python.org/3.6/library/logging.html),
-which means that you can aggregate logs from several nodes into one file:
+`testgres` integrates with the standard [Python logging](https://docs.python.org/3/library/logging.html) module, so you can aggregate logs from multiple nodes:
 
 ```python
 import logging
@@ -93,12 +90,11 @@ import logging
 # write everything to /tmp/testgres.log
 logging.basicConfig(filename='/tmp/testgres.log')
 
-# enable logging, and create two different nodes
+# enable logging and create two nodes
 testgres.configure_testgres(use_python_logging=True)
 node1 = testgres.get_new_node().init().start()
 node2 = testgres.get_new_node().init().start()
 
-# execute a few queries
 node1.execute('select 1')
 node2.execute('select 2')
 
@@ -106,104 +102,103 @@ node2.execute('select 2')
 testgres.configure_testgres(use_python_logging=False)
 ```
 
-Look at `tests/test_simple.py` file for a complete example of the logging
-configuration.
+See `tests/test_simple.py` for a complete logging example.
 
+### Backup and replication
 
-### Backup & replication
-
-It's quite easy to create a backup and start a new replica:
+Creating backups and spawning replicas is straightforward:
 
 ```python
 with testgres.get_new_node('master') as master:
     master.init().start()
 
-    # create a backup
     with master.backup() as backup:
-
-        # create and start a new replica
         replica = backup.spawn_replica('replica').start()
-
-        # catch up with master node
         replica.catchup()
 
-        # execute a dummy query
         print(replica.execute('postgres', 'select 1'))
 ```
 
 ### Benchmarks
 
-`testgres` is also capable of running benchmarks using `pgbench`:
+Use `pgbench` through `testgres` to run quick benchmarks:
 
 ```python
 with testgres.get_new_node('master') as master:
-    # start a new node
     master.init().start()
 
-    # initialize default DB and run bench for 10 seconds
-    res = master.pgbench_init(scale=2).pgbench_run(time=10)
-    print(res)
+    result = master.pgbench_init(scale=2).pgbench_run(time=10)
+    print(result)
 ```
-
 
 ### Custom configuration
 
-It's often useful to extend default configuration provided by `testgres`.
-
-`testgres` has `default_conf()` function that helps control some basic
-options. The `append_conf()` function can be used to add custom
-lines to configuration lines:
+`testgres` ships with sensible defaults. Adjust them as needed with `default_conf()` and `append_conf()`:
 
 ```python
-ext_conf = "shared_preload_libraries = 'postgres_fdw'"
+extra_conf = "shared_preload_libraries = 'postgres_fdw'"
 
-# initialize a new node
 with testgres.get_new_node().init() as master:
-
-    # ... do something ...
-	
-    # reset main config file
-    master.default_conf(fsync=True,
-                        allow_streaming=True)
-
-    # add a new config line
-    master.append_conf('postgresql.conf', ext_conf)
+    master.default_conf(fsync=True, allow_streaming=True)
+    master.append_conf('postgresql.conf', extra_conf)
 ```
 
-Note that `default_conf()` is called by `init()` function; both of them overwrite
-the configuration file, which means that they should be called before `append_conf()`.
+`default_conf()` is called by `init()` and rewrites the configuration file. Apply `append_conf()` afterwards to keep custom lines.
 
 ### Remote mode
-Testgres supports the creation of PostgreSQL nodes on a remote host. This is useful when you want to run distributed tests involving multiple nodes spread across different machines.
 
-To use this feature, you need to use the RemoteOperations class. This feature is only supported with Linux.
-Here is an example of how you might set this up:
+You can provision nodes on a remote host (Linux only) by wiring `RemoteOperations` into the configuration:
 
 ```python
 from testgres import ConnectionParams, RemoteOperations, TestgresConfig, get_remote_node
 
-# Set up connection params
 conn_params = ConnectionParams(
-    host='your_host',  # replace with your host
-    username='user_name',  # replace with your username
-    ssh_key='path_to_ssh_key'  # replace with your SSH key path
+    host='example.com',
+    username='postgres',
+    ssh_key='/path/to/ssh/key'
 )
 os_ops = RemoteOperations(conn_params)
 
-# Add remote testgres config before test
 TestgresConfig.set_os_ops(os_ops=os_ops)
 
-# Proceed with your test
-def test_basic_query(self):
+def test_basic_query():
     with get_remote_node(conn_params=conn_params) as node:
         node.init().start()
-        res = node.execute('SELECT 1')
-        self.assertEqual(res, [(1,)])
+        assert node.execute('SELECT 1') == [(1,)]
 ```
+
+### Pytest integration
+
+Use fixtures to create and clean up nodes automatically when testing with `pytest`:
+
+```python
+import pytest
+import testgres
+
+@pytest.fixture
+def pg_node():
+    node = testgres.get_new_node().init().start()
+    try:
+        yield node
+    finally:
+        node.stop()
+        node.cleanup()
+
+def test_simple(pg_node):
+    assert pg_node.execute('select 1')[0][0] == 1
+```
+
+This pattern keeps tests concise and ensures that every node is stopped and removed even if the test fails.
+
+### Scaling tips
+
+- Run tests in parallel with `pytest -n auto` (requires `pytest-xdist`). Ensure each node uses a distinct port by setting `PGPORT` in the fixture or by passing the `port` argument to `get_new_node()`.
+- Always call `node.cleanup()` after each test, or rely on context managers/fixtures that do it for you, to avoid leftover data directories.
+- Prefer `node.safe_psql()` for lightweight assertions that should fail fast; use `node.execute()` when you need structured Python results.
 
 ## Authors
 
 [Ildar Musin](https://github.com/zilder)  
 [Dmitry Ivanov](https://github.com/funbringer)  
 [Ildus Kurbangaliev](https://github.com/ildus)  
-[Yury Zhuravlev](https://github.com/stalkerg)  
+[Yury Zhuravlev](https://github.com/stalkerg)
