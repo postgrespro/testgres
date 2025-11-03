@@ -44,6 +44,14 @@ ENV PYTHON_VERSION=3.10
 FROM base2_with_python-3 as base3_with_python-3.11
 ENV PYTHON_VERSION=3.11
 
+# --------------------------------------------- base3_with_python-3.12
+FROM base2_with_python-3 as base3_with_python-3.12
+ENV PYTHON_VERSION=3.12
+
+# --------------------------------------------- base3_with_python-3.13
+FROM base2_with_python-3 as base3_with_python-3.13
+ENV PYTHON_VERSION=3.13
+
 # --------------------------------------------- final
 FROM base3_with_python-${PYTHON_VERSION} as final
 
