@@ -9,8 +9,8 @@ import tempfile
 from contextlib import contextmanager
 
 from .consts import TMP_CACHE
-from .operations.os_ops import OsOperations
-from .operations.local_ops import LocalOperations
+from testgres.operations.os_ops import OsOperations
+from testgres.operations.local_ops import LocalOperations
 
 log_level = os.getenv('LOGGING_LEVEL', 'WARNING').upper()
 log_format = os.getenv('LOGGING_FORMAT', '%(asctime)s - %(levelname)s - %(message)s')

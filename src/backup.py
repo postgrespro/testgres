@@ -13,7 +13,7 @@ from .consts import \
 
 from .exceptions import BackupException
 
-from .operations.os_ops import OsOperations
+from testgres.operations.os_ops import OsOperations
 
 from .utils import \
     get_bin_path2, \

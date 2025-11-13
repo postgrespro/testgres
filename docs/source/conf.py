@@ -14,11 +14,19 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../..'))
+import testgres
+
+assert testgres.__path__ is not None
+assert len(testgres.__path__) == 1
+assert type(testgres.__path__[0] == str)  # noqa: E721
+p = os.path.dirname(testgres.__path__[0])
+assert type(p) == str  # noqa: E721
+sys.path.insert(0, os.path.abspath(p))
 
 # -- Project information -----------------------------------------------------
 
 project = u'testgres'
+package_name = u'testgres'
 copyright = u'2016-2023, Postgres Professional'
 author = u'Postgres Professional'
 

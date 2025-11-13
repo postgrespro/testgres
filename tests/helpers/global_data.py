@@ -3,9 +3,9 @@ from testgres.operations.os_ops import ConnectionParams
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.remote_ops import RemoteOperations
 
-from testgres.node import PortManager
-from testgres.node import PortManager__ThisHost
-from testgres.node import PortManager__Generic
+from src.node import PortManager
+from src.node import PortManager__ThisHost
+from src.node import PortManager__Generic
 
 import os
 

@@ -104,9 +104,9 @@ from .utils import \
 
 from .backup import NodeBackup
 
-from .operations.os_ops import ConnectionParams
-from .operations.os_ops import OsOperations
-from .operations.local_ops import LocalOperations
+from testgres.operations.os_ops import ConnectionParams
+from testgres.operations.os_ops import OsOperations
+from testgres.operations.local_ops import LocalOperations
 
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError

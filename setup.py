@@ -11,7 +11,8 @@ install_requires = [
     "port-for>=0.4",
     "six>=1.9.0",
     "psutil",
-    "packaging"
+    "packaging",
+    "testgres.os_ops>=0.0.2,<1.0.0"
 ]
 
 # Add compatibility enum class
@@ -29,7 +30,8 @@ with open('README.md', 'r') as f:
 setup(
     version='1.11.1',
     name='testgres',
-    packages=['testgres', 'testgres.operations', 'testgres.impl'],
+    packages=['testgres', 'testgres.impl'],
+    package_dir={"testgres": "src"},
     description='Testing utility for PostgreSQL and its extensions',
     url='https://github.com/postgrespro/testgres',
     long_description=readme,

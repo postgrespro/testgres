@@ -7,21 +7,21 @@ import psutil
 import platform
 import logging
 
-import testgres
+import src as testgres
 
-from testgres import StartNodeException
-from testgres import ExecUtilException
-from testgres import NodeApp
-from testgres import scoped_config
-from testgres import get_new_node
-from testgres import get_bin_path
-from testgres import get_pg_config
-from testgres import get_pg_version
+from src import StartNodeException
+from src import ExecUtilException
+from src import NodeApp
+from src import scoped_config
+from src import get_new_node
+from src import get_bin_path
+from src import get_pg_config
+from src import get_pg_version
 
 # NOTE: those are ugly imports
-from testgres.utils import bound_ports
-from testgres.utils import PgVer
-from testgres.node import ProcessProxy
+from src.utils import bound_ports
+from src.utils import PgVer
+from src.node import ProcessProxy
 
 
 def pg_version_ge(version):

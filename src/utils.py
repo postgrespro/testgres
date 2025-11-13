@@ -15,10 +15,10 @@ from six import iteritems
 
 from .exceptions import ExecUtilException
 from .config import testgres_config as tconf
-from .operations.os_ops import OsOperations
-from .operations.remote_ops import RemoteOperations
-from .operations.local_ops import LocalOperations
-from .operations.helpers import Helpers as OsHelpers
+from testgres.operations.os_ops import OsOperations
+from testgres.operations.remote_ops import RemoteOperations
+from testgres.operations.local_ops import LocalOperations
+from testgres.operations.helpers import Helpers as OsHelpers
 
 from .impl.port_manager__generic import PortManager__Generic
 

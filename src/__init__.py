@@ -51,9 +51,9 @@ from .standby import \
 
 from .config import testgres_config
 
-from .operations.os_ops import OsOperations, ConnectionParams
-from .operations.local_ops import LocalOperations
-from .operations.remote_ops import RemoteOperations
+from testgres.operations.os_ops import OsOperations, ConnectionParams
+from testgres.operations.local_ops import LocalOperations
+from testgres.operations.remote_ops import RemoteOperations
 
 __all__ = [
     "get_new_node",
