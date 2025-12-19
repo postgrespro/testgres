@@ -669,7 +669,7 @@ class PostgresNode(object):
 
         try:
             eprint('Force stopping node {0} with PID {1}'.format(self.name, node_pid))
-            self.os_ops.kill(node_pid, signal.SIGKILL, expect_error=False)
+            self.os_ops.kill(node_pid, signal.SIGKILL)
         except Exception:
             # The node has already stopped
             pass
