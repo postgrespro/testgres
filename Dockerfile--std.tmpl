@@ -12,6 +12,8 @@ ENV PYTHON_VERSION=3
 # --------------------------------------------- final
 FROM base2_with_python-${PYTHON_VERSION} as final
 
+RUN apk add --no-cache git
+
 ENV LANG=C.UTF-8
 
 ADD . /pg/testgres

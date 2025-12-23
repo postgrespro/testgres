@@ -47,6 +47,8 @@ ENV PYTHON_VERSION=3
 # --------------------------------------------- final
 FROM base2_with_python-${PYTHON_VERSION} as final
 
+RUN apt install -y git
+
 ADD . /pg/testgres
 WORKDIR /pg/testgres
 RUN chown -R postgres /pg
