@@ -12,7 +12,7 @@ install_requires = [
     "six>=1.9.0",
     "psutil",
     "packaging",
-    "testgres.os_ops>=0.0.2,<1.0.0"
+    "testgres.os_ops>=1.0.0,<2.0.0"
 ]
 
 # Add compatibility enum class
