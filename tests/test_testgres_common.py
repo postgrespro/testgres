@@ -204,9 +204,21 @@ class TestTestgresCommon:
         assert isinstance(node_svc, PostgresNodeService)
 
         with __class__.helper__get_node(node_svc).init().start() as node:
-            # can't start node more than once
-            node.start()
-            assert (node.is_started)
+            assert node.is_started
+
+            with pytest.raises(expected_exception=StartNodeException) as x:
+                # can't start node more than once
+                node.start()
+
+            assert x is not None
+            assert type(x.value) == StartNodeException
+            assert type(x.value.message) == str
+
+            assert x.value.message == "Cannot start node"
+
+            assert node.is_started
+
+        return
 
     def test_uninitialized_start(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)

@@ -229,9 +229,7 @@ class PostgresNode(object):
         # NOTE: for compatibility
         self.utils_log_name = self.utils_log_file
         self.pg_log_name = self.pg_log_file
-
-        # Node state
-        self.is_started = False
+        return
 
     def __enter__(self):
         return self
@@ -344,116 +342,27 @@ class PostgresNode(object):
         return self._os_ops.ssh_key
 
     @property
+    def is_started(self) -> bool:
+        x = self._get_node_state()
+        assert type(x) == __class__.tagInternalNodeState
+        return x.node_status == NodeStatus.Running
+
+    @property
     def pid(self):
         """
         Return postmaster's PID if node is running, else 0.
         """
 
-        self__data_dir = self.data_dir
+        x = self._get_node_state()
+        assert type(x) == __class__.tagInternalNodeState
 
-        _params = [
-            self._get_bin_path('pg_ctl'),
-            "-D", self__data_dir,
-            "status"
-        ]  # yapf: disable
-
-        status_code, out, error = execute_utility2(
-            self.os_ops,
-            _params,
-            self.utils_log_file,
-            verbose=True,
-            ignore_errors=True)
-
-        assert type(status_code) == int  # noqa: E721
-        assert type(out) == str  # noqa: E721
-        assert type(error) == str  # noqa: E721
-
-        # -----------------
-        if status_code == PG_CTL__STATUS__NODE_IS_STOPPED:
+        if x.pid is None:
+            assert x.node_status != NodeStatus.Running
             return 0
 
-        # -----------------
-        if status_code == PG_CTL__STATUS__BAD_DATADIR:
-            return 0
-
-        # -----------------
-        if status_code != PG_CTL__STATUS__OK:
-            errMsg = "Getting of a node status [data_dir is {0}] failed.".format(self__data_dir)
-
-            raise ExecUtilException(
-                message=errMsg,
-                command=_params,
-                exit_code=status_code,
-                out=out,
-                error=error,
-            )
-
-        # -----------------
-        assert status_code == PG_CTL__STATUS__OK
-
-        if out == "":
-            __class__._throw_error__pg_ctl_returns_an_empty_string(
-                _params
-            )
-
-        C_PID_PREFIX = "(PID: "
-
-        i = out.find(C_PID_PREFIX)
-
-        if i == -1:
-            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
-                out,
-                _params
-            )
-
-        assert i > 0
-        assert i < len(out)
-        assert len(C_PID_PREFIX) <= len(out)
-        assert i <= len(out) - len(C_PID_PREFIX)
-
-        i += len(C_PID_PREFIX)
-        start_pid_s = i
-
-        while True:
-            if i == len(out):
-                __class__._throw_error__pg_ctl_returns_an_unexpected_string(
-                    out,
-                    _params
-                )
-
-            ch = out[i]
-
-            if ch == ")":
-                break
-
-            if ch.isdigit():
-                i += 1
-                continue
-
-            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
-                out,
-                _params
-            )
-            assert False
-
-        if i == start_pid_s:
-            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
-                out,
-                _params
-            )
-
-        # TODO: Let's verify a length of pid string.
-
-        pid = int(out[start_pid_s:i])
-
-        if pid == 0:
-            __class__._throw_error__pg_ctl_returns_a_zero_pid(
-                out,
-                _params
-            )
-
-        assert pid != 0
-        return pid
+        assert x.node_status == NodeStatus.Running
+        assert type(x.pid) == int
+        return x.pid
 
     @staticmethod
     def _throw_error__pg_ctl_returns_an_empty_string(_params):
@@ -515,7 +424,19 @@ class PostgresNode(object):
         """
 
         # get a list of postmaster's children
-        children = self.os_ops.get_process_children(self.pid)
+        x = self._get_node_state()
+        assert type(x) == __class__.tagInternalNodeState
+
+        if x.pid is None:
+            return []
+
+        return self._get_child_processes(self.pid)
+
+    def _get_child_processes(self, pid: int) -> typing.List[ProcessProxy]:
+        assert isinstance(self._os_ops, OsOperations)
+
+        # get a list of postmaster's children
+        children = self._os_ops.get_process_children(pid)
 
         return [ProcessProxy(p) for p in children]
 
@@ -995,28 +916,131 @@ class PostgresNode(object):
         Returns:
             An instance of :class:`.NodeStatus`.
         """
+        x = self._get_node_state()
+        assert type(x) == __class__.tagInternalNodeState
+        return x.node_status
 
-        try:
-            _params = [
-                self._get_bin_path('pg_ctl'),
-                "-D", self.data_dir,
-                "status"
-            ]  # yapf: disable
-            status_code, out, error = execute_utility2(self.os_ops, _params, self.utils_log_file, verbose=True)
-            if error and 'does not exist' in error:
-                return NodeStatus.Uninitialized
-            elif 'no server running' in out:
-                return NodeStatus.Stopped
-            return NodeStatus.Running
+    class tagInternalNodeState:
+        node_status: NodeStatus
+        pid: typing.Optional[int]
 
-        except ExecUtilException as e:
-            # Node is not running
-            if e.exit_code == 3:
-                return NodeStatus.Stopped
+        def __init__(
+            self,
+            node_status: NodeStatus,
+            pid: typing.Optional[int]
+        ):
+            assert type(node_status) == NodeStatus
+            assert pid is None or type(pid) == int
 
-            # Node has no file dir
-            elif e.exit_code == 4:
-                return NodeStatus.Uninitialized
+            self.node_status = node_status
+            self.pid = pid
+            return
+
+    def _get_node_state(self) -> tagInternalNodeState:
+        self__data_dir = self.data_dir
+
+        _params = [
+            self._get_bin_path('pg_ctl'),
+            "-D", self__data_dir,
+            "status"
+        ]  # yapf: disable
+
+        status_code, out, error = execute_utility2(
+            self.os_ops,
+            _params,
+            self.utils_log_file,
+            verbose=True,
+            ignore_errors=True)
+
+        assert type(status_code) == int  # noqa: E721
+        assert type(out) == str  # noqa: E721
+        assert type(error) == str  # noqa: E721
+
+        # -----------------
+        if status_code == PG_CTL__STATUS__NODE_IS_STOPPED:
+            return __class__.tagInternalNodeState(NodeStatus.Stopped, None)
+
+        # -----------------
+        if status_code == PG_CTL__STATUS__BAD_DATADIR:
+            return __class__.tagInternalNodeState(NodeStatus.Uninitialized, None)
+
+        # -----------------
+        if status_code != PG_CTL__STATUS__OK:
+            errMsg = "Getting of a node status [data_dir is {0}] failed.".format(self__data_dir)
+
+            raise ExecUtilException(
+                message=errMsg,
+                command=_params,
+                exit_code=status_code,
+                out=out,
+                error=error,
+            )
+
+        if out == "":
+            __class__._throw_error__pg_ctl_returns_an_empty_string(
+                _params
+            )
+
+        C_PID_PREFIX = "(PID: "
+
+        i = out.find(C_PID_PREFIX)
+
+        if i == -1:
+            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
+                out,
+                _params
+            )
+
+        assert i > 0
+        assert i < len(out)
+        assert len(C_PID_PREFIX) <= len(out)
+        assert i <= len(out) - len(C_PID_PREFIX)
+
+        i += len(C_PID_PREFIX)
+        start_pid_s = i
+
+        while True:
+            if i == len(out):
+                __class__._throw_error__pg_ctl_returns_an_unexpected_string(
+                    out,
+                    _params
+                )
+
+            ch = out[i]
+
+            if ch == ")":
+                break
+
+            if ch.isdigit():
+                i += 1
+                continue
+
+            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
+                out,
+                _params
+            )
+            assert False
+
+        if i == start_pid_s:
+            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
+                out,
+                _params
+            )
+
+        # TODO: Let's verify a length of pid string.
+
+        pid = int(out[start_pid_s:i])
+
+        if pid == 0:
+            __class__._throw_error__pg_ctl_returns_a_zero_pid(
+                out,
+                _params
+            )
+
+        assert pid != 0
+
+        # -----------------
+        return __class__.tagInternalNodeState(NodeStatus.Running, pid)
 
     def get_control_data(self):
         """
@@ -1085,9 +1109,6 @@ class PostgresNode(object):
         """
         assert exec_env is None or type(exec_env) == dict  # noqa: E721
         assert __class__._C_MAX_START_ATEMPTS > 1
-
-        if self.is_started:
-            return self
 
         if self._port is None:
             raise InvalidOperationException("Can't start PostgresNode. Port is not defined.")
@@ -1167,7 +1188,6 @@ class PostgresNode(object):
                     continue
                 break
         self._maybe_start_logger()
-        self.is_started = True
         return self
 
     def stop(self, params=[], wait=True):
@@ -1181,9 +1201,6 @@ class PostgresNode(object):
         Returns:
             This instance of :class:`.PostgresNode`.
         """
-        if not self.is_started:
-            return self
-
         _params = [
             self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
@@ -1194,7 +1211,6 @@ class PostgresNode(object):
         execute_utility2(self.os_ops, _params, self.utils_log_file)
 
         self._maybe_stop_logger()
-        self.is_started = False
         return self
 
     def kill(self, someone=None):
@@ -1205,13 +1221,25 @@ class PostgresNode(object):
                 someone: A key to the auxiliary process in the auxiliary_pids dictionary.
                          If None, the main PostgreSQL node process will be killed. Defaults to None.
             """
-        if self.is_started:
+        x = self._get_node_state()
+        assert type(x) == __class__.tagInternalNodeState
+
+        if x.node_status != NodeStatus.Running:
+            assert x.pid is None
+            pass
+        else:
+            assert x.node_status == NodeStatus.Running
+            assert type(x.pid) == int  # noqa: E721
             sig = signal.SIGKILL if os.name != 'nt' else signal.SIGBREAK
             if someone is None:
-                os.kill(self.pid, sig)
+                self._os_ops.kill(x.pid, sig)
             else:
-                os.kill(self.auxiliary_pids[someone][0], sig)
-            self.is_started = False
+                childs = self._get_child_processes(x.pid)
+                for c in childs:
+                    if c.ptype == someone:
+                        self._os_ops.kill(c.process.pid, sig)
+                    continue
+        return
 
     def restart(self, params=[]):
         """
