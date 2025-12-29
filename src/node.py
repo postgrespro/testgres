@@ -2120,10 +2120,11 @@ class PostgresNode(object):
         Args:
             old_node: An instance of PostgresNode representing the old node.
         """
-        if not os.path.exists(old_node.data_dir):
+        assert isinstance(self._os_ops, OsOperations)
+        if not self._os_ops.path_exists(old_node.data_dir):
             raise Exception("Old node must be initialized")
 
-        if not os.path.exists(self.data_dir):
+        if not self._os_ops.path_exists(self.data_dir):
             self.init()
 
         if not options:
@@ -2131,7 +2132,7 @@ class PostgresNode(object):
 
         pg_upgrade_binary = self._get_bin_path("pg_upgrade")
 
-        if not os.path.exists(pg_upgrade_binary):
+        if not self._os_ops.path_exists(pg_upgrade_binary):
             raise Exception("pg_upgrade does not exist in the new node's binary path")
 
         upgrade_command = [
