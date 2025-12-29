@@ -1206,11 +1206,12 @@ class PostgresNode(object):
                          If None, the main PostgreSQL node process will be killed. Defaults to None.
             """
         if self.is_started:
+            assert isinstance(self._os_ops, OsOperations)
             sig = signal.SIGKILL if os.name != 'nt' else signal.SIGBREAK
             if someone is None:
-                os.kill(self.pid, sig)
+                self._os_ops.kill(self.pid, sig)
             else:
-                os.kill(self.auxiliary_pids[someone][0], sig)
+                self._os_ops.kill(self.auxiliary_pids[someone][0], sig)
             self.is_started = False
 
     def restart(self, params=[]):
