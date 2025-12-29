@@ -430,7 +430,7 @@ class PostgresNode(object):
         if x.pid is None:
             return []
 
-        return self._get_child_processes(self.pid)
+        return self._get_child_processes(x.pid)
 
     def _get_child_processes(self, pid: int) -> typing.List[ProcessProxy]:
         assert isinstance(self._os_ops, OsOperations)
