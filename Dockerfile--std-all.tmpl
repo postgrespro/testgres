@@ -13,6 +13,7 @@ ENV PYTHON_VERSION=3
 FROM base2_with_python-${PYTHON_VERSION} as final
 
 #RUN apk add --no-cache mc
+RUN apk add --no-cache git
 
 # Full version of "ps" command
 RUN apk add --no-cache procps
