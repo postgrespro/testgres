@@ -49,10 +49,7 @@ from .consts import \
     HBA_CONF_FILE, \
     RECOVERY_CONF_FILE, \
     PG_LOG_FILE, \
-    UTILS_LOG_FILE, \
-    PG_CTL__STATUS__OK, \
-    PG_CTL__STATUS__NODE_IS_STOPPED, \
-    PG_CTL__STATUS__BAD_DATADIR \
+    UTILS_LOG_FILE
 
 from .consts import \
     MAX_LOGICAL_REPLICATION_WORKERS, \
@@ -349,136 +346,16 @@ class PostgresNode(object):
         Return postmaster's PID if node is running, else 0.
         """
 
-        self__data_dir = self.data_dir
+        x = self._get_node_state()
+        assert type(x) == utils.PostgresNodeState  # noqa: E721
 
-        _params = [
-            self._get_bin_path('pg_ctl'),
-            "-D", self__data_dir,
-            "status"
-        ]  # yapf: disable
-
-        status_code, out, error = execute_utility2(
-            self.os_ops,
-            _params,
-            self.utils_log_file,
-            verbose=True,
-            ignore_errors=True)
-
-        assert type(status_code) == int  # noqa: E721
-        assert type(out) == str  # noqa: E721
-        assert type(error) == str  # noqa: E721
-
-        # -----------------
-        if status_code == PG_CTL__STATUS__NODE_IS_STOPPED:
+        if x.pid is None:
+            assert x.node_status != NodeStatus.Running
             return 0
 
-        # -----------------
-        if status_code == PG_CTL__STATUS__BAD_DATADIR:
-            return 0
-
-        # -----------------
-        if status_code != PG_CTL__STATUS__OK:
-            errMsg = "Getting of a node status [data_dir is {0}] failed.".format(self__data_dir)
-
-            raise ExecUtilException(
-                message=errMsg,
-                command=_params,
-                exit_code=status_code,
-                out=out,
-                error=error,
-            )
-
-        # -----------------
-        assert status_code == PG_CTL__STATUS__OK
-
-        if out == "":
-            __class__._throw_error__pg_ctl_returns_an_empty_string(
-                _params
-            )
-
-        C_PID_PREFIX = "(PID: "
-
-        i = out.find(C_PID_PREFIX)
-
-        if i == -1:
-            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
-                out,
-                _params
-            )
-
-        assert i > 0
-        assert i < len(out)
-        assert len(C_PID_PREFIX) <= len(out)
-        assert i <= len(out) - len(C_PID_PREFIX)
-
-        i += len(C_PID_PREFIX)
-        start_pid_s = i
-
-        while True:
-            if i == len(out):
-                __class__._throw_error__pg_ctl_returns_an_unexpected_string(
-                    out,
-                    _params
-                )
-
-            ch = out[i]
-
-            if ch == ")":
-                break
-
-            if ch.isdigit():
-                i += 1
-                continue
-
-            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
-                out,
-                _params
-            )
-            assert False
-
-        if i == start_pid_s:
-            __class__._throw_error__pg_ctl_returns_an_unexpected_string(
-                out,
-                _params
-            )
-
-        # TODO: Let's verify a length of pid string.
-
-        pid = int(out[start_pid_s:i])
-
-        if pid == 0:
-            __class__._throw_error__pg_ctl_returns_a_zero_pid(
-                out,
-                _params
-            )
-
-        assert pid != 0
-        return pid
-
-    @staticmethod
-    def _throw_error__pg_ctl_returns_an_empty_string(_params):
-        errLines = []
-        errLines.append("Utility pg_ctl returns empty string.")
-        errLines.append("Command line is {0}".format(_params))
-        raise RuntimeError("\n".join(errLines))
-
-    @staticmethod
-    def _throw_error__pg_ctl_returns_an_unexpected_string(out, _params):
-        errLines = []
-        errLines.append("Utility pg_ctl returns an unexpected string:")
-        errLines.append(out)
-        errLines.append("------------")
-        errLines.append("Command line is {0}".format(_params))
-        raise RuntimeError("\n".join(errLines))
-
-    @staticmethod
-    def _throw_error__pg_ctl_returns_a_zero_pid(out, _params):
-        errLines = []
-        errLines.append("Utility pg_ctl returns a zero pid. Output string is:")
-        errLines.append(out)
-        errLines.append("------------")
-        errLines.append("Command line is {0}".format(_params))
-        raise RuntimeError("\n".join(errLines))
+        assert x.node_status == NodeStatus.Running
+        assert type(x.pid) == int  # noqa: E721
+        return x.pid
 
     @property
     def auxiliary_pids(self):
@@ -995,28 +872,17 @@ class PostgresNode(object):
         Returns:
             An instance of :class:`.NodeStatus`.
         """
+        x = self._get_node_state()
+        assert type(x) == utils.PostgresNodeState  # noqa: E721
+        return x.node_status
 
-        try:
-            _params = [
-                self._get_bin_path('pg_ctl'),
-                "-D", self.data_dir,
-                "status"
-            ]  # yapf: disable
-            status_code, out, error = execute_utility2(self.os_ops, _params, self.utils_log_file, verbose=True)
-            if error and 'does not exist' in error:
-                return NodeStatus.Uninitialized
-            elif 'no server running' in out:
-                return NodeStatus.Stopped
-            return NodeStatus.Running
-
-        except ExecUtilException as e:
-            # Node is not running
-            if e.exit_code == 3:
-                return NodeStatus.Stopped
-
-            # Node has no file dir
-            elif e.exit_code == 4:
-                return NodeStatus.Uninitialized
+    def _get_node_state(self) -> utils.PostgresNodeState:
+        return utils.get_pg_node_state(
+            self._os_ops,
+            self.bin_dir,
+            self.data_dir,
+            self.utils_log_file
+        )
 
     def get_control_data(self):
         """
