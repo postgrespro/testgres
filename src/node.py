@@ -344,7 +344,7 @@ class PostgresNode(object):
     @property
     def is_started(self) -> bool:
         x = self._get_node_state()
-        assert type(x) == __class__.tagInternalNodeState
+        assert type(x) == __class__.tagInternalNodeState  # noqa: E721
         return x.node_status == NodeStatus.Running
 
     @property
@@ -354,14 +354,14 @@ class PostgresNode(object):
         """
 
         x = self._get_node_state()
-        assert type(x) == __class__.tagInternalNodeState
+        assert type(x) == __class__.tagInternalNodeState  # noqa: E721
 
         if x.pid is None:
             assert x.node_status != NodeStatus.Running
             return 0
 
         assert x.node_status == NodeStatus.Running
-        assert type(x.pid) == int
+        assert type(x.pid) == int  # noqa: E721
         return x.pid
 
     @staticmethod
@@ -425,7 +425,7 @@ class PostgresNode(object):
 
         # get a list of postmaster's children
         x = self._get_node_state()
-        assert type(x) == __class__.tagInternalNodeState
+        assert type(x) == __class__.tagInternalNodeState  # noqa: E721
 
         if x.pid is None:
             return []
@@ -917,7 +917,7 @@ class PostgresNode(object):
             An instance of :class:`.NodeStatus`.
         """
         x = self._get_node_state()
-        assert type(x) == __class__.tagInternalNodeState
+        assert type(x) == __class__.tagInternalNodeState  # noqa: E721
         return x.node_status
 
     class tagInternalNodeState:
@@ -929,8 +929,8 @@ class PostgresNode(object):
             node_status: NodeStatus,
             pid: typing.Optional[int]
         ):
-            assert type(node_status) == NodeStatus
-            assert pid is None or type(pid) == int
+            assert type(node_status) == NodeStatus  # noqa: E721
+            assert pid is None or type(pid) == int  # noqa: E721
 
             self.node_status = node_status
             self.pid = pid
@@ -1222,7 +1222,7 @@ class PostgresNode(object):
                          If None, the main PostgreSQL node process will be killed. Defaults to None.
             """
         x = self._get_node_state()
-        assert type(x) == __class__.tagInternalNodeState
+        assert type(x) == __class__.tagInternalNodeState  # noqa: E721
 
         if x.node_status != NodeStatus.Running:
             assert x.pid is None
