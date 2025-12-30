@@ -1206,11 +1206,12 @@ class PostgresNode(object):
                          If None, the main PostgreSQL node process will be killed. Defaults to None.
             """
         if self.is_started:
+            assert isinstance(self._os_ops, OsOperations)
             sig = signal.SIGKILL if os.name != 'nt' else signal.SIGBREAK
             if someone is None:
-                os.kill(self.pid, sig)
+                self._os_ops.kill(self.pid, sig)
             else:
-                os.kill(self.auxiliary_pids[someone][0], sig)
+                self._os_ops.kill(self.auxiliary_pids[someone][0], sig)
             self.is_started = False
 
     def restart(self, params=[]):
@@ -2119,10 +2120,11 @@ class PostgresNode(object):
         Args:
             old_node: An instance of PostgresNode representing the old node.
         """
-        if not os.path.exists(old_node.data_dir):
+        assert isinstance(self._os_ops, OsOperations)
+        if not self._os_ops.path_exists(old_node.data_dir):
             raise Exception("Old node must be initialized")
 
-        if not os.path.exists(self.data_dir):
+        if not self._os_ops.path_exists(self.data_dir):
             self.init()
 
         if not options:
@@ -2130,7 +2132,7 @@ class PostgresNode(object):
 
         pg_upgrade_binary = self._get_bin_path("pg_upgrade")
 
-        if not os.path.exists(pg_upgrade_binary):
+        if not self._os_ops.path_exists(pg_upgrade_binary):
             raise Exception("pg_upgrade does not exist in the new node's binary path")
 
         upgrade_command = [
