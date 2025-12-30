@@ -10,11 +10,17 @@ import sys
 from contextlib import contextmanager
 from packaging.version import Version, InvalidVersion
 import re
+import typing
 
 from six import iteritems
 
 from .exceptions import ExecUtilException
 from .config import testgres_config as tconf
+from .raise_error import RaiseError
+from .enums import NodeStatus
+from .consts import PG_CTL__STATUS__OK
+from .consts import PG_CTL__STATUS__NODE_IS_STOPPED
+from .consts import PG_CTL__STATUS__BAD_DATADIR
 from testgres.operations.os_ops import OsOperations
 from testgres.operations.remote_ops import RemoteOperations
 from testgres.operations.local_ops import LocalOperations
@@ -315,3 +321,139 @@ def clean_on_error(node):
         # TODO: should we wrap this in try-block?
         node.cleanup()
         raise
+
+
+class PostgresNodeState:
+    node_status: NodeStatus
+    pid: typing.Optional[int]
+
+    def __init__(
+        self,
+        node_status: NodeStatus,
+        pid: typing.Optional[int]
+    ):
+        assert type(node_status) == NodeStatus  # noqa: E721
+        assert pid is None or type(pid) == int  # noqa: E721
+
+        self.node_status = node_status
+        self.pid = pid
+        return
+
+
+def get_pg_node_state(
+    os_ops: OsOperations,
+    bin_dir: str,
+    data_dir: str,
+    utils_log_file: typing.Optional[str],
+) -> PostgresNodeState:
+    assert isinstance(os_ops, OsOperations)
+    assert type(bin_dir) == str  # noqa: E721
+    assert type(data_dir) == str  # noqa: E721
+    assert utils_log_file is None or type(utils_log_file) == str  # noqa: E721
+
+    _params = [
+        os_ops.build_path(bin_dir, "pg_ctl"),
+        "-D",
+        data_dir,
+        "status",
+    ]
+
+    status_code, out, error = execute_utility2(
+        os_ops,
+        _params,
+        utils_log_file,
+        verbose=True,
+        ignore_errors=True,
+    )
+
+    assert type(status_code) == int  # noqa: E721
+    assert type(out) == str  # noqa: E721
+    assert type(error) == str  # noqa: E721
+
+    # -----------------
+    if status_code == PG_CTL__STATUS__NODE_IS_STOPPED:
+        return PostgresNodeState(NodeStatus.Stopped, None)
+
+    # -----------------
+    if status_code == PG_CTL__STATUS__BAD_DATADIR:
+        return PostgresNodeState(NodeStatus.Uninitialized, None)
+
+    # -----------------
+    if status_code != PG_CTL__STATUS__OK:
+        errMsg = "Getting of a node status [data_dir is {0}] failed.".format(
+            data_dir
+        )
+
+        raise ExecUtilException(
+            message=errMsg,
+            command=_params,
+            exit_code=status_code,
+            out=out,
+            error=error,
+        )
+
+    if out == "":
+        RaiseError.pg_ctl_returns_an_empty_string(
+            _params
+        )
+
+    C_PID_PREFIX = "(PID: "
+
+    i = out.find(C_PID_PREFIX)
+
+    if i == -1:
+        RaiseError.pg_ctl_returns_an_unexpected_string(
+            out,
+            _params
+        )
+
+    assert i > 0
+    assert i < len(out)
+    assert len(C_PID_PREFIX) <= len(out)
+    assert i <= len(out) - len(C_PID_PREFIX)
+
+    i += len(C_PID_PREFIX)
+    start_pid_s = i
+
+    while True:
+        if i == len(out):
+            RaiseError.pg_ctl_returns_an_unexpected_string(
+                out,
+                _params
+            )
+
+        ch = out[i]
+
+        if ch == ")":
+            break
+
+        if ch.isdigit():
+            i += 1
+            continue
+
+        RaiseError.pg_ctl_returns_an_unexpected_string(
+            out,
+            _params
+        )
+        assert False
+
+    if i == start_pid_s:
+        RaiseError.pg_ctl_returns_an_unexpected_string(
+            out,
+            _params
+        )
+
+    # TODO: Let's verify a length of pid string.
+
+    pid = int(out[start_pid_s:i])
+
+    if pid == 0:
+        RaiseError.pg_ctl_returns_a_zero_pid(
+            out,
+            _params
+        )
+
+    assert pid != 0
+
+    # -----------------
+    return PostgresNodeState(NodeStatus.Running, pid)
