@@ -1227,6 +1227,31 @@ class TestTestgresCommon:
                         res = node3.execute(query_select)
                         assert (res == [(1, ), (2, )])
 
+    def test_dump_with_options(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+        query_create = 'create table test_options as select generate_series(1, 5) as val'
+
+        with __class__.helper__get_node(node_svc).init().start() as node1:
+            node1.execute(query_create)
+
+            # Test dump with --schema-only option
+            with removing(node_svc.os_ops, node1.dump(options=['--schema-only'])) as dump:
+                with __class__.helper__get_node(node_svc).init().start() as node2:
+                    assert (os.path.isfile(dump))
+                    # restore schema-only dump
+                    node2.restore(filename=dump)
+
+                    # Check that table exists but has no data
+                    res = node2.execute("SELECT COUNT(*) FROM test_options")
+                    assert (res == [(0,)])  # Table exists but empty
+
+                    # Verify table structure exists
+                    res = node2.execute("""
+                        SELECT COUNT(*) FROM information_schema.tables
+                        WHERE table_name = 'test_options'
+                    """)
+                    assert (res == [(1,)])  # Table structure exists
+
     def test_pgbench(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
 
