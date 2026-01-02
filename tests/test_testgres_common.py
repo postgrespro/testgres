@@ -9,6 +9,7 @@ from src.node import PgVer
 from src.node import PostgresNode
 from src.node import PostgresNodeLogReader
 from src.node import PostgresNodeUtils
+from src.node import ProcessProxy
 from src.utils import get_pg_version2
 from src.utils import file_tail
 from src.utils import get_bin_path2
@@ -44,6 +45,7 @@ import os
 import re
 import subprocess
 import typing
+import types
 
 
 @contextmanager
@@ -292,6 +294,113 @@ class TestTestgresCommon:
 
             assert (node.pid == 0)
             assert (node.status() == NodeStatus.Uninitialized)
+
+    def test_child_processes__is_not_initialized(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            with pytest.raises(expected_exception=InvalidOperationException) as x:
+                node.child_processes
+
+            assert x is not None
+            assert str(x.value) == "Can't enumerate node child processes. Node is not initialized."
+        return
+
+    def test_child_processes__is_not_running(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+
+            try:
+                with pytest.raises(expected_exception=InvalidOperationException) as x:
+                    node.child_processes
+
+                assert x is not None
+                assert str(x.value) == "Can't enumerate node child processes. Node is not running."
+            finally:
+                try:
+                    node.cleanup(release_resources=True)
+                except Exception as e:
+                    logging.error("Exception ({}): {}".format(
+                        type(e).__name__,
+                        e,
+                    ))
+        return
+
+    def test_child_processes__ok(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+
+            try:
+                node.slow_start()
+
+                children = node.child_processes
+                assert children is not None
+                assert type(children) == list  # noqa: E721
+
+                logging.info("Children count is {}".format(len(children)))
+                logging.info("")
+
+                for i in range(len(children)):
+                    logging.info("------ check child [{}]".format(i))
+                    child = children[i]
+
+                    try:
+                        assert child is not None
+                        assert type(child) == ProcessProxy  # noqa: E721
+                        assert hasattr(child, "process")
+                        assert hasattr(child, "ptype")
+                        assert hasattr(child, "pid")
+                        assert hasattr(child, "cmdline")
+                        assert child.process is not None
+                        assert child.ptype is not None
+                        assert child.pid is not None
+                        assert type(child.ptype) == ProcessType  # noqa: E721
+                        assert type(child.pid) == int  # noqa: E721
+                        assert type(child.cmdline) == types.MethodType  # noqa: E721
+
+                        logging.info("ptype is {}".format(child.ptype))
+                        logging.info("pid is {}".format(child.pid))
+                        logging.info("cmdline is [{}]".format(child.cmdline()))
+                    except Exception as e:
+                        logging.error("Exception ({}): {}".format(
+                            type(e).__name__,
+                            e,
+                        ))
+                    continue
+            finally:
+                try:
+                    node.cleanup(release_resources=True)
+                except Exception as e:
+                    logging.error("Exception ({}): {}".format(
+                        type(e).__name__,
+                        e,
+                    ))
+        return
 
     def test_child_pids(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
