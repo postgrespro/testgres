@@ -99,6 +99,8 @@ from .utils import \
     options_string, \
     clean_on_error
 
+from .raise_error import RaiseError
+
 from .backup import NodeBackup
 
 from testgres.operations.os_ops import ConnectionParams

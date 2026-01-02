@@ -37,7 +37,7 @@ class TestRaiseError:
             )
             return msg
 
-    sm_Data001: list[tagData001__NodeErr_CantEnumerateChildProcesses] = [
+    sm_Data001: typing.List[tagData001__NodeErr_CantEnumerateChildProcesses] = [
         tagData001__NodeErr_CantEnumerateChildProcesses(
             NodeStatus.Uninitialized,
             None,
