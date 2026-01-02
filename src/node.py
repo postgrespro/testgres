@@ -1090,7 +1090,7 @@ class PostgresNode(object):
             Args:
                 someone: A key to the auxiliary process in the auxiliary_pids dictionary.
                          If None, the main PostgreSQL node process will be killed. Defaults to None.
-            """
+        """
         if self.is_started:
             assert isinstance(self._os_ops, OsOperations)
             sig = signal.SIGKILL if os.name != 'nt' else signal.SIGBREAK
