@@ -365,6 +365,16 @@ class TestTestgresCommon:
                 logging.info("Children count is {}".format(len(children)))
                 logging.info("")
 
+                def LOCAL__safe_call_cmdline(p: ProcessProxy) -> str:
+                    assert type(p) == ProcessProxy  # noqa: E721
+                    try:
+                        return p.cmdline()
+                    except Exception as e:
+                        return "Exception ({}): {}".format(
+                            type(e).__name__,
+                            e,
+                        )
+
                 for i in range(len(children)):
                     logging.info("------ check child [{}]".format(i))
                     child = children[i]
@@ -385,7 +395,7 @@ class TestTestgresCommon:
 
                         logging.info("ptype is {}".format(child.ptype))
                         logging.info("pid is {}".format(child.pid))
-                        logging.info("cmdline is [{}]".format(child.cmdline()))
+                        logging.info("cmdline is [{}]".format(LOCAL__safe_call_cmdline(child)))
                     except Exception as e:
                         logging.error("Exception ({}): {}".format(
                             type(e).__name__,
