@@ -400,8 +400,7 @@ class PostgresNode(object):
         if x.pid is None:
             assert x.node_status != NodeStatus.Running
             RaiseError.node_err__cant_enumerate_child_processes(
-                x.node_status,
-                x.pid,
+                x.node_status
             )
 
         assert x.node_status == NodeStatus.Running

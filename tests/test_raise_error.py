@@ -9,43 +9,33 @@ import typing
 class TestRaiseError:
     class tagData001__NodeErr_CantEnumerateChildProcesses:
         node_status: NodeStatus
-        node_pid: typing.Optional[int]
         expected_msg: str
 
         def __init__(
             self,
             node_status: NodeStatus,
-            node_pid: typing.Optional[int],
             expected_msg: str,
         ):
             assert type(node_status) == NodeStatus  # noqa: E721
-            assert node_pid is None or type(node_pid) == int  # noqa: E721
             assert type(expected_msg) == str  # noqa: E721
             self.node_status = node_status
-            self.node_pid = node_pid
             self.expected_msg = expected_msg
             return
 
         @property
         def sign(self) -> str:
             assert type(self.node_status) == NodeStatus  # noqa: E721
-            assert self.node_pid is None or type(self.node_pid) == int  # noqa: E721
 
-            msg = "status: {}; pid: {}".format(
-                self.node_status,
-                self.node_pid,
-            )
+            msg = "status: {}".format(self.node_status)
             return msg
 
     sm_Data001: typing.List[tagData001__NodeErr_CantEnumerateChildProcesses] = [
         tagData001__NodeErr_CantEnumerateChildProcesses(
             NodeStatus.Uninitialized,
-            None,
             "Can't enumerate node child processes. Node is not initialized.",
         ),
         tagData001__NodeErr_CantEnumerateChildProcesses(
             NodeStatus.Stopped,
-            None,
             "Can't enumerate node child processes. Node is not running.",
         ),
     ]
@@ -67,8 +57,7 @@ class TestRaiseError:
 
         with pytest.raises(expected_exception=InvalidOperationException) as x:
             RaiseError.node_err__cant_enumerate_child_processes(
-                data001.node_status,
-                data001.node_pid,
+                data001.node_status
             )
 
         assert x is not None

@@ -32,15 +32,14 @@ class RaiseError:
 
     @staticmethod
     def node_err__cant_enumerate_child_processes(
-        node_status: NodeStatus,
-        node_pid: typing.Optional[int],
+        node_status: NodeStatus
     ):
         assert type(node_status) == NodeStatus  # noqa: E721
 
         msg = "Can't enumerate node child processes. {}.".format(
             __class__._map_node_status_to_reason(
                 node_status,
-                node_pid,
+                None,
             )
         )
 
