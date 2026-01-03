@@ -99,6 +99,8 @@ from .utils import \
     options_string, \
     clean_on_error
 
+from .raise_error import RaiseError
+
 from .backup import NodeBackup
 
 from testgres.operations.os_ops import ConnectionParams
@@ -406,14 +408,32 @@ class PostgresNode(object):
         return list(filter(is_aux, self.child_processes))
 
     @property
-    def child_processes(self):
+    def child_processes(self) -> typing.List[ProcessProxy]:
         """
         Returns a list of all child processes.
         Each process is represented by :class:`.ProcessProxy` object.
         """
 
         # get a list of postmaster's children
-        children = self.os_ops.get_process_children(self.pid)
+        x = self._get_node_state()
+        assert type(x) == utils.PostgresNodeState  # noqa: E721
+
+        if x.pid is None:
+            assert x.node_status != NodeStatus.Running
+            RaiseError.node_err__cant_enumerate_child_processes(
+                x.node_status
+            )
+
+        assert x.node_status == NodeStatus.Running
+        assert type(x.pid) == int  # noqa: E721
+        return self._get_child_processes(x.pid)
+
+    def _get_child_processes(self, pid: int) -> typing.List[ProcessProxy]:
+        assert type(pid) == int  # noqa: E721
+        assert isinstance(self._os_ops, OsOperations)
+
+        # get a list of postmaster's children
+        children = self._os_ops.get_process_children(pid)
 
         return [ProcessProxy(p) for p in children]
 
