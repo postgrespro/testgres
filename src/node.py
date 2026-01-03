@@ -121,9 +121,20 @@ class ProcessProxy(object):
         ptype: instance of ProcessType
     """
 
-    def __init__(self, process, ptype=None):
-        self.process = process
-        self.ptype = ptype or ProcessType.from_process(process)
+    _process: any
+    _ptype: ProcessType
+
+    def __init__(self, process, ptype: typing.Optional[ProcessType] = None):
+        assert process is not None
+        assert ptype is None or type(ptype) == ProcessType  # noqa: E721
+        self._process = process
+
+        if ptype is not None:
+            self._ptype = ptype
+        else:
+            self._ptype = ProcessType.from_process(process)
+            assert type(self._ptype) == ProcessType  # noqa: E721
+        return
 
     def __getattr__(self, name):
         return getattr(self.process, name)
@@ -133,6 +144,16 @@ class ProcessProxy(object):
             self.__class__.__name__,
             str(self.ptype),
             repr(self.process))
+
+    @property
+    def process(self) -> any:
+        assert self._process is not None
+        return self._process
+
+    @property
+    def ptype(self) -> ProcessType:
+        assert type(self._ptype) == ProcessType  # noqa: E721
+        return self._ptype
 
 
 class PostgresNode(object):
