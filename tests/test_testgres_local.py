@@ -315,11 +315,13 @@ class TestTestgresLocal:
                     assert (node2._should_free_port)
                     assert (node2.port == node1.port)
 
+                    node2.init()
+
                     with pytest.raises(
                         expected_exception=StartNodeException,
                         match=re.escape("Cannot start node after multiple attempts.")
                     ):
-                        node2.init().start()
+                        node2.start()
 
                     assert (node2.port == node1.port)
                     assert (node2._should_free_port)

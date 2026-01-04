@@ -13,6 +13,7 @@ from src.node import ProcessProxy
 from src.utils import get_pg_version2
 from src.utils import file_tail
 from src.utils import get_bin_path2
+from src.utils import execute_utility2
 from src import ProcessType
 from src import NodeStatus
 from src import IsolationLevel
@@ -46,6 +47,7 @@ import re
 import subprocess
 import typing
 import types
+import psutil
 
 
 @contextmanager
@@ -205,10 +207,63 @@ class TestTestgresCommon:
     def test_double_start(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(node_svc).init().start() as node:
-            # can't start node more than once
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+            assert not node.is_started
             node.start()
-            assert (node.is_started)
+            assert node.is_started
+
+            with pytest.raises(expected_exception=StartNodeException) as x:
+                # can't start node more than once
+                node.start()
+
+            assert x is not None
+            assert type(x.value) == StartNodeException  # noqa: E721
+            assert type(x.value.message) == str  # noqa: E721
+
+            assert x.value.message == "Cannot start node"
+
+            assert node.is_started
+
+        return
+
+    def test_start__manually_stop__start_again(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+            assert not node.is_started
+
+            logging.info("Start node")
+            node.start()
+            assert node.is_started
+            assert node.status() == NodeStatus.Running
+
+            logging.info("Stop node manually via pg_ctl")
+            stop_cmd = [
+                node.os_ops.build_path(node.bin_dir, "pg_ctl"),
+                "stop",
+                "-D",
+                node.data_dir,
+            ]
+
+            execute_utility2(
+                node.os_ops,
+                stop_cmd,
+                node.utils_log_file
+            )
+
+            assert node.is_started
+            assert node.status() == NodeStatus.Stopped
+
+            logging.info("Start node again")
+            node.start()
+            assert node.is_started
+            assert node.status() == NodeStatus.Running
+
+        assert not node.is_started
+        assert node.status() == NodeStatus.Uninitialized
+        return
 
     def test_uninitialized_start(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -235,6 +290,28 @@ class TestTestgresCommon:
             with pytest.raises(expected_exception=StartNodeException):
                 node.append_conf('pg_hba.conf', 'DUMMY')
                 node.restart()
+
+    def test_double_stop(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+            assert not node.is_started
+            node.start()
+            assert node.is_started
+            node.stop()
+            assert not node.is_started
+
+            with pytest.raises(expected_exception=Exception) as x:
+                # can't start node more than once
+                node.stop()
+
+            assert x is not None
+            assert "Is server running?" in str(x.value)
+
+            assert not node.is_started
+
+        return
 
     def test_reload(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -294,6 +371,145 @@ class TestTestgresCommon:
 
             assert (node.pid == 0)
             assert (node.status() == NodeStatus.Uninitialized)
+
+    def test_kill__is_not_initialized(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            with pytest.raises(expected_exception=InvalidOperationException) as x:
+                node.kill()
+
+            assert x is not None
+            assert str(x.value) == "Can't kill server process. Node is not initialized."
+        return
+
+    def test_kill__is_not_running(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+
+            try:
+                with pytest.raises(expected_exception=InvalidOperationException) as x:
+                    node.kill()
+
+                assert x is not None
+                assert str(x.value) == "Can't kill server process. Node is not running."
+            finally:
+                try:
+                    node.cleanup(release_resources=True)
+                except Exception as e:
+                    logging.error("Exception ({}): {}".format(
+                        type(e).__name__,
+                        e,
+                    ))
+        return
+
+    def test_kill__ok(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+            assert not node.is_started
+            node.slow_start()
+            assert node.is_started
+            node.kill()
+            assert not node.is_started
+
+            attempt = 0
+
+            while True:
+                if attempt == 60:
+                    raise RuntimeError("Node is not stopped.")
+
+                attempt += 1
+
+                if attempt > 1:
+                    time.sleep(1)
+
+                s = node.status()
+
+                logging.info("Node status is {}".format(s.name))
+
+                if s == NodeStatus.Running:
+                    continue
+
+                assert s == NodeStatus.Stopped
+                break
+        return
+
+    def test_kill_backgroud_writer__ok(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+            assert not node.is_started
+            node.slow_start()
+            assert node.is_started
+            node_pid = node.pid
+            assert type(node_pid) == int  # noqa: E721
+            aux_pids = node.auxiliary_pids
+            assert type(aux_pids) == dict  # noqa: E721
+            assert ProcessType.BackgroundWriter in aux_pids
+            bw_pids = aux_pids[ProcessType.BackgroundWriter]
+            assert type(bw_pids) == list  # noqa: E721
+            assert len(bw_pids) == 1
+            bw_pid = bw_pids[0]
+            assert type(bw_pid) == int  # noqa: E721
+            node.kill(ProcessType.BackgroundWriter)
+            assert node.is_started
+
+            attempt = 0
+
+            while True:
+                if attempt == 60:
+                    raise RuntimeError("Node is not stopped.")
+
+                attempt += 1
+
+                if attempt > 1:
+                    time.sleep(1)
+
+                try:
+                    psutil.Process(bw_pid)
+                except psutil.NoSuchProcess:
+                    logging.info("Process is not found")
+                    break
+
+                logging.info("Process is still alive.")
+                continue
+
+            assert node.is_started
+            assert node.pid == node_pid
+        return
 
     def test_child_processes__is_not_initialized(
         self,
@@ -1544,17 +1760,21 @@ class TestTestgresCommon:
                     assert node2._should_free_port
                     assert node2.port == node1.port
 
+                    node2.init()
+                    assert node2.status() == NodeStatus.Stopped
+
                     with pytest.raises(
                         expected_exception=StartNodeException,
                         match=re.escape("Cannot start node after multiple attempts.")
                     ):
-                        node2.init().start()
+                        node2.start()
 
                     assert node2.port == node1.port
                     assert node2._should_free_port
                     assert proxy.m_DummyPortCurrentUsage == 1
                     assert proxy.m_DummyPortTotalUsage == C_COUNT_OF_BAD_PORT_USAGE
                     assert not node2.is_started
+                    assert node2.status() == NodeStatus.Stopped
 
                 # node2 must release our dummyPort (node1.port)
                 assert (proxy.m_DummyPortCurrentUsage == 0)
