@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+"testgres" = "src"
+
+[tool.flake8]
+extend-ignore = ["E501"]
+exclude = [".git", "__pycache__", "env", "venv"]
+
+[project]
+name = "testgres"
+version = "1.12.2"
+requires-python = ">=3.7.17"
+
+description = "Testing utility for PostgreSQL and its extensions"
+readme = "README.md"
+
+license = {file = "LICENSE"}
+
+authors = [
+    {name = "Postgres Professional", email = "testgres@postgrespro.ru"},
+]
+
+keywords = [
+    'test',
+    'testing',
+    'postgresql',
+]
+
+dependencies = [
+    "pg8000",
+    "port-for>=0.4",
+    "six>=1.9.0",
+    "psutil",
+    "packaging",
+    "testgres.os_ops>=1.0.0,<2.0.0",
+]
+
+[project.urls]
+"HomePage" = "https://github.com/postgrespro/testgres"
