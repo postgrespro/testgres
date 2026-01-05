@@ -17,6 +17,8 @@ requires-python = ">=3.7.17"
 description = "Testing utility for PostgreSQL and its extensions"
 readme = "README.md"
 
+# [2026-01-05]
+#  This old format is used to ensure compatibility with Python 3.7.
 license = {text = "PostgreSQL"}
 
 authors = [
