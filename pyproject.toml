@@ -17,7 +17,7 @@ requires-python = ">=3.7.17"
 description = "Testing utility for PostgreSQL and its extensions"
 readme = "README.md"
 
-license = {file = "LICENSE"}
+license = {text = "PostgreSQL"}
 
 authors = [
     {name = "Postgres Professional", email = "testgres@postgrespro.ru"},
