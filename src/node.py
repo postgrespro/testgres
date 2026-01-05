@@ -364,7 +364,7 @@ class PostgresNode(object):
         return self._os_ops.ssh_key
 
     @property
-    def pid(self):
+    def pid(self) -> int:
         """
         Return postmaster's PID if node is running, else 0.
         """
@@ -381,7 +381,7 @@ class PostgresNode(object):
         return x.pid
 
     @property
-    def auxiliary_pids(self):
+    def auxiliary_pids(self) -> typing.Dict[ProcessType, typing.List[int]]:
         """
         Returns a dict of { ProcessType : PID }.
         """
@@ -389,6 +389,7 @@ class PostgresNode(object):
         result = {}
 
         for process in self.auxiliary_processes:
+            assert type(process) == ProcessProxy  # noqa: E721
             if process.ptype not in result:
                 result[process.ptype] = []
 
@@ -397,12 +398,13 @@ class PostgresNode(object):
         return result
 
     @property
-    def auxiliary_processes(self):
+    def auxiliary_processes(self) -> typing.List[ProcessProxy]:
         """
         Returns a list of auxiliary processes.
         Each process is represented by :class:`.ProcessProxy` object.
         """
-        def is_aux(process):
+        def is_aux(process: ProcessProxy) -> bool:
+            assert type(process) == ProcessProxy  # noqa: E721
             return process.ptype != ProcessType.Unknown
 
         return list(filter(is_aux, self.child_processes))
