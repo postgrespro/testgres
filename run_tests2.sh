@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2017-2026 Postgres Professional
-
 set -eux
 
 eval "$(pyenv init -)"
