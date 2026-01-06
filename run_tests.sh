@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright (c) 2017-2023 Postgres Professional
+# Copyright (c) 2017-2026 Postgres Professional
 
 set -eux
 
