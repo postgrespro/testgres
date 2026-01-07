@@ -1149,6 +1149,7 @@ class PostgresNode(object):
         else:
             childs = self._get_child_processes(x.pid)
             for c in childs:
+                assert type(c) == ProcessProxy  # noqa: E721
                 if c.ptype == someone:
                     self._os_ops.kill(c.process.pid, sig)
                 continue
