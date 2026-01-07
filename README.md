@@ -1,7 +1,7 @@
 [![Build Status](https://api.travis-ci.com/postgrespro/testgres.svg?branch=master)](https://travis-ci.com/github/postgrespro/testgres)
 [![codecov](https://codecov.io/gh/postgrespro/testgres/branch/master/graph/badge.svg)](https://codecov.io/gh/postgrespro/testgres)
 [![PyPI package version](https://badge.fury.io/py/testgres.svg)](https://badge.fury.io/py/testgres)
-[![PyPi python versions](https://img.shields.io/pypi/pyversions/testgres)](https://pypi.org/project/testgres)
+[![PyPI python versions](https://img.shields.io/pypi/pyversions/testgres)](https://pypi.org/project/testgres)
 
 [Documentation](https://postgrespro.github.io/testgres/)
 
