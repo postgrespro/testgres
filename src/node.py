@@ -160,11 +160,14 @@ class PostgresNode(object):
     # a max number of node start attempts
     _C_MAX_START_ATEMPTS = 5
 
+    _C_PM_PID__IS_NOT_DETECTED = -1
+
     _name: typing.Optional[str]
     _port: typing.Optional[int]
     _should_free_port: bool
     _os_ops: OsOperations
     _port_manager: typing.Optional[PortManager]
+    _manually_started_pm_pid: typing.Optional[int]
 
     def __init__(self,
                  name=None,
@@ -251,7 +254,7 @@ class PostgresNode(object):
         self.pg_log_name = self.pg_log_file
 
         # Node state
-        self.is_started = False
+        self._manually_started_pm_pid = None
 
     def __enter__(self):
         return self
@@ -379,6 +382,14 @@ class PostgresNode(object):
         assert x.node_status == NodeStatus.Running
         assert type(x.pid) == int  # noqa: E721
         return x.pid
+
+    @property
+    def is_started(self) -> bool:
+        if self._manually_started_pm_pid is None:
+            return False
+
+        assert type(self._manually_started_pm_pid) == int  # noqa: E721
+        return True
 
     @property
     def auxiliary_pids(self) -> typing.Dict[ProcessType, typing.List[int]]:
@@ -995,9 +1006,6 @@ class PostgresNode(object):
         assert exec_env is None or type(exec_env) == dict  # noqa: E721
         assert __class__._C_MAX_START_ATEMPTS > 1
 
-        if self.is_started:
-            return self
-
         if self._port is None:
             raise InvalidOperationException("Can't start PostgresNode. Port is not defined.")
 
@@ -1016,8 +1024,11 @@ class PostgresNode(object):
             if error and 'does not exist' in error:
                 raise Exception(error)
 
-        def LOCAL__raise_cannot_start_node(from_exception, msg):
-            assert isinstance(from_exception, Exception)
+        def LOCAL__raise_cannot_start_node(
+            from_exception: typing.Optional[Exception],
+            msg: str
+        ):
+            assert from_exception is None or isinstance(from_exception, Exception)
             assert type(msg) == str  # noqa: E721
             files = self._collect_special_files()
             raise_from(StartNodeException(msg, files), from_exception)
@@ -1076,7 +1087,17 @@ class PostgresNode(object):
                     continue
                 break
         self._maybe_start_logger()
-        self.is_started = True
+
+        if not wait:
+            # Postmaster process is starting in background
+            self._manually_started_pm_pid = __class__._C_PM_PID__IS_NOT_DETECTED
+        else:
+            self._manually_started_pm_pid = self._get_node_state().pid
+            if self._manually_started_pm_pid is None:
+                LOCAL__raise_cannot_start_node(None, "Cannot detect postmaster pid.")
+
+        assert type(self._manually_started_pm_pid) == int  # noqa: E721
+
         return self
 
     def stop(self, params=[], wait=True):
@@ -1090,9 +1111,6 @@ class PostgresNode(object):
         Returns:
             This instance of :class:`.PostgresNode`.
         """
-        if not self.is_started:
-            return self
-
         _params = [
             self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
@@ -1102,8 +1120,9 @@ class PostgresNode(object):
 
         execute_utility2(self.os_ops, _params, self.utils_log_file)
 
+        self._manually_started_pm_pid = None
+
         self._maybe_stop_logger()
-        self.is_started = False
         return self
 
     def kill(self, someone=None):
@@ -1114,14 +1133,27 @@ class PostgresNode(object):
                 someone: A key to the auxiliary process in the auxiliary_pids dictionary.
                          If None, the main PostgreSQL node process will be killed. Defaults to None.
         """
-        if self.is_started:
-            assert isinstance(self._os_ops, OsOperations)
-            sig = signal.SIGKILL if os.name != 'nt' else signal.SIGBREAK
-            if someone is None:
-                self._os_ops.kill(self.pid, sig)
-            else:
-                self._os_ops.kill(self.auxiliary_pids[someone][0], sig)
-            self.is_started = False
+        x = self._get_node_state()
+        assert type(x) == utils.PostgresNodeState  # noqa: E721
+
+        if x.node_status != NodeStatus.Running:
+            RaiseError.node_err__cant_kill(x.node_status)
+            assert False
+
+        assert x.node_status == NodeStatus.Running
+        assert type(x.pid) == int  # noqa: E721
+        sig = signal.SIGKILL if os.name != 'nt' else signal.SIGBREAK
+        if someone is None:
+            self._os_ops.kill(x.pid, sig)
+            self._manually_started_pm_pid = None
+        else:
+            childs = self._get_child_processes(x.pid)
+            for c in childs:
+                assert type(c) == ProcessProxy  # noqa: E721
+                if c.ptype == someone:
+                    self._os_ops.kill(c.process.pid, sig)
+                continue
+        return
 
     def restart(self, params=[]):
         """
