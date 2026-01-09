@@ -219,9 +219,11 @@ class TestTestgresCommon:
 
             assert x is not None
             assert type(x.value) == StartNodeException  # noqa: E721
+            assert type(x.value.description) == str  # noqa: E721
             assert type(x.value.message) == str  # noqa: E721
 
-            assert x.value.message == "Cannot start node"
+            assert x.value.description == "Cannot start node"
+            assert x.value.message.startswith(x.value.description)
 
             assert node.is_started
 

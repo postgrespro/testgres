@@ -713,7 +713,7 @@ class PostgresNode(object):
         if self._logger:
             self._logger.stop()
 
-    def _collect_special_files(self):
+    def _collect_special_files(self) -> typing.List[typing.Tuple[str, bytes]]:
         result = []
 
         # list of important files + last N lines
