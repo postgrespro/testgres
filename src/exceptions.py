@@ -182,7 +182,38 @@ class StartNodeException(TestgresException):
 
 
 class InitNodeException(TestgresException):
-    pass
+    _message: typing.Optional[str]
+
+    def __init__(
+        self,
+        message: typing.Optional[str] = None,
+    ):
+        assert message is None or type(message) == str  # noqa: E721
+        super().__init__(message)
+        self._message = message
+        return
+
+    @property
+    def message(self) -> str:
+        assert self._message is None or type(self._message) == str  # noqa: E721
+        if self._message is None:
+            return ""
+        return self._message
+
+    def __repr__(self) -> str:
+        args = []
+
+        if self._message is not None:
+            args.append(("message", self._message))
+
+        result = "{}(".format(type(self).__name__)
+        sep = ""
+        for a in args:
+            result += sep + a[0] + "=" + repr(a[1])
+            sep = ", "
+            continue
+        result += ")"
+        return result
 
 
 class BackupException(TestgresException):
