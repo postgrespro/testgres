@@ -27,7 +27,7 @@ from src import InitNodeException
 from src import StartNodeException
 from src import QueryException
 from src import ExecUtilException
-from src import TimeoutException
+from src import QueryTimeoutException
 from src import InvalidOperationException
 from src import BackupException
 from src import ProgrammingError
@@ -851,7 +851,7 @@ class TestTestgresCommon:
                 expected=None)
 
             # check arbitrary expected value, fail
-            with pytest.raises(expected_exception=TimeoutException):
+            with pytest.raises(expected_exception=QueryTimeoutException):
                 node.poll_query_until(query='select 3',
                                       expected=1,
                                       max_attempts=3,
@@ -861,7 +861,7 @@ class TestTestgresCommon:
             node.poll_query_until(query='select 2', expected=2)
 
             # check timeout
-            with pytest.raises(expected_exception=TimeoutException):
+            with pytest.raises(expected_exception=QueryTimeoutException):
                 node.poll_query_until(query='select 1 > 2',
                                       max_attempts=3,
                                       sleep_time=0.01)
@@ -871,7 +871,7 @@ class TestTestgresCommon:
                 node.poll_query_until(query='dummy1')
 
             # check ProgrammingError, ok
-            with pytest.raises(expected_exception=(TimeoutException)):
+            with pytest.raises(expected_exception=(QueryTimeoutException)):
                 node.poll_query_until(query='dummy2',
                                       max_attempts=3,
                                       sleep_time=0.01,

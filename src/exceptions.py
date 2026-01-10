@@ -108,8 +108,21 @@ class QueryException(TestgresException):
         return result
 
 
-class TimeoutException(QueryException):
-    pass
+class QueryTimeoutException(QueryException):
+    def __init__(
+        self,
+        message: typing.Optional[str] = None,
+        query: typing.Optional[str] = None
+    ):
+        assert message is None or type(message) == str  # noqa: E721
+        assert query is None or type(query) == str  # noqa: E721
+
+        super().__init__(message, query)
+        return
+
+
+# [2026-01-10] To backward compatibility.
+TimeoutException = QueryTimeoutException
 
 
 # [2026-01-10] It inherits TestgresException now, not QueryException

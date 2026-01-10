@@ -71,6 +71,7 @@ from .exceptions import \
     CatchUpException,   \
     ExecUtilException,  \
     QueryException,     \
+    QueryTimeoutException, \
     StartNodeException, \
     TimeoutException,   \
     InitNodeException,  \
@@ -110,6 +111,9 @@ from testgres.operations.local_ops import LocalOperations
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
 OperationalError = pglib.OperationalError
+
+
+assert TimeoutException == QueryTimeoutException
 
 
 class ProcessProxy(object):
@@ -1608,7 +1612,7 @@ class PostgresNode(object):
             time.sleep(sleep_time)
             attempts += 1
 
-        raise TimeoutException('Query timeout')
+        raise QueryTimeoutException('Query timeout', query)
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def execute(self,

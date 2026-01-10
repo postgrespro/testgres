@@ -19,6 +19,7 @@ from .exceptions import \
     TestgresException, \
     ExecUtilException, \
     QueryException, \
+    QueryTimeoutException, \
     TimeoutException, \
     CatchUpException, \
     StartNodeException, \
@@ -61,7 +62,9 @@ __all__ = [
     "NodeBackup", "testgres_config",
     "TestgresConfig", "configure_testgres", "scoped_config", "push_config", "pop_config",
     "NodeConnection", "DatabaseError", "InternalError", "ProgrammingError", "OperationalError",
-    "TestgresException", "ExecUtilException", "QueryException", "TimeoutException", "CatchUpException", "StartNodeException", "InitNodeException", "BackupException", "InvalidOperationException",
+    "TestgresException", "ExecUtilException", "QueryException",
+    QueryTimeoutException.__name__,
+    "TimeoutException", "CatchUpException", "StartNodeException", "InitNodeException", "BackupException", "InvalidOperationException",
     "XLogMethod", "IsolationLevel", "NodeStatus", "ProcessType", "DumpFormat",
     NodeApp.__name__,
     PostgresNode.__name__,
