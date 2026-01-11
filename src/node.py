@@ -975,19 +975,31 @@ class PostgresNode(object):
 
         self.start(exec_env=exec_env)
 
-        if replica:
-            query = 'SELECT pg_is_in_recovery()'
-        else:
-            query = 'SELECT not pg_is_in_recovery()'
-        # Call poll_query_until until the expected value is returned
-        self.poll_query_until(query=query,
-                              dbname=dbname,
-                              username=username or self.os_ops.username,
-                              suppress={InternalError,
-                                        QueryException,
-                                        ProgrammingError,
-                                        OperationalError},
-                              max_attempts=max_attempts)
+        try:
+            if replica:
+                query = 'SELECT pg_is_in_recovery()'
+            else:
+                query = 'SELECT not pg_is_in_recovery()'
+
+            # Call poll_query_until until the expected value is returned
+            suppressed_exceptions = {
+                InternalError,
+                QueryException,
+                ProgrammingError,
+                OperationalError
+            }
+
+            self.poll_query_until(
+                query=query,
+                dbname=dbname,
+                username=username or self.os_ops.username,
+                suppress=suppressed_exceptions,
+                max_attempts=max_attempts,
+            )
+        except:  # noqa: E722
+            self.stop()
+            raise
+        return
 
     def start(self, params=[], wait=True, exec_env=None):
         """

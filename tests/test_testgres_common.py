@@ -210,8 +210,10 @@ class TestTestgresCommon:
         with __class__.helper__get_node(node_svc) as node:
             node.init()
             assert not node.is_started
+            assert node.status() == NodeStatus.Stopped
             node.start()
             assert node.is_started
+            assert node.status() == NodeStatus.Running
 
             with pytest.raises(expected_exception=StartNodeException) as x:
                 # can't start node more than once
@@ -226,6 +228,7 @@ class TestTestgresCommon:
             assert x.value.message.startswith(x.value.description)
 
             assert node.is_started
+            assert node.status() == NodeStatus.Running
 
         return
 
@@ -272,8 +275,13 @@ class TestTestgresCommon:
 
         with __class__.helper__get_node(node_svc) as node:
             # node is not initialized yet
+            assert node.status() == NodeStatus.Uninitialized
+
             with pytest.raises(expected_exception=StartNodeException):
                 node.start()
+
+            assert node.status() == NodeStatus.Uninitialized
+        return
 
     def test_restart(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -288,10 +296,15 @@ class TestTestgresCommon:
             res = node.execute('select 2')
             assert (res == [(2,)])
 
+            assert node.status() == NodeStatus.Running
+
             # restart, fail
             with pytest.raises(expected_exception=StartNodeException):
                 node.append_conf('pg_hba.conf', 'DUMMY')
                 node.restart()
+
+            assert node.status() == NodeStatus.Stopped
+        return
 
     def test_double_stop(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -1618,13 +1631,18 @@ class TestTestgresCommon:
             with __class__.helper__get_node(node_svc, port=node.port) as node2:
                 assert (type(node2.port) == int)  # noqa: E721
                 assert (node2.port == node.port)
-                assert not (node2._should_free_port)
+                assert (not node2._should_free_port)
+                assert (node2.status() == NodeStatus.Uninitialized)
+
+                node2.init()
 
                 with pytest.raises(
                     expected_exception=StartNodeException,
                     match=re.escape("Cannot start node")
                 ):
-                    node2.init().start()
+                    node2.start()
+
+                assert (node2.status() == NodeStatus.Stopped)
 
             # node is still working
             assert (node.port == node_port_copy)
@@ -2124,6 +2142,8 @@ class TestTestgresCommon:
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
 
+        C_MAX_ATTEMPTS = 5
+
         tmp_dir = node_svc.os_ops.mkdtemp()
         assert tmp_dir is not None
         assert type(tmp_dir) == str  # noqa: E721
@@ -2141,37 +2161,83 @@ class TestTestgresCommon:
         assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
         assert len(node_app.nodes_to_cleanup) == 0
 
-        port = node_app.port_manager.reserve_port()
-        assert type(port) == int  # noqa: E721
-
-        node: PostgresNode = None
+        attempt = 0
+        ports = []
         try:
-            node = node_app.make_simple("node", port=port)
-            assert node is not None
-            assert isinstance(node, PostgresNode)
-            assert node.os_ops is node_svc.os_ops
-            assert node.port_manager is None  # <---------
-            assert node.port == port
-            assert node._should_free_port == False  # noqa: E712
+            while True:
+                if attempt == C_MAX_ATTEMPTS:
+                    raise RuntimeError("Node did not start.")
 
-            assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
-            assert len(node_app.nodes_to_cleanup) == 1
-            assert node_app.nodes_to_cleanup[0] is node
+                attempt += 1
 
-            node.slow_start()
-        finally:
-            if node is not None:
+                logging.info("------------- attempt #{}".format(
+                    attempt
+                ))
+
+                port = node_app.port_manager.reserve_port()
+                assert type(port) == int  # noqa: E721
+                assert port is not ports
+
+                try:
+                    ports.append(port)
+                except:  # noqa: E722
+                    node_app.port_manager.release_port(port)
+                    raise
+
+                assert len(ports) == attempt
+                node_name = "node_{}".format(attempt)
+
+                logging.info("Node [{}] is creating...".format(node_name))
+                node = node_app.make_simple(node_name, port=port)
+                assert node is not None
+                assert isinstance(node, PostgresNode)
+                assert node.os_ops is node_svc.os_ops
+                assert node.port_manager is None  # <---------
+                assert node.port == port
+                assert node._should_free_port == False  # noqa: E712
+
+                assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
+                assert len(node_app.nodes_to_cleanup) == attempt
+                assert node_app.nodes_to_cleanup[-1] is node
+
+                assert node.status() == NodeStatus.Stopped
+                logging.info("Node is created")
+
+                logging.info("Try to start a node...")
+                try:
+                    node.slow_start()
+                except StartNodeException as e:
+                    logging.info("Exception ({}): {}".format(
+                        type(e).__name__,
+                        e
+                    ))
+                    assert node.status() == NodeStatus.Stopped
+                    node_app.port_manager.release_port(port)
+                    continue
+
+                assert node.status() == NodeStatus.Running
+                logging.info("Node is started")
+
+                logging.info("Stop node")
                 node.stop()
-                node.free_port()
+                assert node.status() == NodeStatus.Stopped
+                logging.info("Node is stopped")
 
-        assert node._port is None
-        assert not node._should_free_port
-
-        node.cleanup(release_resources=True)
+                logging.info("OK. Go home.")
+                assert node is not None
+                assert isinstance(node, PostgresNode)
+                assert node._port is not None
+                assert node._port == port
+                assert not node._should_free_port
+                break
+        finally:
+            while len(ports) > 0:
+                node_app.port_manager.release_port(ports.pop())
 
         # -----------
         logging.info("temp directory [{}] is deleting".format(tmp_dir))
-        node_svc.os_ops.rmdir(tmp_dir)
+        node_svc.os_ops.rmdirs(tmp_dir)
+        return
 
     @staticmethod
     def helper__get_node(

@@ -12,6 +12,7 @@ import src as testgres
 from src import StartNodeException
 from src import ExecUtilException
 from src import NodeApp
+from src import NodeStatus
 from src import scoped_config
 from src import get_new_node
 from src import get_bin_path
@@ -316,7 +317,7 @@ class TestTestgresLocal:
                     assert (node2.port == node1.port)
 
                     node2.init()
-
+                    assert (node2.status() == NodeStatus.Stopped)
                     with pytest.raises(
                         expected_exception=StartNodeException,
                         match=re.escape("Cannot start node after multiple attempts.")
@@ -327,7 +328,8 @@ class TestTestgresLocal:
                     assert (node2._should_free_port)
                     assert (__class__.tagPortManagerProxy.sm_DummyPortCurrentUsage == 1)
                     assert (__class__.tagPortManagerProxy.sm_DummyPortTotalUsage == C_COUNT_OF_BAD_PORT_USAGE)
-                    assert not (node2.is_started)
+                    assert (not node2.is_started)
+                    assert (node2.status() == NodeStatus.Stopped)
 
                 # node2 must release our dummyPort (node1.port)
                 assert (__class__.tagPortManagerProxy.sm_DummyPortCurrentUsage == 0)
@@ -335,6 +337,7 @@ class TestTestgresLocal:
             # node1 is still working
             assert (node1.port == node1_port_copy)
             assert (node1._should_free_port)
+            assert (node1.status() == NodeStatus.Running)
             assert (rm_carriage_returns(node1.safe_psql("SELECT 3;")) == b'3\n')
 
     def test_simple_with_bin_dir(self):
