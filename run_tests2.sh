@@ -24,10 +24,6 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 source "${VENV_PATH}/bin/activate"
 pip install -r tests/requirements.txt
 
-# install testgres' dependencies
-export PYTHONPATH=$(pwd)
-# $PIP install .
-
 # test code quality
 pip install flake8 flake8-pyproject
 flake8 .
