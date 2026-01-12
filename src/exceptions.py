@@ -59,9 +59,6 @@ class QueryException(TestgresException):
         return self._query
 
     def __repr__(self) -> str:
-        assert type(self) == QueryException  # noqa: E721
-        assert __class__ == QueryException  # noqa: E721
-
         args = []
 
         if self._description is not None:
@@ -70,12 +67,11 @@ class QueryException(TestgresException):
         if self._query is not None:
             args.append(("query", self._query))
 
-        result = "{}(".format(__class__.__name__)
+        result = "{}(".format(type(self).__name__)
         sep = ""
         for a in args:
-            if a[1] is not None:
-                result += sep + a[0] + "=" + repr(a[1])
-                sep = ", "
+            result += sep + a[0] + "=" + repr(a[1])
+            sep = ", "
             continue
         result += ")"
         return result
@@ -136,9 +132,6 @@ class StartNodeException(TestgresException):
         return self._files
 
     def __repr__(self) -> str:
-        assert type(self) == StartNodeException  # noqa: E721
-        assert __class__ == StartNodeException  # noqa: E721
-
         args = []
 
         if self._description is not None:
@@ -147,12 +140,11 @@ class StartNodeException(TestgresException):
         if self._files is not None:
             args.append(("files", self._files))
 
-        result = "{}(".format(__class__.__name__)
+        result = "{}(".format(type(self).__name__)
         sep = ""
         for a in args:
-            if a[1] is not None:
-                result += sep + a[0] + "=" + repr(a[1])
-                sep = ", "
+            result += sep + a[0] + "=" + repr(a[1])
+            sep = ", "
             continue
         result += ")"
         return result

@@ -2,3 +2,6 @@ dist
 env
 venv
 *.egg-info
+logs
+.vscode
+.pytest_cache
