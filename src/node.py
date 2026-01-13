@@ -1005,9 +1005,36 @@ class PostgresNode(object):
             raise
         return
 
-    def start(self, params=[], wait=True, exec_env=None):
+    def start(self, params=[], wait=True, exec_env=None) -> PostgresNode:
         """
-        Starts the PostgreSQL node using pg_ctl if node has not been started.
+        Starts the PostgreSQL node using pg_ctl and set flag 'is_started'.
+        By default, it waits for the operation to complete before returning.
+        Optionally, it can return immediately without waiting for the start operation
+        to complete by setting the `wait` parameter to False.
+
+        Args:
+            params: additional arguments for pg_ctl.
+            wait: wait until operation completes.
+
+        Returns:
+            This instance of :class:`.PostgresNode`.
+        """
+        self.start2()
+
+        if not wait:
+            # Postmaster process is starting in background
+            self._manually_started_pm_pid = __class__._C_PM_PID__IS_NOT_DETECTED
+        else:
+            self._manually_started_pm_pid = self._get_node_state().pid
+            if self._manually_started_pm_pid is None:
+                self._raise_cannot_start_node(None, "Cannot detect postmaster pid.")
+
+        assert type(self._manually_started_pm_pid) == int  # noqa: E721
+        return self
+
+    def start2(self, params=[], wait=True, exec_env=None) -> None:
+        """
+        Starts the PostgreSQL node using pg_ctl.
         By default, it waits for the operation to complete before returning.
         Optionally, it can return immediately without waiting for the start operation
         to complete by setting the `wait` parameter to False.
@@ -1040,18 +1067,9 @@ class PostgresNode(object):
             if error and 'does not exist' in error:
                 raise Exception(error)
 
-        def LOCAL__raise_cannot_start_node(
-            from_exception: typing.Optional[Exception],
-            msg: str
-        ):
-            assert from_exception is None or isinstance(from_exception, Exception)
-            assert type(msg) == str  # noqa: E721
-            files = self._collect_special_files()
-            raise_from(StartNodeException(msg, files), from_exception)
-
         def LOCAL__raise_cannot_start_node__std(from_exception):
             assert isinstance(from_exception, Exception)
-            LOCAL__raise_cannot_start_node(from_exception, 'Cannot start node')
+            self._raise_cannot_start_node(from_exception, 'Cannot start node')
 
         if not self._should_free_port:
             try:
@@ -1078,7 +1096,7 @@ class PostgresNode(object):
                     assert nAttempt > 0
                     assert nAttempt <= __class__._C_MAX_START_ATEMPTS
                     if nAttempt == __class__._C_MAX_START_ATEMPTS:
-                        LOCAL__raise_cannot_start_node(e, "Cannot start node after multiple attempts.")
+                        self._raise_cannot_start_node(e, "Cannot start node after multiple attempts.")
 
                     is_it_port_conflict = PostgresNodeUtils.delect_port_conflict(log_reader)
 
@@ -1103,18 +1121,17 @@ class PostgresNode(object):
                     continue
                 break
         self._maybe_start_logger()
+        return
 
-        if not wait:
-            # Postmaster process is starting in background
-            self._manually_started_pm_pid = __class__._C_PM_PID__IS_NOT_DETECTED
-        else:
-            self._manually_started_pm_pid = self._get_node_state().pid
-            if self._manually_started_pm_pid is None:
-                LOCAL__raise_cannot_start_node(None, "Cannot detect postmaster pid.")
-
-        assert type(self._manually_started_pm_pid) == int  # noqa: E721
-
-        return self
+    def _raise_cannot_start_node(
+        self,
+        from_exception: typing.Optional[Exception],
+        msg: str
+    ):
+        assert from_exception is None or isinstance(from_exception, Exception)
+        assert type(msg) == str  # noqa: E721
+        files = self._collect_special_files()
+        raise_from(StartNodeException(msg, files), from_exception)
 
     def stop(self, params=[], wait=True):
         """
