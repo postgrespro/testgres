@@ -1247,13 +1247,27 @@ class TestTestgresCommon:
                 raise Exception("PostgresSQL did not start.")
 
             nAttempt += 1
-            logging.info("------------------------ NODE #{}".format(
+            logging.info("------------------------ attempt #{}".format(
                 nAttempt
             ))
 
-            with __class__.helper__get_node(node_svc, port=12345) as node:
-                if self.impl__test_pg_ctl_wait_option(node_svc, node):
-                    break
+            if nAttempt > 1:
+                logging.info("Sleep 3 seconds")
+                time.sleep(3)
+
+            port = node_svc.port_manager.reserve_port()
+            assert type(port) == int  # noqa: E721
+            ok = False
+            try:
+                with __class__.helper__get_node(node_svc, port=port) as node:
+                    if self.impl__test_pg_ctl_wait_option(node_svc, node):
+                        ok = True
+            finally:
+                node_svc.port_manager.release_port(port)
+
+            if ok:
+                break
+
             continue
 
         logging.info("OK. Test is passed. Number of attempts is {}".format(
@@ -1272,12 +1286,25 @@ class TestTestgresCommon:
 
         C_MAX_ATTEMPTS = 50
 
+        logging.info("init node")
         node.init()
         assert node.status() == NodeStatus.Stopped
+        logging.info("node is inited")
 
         node_log_reader = PostgresNodeLogReader(node, from_beginnig=True)
 
-        node.start(wait=False)
+        logging.info("start node")
+
+        try:
+            node.start(wait=False)
+        except StartNodeException as e:
+            logging.info("Exception ({}): {}".format(
+                type(e).__name__,
+                e,
+            ))
+            return False
+        logging.info("node is started")
+
         nAttempt = 0
         while True:
             if PostgresNodeUtils.delect_port_conflict(node_log_reader):
