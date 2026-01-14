@@ -46,6 +46,12 @@ time coverage run -a -m pytest -l -v -n 4 -k "${TEST_FILTER}"
 PG_CONFIG=$(pg_config --bindir)/pg_config \
 time coverage run -a -m pytest -l -v -n 4 -k "${TEST_FILTER}"
 
+# test pg8000
+pip uninstall -y psycopg2
+pip install pg8000
+PG_CONFIG=$(pg_config --bindir)/pg_config \
+time coverage run -a -m pytest -l -v -n 4 -k "${TEST_FILTER}"
+
 # show coverage
 coverage report
 
