@@ -7,6 +7,7 @@ from .helpers.global_data import PortManager
 
 from src.node import PgVer
 from src.node import PostgresNode
+from src.node import NodeConnection
 from src.node import PostgresNodeLogReader
 from src.node import PostgresNodeUtils
 from src.node import ProcessProxy
@@ -2000,6 +2001,290 @@ class TestTestgresCommon:
                 assert node.os_ops is node_svc.os_ops
         finally:
             node_svc.port_manager.release_port(port)
+
+    class tagTableChecksumTestData:
+        record_count: int
+        checksum: int
+
+        def __init__(
+            self,
+            record_count: int,
+            checksum: int
+        ):
+            assert type(record_count) == int  # noqa: E721
+            assert type(checksum) == int  # noqa: E721
+            self.record_count = record_count  # noqa: E721
+            self.checksum = checksum  # noqa: E721
+            return
+
+    sm_TableCheckSumTestDatas = [
+        tagTableChecksumTestData(0, 0),
+        tagTableChecksumTestData(1, 4602640778579266704),
+        tagTableChecksumTestData(2, 0),
+        tagTableChecksumTestData(3, 0),
+        tagTableChecksumTestData(987, 0),
+        tagTableChecksumTestData(999, 0),
+        tagTableChecksumTestData(1000, 0),
+        tagTableChecksumTestData(1001, 0),
+        tagTableChecksumTestData(1999, 0),
+        tagTableChecksumTestData(19999, 0),
+        tagTableChecksumTestData(199999, 0),
+    ]
+
+    @pytest.fixture(
+        params=sm_TableCheckSumTestDatas,
+        ids=[x.record_count for x in sm_TableCheckSumTestDatas],
+    )
+    def table_checksum_test_data(
+        self,
+        request: pytest.FixtureRequest
+    ) -> tagTableChecksumTestData:
+        assert isinstance(request, pytest.FixtureRequest)
+        assert type(request.param).__name__ == "tagTableChecksumTestData"
+        return request.param
+
+    def test_node__table_checksum(
+        self,
+        node_svc: PostgresNodeService,
+        table_checksum_test_data: tagTableChecksumTestData,
+    ):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(table_checksum_test_data) == __class__.tagTableChecksumTestData  # noqa: E721
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert node is not None
+            assert type(node) == PostgresNode  # noqa: E721
+            assert node.port is not None
+            assert type(node.port) == int  # noqa: E721
+            assert type(table_checksum_test_data.record_count) == int  # noqa: E721
+            assert table_checksum_test_data.record_count >= 0
+
+            node.init()
+            node.slow_start()
+
+            C_DB = "postgres"
+
+            with node.connect(dbname=C_DB) as cn:
+                assert type(cn) == NodeConnection  # noqa: E721
+
+                cn.execute("create table t (id integer, data varchar(32));")
+                cn.commit()
+
+                if table_checksum_test_data.record_count > 0:
+                    cn.execute("insert into t (id, data) select x, x from generate_series(1, {}) x".format(
+                        table_checksum_test_data.record_count
+                    ))
+                    cn.commit()
+
+                with cn.connection.cursor() as cursor:
+                    assert cursor is not None
+                    cursor.execute("SELECT t::text FROM \"t\" as t;")
+
+                    checksum1 = 0
+                    record_count = 0
+                    while True:
+                        row = cursor.fetchone()
+                        if row is None:
+                            break
+                        assert type(row) in [list, tuple]  # noqa: E721
+                        assert len(row) == 1
+                        record_count += 1
+                        checksum1 += hash(row[0])
+                        pass
+
+                    assert record_count == table_checksum_test_data.record_count
+
+                checksum2 = node.table_checksum("t", C_DB)
+                assert type(checksum2) == int  # noqa: E721
+
+                assert checksum1 == checksum2
+                pass
+        return
+
+    def test_node__pgbench_table_checksums__one_table(
+        self,
+        node_svc: PostgresNodeService,
+        table_checksum_test_data: tagTableChecksumTestData,
+    ):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+        assert type(table_checksum_test_data) == __class__.tagTableChecksumTestData  # noqa: E721
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert node is not None
+            assert type(node) == PostgresNode  # noqa: E721
+            assert node.port is not None
+            assert type(node.port) == int  # noqa: E721
+            assert type(table_checksum_test_data.record_count) == int  # noqa: E721
+            assert table_checksum_test_data.record_count >= 0
+
+            node.init()
+            node.slow_start()
+
+            C_DB = "postgres"
+
+            with node.connect(dbname=C_DB) as cn:
+                assert type(cn) == NodeConnection  # noqa: E721
+
+                cn.execute("create table t (id integer, data varchar(32));")
+                cn.commit()
+
+                if table_checksum_test_data.record_count > 0:
+                    cn.execute("insert into t (id, data) select x, x from generate_series(1, {}) x".format(
+                        table_checksum_test_data.record_count
+                    ))
+                    cn.commit()
+
+                with cn.connection.cursor() as cursor:
+                    assert cursor is not None
+                    cursor.execute("SELECT t::text FROM \"t\" as t;")
+
+                    checksum1 = 0
+                    record_count = 0
+                    while True:
+                        row = cursor.fetchone()
+                        if row is None:
+                            break
+                        assert type(row) in [list, tuple]  # noqa: E721
+                        assert len(row) == 1
+                        record_count += 1
+                        checksum1 += hash(row[0])
+                        pass
+
+                    assert record_count == table_checksum_test_data.record_count
+
+                actual_result = node.pgbench_table_checksums(C_DB, ["t"])
+                assert type(actual_result) == set  # noqa: E721
+                actual1 = actual_result.pop()
+                assert type(actual1) == tuple  # noqa: E721
+                assert len(actual1) == 2
+                assert type(actual1[0]) == str  # noqa: E721
+                assert type(actual1[1]) == int  # noqa: E721
+
+                assert checksum1 == actual1[1]
+                pass
+        return
+
+    def test_node__pgbench_table_checksums__pbckp_2278(self, node_svc: PostgresNodeService):
+        assert type(node_svc) == PostgresNodeService  # noqa: E721
+
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        with __class__.helper__get_node(node_svc) as node:
+            assert node is not None
+            assert type(node) == PostgresNode  # noqa: E721
+            assert node.port is not None
+            assert type(node.port) == int  # noqa: E721
+
+            node.init()
+            node.slow_start()
+
+            logging.info("init pgbench database")
+            node.pgbench_init(scale=20)
+
+            nPass = 0
+            while nPass < 1:
+                nPass += 1
+                logging.info("------------------- pass: {}".format(nPass))
+
+                if not __class__.helper__call_and_check_pgbench_table_checksums(node):
+                    raise RuntimeError("pgbench_table_checksums created a problem. Please, check a test log.")
+                continue
+
+        return
+
+    @staticmethod
+    def helper__call_and_check_pgbench_table_checksums(
+        node: PostgresNode
+    ) -> bool:
+        assert node is not None
+        assert type(node) == PostgresNode  # noqa: E721
+        assert node.status() == NodeStatus.Running
+
+        # We will check
+        # 1) the structure of result
+        # 2) the release of cursor locks
+
+        logging.info("run pgbench_table_checksums")
+        full_checksums = node.pgbench_table_checksums()
+        assert full_checksums is not None
+        assert type(full_checksums) == set  # noqa: E721
+        assert len(full_checksums) == 4
+
+        expectedTables: typing.Dict[str, bool] = {
+            'pgbench_branches': False,
+            'pgbench_tellers': False,
+            'pgbench_accounts': False,
+            'pgbench_history': False,
+        }
+
+        ok = True
+
+        for tcs in full_checksums:
+            assert type(tcs) == tuple  # noqa: E721
+            assert len(tcs) == 2
+            assert type(tcs[0]) == str  # noqa: E721
+            assert type(tcs[1]) == int  # noqa: E721
+
+            tableName = tcs[0]
+            if tableName not in expectedTables:
+                ok = False
+                logging.error("pgbench_table_checksums returns unknown table [{}].".format(
+                    tableName
+                ))
+                continue
+
+            if expectedTables[tableName]:
+                ok = False
+                logging.error("pgbench_table_checksums returns table [{}] more than one time.".format(
+                    tableName
+                ))
+                continue
+
+            expectedTables[tableName] = True
+            continue
+
+        C_SQL = """select x.granted, x.mode
+from pg_locks x join pg_class c on x.relation=c.oid
+where c.relname=%s;"""
+
+        cn = node.connect(dbname="postgres")
+        assert type(cn) == NodeConnection  # noqa: E721
+
+        try:
+            for tcs in full_checksums:
+                tableName = tcs[0]
+                recs = cn.execute(C_SQL, tableName)
+                assert type(recs) == list  # noqa: E721
+                if len(recs) == 0:
+                    logging.info("Table [{}] does not has lock. It is ok.".format(
+                        tableName,
+                    ))
+                else:
+                    ok = False
+                    assert len(recs) == 1
+                    rec = recs[0]
+                    assert type(rec) == tuple  # noqa: E721
+                    assert len(rec) == 2
+                    logging.error("Table [{}] is has lock [granted: {}][mode: {}].".format(
+                        tableName,
+                        rec[0],
+                        rec[1],
+                    ))
+                continue
+        finally:
+            try:
+                cn.close()
+            except Exception as e:
+                logging.error("Can't close connection. Exception ({}): {}".format(
+                    type(e).__name__,
+                    e,
+                ))
+        return ok
 
     class tag_rmdirs_protector:
         _os_ops: OsOperations
