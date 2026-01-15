@@ -3,11 +3,8 @@ from __future__ import annotations
 
 import logging
 import os
-import random
 import signal
 import subprocess
-import threading
-from queue import Queue
 
 import time
 import typing
@@ -1953,69 +1950,47 @@ class PostgresNode(object):
                               password=password,
                               autocommit=autocommit)  # yapf: disable
 
-    def table_checksum(self, table, dbname="postgres"):
-        con = self.connect(dbname=dbname)
+    def table_checksum(
+        self,
+        table: str,
+        dbname: str = "postgres"
+    ) -> int:
+        assert type(table) == str  # noqa: E721
+        assert type(dbname) == str  # noqa: E721
 
-        curname = "cur_" + str(random.randint(0, 2 ** 48))
+        cn = self.connect(dbname=dbname)
+        assert type(cn) == NodeConnection  # noqa: E721
 
-        con.execute("""
-            DECLARE %s NO SCROLL CURSOR FOR
-            SELECT t::text FROM %s as t
-        """ % (curname, table))
+        try:
+            sum = __class__._table_checksum__use_cn(cn, table)
+            assert type(sum) == int  # noqa: E721
+        finally:
+            assert type(cn) == NodeConnection  # noqa: E721
+            cn.close()
 
-        que = Queue(maxsize=50)
-        sum = 0
-
-        rows = con.execute("FETCH FORWARD 2000 FROM %s" % curname)
-        if not rows:
-            return 0
-        que.put(rows)
-
-        th = None
-        if len(rows) == 2000:
-            def querier():
-                try:
-                    while True:
-                        rows = con.execute("FETCH FORWARD 2000 FROM %s" % curname)
-                        if not rows:
-                            break
-                        que.put(rows)
-                except Exception as e:
-                    que.put(e)
-                else:
-                    que.put(None)
-
-            th = threading.Thread(target=querier)
-            th.start()
-        else:
-            que.put(None)
-
-        while True:
-            rows = que.get()
-            if rows is None:
-                break
-            if isinstance(rows, Exception):
-                raise rows
-            # hash uses SipHash since Python3.4, therefore it is good enough
-            for row in rows:
-                sum += hash(row[0])
-
-        if th is not None:
-            th.join()
-
-        con.execute("CLOSE %s; ROLLBACK;" % curname)
-
-        con.close()
+        assert type(sum) == int  # noqa: E721
         return sum
 
-    def pgbench_table_checksums(self, dbname="postgres",
-                                pgbench_tables=('pgbench_branches',
-                                                'pgbench_tellers',
-                                                'pgbench_accounts',
-                                                'pgbench_history')
-                                ):
-        return {(table, self.table_checksum(table, dbname))
-                for table in pgbench_tables}
+    sm_pgbench_tables = [
+        'pgbench_branches',
+        'pgbench_tellers',
+        'pgbench_accounts',
+        'pgbench_history'
+    ]
+
+    def pgbench_table_checksums(
+        self,
+        dbname: str = "postgres",
+        pgbench_tables: typing.Iterable[str] = sm_pgbench_tables
+    ) -> typing.Set[typing.Tuple[str, int]]:
+        assert type(dbname) == str  # noqa: E721
+
+        r1 = self._tables_checksum(dbname, pgbench_tables)
+        assert type(r1) == list  # noqa: E721
+
+        r2 = set(r1)
+        assert type(r2) == set  # noqa: E721
+        return r2
 
     def set_auto_conf(self, options, config='postgresql.auto.conf', rm_options={}):
         """
@@ -2173,6 +2148,84 @@ class PostgresNode(object):
                 result += ch
 
         result += "'"
+        return result
+
+    def _tables_checksum(
+        self,
+        dbname: str,
+        tables: typing.Iterable[str],
+    ) -> typing.List[typing.Tuple[str, int]]:
+        assert isinstance(tables, typing.Iterable)
+        assert type(dbname) == str  # noqa: E721
+
+        result = []
+
+        cn = self.connect(dbname=dbname)
+        assert type(cn) == NodeConnection  # noqa: E721
+
+        try:
+            cn.begin()
+
+            for table in tables:
+                assert type(table) == str  # noqa: E721
+                sum = __class__._table_checksum__use_cn(cn, table)
+                assert type(sum) == int  # noqa: E721
+                result.append((table, sum))
+
+            cn.commit()
+        finally:
+            assert type(cn) == NodeConnection  # noqa: E721
+            cn.close()
+
+        assert type(result) == list  # noqa: E721
+        return result
+
+    @staticmethod
+    def _table_checksum__use_cn(
+        cn: NodeConnection,
+        table: str,
+    ) -> int:
+        assert type(cn) == NodeConnection  # noqa: E721
+        assert type(table) == str  # noqa: E721
+
+        sum = 0
+
+        cursor = cn.connection.cursor()
+        assert cursor is not None
+
+        try:
+            cursor.execute("SELECT t::text FROM {} as t".format(
+                __class__._delim_sql_ident(table)
+            ))
+
+            while True:
+                row = cursor.fetchone()
+                if row is None:
+                    break
+                assert type(row) in [list, tuple]  # noqa: E721
+                assert len(row) == 1
+                sum += hash(row[0])
+                continue
+        finally:
+            cursor.close()
+
+        assert type(sum) == int  # noqa: E721
+        return sum
+
+    @staticmethod
+    def _delim_sql_ident(name: str) -> str:
+        assert isinstance(name, str)
+
+        result = '"'
+
+        for ch in name:
+            if ch == '"':
+                result = result + '""'
+            else:
+                result = result + ch
+
+        result = result + '"'
+
         return result
 
 
