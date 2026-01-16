@@ -54,7 +54,7 @@ dependencies = [
     "six>=1.9.0",
     "psutil",
     "packaging",
-    "testgres.os_ops @ git+https://github.com/postgrespro/testgres.os_ops.git@2.0.0",
+    "testgres.os_ops>=2.0.0,<3.0.0",
 ]
 
 [project.urls]
