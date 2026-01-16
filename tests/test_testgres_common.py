@@ -2187,7 +2187,7 @@ class TestTestgresCommon:
             node.pgbench_init(scale=20)
 
             nPass = 0
-            while nPass < 1:
+            while nPass < 3:
                 nPass += 1
                 logging.info("------------------- pass: {}".format(nPass))
 
