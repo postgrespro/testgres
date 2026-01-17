@@ -2187,7 +2187,7 @@ class TestTestgresCommon:
             node.pgbench_init(scale=20)
 
             nPass = 0
-            while nPass < 1:
+            while nPass < 3:
                 nPass += 1
                 logging.info("------------------- pass: {}".format(nPass))
 
@@ -2261,7 +2261,7 @@ where c.relname=%s;"""
                 recs = cn.execute(C_SQL, tableName)
                 assert type(recs) == list  # noqa: E721
                 if len(recs) == 0:
-                    logging.info("Table [{}] does not has lock. It is ok.".format(
+                    logging.info("Table [{}] does not have a lock. It is ok.".format(
                         tableName,
                     ))
                 else:
@@ -2270,7 +2270,7 @@ where c.relname=%s;"""
                     rec = recs[0]
                     assert type(rec) == tuple  # noqa: E721
                     assert len(rec) == 2
-                    logging.error("Table [{}] is has lock [granted: {}][mode: {}].".format(
+                    logging.error("Table [{}] has a lock [granted: {}][mode: {}].".format(
                         tableName,
                         rec[0],
                         rec[1],

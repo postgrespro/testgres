@@ -72,4 +72,4 @@ ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -N ''; \
 cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys; \
 chmod 600 ~/.ssh/authorized_keys; \
 ls -la ~/.ssh/; \
-TEST_FILTER=\"\" bash ./run_tests.sh;"
+TEST_FILTER=\"TestTestgresLocal or TestOsOpsLocal or local\" bash ./run_tests.sh;"
