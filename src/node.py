@@ -1497,7 +1497,8 @@ class PostgresNode(object):
              filename=None,
              dbname=None,
              username=None,
-             format=DumpFormat.Plain):
+             format=DumpFormat.Plain,
+             options=None):
         """
         Dump database into a file using pg_dump.
         NOTE: the file is not removed automatically.
@@ -1507,6 +1508,7 @@ class PostgresNode(object):
             dbname: database name to connect to.
             username: database user name.
             format: format argument plain/custom/directory/tar.
+            options: additional options for pg_dump (list).
 
         Returns:
             Path to a file containing dump.
@@ -1539,6 +1541,10 @@ class PostgresNode(object):
             "-d", dbname or default_dbname(),
             "-F", format.value
         ]  # yapf: disable
+
+        # Add additional options if provided
+        if options:
+            _params.extend(options)
 
         execute_utility2(self.os_ops, _params, self.utils_log_file)
 
