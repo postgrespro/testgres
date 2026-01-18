@@ -143,7 +143,7 @@ class NodeApp:
         final_initdb_params = initdb_params
 
         if checksum:
-            final_initdb_params = __class__._paramlist_append_is_not_exist(
+            final_initdb_params = __class__._paramlist_append_if_not_exist(
                 initdb_params,
                 final_initdb_params,
                 '--data-checksums'
@@ -254,7 +254,7 @@ class NodeApp:
         return updated_params
 
     @staticmethod
-    def _paramlist_append_is_not_exist(
+    def _paramlist_append_if_not_exist(
         user_params: typing.Optional[T_LIST_STR],
         updated_params: typing.Optional[T_LIST_STR],
         param: str,
