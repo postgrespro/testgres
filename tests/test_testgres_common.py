@@ -2552,7 +2552,6 @@ where c.relname=%s;"""
                         e
                     ))
                     assert node.status() == NodeStatus.Stopped
-                    node_app.port_manager.release_port(port)
                     continue
 
                 assert node.status() == NodeStatus.Running
