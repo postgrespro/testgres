@@ -1016,7 +1016,7 @@ class PostgresNode(object):
         Returns:
             This instance of :class:`.PostgresNode`.
         """
-        self.start2()
+        self.start2(params, wait, exec_env)
 
         if not wait:
             # Postmaster process is starting in background
