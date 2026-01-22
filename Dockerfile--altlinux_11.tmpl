@@ -11,6 +11,9 @@ RUN apt-get update
 RUN apt-get install -y openssh-server openssh-clients
 RUN apt-get install -y time
 
+# pgrep (for testgres.os_ops)
+RUN apt-get install -y procps
+
 # RUN apt-get install -y mc
 
 RUN apt-get install -y libsqlite3-devel
