@@ -876,8 +876,16 @@ class TestOsOpsCommon:
         actual_dir = os_ops.get_tempdir()
         assert actual_dir is not None
         assert type(actual_dir) == str  # noqa: E721
-        expected_dir = str(tempfile.tempdir)
-        assert actual_dir == expected_dir
+
+        # --------
+        cmd = [sys.executable, "-c", "import tempfile;print(tempfile.gettempdir());"]
+
+        expected_dir_b = os_ops.exec_command(cmd)
+        assert type(expected_dir_b) == bytes  # noqa: E721
+        expected_dir = expected_dir_b.decode()
+        assert type(expected_dir) == str  # noqa: E721
+        assert actual_dir + "\n" == expected_dir
+        return
 
     class tagData_OS_OPS__NUMS:
         os_ops_descr: OsOpsDescr
