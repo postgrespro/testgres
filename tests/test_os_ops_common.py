@@ -130,6 +130,44 @@ class TestOsOpsCommon:
         assert type(response) == bytes  # noqa: E721
         assert response == b'\n'
 
+    def test_exec_command_with_exec_env__2(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        C_ENV_NAME = "TESTGRES_TEST__EXEC_ENV_20250414"
+
+        tmp_file_content = "echo ${{{}}}".format(C_ENV_NAME)
+
+        logging.info("content is [{}]".format(tmp_file_content))
+
+        tmp_file = os_ops.mkstemp()
+        assert type(tmp_file) == str  # noqa: E721
+        assert tmp_file != ""
+
+        logging.info("file is [{}]".format(tmp_file))
+        assert os_ops.path_exists(tmp_file)
+
+        os_ops.write(tmp_file, tmp_file_content)
+
+        cmd = ["sh", tmp_file]
+
+        exec_env = {C_ENV_NAME: "Hello!"}
+
+        response = os_ops.exec_command(cmd, exec_env=exec_env)
+        assert response is not None
+        assert type(response) == bytes  # noqa: E721
+        assert response == b'Hello!\n'
+
+        response = os_ops.exec_command(cmd)
+        assert response is not None
+        assert type(response) == bytes  # noqa: E721
+        assert response == b'\n'
+
+        os_ops.remove_file(tmp_file)
+        assert not os_ops.path_exists(tmp_file)
+        return
+
     def test_exec_command_with_cwd(self, os_ops: OsOperations):
         assert isinstance(os_ops, OsOperations)
 
