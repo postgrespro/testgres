@@ -5,10 +5,13 @@ from tests.helpers.global_data import PostgresNodeServices
 from tests.helpers.global_data import OsOperations
 from tests.helpers.global_data import PortManager
 from tests.helpers.utils import Utils as HelperUtils
+from tests.helpers.pg_node_utils import PostgresNodeUtils as PostgresNodeTestUtils
 
 from src import NodeStatus
 from src import PostgresNode
 from src import NodeConnection
+
+from src.node import PostgresNodeLogReader
 
 import pytest
 import typing
@@ -83,30 +86,57 @@ class TestSet001__start:
     def test_002__wait_false(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(node_svc) as node:
-            node.init()
-            assert not node.is_started
-            assert node.status() == NodeStatus.Stopped
-            node.start(wait=False)
-            assert node.is_started
-            assert node.status() in [NodeStatus.Stopped,  NodeStatus.Running]
+        C_MAX_ATTEMPTS = 3
 
-            # Internals
-            assert type(node._manually_started_pm_pid) == int  # noqa: E721
-            assert node._manually_started_pm_pid == node._C_PM_PID__IS_NOT_DETECTED
+        attempt = 0
 
-            logging.info("Wait for running state ...")
-            for _ in HelperUtils.WaitUntil(
-                timeout=60
-            ):
-                s = node.status()
+        while True:
+            assert type(attempt) == int  # noqa: E721
+            assert attempt >= 0
+            assert attempt <= C_MAX_ATTEMPTS
 
-                if s == NodeStatus.Running:
-                    break
-                assert s == NodeStatus.Stopped
-                continue
-            logging.info("Node is running.")
-        return
+            if attempt == C_MAX_ATTEMPTS:
+                raise RuntimeError("Node is not started")
+
+            attempt += 1
+
+            logging.info("------------- attempt #{}".format(attempt))
+
+            if attempt > 1:
+                HelperUtils.PrintAndSleep(5)
+
+            with __class__.helper__get_node(node_svc) as node:
+                node.init()
+                assert not node.is_started
+                assert node.status() == NodeStatus.Stopped
+
+                node_log_reader = PostgresNodeLogReader(node, from_beginnig=False)
+                node.start(wait=False)
+                assert node.is_started
+                assert node.status() in [NodeStatus.Stopped,  NodeStatus.Running]
+
+                # Internals
+                assert type(node._manually_started_pm_pid) == int  # noqa: E721
+                assert node._manually_started_pm_pid == node._C_PM_PID__IS_NOT_DETECTED
+
+                logging.info("Wait for running state ...")
+
+                try:
+                    PostgresNodeTestUtils.wait_for_running_state(
+                        node=node,
+                        node_log_reader=node_log_reader,
+                        timeout=60,
+                    )
+                except PostgresNodeTestUtils.PortConflictNodeException as e:
+                    logging.warning("Exception {}: {}".format(
+                        type(e).__name__,
+                        e,
+                    ))
+                    continue
+
+                logging.info("Node is running.")
+                assert node.status() == NodeStatus.Running
+                return
 
     def test_003__exec_env(
         self,
