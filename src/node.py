@@ -1002,7 +1002,12 @@ class PostgresNode(object):
             raise
         return
 
-    def start(self, params=[], wait=True, exec_env=None) -> PostgresNode:
+    def start(
+        self,
+        params: typing.Optional[typing.List[str]] = None,
+        wait: bool = True,
+        exec_env: typing.Optional[typing.Dict] = None,
+    ) -> PostgresNode:
         """
         Starts the PostgreSQL node using pg_ctl and set flag 'is_started'.
         By default, it waits for the operation to complete before returning.
@@ -1016,7 +1021,11 @@ class PostgresNode(object):
         Returns:
             This instance of :class:`.PostgresNode`.
         """
-        self.start2(params, wait, exec_env)
+        assert params is None or type(params) == list  # noqa: E721
+        assert type(wait) == bool  # noqa: E721
+        assert exec_env is None or type(exec_env) == dict  # noqa: E721
+
+        self._start(params, wait, exec_env)
 
         if not wait:
             # Postmaster process is starting in background
@@ -1029,7 +1038,12 @@ class PostgresNode(object):
         assert type(self._manually_started_pm_pid) == int  # noqa: E721
         return self
 
-    def start2(self, params=[], wait=True, exec_env=None) -> None:
+    def start2(
+        self,
+        params: typing.Optional[typing.List[str]] = None,
+        wait: bool = True,
+        exec_env: typing.Optional[typing.Dict] = None,
+    ) -> None:
         """
         Starts the PostgreSQL node using pg_ctl.
         By default, it waits for the operation to complete before returning.
@@ -1043,7 +1057,23 @@ class PostgresNode(object):
         Returns:
             None.
         """
+        assert params is None or type(params) == list  # noqa: E721
+        assert type(wait) == bool  # noqa: E721
         assert exec_env is None or type(exec_env) == dict  # noqa: E721
+
+        self._start(params, wait, exec_env)
+        return
+
+    def _start(
+        self,
+        params: typing.Optional[typing.List[str]] = None,
+        wait: bool = True,
+        exec_env: typing.Optional[typing.Dict] = None,
+    ) -> None:
+        assert params is None or type(params) == list  # noqa: E721
+        assert type(wait) == bool  # noqa: E721
+        assert exec_env is None or type(exec_env) == dict  # noqa: E721
+
         assert __class__._C_MAX_START_ATEMPTS > 1
 
         if self._port is None:
@@ -1051,11 +1081,17 @@ class PostgresNode(object):
 
         assert type(self._port) == int  # noqa: E721
 
-        _params = [self._get_bin_path("pg_ctl"),
-                   "-D", self.data_dir,
-                   "-l", self.pg_log_file,
-                   "-w" if wait else '-W',  # --wait or --no-wait
-                   "start"] + params  # yapf: disable
+        _params = [
+            self._get_bin_path("pg_ctl"),
+            "start",
+            "-D", self.data_dir,
+            "-l", self.pg_log_file,
+            "-w" if wait else '-W',  # --wait or --no-wait
+        ]
+
+        if params is not None:
+            assert type(params) == list  # noqa: E721
+            _params += params
 
         def LOCAL__start_node():
             # 'error' will be None on Windows
