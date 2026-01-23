@@ -76,3 +76,9 @@ class PostgresNodeServices:
         OsOpsDescrs.sm_local_os_ops,
         PortManagers.sm_local2_port_manager
     )
+
+    sm_locals_and_remotes = [
+        sm_local,
+        sm_local2,
+        sm_remote,
+    ]
