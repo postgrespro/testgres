@@ -2304,7 +2304,7 @@ class PostgresNodeLogReader:
         assert self._node is not None
         assert isinstance(self._node, PostgresNode)
 
-        cur_logs: typing.Dict[__class__.LogInfo] = self._collect_logs()
+        cur_logs: typing.Dict[str, __class__.LogInfo] = self._collect_logs()
         assert cur_logs is not None
         assert type(cur_logs) == dict  # noqa: E721
 
@@ -2353,7 +2353,7 @@ class PostgresNodeLogReader:
 
         return result
 
-    def _collect_logs(self) -> typing.Dict[LogInfo]:
+    def _collect_logs(self) -> typing.Dict[str, LogInfo]:
         assert self._node is not None
         assert isinstance(self._node, PostgresNode)
 
