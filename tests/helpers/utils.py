@@ -29,6 +29,11 @@ class Utils:
         """
         assert type(timeout) in [int, float]
         assert type(interval) in [int, float]
+        assert type(notification_interval) in [int, float]
+        assert type(throw_timeout) == bool  # noqa: E721
+        assert timeout >= 0
+        assert interval >= 0
+        assert notification_interval >= 0
 
         start_ts = time.monotonic()
         end_ts = start_ts + timeout
