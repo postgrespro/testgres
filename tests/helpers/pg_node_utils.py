@@ -1,9 +1,13 @@
 from src import PostgresNode
+from src import PortManager
+from src import OsOperations
 from src import NodeStatus
 from src.node import PostgresNodeLogReader
 
 from tests.helpers.utils import Utils as HelperUtils
 from tests.helpers.utils import T_WAIT_TIME
+
+from tests.helpers.global_data import PostgresNodeService
 
 import typing
 
@@ -122,6 +126,28 @@ class PostgresNodeUtils:
             )
             assert type(r) == str  # noqa: E721
             return r
+
+    # --------------------------------------------------------------------
+    @staticmethod
+    def get_node(
+        node_svc: PostgresNodeService,
+        name: typing.Optional[str] = None,
+        port: typing.Optional[int] = None,
+        port_manager: typing.Optional[PortManager] = None
+    ) -> PostgresNode:
+        assert isinstance(node_svc, PostgresNodeService)
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        if port_manager is None:
+            port_manager = node_svc.port_manager
+
+        return PostgresNode(
+            name,
+            port=port,
+            os_ops=node_svc.os_ops,
+            port_manager=port_manager if port is None else None
+        )
 
     # --------------------------------------------------------------------
     @staticmethod

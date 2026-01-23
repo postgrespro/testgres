@@ -7,8 +7,8 @@ from tests.helpers.global_data import PortManager
 from tests.helpers.utils import Utils as HelperUtils
 from tests.helpers.pg_node_utils import PostgresNodeUtils as PostgresNodeTestUtils
 
-from src import NodeStatus
 from src import PostgresNode
+from src import NodeStatus
 from src import NodeConnection
 
 from src.node import PostgresNodeLogReader
@@ -61,7 +61,8 @@ class TestSet001__start:
         assert type(data001) == __class__.tagData001  # noqa: E721
         assert data001.wait is None or type(data001.wait) == bool  # noqa: E721
 
-        with __class__.helper__get_node(node_svc) as node:
+        with PostgresNodeTestUtils.get_node(node_svc) as node:
+            assert type(node) == PostgresNode  # noqa: E721
             node.init()
             assert not node.is_started
             assert node.status() == NodeStatus.Stopped
@@ -105,7 +106,8 @@ class TestSet001__start:
             if attempt > 1:
                 HelperUtils.PrintAndSleep(5)
 
-            with __class__.helper__get_node(node_svc) as node:
+            with PostgresNodeTestUtils.get_node(node_svc) as node:
+                assert type(node) == PostgresNode  # noqa: E721
                 node.init()
                 assert not node.is_started
                 assert node.status() == NodeStatus.Stopped
@@ -144,7 +146,8 @@ class TestSet001__start:
     ):
         assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(node_svc) as node:
+        with PostgresNodeTestUtils.get_node(node_svc) as node:
+            assert type(node) == PostgresNode  # noqa: E721
             node.init()
             assert not node.is_started
             assert node.status() == NodeStatus.Stopped
@@ -185,7 +188,8 @@ class TestSet001__start:
     ):
         assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(node_svc) as node:
+        with PostgresNodeTestUtils.get_node(node_svc) as node:
+            assert type(node) == PostgresNode  # noqa: E721
             node.init()
             assert not node.is_started
             assert node.status() == NodeStatus.Stopped
@@ -201,7 +205,8 @@ class TestSet001__start:
     ):
         assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(node_svc) as node:
+        with PostgresNodeTestUtils.get_node(node_svc) as node:
+            assert type(node) == PostgresNode  # noqa: E721
             node.init()
             assert not node.is_started
             assert node.status() == NodeStatus.Stopped
@@ -210,14 +215,3 @@ class TestSet001__start:
             assert node.is_started
             assert node.status() == NodeStatus.Running
         return
-
-    @staticmethod
-    def helper__get_node(
-        node_svc: PostgresNodeService,
-    ) -> PostgresNode:
-        assert isinstance(node_svc, PostgresNodeService)
-
-        return PostgresNode(
-            os_ops=node_svc.os_ops,
-            port_manager=node_svc.port_manager,
-        )
