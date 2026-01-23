@@ -1041,7 +1041,7 @@ class PostgresNode(object):
             wait: wait until operation completes.
 
         Returns:
-            This instance of :class:`.PostgresNode`.
+            None.
         """
         assert exec_env is None or type(exec_env) == dict  # noqa: E721
         assert __class__._C_MAX_START_ATEMPTS > 1
