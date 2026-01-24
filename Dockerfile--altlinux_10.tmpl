@@ -73,10 +73,12 @@ FROM base2_with_python-${PYTHON_VERSION} as final
 RUN adduser test -G wheel
 
 # It enables execution of "sudo service ssh start" without password
-RUN sh -c "echo \"WHEEL_USERS ALL=(ALL:ALL) NOPASSWD: ALL\"" >> /etc/sudoers
+RUN echo "WHEEL_USERS ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-ADD --chown=test:test . /pg/testgres
-WORKDIR /pg/testgres
+ADD --chown=test:test . /home/test/testgres
+WORKDIR /home/test/testgres
+RUN mkdir /home/test/testgres/logs
+RUN chown -R test:test /home/test/testgres/logs
 
 ENV LANG=C.UTF-8
 
@@ -93,7 +95,10 @@ ENTRYPOINT sh -c " \
 set -eux; \
 echo HELLO FROM ENTRYPOINT; \
 echo HOME DIR IS [`realpath ~/`]; \
+ls -la .; \
 sudo /usr/sbin/sshd; \
+sudo chmod 777 /home/test/testgres/logs; \
+ls -la . | grep logs; \
 ssh-keyscan -H localhost >> ~/.ssh/known_hosts; \
 ssh-keyscan -H 127.0.0.1 >> ~/.ssh/known_hosts; \
 ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -N ''; \

@@ -71,24 +71,27 @@ RUN apk add --no-cache sudo
 ENV LANG=C.UTF-8
 
 RUN addgroup -S sudo
-RUN adduser postgres sudo
+RUN adduser -D test
+RUN addgroup test sudo
 
 EXPOSE 22
 RUN ssh-keygen -A
 
 # It allows to use sudo without password
-RUN sh -c "echo \"postgres ALL=(ALL:ALL) NOPASSWD:ALL\"">>/etc/sudoers
+RUN echo "test ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # THIS CMD IS NEEDED TO CONNECT THROUGH SSH WITHOUT PASSWORD
-RUN sh -c "echo "postgres:*" | chpasswd -e"
+RUN echo "test:*" | chpasswd -e
 
-USER postgres
+USER test
 
 RUN curl https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer | bash
 RUN ~/.pyenv/bin/pyenv install ${PYTHON_VERSION}
 
-ADD --chown=postgres:postgres . /pg/testgres
-WORKDIR /pg/testgres
+ADD --chown=test:test . /home/test/testgres
+WORKDIR /home/test/testgres
+RUN mkdir /home/test/testgres/logs
+RUN chown -R test:test /home/test/testgres/logs
 
 # THIS CMD IS NEEDED TO CONNECT THROUGH SSH WITHOUT PASSWORD
 RUN chmod 700 ~/
@@ -99,11 +102,14 @@ ENTRYPOINT sh -c " \
 set -eux; \
 echo HELLO FROM ENTRYPOINT; \
 echo HOME DIR IS [`realpath ~/`]; \
+ls -la .; \
 ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -N ''; \
 cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys; \
 chmod 600 ~/.ssh/authorized_keys; \
 ls -la ~/.ssh/; \
 sudo /usr/sbin/sshd; \
+sudo chmod 777 /home/test/testgres/logs; \
+ls -la . | grep logs; \
 ssh-keyscan -H localhost >> ~/.ssh/known_hosts; \
 ssh-keyscan -H 127.0.0.1 >> ~/.ssh/known_hosts; \
 export PATH=\"~/.pyenv/bin:$PATH\"; \
