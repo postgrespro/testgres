@@ -13,7 +13,7 @@ command -v pg_config
 # prepare python environment
 VENV_PATH="/tmp/testgres_venv"
 rm -rf $VENV_PATH
-python${PYTHON_VERSION} -m venv "${VENV_PATH}"
+${PYTHON_BINARY} -m venv "${VENV_PATH}"
 export VIRTUAL_ENV_DISABLE_PROMPT=1
 source "${VENV_PATH}/bin/activate"
 pip install -r tests/requirements.txt

@@ -7,7 +7,7 @@ FROM postgres:${PG_VERSION}-alpine as base1
 # --------------------------------------------- base2_with_python-3
 FROM base1 as base2_with_python-3
 RUN apk add --no-cache curl python3 python3-dev build-base musl-dev linux-headers
-ENV PYTHON_VERSION=3
+ENV PYTHON_BINARY=python3
 
 # --------------------------------------------- final
 FROM base2_with_python-${PYTHON_VERSION} as final
@@ -29,9 +29,8 @@ RUN adduser postgres sudo
 EXPOSE 22
 RUN ssh-keygen -A
 
-ADD . /pg/testgres
+ADD --chown=postgres:postgres . /pg/testgres
 WORKDIR /pg/testgres
-RUN chown -R postgres:postgres /pg
 
 # It allows to use sudo without password
 RUN sh -c "echo \"postgres ALL=(ALL:ALL) NOPASSWD:ALL\"">>/etc/sudoers

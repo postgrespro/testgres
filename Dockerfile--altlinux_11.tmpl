@@ -3,7 +3,6 @@ ARG PYTHON_VERSION
 
 # --------------------------------------------- base1
 FROM alt:p11 as base1
-ARG PG_VERSION
 
 RUN apt-get update
 RUN apt-get install -y sudo curl ca-certificates
@@ -69,7 +68,7 @@ RUN apt-get install -y python3
 RUN apt-get install -y python3-dev
 RUN apt-get install -y python3-modules-sqlite3
 
-ENV PYTHON_VERSION=3
+ENV PYTHON_BINARY=python3
 
 # --------------------------------------------- final
 FROM base2_with_python-${PYTHON_VERSION} as final
@@ -79,9 +78,8 @@ RUN adduser test -G wheel
 # It enables execution of "sudo service ssh start" without password
 RUN sh -c "echo \"WHEEL_USERS ALL=(ALL:ALL) NOPASSWD: ALL\"" >> /etc/sudoers
 
-ADD . /pg/testgres
+ADD --chown=test:test . /pg/testgres
 WORKDIR /pg/testgres
-RUN chown -R test /pg/testgres
 
 ENV LANG=C.UTF-8
 
