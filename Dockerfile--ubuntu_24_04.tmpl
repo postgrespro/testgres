@@ -26,18 +26,9 @@ RUN curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail http
 RUN apt update
 RUN apt install -y postgresql-${PG_VERSION}
 
-# RUN apt install -y mc
-
-# [2025-02-26] It adds the user 'postgres' in the group 'sudo'
-# [2025-02-27] It is not required.
-# RUN adduser postgres sudo
-
 EXPOSE 22
 
 RUN ssh-keygen -A
-
-# It enables execution of "sudo service ssh start" without password
-RUN sh -c "echo postgres ALL=NOPASSWD:/usr/sbin/service ssh start" >> /etc/sudoers
 
 # --------------------------------------------- base2_with_python-3
 FROM base1 as base2_with_python-3
@@ -49,12 +40,23 @@ FROM base2_with_python-${PYTHON_VERSION} as final
 
 RUN apt install -y git
 
-ADD --chown=postgres:postgres . /pg/testgres
-WORKDIR /pg/testgres
+RUN adduser test
+RUN chown postgres:postgres /var/run/postgresql
+RUN chmod 775 /var/run/postgresql
+RUN usermod -aG postgres test
+
+# It enables execution of "sudo service ssh start" without password
+#RUN echo "test ALL=NOPASSWD:/usr/sbin/service ssh start" >> /etc/sudoers
+RUN echo "test ALL=NOPASSWD:ALL" >> /etc/sudoers
+
+ADD --chown=test:test . /home/test/testgres
+WORKDIR /home/test/testgres
+RUN mkdir /home/test/testgres/logs
+RUN chown -R test:test /home/test/testgres/logs
 
 ENV LANG=C.UTF-8
 
-USER postgres
+USER test
 
 RUN chmod 700 ~/
 RUN mkdir -p ~/.ssh
@@ -63,8 +65,11 @@ ENTRYPOINT sh -c " \
 #set -eux; \
 echo HELLO FROM ENTRYPOINT; \
 echo HOME DIR IS [`realpath ~/`]; \
+ls -la .; \
 service ssh enable; \
 sudo service ssh start; \
+sudo chmod 777 /home/test/testgres/logs; \
+ls -la . | grep logs; \
 ssh-keyscan -H localhost >> ~/.ssh/known_hosts; \
 ssh-keyscan -H 127.0.0.1 >> ~/.ssh/known_hosts; \
 ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -N ''; \

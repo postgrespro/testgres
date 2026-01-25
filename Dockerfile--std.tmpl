@@ -14,10 +14,28 @@ FROM base2_with_python-${PYTHON_VERSION} as final
 
 RUN apk add --no-cache git
 
+RUN apk add --no-cache sudo
+
 ENV LANG=C.UTF-8
 
-ADD --chown=postgres:postgres . /pg/testgres
-WORKDIR /pg/testgres
+RUN addgroup -S sudo
+RUN adduser -D test
+RUN addgroup test sudo
 
-USER postgres
-ENTRYPOINT bash run_tests.sh
+ADD --chown=test:test . /home/test/testgres
+WORKDIR /home/test/testgres
+RUN mkdir /home/test/testgres/logs
+RUN chown -R test:test /home/test/testgres/logs
+
+# It allows to use sudo without password
+RUN echo "test ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+USER test
+ENTRYPOINT sh -c " \
+set -eux; \
+echo HELLO FROM ENTRYPOINT; \
+echo HOME DIR IS [`realpath ~/`]; \
+ls -la .; \
+sudo chmod 777 /home/test/testgres/logs; \
+ls -la . | grep logs; \
+bash run_tests.sh;"
