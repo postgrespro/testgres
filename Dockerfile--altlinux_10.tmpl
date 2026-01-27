@@ -2,7 +2,7 @@ ARG PG_VERSION
 ARG PYTHON_VERSION 
 
 # --------------------------------------------- base1
-FROM alt:p10 as base1
+FROM alt:p10 AS base1
 
 RUN apt-get update
 RUN apt-get install -y sudo curl ca-certificates
@@ -19,7 +19,7 @@ EXPOSE 22
 RUN ssh-keygen -A
 
 # --------------------------------------------- postgres
-FROM base1 as base1_with_dev_tools
+FROM base1 AS base1_with_dev_tools
 
 RUN apt-get update
 
@@ -41,7 +41,7 @@ RUN apt-get install -y libzstd-devel
 RUN apt-get install -y libxml2-devel
 
 # --------------------------------------------- postgres
-FROM base1_with_dev_tools as base1_with_pg-17
+FROM base1_with_dev_tools AS base1_with_pg-17
 
 RUN git clone https://github.com/postgres/postgres.git -b REL_17_STABLE /pg/postgres/source
 
@@ -60,7 +60,7 @@ RUN ln -s /pg/postgres/install/bin/pg_config -t /usr/local/bin
 RUN ln -s /pg/postgres/install/lib/libpq.so.5.17 /usr/lib64/libpq.so.5
 
 # --------------------------------------------- base2_with_python-3
-FROM base1_with_pg-${PG_VERSION} as base2_with_python-3
+FROM base1_with_pg-${PG_VERSION} AS base2_with_python-3
 RUN apt-get install -y python3
 RUN apt-get install -y python3-dev
 RUN apt-get install -y python3-modules-sqlite3
@@ -68,7 +68,7 @@ RUN apt-get install -y python3-modules-sqlite3
 ENV PYTHON_BINARY=python3
 
 # --------------------------------------------- final
-FROM base2_with_python-${PYTHON_VERSION} as final
+FROM base2_with_python-${PYTHON_VERSION} AS final
 
 RUN adduser test -G wheel
 
