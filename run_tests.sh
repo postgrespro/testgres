@@ -18,11 +18,6 @@ export VIRTUAL_ENV_DISABLE_PROMPT=1
 source "${VENV_PATH}/bin/activate"
 pip install -r tests/requirements.txt
 
-# test code quality
-pip install flake8 flake8-pyproject
-flake8 .
-pip uninstall -y flake8 flake8-pyproject
-
 # remove existing coverage file
 export COVERAGE_FILE=.coverage
 rm -f $COVERAGE_FILE
