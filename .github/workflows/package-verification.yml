@@ -102,6 +102,9 @@ jobs:
           - platform: "altlinux_11"
             python: "3"
             postgres: "17"
+          - platform: "astralinux_1_7"
+            python: "3"
+            postgres: "17"
 
     steps:
     - name: Prepare variables

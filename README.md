@@ -8,7 +8,7 @@
 
 # testgres
 
-Utility for orchestrating temporary PostgreSQL clusters in Python tests. Supports Python 3.7.17 and newer.
+Utility for orchestrating temporary PostgreSQL clusters in Python tests. Supports Python 3.7.3 and newer.
 
 ## Installation
 
