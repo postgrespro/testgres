@@ -12,6 +12,8 @@ RUN apt install -y openssh-server
 RUN apt install -y time
 RUN apt install -y netcat-traditional
 
+RUN apt install -y git
+
 RUN apt update
 RUN apt install -y postgresql-common
 
@@ -20,15 +22,8 @@ RUN bash /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
 RUN install -d /usr/share/postgresql-common/pgdg
 RUN curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
 
-# It does not work
-# RUN sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-
 RUN apt update
 RUN apt install -y postgresql-${PG_VERSION}
-
-EXPOSE 22
-
-RUN ssh-keygen -A
 
 # --------------------------------------------- base2_with_python-3
 FROM base1 AS base2_with_python-3
@@ -38,7 +33,9 @@ ENV PYTHON_BINARY=python3
 # --------------------------------------------- final
 FROM base2_with_python-${PYTHON_VERSION} AS final
 
-RUN apt install -y git
+EXPOSE 22
+
+RUN ssh-keygen -A
 
 RUN adduser test
 RUN chown postgres:postgres /var/run/postgresql
@@ -46,8 +43,9 @@ RUN chmod 775 /var/run/postgresql
 RUN usermod -aG postgres test
 
 # It enables execution of "sudo service ssh start" without password
-#RUN echo "test ALL=NOPASSWD:/usr/sbin/service ssh start" >> /etc/sudoers
-RUN echo "test ALL=NOPASSWD:ALL" >> /etc/sudoers
+# RUN echo "test ALL=NOPASSWD:/usr/sbin/service ssh start" >> /etc/sudoers
+# RUN echo "test ALL=NOPASSWD:ALL" >> /etc/sudoers
+RUN echo "test ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 ADD --chown=test:test . /home/test/testgres
 WORKDIR /home/test/testgres
