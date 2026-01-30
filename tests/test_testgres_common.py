@@ -2029,31 +2029,28 @@ class TestTestgresCommon:
 
     class tagTableChecksumTestData:
         record_count: int
-        checksum: int
 
         def __init__(
             self,
             record_count: int,
-            checksum: int
         ):
             assert type(record_count) == int  # noqa: E721
-            assert type(checksum) == int  # noqa: E721
             self.record_count = record_count  # noqa: E721
-            self.checksum = checksum  # noqa: E721
             return
 
     sm_TableCheckSumTestDatas = [
-        tagTableChecksumTestData(0, 0),
-        tagTableChecksumTestData(1, 4602640778579266704),
-        tagTableChecksumTestData(2, 0),
-        tagTableChecksumTestData(3, 0),
-        tagTableChecksumTestData(987, 0),
-        tagTableChecksumTestData(999, 0),
-        tagTableChecksumTestData(1000, 0),
-        tagTableChecksumTestData(1001, 0),
-        tagTableChecksumTestData(1999, 0),
-        tagTableChecksumTestData(19999, 0),
-        tagTableChecksumTestData(199999, 0),
+        tagTableChecksumTestData(0),
+        tagTableChecksumTestData(1),
+        tagTableChecksumTestData(2),
+        tagTableChecksumTestData(3),
+        tagTableChecksumTestData(987),
+        tagTableChecksumTestData(999),
+        tagTableChecksumTestData(1000),
+        tagTableChecksumTestData(1001),
+        tagTableChecksumTestData(1999),
+        tagTableChecksumTestData(19999),
+        tagTableChecksumTestData(199999),
+        tagTableChecksumTestData(1999999),
     ]
 
     @pytest.fixture(
