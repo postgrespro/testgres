@@ -2102,7 +2102,7 @@ class TestTestgresCommon:
 
                 with cn.connection.cursor() as cursor:
                     assert cursor is not None
-                    cursor.execute("SELECT t::text FROM \"t\" as t;")
+                    cursor.execute("SELECT hashtext(t::text) FROM \"t\" as t;")
 
                     checksum1 = 0
                     record_count = 0
@@ -2113,7 +2113,7 @@ class TestTestgresCommon:
                         assert type(row) in [list, tuple]  # noqa: E721
                         assert len(row) == 1
                         record_count += 1
-                        checksum1 += hash(row[0])
+                        checksum1 += int(row[0])
                         pass
 
                     assert record_count == table_checksum_test_data.record_count
@@ -2162,7 +2162,7 @@ class TestTestgresCommon:
 
                 with cn.connection.cursor() as cursor:
                     assert cursor is not None
-                    cursor.execute("SELECT t::text FROM \"t\" as t;")
+                    cursor.execute("SELECT hashtext(t::text) FROM \"t\" as t;")
 
                     checksum1 = 0
                     record_count = 0
@@ -2173,7 +2173,7 @@ class TestTestgresCommon:
                         assert type(row) in [list, tuple]  # noqa: E721
                         assert len(row) == 1
                         record_count += 1
-                        checksum1 += hash(row[0])
+                        checksum1 += int(row[0])
                         pass
 
                     assert record_count == table_checksum_test_data.record_count

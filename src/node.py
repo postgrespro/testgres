@@ -2236,18 +2236,16 @@ class PostgresNode(object):
         assert cursor is not None
 
         try:
-            cursor.execute("SELECT t::text FROM {} as t".format(
+            cursor.execute("SELECT SUM(hashtext(t::text)) FROM {} as t".format(
                 __class__._delim_sql_ident(table)
             ))
 
-            while True:
-                row = cursor.fetchone()
-                if row is None:
-                    break
-                assert type(row) in [list, tuple]  # noqa: E721
-                assert len(row) == 1
-                sum += hash(row[0])
-                continue
+            row = cursor.fetchone()
+            assert row is not None
+            assert type(row) in [list, tuple]  # noqa: E721
+            assert len(row) == 1
+            v = row[0]
+            sum += int(v if v is not None else 0)
         finally:
             cursor.close()
 
