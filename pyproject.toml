@@ -11,7 +11,7 @@ exclude = [".git", "__pycache__", "env", "venv"]
 
 [project]
 name = "testgres"
-version = "1.13.3"
+version = "1.13.4"
 
 description = "Testing utility for PostgreSQL and its extensions"
 readme = "README.md"
