@@ -1,5 +1,6 @@
 psutil
 pytest
+pytest-env
 pytest-xdist
 psycopg2
 six
