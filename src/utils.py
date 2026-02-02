@@ -4,8 +4,8 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-
 import sys
+import time
 
 from contextlib import contextmanager
 from packaging.version import Version, InvalidVersion
@@ -27,6 +27,9 @@ from testgres.operations.local_ops import LocalOperations
 from testgres.operations.helpers import Helpers as OsHelpers
 
 from .impl.port_manager__generic import PortManager__Generic
+
+from .impl.platforms import internal_platform_utils_factory
+from .impl import internal_utils
 
 # rows returned by PG_CONFIG
 _pg_config_data = {}
@@ -351,6 +354,10 @@ def get_pg_node_state(
     assert type(data_dir) == str  # noqa: E721
     assert utils_log_file is None or type(utils_log_file) == str  # noqa: E721
 
+    C_MAX_ATTEMPTS = 3
+    C_SLEEP_TIME1 = 1
+    C_SLEEP_TIME_MULT = 2
+
     _params = [
         os_ops.build_path(bin_dir, "pg_ctl"),
         "-D",
@@ -358,28 +365,169 @@ def get_pg_node_state(
         "status",
     ]
 
-    status_code, out, error = execute_utility2(
-        os_ops,
-        _params,
-        utils_log_file,
-        verbose=True,
-        ignore_errors=True,
-    )
+    attempt = 0
+    sleep_time = C_SLEEP_TIME1
 
-    assert type(status_code) == int  # noqa: E721
-    assert type(out) == str  # noqa: E721
-    assert type(error) == str  # noqa: E721
+    platform_utils: typing.Optional[internal_platform_utils_factory.InternalPlatformUtils] = None
 
-    # -----------------
-    if status_code == PG_CTL__STATUS__NODE_IS_STOPPED:
-        return PostgresNodeState(NodeStatus.Stopped, None)
+    while True:
+        assert type(attempt) == int  # noqa: E721
+        assert attempt >= 0
+        assert attempt < C_MAX_ATTEMPTS
 
-    # -----------------
-    if status_code == PG_CTL__STATUS__BAD_DATADIR:
-        return PostgresNodeState(NodeStatus.Uninitialized, None)
+        attempt += 1
 
-    # -----------------
-    if status_code != PG_CTL__STATUS__OK:
+        if attempt > 1:
+            internal_utils.send_log_debug("Sleep {} second(s) before an attempt #{}".format(
+                sleep_time,
+                attempt
+            ))
+            time.sleep(sleep_time)
+            sleep_time = sleep_time * C_SLEEP_TIME_MULT
+
+        status_code, out, error = execute_utility2(
+            os_ops,
+            _params,
+            utils_log_file,
+            verbose=True,
+            ignore_errors=True,
+        )
+
+        assert type(status_code) == int  # noqa: E721
+        assert type(out) == str  # noqa: E721
+        assert type(error) == str  # noqa: E721
+
+        # -----------------
+        if status_code == PG_CTL__STATUS__NODE_IS_STOPPED:
+            return PostgresNodeState(NodeStatus.Stopped, None)
+
+        # -----------------
+        if status_code == PG_CTL__STATUS__BAD_DATADIR:
+            return PostgresNodeState(NodeStatus.Uninitialized, None)
+
+        # -----------------
+        if status_code == PG_CTL__STATUS__OK:
+            if out == "":
+                RaiseError.pg_ctl_returns_an_empty_string(
+                    _params
+                )
+
+            C_PID_PREFIX = "(PID: "
+
+            i = out.find(C_PID_PREFIX)
+
+            if i == -1:
+                RaiseError.pg_ctl_returns_an_unexpected_string(
+                    out,
+                    _params
+                )
+
+            assert i > 0
+            assert i < len(out)
+            assert len(C_PID_PREFIX) <= len(out)
+            assert i <= len(out) - len(C_PID_PREFIX)
+
+            i += len(C_PID_PREFIX)
+            start_pid_s = i
+
+            while True:
+                if i == len(out):
+                    RaiseError.pg_ctl_returns_an_unexpected_string(
+                        out,
+                        _params
+                    )
+
+                ch = out[i]
+
+                if ch == ")":
+                    break
+
+                if ch.isdigit():
+                    i += 1
+                    continue
+
+                RaiseError.pg_ctl_returns_an_unexpected_string(
+                    out,
+                    _params
+                )
+                assert False
+
+            if i == start_pid_s:
+                RaiseError.pg_ctl_returns_an_unexpected_string(
+                    out,
+                    _params
+                )
+
+            # TODO: Let's verify a length of pid string.
+
+            pid = int(out[start_pid_s:i])
+
+            if pid == 0:
+                RaiseError.pg_ctl_returns_a_zero_pid(
+                    out,
+                    _params
+                )
+
+            assert pid != 0
+
+            # -----------------
+            return PostgresNodeState(NodeStatus.Running, pid)
+
+        assert status_code != PG_CTL__STATUS__OK
+
+        errMsg = "Getting of a node status [data_dir is {0}] failed.".format(
+            data_dir
+        )
+
+        e1 = ExecUtilException(
+            message=errMsg,
+            command=_params,
+            exit_code=status_code,
+            out=out,
+            error=error,
+        )
+
+        pid_file = os_ops.build_path(data_dir, "postmaster.pid")
+
+        postmaster_pid_is_empty = "pg_ctl: the PID file \"{}\" is empty\n".format(
+            pid_file,
+        )
+
+        if error == postmaster_pid_is_empty:
+            internal_utils.send_log_debug(
+                "PID file [{}] is empty. A check is being carried out to ensure that the postmaster is alive [bindir: {}] ...".format(
+                    pid_file,
+                    bin_dir,
+                ))
+
+            if platform_utils is None:
+                platform_utils = internal_platform_utils_factory.create_internal_platform_utils(os_ops)
+                assert isinstance(platform_utils, internal_platform_utils_factory.InternalPlatformUtils)
+
+            assert isinstance(platform_utils, internal_platform_utils_factory.InternalPlatformUtils)
+
+            try:
+                find_postmaster_r = platform_utils.FindPostmaster(
+                    os_ops,
+                    bin_dir,
+                    data_dir,
+                )
+            except Exception as e2:
+                e2.__cause__ = e1
+                raise e2
+
+            assert type(find_postmaster_r) == internal_platform_utils_factory.InternalPlatformUtils.FindPostmasterResult  # noqa: E721
+
+            if find_postmaster_r.code == internal_platform_utils_factory.InternalPlatformUtils.FindPostmasterResultCode.ok:
+                # Postmaster is alive. Let's wait a few seconds and check its status again.
+                internal_utils.send_log_debug(
+                    "Postmaster is found and has PID {}.".format(
+                        find_postmaster_r.pid
+                    ))
+
+                if attempt < C_MAX_ATTEMPTS:
+                    continue
+
         errMsg = "Getting of a node status [data_dir is {0}] failed.".format(
             data_dir
         )
@@ -391,69 +539,3 @@ def get_pg_node_state(
             out=out,
             error=error,
         )
-
-    if out == "":
-        RaiseError.pg_ctl_returns_an_empty_string(
-            _params
-        )
-
-    C_PID_PREFIX = "(PID: "
-
-    i = out.find(C_PID_PREFIX)
-
-    if i == -1:
-        RaiseError.pg_ctl_returns_an_unexpected_string(
-            out,
-            _params
-        )
-
-    assert i > 0
-    assert i < len(out)
-    assert len(C_PID_PREFIX) <= len(out)
-    assert i <= len(out) - len(C_PID_PREFIX)
-
-    i += len(C_PID_PREFIX)
-    start_pid_s = i
-
-    while True:
-        if i == len(out):
-            RaiseError.pg_ctl_returns_an_unexpected_string(
-                out,
-                _params
-            )
-
-        ch = out[i]
-
-        if ch == ")":
-            break
-
-        if ch.isdigit():
-            i += 1
-            continue
-
-        RaiseError.pg_ctl_returns_an_unexpected_string(
-            out,
-            _params
-        )
-        assert False
-
-    if i == start_pid_s:
-        RaiseError.pg_ctl_returns_an_unexpected_string(
-            out,
-            _params
-        )
-
-    # TODO: Let's verify a length of pid string.
-
-    pid = int(out[start_pid_s:i])
-
-    if pid == 0:
-        RaiseError.pg_ctl_returns_a_zero_pid(
-            out,
-            _params
-        )
-
-    assert pid != 0
-
-    # -----------------
-    return PostgresNodeState(NodeStatus.Running, pid)
