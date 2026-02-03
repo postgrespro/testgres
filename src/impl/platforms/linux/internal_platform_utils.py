@@ -11,6 +11,14 @@ import shlex
 
 
 class InternalPlatformUtils(base.InternalPlatformUtils):
+    C_BASH_EXE = "/bin/bash"
+
+    sm_exec_env = {
+        "LANG": "en_US.UTF-8",
+        "LC_ALL": "en_US.UTF-8",
+    }
+
+    # --------------------------------------------------------------------
     def FindPostmaster(
         self,
         os_ops: OsOperations,
@@ -20,6 +28,11 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         assert isinstance(os_ops, OsOperations)
         assert type(bin_dir) == str  # noqa: E721
         assert type(data_dir) == str  # noqa: E721
+        assert type(__class__.C_BASH_EXE) == str  # noqa: E721
+        assert type(__class__.sm_exec_env) == dict  # noqa: E721
+        assert len(__class__.C_BASH_EXE) > 0
+        assert len(bin_dir) > 0
+        assert len(data_dir) > 0
 
         pg_path_e = re.escape(os_ops.build_path(bin_dir, "postgres"))
         data_dir_e = re.escape(data_dir)
@@ -27,15 +40,10 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         assert type(pg_path_e) == str  # noqa: E721
         assert type(data_dir_e) == str  # noqa: E721
 
-        exec_env = {
-            "LANG": "en_US.UTF-8",
-            "LC_ALL": "en_US.UTF-8",
-        }
-
         regexp = r"^\s*[0-9]+\s+" + pg_path_e + r"(\s+.*)?\s+\-[D]\s+" + data_dir_e + r"(\s+.*)?"
 
         cmd = [
-            "/bin/bash",
+            __class__.C_BASH_EXE,
             "-c",
             "ps -ewwo \"pid=,args=\" | grep -E " + shlex.quote(regexp),
         ]
@@ -44,7 +52,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             cmd=cmd,
             ignore_errors=True,
             verbose=True,
-            exec_env=exec_env,
+            exec_env=__class__.sm_exec_env,
         )
 
         assert type(output_b) == bytes  # noqa: E721
