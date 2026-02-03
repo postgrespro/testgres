@@ -42,6 +42,20 @@ class TestOsOpsCommon:
         assert isinstance(request.param, OsOperations)
         return request.param
 
+    def test_get_platform(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        p = os_ops.get_platform()
+        assert p is not None
+        assert type(p) == str  # noqa: E721
+        assert p == sys.platform
+
+    def test_get_platform__is_known(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+        p = os_ops.get_platform()
+        assert p is not None
+        assert type(p) == str  # noqa: E721
+        assert p in {"win32", "linux"}
+
     def test_create_clone(self, os_ops: OsOperations):
         assert isinstance(os_ops, OsOperations)
         clone = os_ops.create_clone()
