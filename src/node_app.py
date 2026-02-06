@@ -92,7 +92,7 @@ class NodeApp:
         self._os_ops.rmdirs(real_base_dir, ignore_errors=True)
         self._os_ops.makedirs(real_base_dir)
 
-        port_manager: PortManager = None
+        port_manager: typing.Optional[PortManager] = None
 
         if port is None:
             port_manager = self._port_manager
