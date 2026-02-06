@@ -1059,14 +1059,16 @@ class TestTestgresCommon:
                             assert lines is not None
                             assert type(lines) == list  # noqa: E721
 
-                            def LOCAL__test_lines():
+                            def LOCAL__test_lines(lines: typing.Iterable[str]) -> bool:
+                                assert isinstance(lines, typing.Iterable)
                                 for s in lines:
-                                    if any(C_NODE_NAME in s for s in lines):
+                                    assert type(s) == str  # noqa: E721
+                                    if C_NODE_NAME in s:
                                         logging.info("OK. We found the node_name in a line \"{0}\"".format(s))
                                         return True
-                                    return False
+                                return False
 
-                            if LOCAL__test_lines():
+                            if LOCAL__test_lines(lines):
                                 break
 
                             logging.info("Master node log file does not have an expected information.")
