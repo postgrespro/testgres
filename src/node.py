@@ -122,7 +122,7 @@ class ProcessProxy(object):
         ptype: instance of ProcessType
     """
 
-    _process: any
+    _process: typing.Any
     _ptype: ProcessType
 
     def __init__(self, process, ptype: typing.Optional[ProcessType] = None):
@@ -147,7 +147,7 @@ class ProcessProxy(object):
             repr(self.process))
 
     @property
-    def process(self) -> any:
+    def process(self) -> typing.Any:
         assert self._process is not None
         return self._process
 
@@ -174,7 +174,7 @@ class PostgresNode(object):
                  name=None,
                  base_dir=None,
                  port: typing.Optional[int] = None,
-                 conn_params: ConnectionParams = None,
+                 conn_params: typing.Optional[ConnectionParams] = None,
                  bin_dir=None,
                  prefix=None,
                  os_ops: typing.Optional[OsOperations] = None,
@@ -2168,6 +2168,7 @@ class PostgresNode(object):
             bin_path = get_bin_path2(self.os_ops, filename)
         return bin_path
 
+    @staticmethod
     def _escape_config_value(value):
         assert type(value) == str  # noqa: E721
 
