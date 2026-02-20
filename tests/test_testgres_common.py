@@ -19,6 +19,7 @@ from src import ProcessType
 from src import NodeStatus
 from src import IsolationLevel
 from src import NodeApp
+from src import enums
 
 # New name prevents to collect test-functions in TestgresException and fixes
 # the problem with pytest warning.
@@ -797,7 +798,8 @@ class TestTestgresCommon:
 
         def LOCAL__check_auxiliary_pids__multiple_attempts(
                 node: PostgresNode,
-                expectedTypes: typing.List[ProcessType]):
+                expectedTypes: typing.List[ProcessType],
+        ):
             assert node is not None
             assert type(node) == PostgresNode  # noqa: E721
             assert expectedTypes is not None
@@ -805,7 +807,7 @@ class TestTestgresCommon:
 
             nAttempt = 0
 
-            while nAttempt < 5:
+            while True:
                 nAttempt += 1
 
                 logging.info("Test pids of [{0}] node. Attempt #{1}.".format(
@@ -821,15 +823,17 @@ class TestTestgresCommon:
                 assert type(absenceList) == list  # noqa: E721
                 if len(absenceList) == 0:
                     logging.info("Bingo!")
-                    return
+                    break
+
+                if nAttempt == 5:
+                    raise Exception("Node {0} does not have the following processes: {1}.".format(
+                        node.name,
+                        absenceList,
+                    ))
 
                 logging.info("These processes are not found: {0}.".format(absenceList))
                 continue
-
-            raise Exception("Node {0} does not have the following processes: {1}.".format(
-                node.name,
-                absenceList
-            ))
+            return
 
         with __class__.helper__get_node(node_svc).init().start() as master:
 
@@ -1388,7 +1392,7 @@ class TestTestgresCommon:
         self,
         node_svc: PostgresNodeService,
         node: PostgresNode
-    ) -> None:
+    ) -> bool:
         assert isinstance(node_svc, PostgresNodeService)
         assert isinstance(node, PostgresNode)
         assert node.status() == NodeStatus.Uninitialized
@@ -1693,25 +1697,36 @@ class TestTestgresCommon:
                 res = replica.safe_psql('select * from abc')
                 assert (__class__.helper__rm_carriage_returns(res) == b'1\n')
 
-    def test_dump(self, node_svc: PostgresNodeService):
+    @pytest.fixture(
+            params=[
+                enums.DumpFormat.Plain,
+                enums.DumpFormat.Custom,
+                enums.DumpFormat.Directory,
+                enums.DumpFormat.Tar
+            ]
+    )
+    def dump_fmt(self, request: pytest.FixtureRequest) -> enums.DumpFormat:
+        assert type(request.param) == enums.DumpFormat  # noqa: E721
+        return request.param
+
+    def test_dump(self, node_svc: PostgresNodeService, dump_fmt: enums.DumpFormat):
         assert isinstance(node_svc, PostgresNodeService)
+        assert type(dump_fmt) == enums.DumpFormat  # noqa: E721
         query_create = 'create table test as select generate_series(1, 2) as val'
         query_select = 'select * from test order by val asc'
 
         with __class__.helper__get_node(node_svc).init().start() as node1:
-
             node1.execute(query_create)
-            for format in ['plain', 'custom', 'directory', 'tar']:
-                with removing(node_svc.os_ops, node1.dump(format=format)) as dump:
-                    with __class__.helper__get_node(node_svc).init().start() as node3:
-                        if format == 'directory':
-                            assert (os.path.isdir(dump))
-                        else:
-                            assert (os.path.isfile(dump))
-                        # restore dump
-                        node3.restore(filename=dump)
-                        res = node3.execute(query_select)
-                        assert (res == [(1, ), (2, )])
+            with removing(node_svc.os_ops, node1.dump(format=dump_fmt)) as dump:
+                with __class__.helper__get_node(node_svc).init().start() as node3:
+                    if dump_fmt == enums.DumpFormat.Directory:
+                        assert (os.path.isdir(dump))
+                    else:
+                        assert (os.path.isfile(dump))
+                    # restore dump
+                    node3.restore(filename=dump)
+                    res = node3.execute(query_select)
+                    assert (res == [(1, ), (2, )])
 
     def test_dump_with_options(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -1865,8 +1880,8 @@ class TestTestgresCommon:
             self.m_DummyPortCurrentUsage += 1
             return self.m_DummyPortNumber
 
-        def release_port(self, dummyPortNumber: int):
-            assert type(dummyPortNumber) == int  # noqa: E721
+        def release_port(self, number: int) -> None:
+            assert type(number) == int  # noqa: E721
 
             assert type(self.m_DummyPortMaxUsage) == int  # noqa: E721
             assert type(self.m_DummyPortTotalUsage) == int  # noqa: E721
@@ -1880,12 +1895,12 @@ class TestTestgresCommon:
             assert self.m_PrevPortManager is not None
             assert isinstance(self.m_PrevPortManager, PortManager)
 
-            if self.m_DummyPortCurrentUsage > 0 and dummyPortNumber == self.m_DummyPortNumber:
+            if self.m_DummyPortCurrentUsage > 0 and number == self.m_DummyPortNumber:
                 assert self.m_DummyPortTotalUsage > 0
                 self.m_DummyPortCurrentUsage -= 1
                 return
 
-            return self.m_PrevPortManager.release_port(dummyPortNumber)
+            return self.m_PrevPortManager.release_port(number)
 
     def test_port_rereserve_during_node_start(self, node_svc: PostgresNodeService):
         assert type(node_svc) == PostgresNodeService  # noqa: E721
@@ -2500,7 +2515,7 @@ where c.relname=%s;"""
         assert type(node_app.nodes_to_cleanup) == list  # noqa: E721
         assert len(node_app.nodes_to_cleanup) == 0
 
-        node: PostgresNode = None
+        node: typing.Optional[PostgresNode] = None
         try:
             node = node_app.make_simple("node")
             assert node is not None
@@ -2518,7 +2533,8 @@ where c.relname=%s;"""
                 node.stop()
                 node.release_resources()
 
-        node.cleanup(release_resources=True)
+        if node is not None:
+            node.cleanup(release_resources=True)
 
         # -----------
         logging.info("temp directory [{}] is deleting".format(tmp_dir))

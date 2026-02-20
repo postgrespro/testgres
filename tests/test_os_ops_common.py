@@ -1001,7 +1001,7 @@ class TestOsOpsCommon:
 
             assert os.path.exists(lock_dir)
 
-            def LOG_INFO(template: str, *args: list) -> None:
+            def LOG_INFO(template: str, *args) -> None:
                 assert type(template) == str  # noqa: E721
                 assert type(args) == tuple  # noqa: E721
 
