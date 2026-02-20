@@ -1621,7 +1621,7 @@ class PostgresNode(object):
                          dbname=None,
                          username=None,
                          max_attempts=0,
-                         sleep_time=1,
+                         sleep_time: typing.Union[int, float] = 1,
                          expected=True,
                          commit=True,
                          suppress=None):
@@ -1647,7 +1647,9 @@ class PostgresNode(object):
         """
 
         # sanity checks
+        assert type(max_attempts) == int  # noqa: E721
         assert max_attempts >= 0
+        assert type(sleep_time) in [int, float]
         assert sleep_time > 0
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
