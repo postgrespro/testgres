@@ -3,6 +3,7 @@ import os
 
 import pytest
 import logging
+import typing
 
 from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
@@ -105,7 +106,7 @@ class TestTestgresRemote:
                 assert os.getenv('LC_CTYPE') == unkData[1]
                 assert os.getenv('LC_COLLATE') is None
 
-                exc: ExecUtilException = None
+                exc: typing.Optional[BaseException] = None
                 with __class__.helper__get_node() as node:
                     try:
                         node.init()  # IT RAISES!

@@ -7,6 +7,7 @@ class RunConditions:
     # It is not a test kit!
     __test__ = False
 
+    @staticmethod
     def skip_if_windows():
         if platform.system().lower() == "windows":
             pytest.skip("This test does not support Windows.")
