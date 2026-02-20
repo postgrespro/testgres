@@ -1809,7 +1809,7 @@ class PostgresNode(object):
                                   username=username,
                                   max_attempts=0)    # infinite
         except Exception as e:
-            raise_from(CatchUpException("Failed to catch up", poll_lsn), e)
+            raise_from(CatchUpException("Failed to catch up."), e)
 
     def publish(self, name, **kwargs):
         """
