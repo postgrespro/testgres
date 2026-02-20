@@ -80,11 +80,13 @@ class TestStartupData__Helper:
     sm_StartTS = datetime.datetime.now()
 
     # --------------------------------------------------------------------
+    @staticmethod
     def GetStartTS() -> datetime.datetime:
         assert type(__class__.sm_StartTS) == datetime.datetime  # noqa: E721
         return __class__.sm_StartTS
 
     # --------------------------------------------------------------------
+    @staticmethod
     def CalcRootDir() -> str:
         r = os.path.abspath(__file__)
         r = os.path.dirname(r)
@@ -93,6 +95,7 @@ class TestStartupData__Helper:
         return r
 
     # --------------------------------------------------------------------
+    @staticmethod
     def CalcRootLogDir() -> str:
         if TestConfigPropNames.TEST_CFG__LOG_DIR in os.environ:
             resultPath = os.environ[TestConfigPropNames.TEST_CFG__LOG_DIR]
@@ -104,6 +107,7 @@ class TestStartupData__Helper:
         return resultPath
 
     # --------------------------------------------------------------------
+    @staticmethod
     def CalcCurrentTestWorkerSignature() -> str:
         currentPID = os.getpid()
         assert type(currentPID) == int  # noqa: E721
@@ -142,16 +146,19 @@ class TestStartupData:
     sm_RootLogDir: str = TestStartupData__Helper.CalcRootLogDir()
 
     # --------------------------------------------------------------------
+    @staticmethod
     def GetRootDir() -> str:
         assert type(__class__.sm_RootDir) == str  # noqa: E721
         return __class__.sm_RootDir
 
     # --------------------------------------------------------------------
+    @staticmethod
     def GetRootLogDir() -> str:
         assert type(__class__.sm_RootLogDir) == str  # noqa: E721
         return __class__.sm_RootLogDir
 
     # --------------------------------------------------------------------
+    @staticmethod
     def GetCurrentTestWorkerSignature() -> str:
         assert type(__class__.sm_CurrentTestWorkerSignature) == str  # noqa: E721
         return __class__.sm_CurrentTestWorkerSignature
@@ -186,6 +193,7 @@ class TEST_PROCESS_STATS:
     cTotalWarnings: int = 0
 
     # --------------------------------------------------------------------
+    @staticmethod
     def incrementTotalTestCount() -> None:
         assert type(__class__.cTotalTests) == int  # noqa: E721
         assert __class__.cTotalTests >= 0
@@ -195,6 +203,7 @@ class TEST_PROCESS_STATS:
         assert __class__.cTotalTests > 0
 
     # --------------------------------------------------------------------
+    @staticmethod
     def incrementNotExecutedTestCount() -> None:
         assert type(__class__.cNotExecutedTests) == int  # noqa: E721
         assert __class__.cNotExecutedTests >= 0
@@ -204,6 +213,7 @@ class TEST_PROCESS_STATS:
         assert __class__.cNotExecutedTests > 0
 
     # --------------------------------------------------------------------
+    @staticmethod
     def incrementExecutedTestCount() -> int:
         assert type(__class__.cExecutedTests) == int  # noqa: E721
         assert __class__.cExecutedTests >= 0
@@ -214,6 +224,7 @@ class TEST_PROCESS_STATS:
         return __class__.cExecutedTests
 
     # --------------------------------------------------------------------
+    @staticmethod
     def incrementPassedTestCount() -> None:
         assert type(__class__.cPassedTests) == int  # noqa: E721
         assert __class__.cPassedTests >= 0
@@ -223,6 +234,7 @@ class TEST_PROCESS_STATS:
         assert __class__.cPassedTests > 0
 
     # --------------------------------------------------------------------
+    @staticmethod
     def incrementFailedTestCount(testID: str, errCount: int) -> None:
         assert type(testID) == str  # noqa: E721
         assert type(errCount) == int  # noqa: E721
@@ -247,6 +259,7 @@ class TEST_PROCESS_STATS:
         assert __class__.cTotalErrors > 0
 
     # --------------------------------------------------------------------
+    @staticmethod
     def incrementXFailedTestCount(testID: str, errCount: int) -> None:
         assert type(testID) == str  # noqa: E721
         assert type(errCount) == int  # noqa: E721
@@ -263,6 +276,7 @@ class TEST_PROCESS_STATS:
         assert len(__class__.XFailedTests) == __class__.cXFailedTests
 
     # --------------------------------------------------------------------
+    @staticmethod
     def incrementSkippedTestCount() -> None:
         assert type(__class__.cSkippedTests) == int  # noqa: E721
         assert __class__.cSkippedTests >= 0
@@ -272,6 +286,7 @@ class TEST_PROCESS_STATS:
         assert __class__.cSkippedTests > 0
 
     # --------------------------------------------------------------------
+    @staticmethod
     def incrementNotXFailedTests(testID: str) -> None:
         assert type(testID) == str  # noqa: E721
         assert type(__class__.NotXFailedTests) == list  # noqa: E721
@@ -286,6 +301,7 @@ class TEST_PROCESS_STATS:
         assert len(__class__.NotXFailedTests) == __class__.cNotXFailedTests
 
     # --------------------------------------------------------------------
+    @staticmethod
     def incrementWarningTestCount(testID: str, warningCount: int) -> None:
         assert type(testID) == str  # noqa: E721
         assert type(warningCount) == int  # noqa: E721
@@ -311,6 +327,7 @@ class TEST_PROCESS_STATS:
         assert __class__.cTotalWarnings > 0
 
     # --------------------------------------------------------------------
+    @staticmethod
     def incrementUnexpectedTests() -> None:
         assert type(__class__.cUnexpectedTests) == int  # noqa: E721
         assert __class__.cUnexpectedTests >= 0
@@ -320,6 +337,7 @@ class TEST_PROCESS_STATS:
         assert __class__.cUnexpectedTests > 0
 
     # --------------------------------------------------------------------
+    @staticmethod
     def incrementAchtungTestCount(testID: str) -> None:
         assert type(testID) == str  # noqa: E721
         assert type(__class__.AchtungTests) == list  # noqa: E721
@@ -671,7 +689,7 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
 
 
 class LogWrapper2:
-    _old_method: any
+    _old_method: typing.Any
     _err_counter: typing.Optional[int]
     _warn_counter: typing.Optional[int]
 
@@ -1089,9 +1107,7 @@ def helper__pytest_configure__logging(config: pytest.Config) -> None:
 
     pathlib.Path(log_dir).mkdir(exist_ok=True)
 
-    logging_plugin: _pytest.logging.LoggingPlugin = config.pluginmanager.get_plugin(
-        "logging-plugin"
-    )
+    logging_plugin = config.pluginmanager.get_plugin("logging-plugin")
 
     assert logging_plugin is not None
     assert isinstance(logging_plugin, _pytest.logging.LoggingPlugin)
