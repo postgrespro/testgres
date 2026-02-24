@@ -38,8 +38,8 @@ class PortManager__Generic(PortManager):
 
     def reserve_port(self) -> int:
         assert self._guard is not None
-        assert type(self._available_ports) == set  # noqa: E721t
-        assert type(self._reserved_ports) == set  # noqa: E721
+        assert type(self._available_ports) is set
+        assert type(self._reserved_ports) is set
 
         with self._guard:
             t = tuple(self._available_ports)
@@ -48,8 +48,8 @@ class PortManager__Generic(PortManager):
             t = None
 
             for port in sampled_ports:
-                assert type(port) == int  # noqa: E721
-                assert not (port in self._reserved_ports)
+                assert type(port) is int  # noqa: E721
+                assert port not in self._reserved_ports
                 assert port in self._available_ports
 
                 assert port >= __class__._C_MIN_PORT_NUMBER
@@ -61,26 +61,26 @@ class PortManager__Generic(PortManager):
                 self._reserved_ports.add(port)
                 self._available_ports.discard(port)
                 assert port in self._reserved_ports
-                assert not (port in self._available_ports)
+                assert port not in self._available_ports
                 __class__.helper__send_debug_msg("Port {} is reserved.", port)
                 return port
 
         raise PortForException("Can't select a port.")
 
     def release_port(self, number: int) -> None:
-        assert type(number) == int  # noqa: E721
+        assert type(number) is int
         assert number >= __class__._C_MIN_PORT_NUMBER
         assert number <= __class__._C_MAX_PORT_NUMBER
 
         assert self._guard is not None
-        assert type(self._reserved_ports) == set  # noqa: E721
+        assert type(self._reserved_ports) is set
 
         with self._guard:
             assert number in self._reserved_ports
-            assert not (number in self._available_ports)
+            assert number not in self._available_ports
             self._available_ports.add(number)
             self._reserved_ports.discard(number)
-            assert not (number in self._reserved_ports)
+            assert number not in self._reserved_ports
             assert number in self._available_ports
             __class__.helper__send_debug_msg("Port {} is released.", number)
         return
@@ -89,8 +89,8 @@ class PortManager__Generic(PortManager):
     def helper__send_debug_msg(msg_template: str, *args) -> None:
         assert msg_template is not None
         assert args is not None
-        assert type(msg_template) == str  # noqa: E721
-        assert type(args) == tuple  # noqa: E721
+        assert type(msg_template) is str
+        assert type(args) is tuple
         assert msg_template != ""
         s = "[port manager] "
         s += msg_template.format(*args)

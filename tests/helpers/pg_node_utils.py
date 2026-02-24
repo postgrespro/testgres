@@ -21,8 +21,8 @@ class PostgresNodeUtils:
         _port: int
 
         def __init__(self, data_dir: str, port: int):
-            assert type(data_dir) == str  # noqa: E721
-            assert type(port) == int  # noqa: E721
+            assert type(data_dir) is str
+            assert type(port) is int
 
             super().__init__()
 
@@ -32,29 +32,29 @@ class PostgresNodeUtils:
 
         @property
         def data_dir(self) -> str:
-            assert type(self._data_dir) == str  # noqa: E721
+            assert type(self._data_dir) is str
             return self._data_dir
 
         @property
         def port(self) -> int:
-            assert type(self._port) == int  # noqa: E721
+            assert type(self._port) is int
             return self._port
 
         @property
         def message(self) -> str:
-            assert type(self._data_dir) == str  # noqa: E721
-            assert type(self._port) == int  # noqa: E721
+            assert type(self._data_dir) is str
+            assert type(self._port) is int
 
             r = "PostgresNode [data:{}][port: {}] conflicts with port of another instance.".format(
                 self._data_dir,
                 self._port,
             )
-            assert type(r) == str  # noqa: E721
+            assert type(r) is str
             return r
 
         def __str__(self) -> str:
             r = self.message
-            assert type(r) == str  # noqa: E721
+            assert type(r) is str
             return r
 
         def __repr__(self) -> str:
@@ -65,7 +65,7 @@ class PostgresNodeUtils:
                 repr(self._data_dir),
                 repr(self._port),
             )
-            assert type(r) == str  # noqa: E721
+            assert type(r) is str
             return r
 
     # --------------------------------------------------------------------
@@ -78,7 +78,7 @@ class PostgresNodeUtils:
             data_dir: str,
             files: typing.Optional[typing.Iterable] = None
         ):
-            assert type(data_dir) == str  # noqa: E721
+            assert type(data_dir) is str
             assert files is None or isinstance(files, typing.Iterable)
 
             super().__init__()
@@ -89,7 +89,7 @@ class PostgresNodeUtils:
 
         @property
         def message(self) -> str:
-            assert self._data_dir is None or type(self._data_dir) == str  # noqa: E721
+            assert self._data_dir is None or type(self._data_dir) is str
             assert self._files is None or isinstance(self._files, typing.Iterable)
 
             msg_parts = []
@@ -99,7 +99,7 @@ class PostgresNodeUtils:
             ))
 
             for f, lines in self._files or []:
-                assert type(f) == str  # noqa: E721
+                assert type(f) is str
                 assert type(lines) in [str, bytes]  # noqa: E721
                 msg_parts.append(u'{}\n----\n{}\n'.format(f, lines))
 
@@ -107,7 +107,7 @@ class PostgresNodeUtils:
 
         @property
         def data_dir(self) -> typing.Optional[str]:
-            assert type(self._data_dir) == str  # noqa: E721
+            assert type(self._data_dir) is str
             return self._data_dir
 
         @property
@@ -116,7 +116,7 @@ class PostgresNodeUtils:
             return self._files
 
         def __repr__(self) -> str:
-            assert type(self._data_dir) == str  # noqa: E721
+            assert type(self._data_dir) is str
             assert self._files is None or isinstance(self._files, typing.Iterable)
 
             r = "{}({}, {})".format(
@@ -124,7 +124,7 @@ class PostgresNodeUtils:
                 repr(self._data_dir),
                 repr(self._files),
             )
-            assert type(r) == str  # noqa: E721
+            assert type(r) is str
             return r
 
     # --------------------------------------------------------------------
@@ -156,7 +156,7 @@ class PostgresNodeUtils:
         node_log_reader: PostgresNodeLogReader,
         timeout: T_WAIT_TIME,
     ):
-        assert type(node) == PostgresNode  # noqa: E721
+        assert type(node) is PostgresNode
         assert type(node_log_reader) == PostgresNodeLogReader  # noqa: E721
         assert type(timeout) in [int, float]
         assert node_log_reader._node is node
@@ -173,7 +173,7 @@ class PostgresNodeUtils:
             assert s == NodeStatus.Stopped
 
             blocks = node_log_reader.read()
-            assert type(blocks) == list  # noqa: E721
+            assert type(blocks) is list
 
             for block in blocks:
                 assert type(block) == PostgresNodeLogReader.LogDataBlock  # noqa: E721

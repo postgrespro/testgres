@@ -160,7 +160,7 @@ class NodeBackup(object):
             node = NodeClass(name=name, base_dir=base_dir, conn_params=self.original_node.os_ops.conn_params)
 
         assert node is not None
-        assert type(node) == self.original_node.__class__  # noqa: E721
+        assert type(node) is self.original_node.__class__
 
         with clean_on_error(node) as node:
             # Set a new port

@@ -15,7 +15,7 @@ class OsOpsDescr:
     os_ops: OsOperations
 
     def __init__(self, sign: str, os_ops: OsOperations):
-        assert type(sign) == str  # noqa: E721
+        assert type(sign) is str
         assert isinstance(os_ops, OsOperations)
         self.sign = sign
         self.os_ops = os_ops
@@ -50,7 +50,7 @@ class PostgresNodeService:
     port_manager: PortManager
 
     def __init__(self, sign: str, os_ops: OsOperations, port_manager: PortManager):
-        assert type(sign) == str  # noqa: E721
+        assert type(sign) is str
         assert isinstance(os_ops, OsOperations)
         assert isinstance(port_manager, PortManager)
         self.sign = sign

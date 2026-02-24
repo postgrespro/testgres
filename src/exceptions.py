@@ -15,14 +15,14 @@ class PortForException(TestgresException):
         self,
         message: typing.Optional[str] = None,
     ):
-        assert message is None or type(message) == str  # noqa: E721
+        assert message is None or type(message) is str
         super().__init__(message)
         self._message = message
         return
 
     @property
     def message(self) -> str:
-        assert self._message is None or type(self._message) == str  # noqa: E721
+        assert self._message is None or type(self._message) is str
         if self._message is None:
             return ""
         return self._message
@@ -53,8 +53,8 @@ class QueryException(TestgresException):
         message: typing.Optional[str] = None,
         query: typing.Optional[str] = None
     ):
-        assert message is None or type(message) == str  # noqa: E721
-        assert query is None or type(query) == str  # noqa: E721
+        assert message is None or type(message) is str
+        assert query is None or type(query) is str
 
         super().__init__(message)
 
@@ -64,8 +64,8 @@ class QueryException(TestgresException):
 
     @property
     def message(self) -> str:
-        assert self._description is None or type(self._description) == str  # noqa: E721
-        assert self._query is None or type(self._query) == str  # noqa: E721
+        assert self._description is None or type(self._description) is str
+        assert self._query is None or type(self._query) is str
 
         msg = []
 
@@ -76,17 +76,17 @@ class QueryException(TestgresException):
             msg.append(u'Query: {}'.format(self._query))
 
         r = six.text_type('\n').join(msg)
-        assert type(r) == str  # noqa: E721
+        assert type(r) is str
         return r
 
     @property
     def description(self) -> typing.Optional[str]:
-        assert self._description is None or type(self._description) == str  # noqa: E721
+        assert self._description is None or type(self._description) is str
         return self._description
 
     @property
     def query(self) -> typing.Optional[str]:
-        assert self._query is None or type(self._query) == str  # noqa: E721
+        assert self._query is None or type(self._query) is str
         return self._query
 
     def __repr__(self) -> str:
@@ -114,8 +114,8 @@ class QueryTimeoutException(QueryException):
         message: typing.Optional[str] = None,
         query: typing.Optional[str] = None
     ):
-        assert message is None or type(message) == str  # noqa: E721
-        assert query is None or type(query) == str  # noqa: E721
+        assert message is None or type(message) is str
+        assert query is None or type(query) is str
 
         super().__init__(message, query)
         return
@@ -133,14 +133,14 @@ class CatchUpException(TestgresException):
         self,
         message: typing.Optional[str] = None,
     ):
-        assert message is None or type(message) == str  # noqa: E721
+        assert message is None or type(message) is str
         super().__init__(message)
         self._message = message
         return
 
     @property
     def message(self) -> str:
-        assert self._message is None or type(self._message) == str  # noqa: E721
+        assert self._message is None or type(self._message) is str
         if self._message is None:
             return ""
         return self._message
@@ -171,7 +171,7 @@ class StartNodeException(TestgresException):
         message: typing.Optional[str] = None,
         files: typing.Optional[typing.Iterable] = None
     ):
-        assert message is None or type(message) == str  # noqa: E721
+        assert message is None or type(message) is str
         assert files is None or isinstance(files, typing.Iterable)
 
         super().__init__(message)
@@ -182,7 +182,7 @@ class StartNodeException(TestgresException):
 
     @property
     def message(self) -> str:
-        assert self._description is None or type(self._description) == str  # noqa: E721
+        assert self._description is None or type(self._description) is str
         assert self._files is None or isinstance(self._files, typing.Iterable)
 
         msg = []
@@ -191,7 +191,7 @@ class StartNodeException(TestgresException):
             msg.append(self._description)
 
         for f, lines in self._files or []:
-            assert type(f) == str  # noqa: E721
+            assert type(f) is str
             assert type(lines) in [str, bytes]  # noqa: E721
             msg.append(u'{}\n----\n{}\n'.format(f, lines))
 
@@ -199,7 +199,7 @@ class StartNodeException(TestgresException):
 
     @property
     def description(self) -> typing.Optional[str]:
-        assert self._description is None or type(self._description) == str  # noqa: E721
+        assert self._description is None or type(self._description) is str
         return self._description
 
     @property
@@ -233,14 +233,14 @@ class InitNodeException(TestgresException):
         self,
         message: typing.Optional[str] = None,
     ):
-        assert message is None or type(message) == str  # noqa: E721
+        assert message is None or type(message) is str
         super().__init__(message)
         self._message = message
         return
 
     @property
     def message(self) -> str:
-        assert self._message is None or type(self._message) == str  # noqa: E721
+        assert self._message is None or type(self._message) is str
         if self._message is None:
             return ""
         return self._message
@@ -268,14 +268,14 @@ class BackupException(TestgresException):
         self,
         message: typing.Optional[str] = None,
     ):
-        assert message is None or type(message) == str  # noqa: E721
+        assert message is None or type(message) is str
         super().__init__(message)
         self._message = message
         return
 
     @property
     def message(self) -> str:
-        assert self._message is None or type(self._message) == str  # noqa: E721
+        assert self._message is None or type(self._message) is str
         if self._message is None:
             return ""
         return self._message

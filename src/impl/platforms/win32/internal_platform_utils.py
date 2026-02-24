@@ -12,6 +12,6 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         data_dir: str
     ) -> InternalPlatformUtils.FindPostmasterResult:
         assert isinstance(os_ops, OsOperations)
-        assert type(bin_dir) == str  # noqa: E721
-        assert type(data_dir) == str  # noqa: E721
+        assert type(bin_dir) is str
+        assert type(data_dir) is str
         return __class__.FindPostmasterResult.create_not_implemented()

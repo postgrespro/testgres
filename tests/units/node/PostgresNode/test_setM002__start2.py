@@ -34,7 +34,7 @@ class TestSet002__start2:
         wait: typing.Optional[bool]
 
         def __init__(self, wait: typing.Optional[bool]):
-            assert wait is None or type(wait) == bool  # noqa: E721
+            assert wait is None or type(wait) is bool
             self.wait = wait
             return
 
@@ -59,10 +59,10 @@ class TestSet002__start2:
     ):
         assert isinstance(node_svc, PostgresNodeService)
         assert type(data001) == __class__.tagData001  # noqa: E721
-        assert data001.wait is None or type(data001.wait) == bool  # noqa: E721
+        assert data001.wait is None or type(data001.wait) is bool
 
         with PostgresNodeTestUtils.get_node(node_svc) as node:
-            assert type(node) == PostgresNode  # noqa: E721
+            assert type(node) is PostgresNode
             node.init()
             assert not node.is_started
             assert node.status() == NodeStatus.Stopped
@@ -89,7 +89,7 @@ class TestSet002__start2:
         attempt = 0
 
         while True:
-            assert type(attempt) == int  # noqa: E721
+            assert type(attempt) is int
             assert attempt >= 0
             assert attempt <= C_MAX_ATTEMPTS
 
@@ -102,7 +102,7 @@ class TestSet002__start2:
                 HelperUtils.PrintAndSleep(5)
 
             with PostgresNodeTestUtils.get_node(node_svc) as node:
-                assert type(node) == PostgresNode  # noqa: E721
+                assert type(node) is PostgresNode
                 node.init()
                 assert not node.is_started
                 assert node.status() == NodeStatus.Stopped
@@ -141,7 +141,7 @@ class TestSet002__start2:
         assert isinstance(node_svc, PostgresNodeService)
 
         with PostgresNodeTestUtils.get_node(node_svc) as node:
-            assert type(node) == PostgresNode  # noqa: E721
+            assert type(node) is PostgresNode
             node.init()
             assert not node.is_started
             assert node.status() == NodeStatus.Stopped
@@ -158,7 +158,7 @@ class TestSet002__start2:
             assert node.status() == NodeStatus.Running
 
             with node.connect(dbname="postgres") as cn:
-                assert type(cn) == NodeConnection  # noqa: E721
+                assert type(cn) is NodeConnection
 
                 cn.execute("CREATE TEMP TABLE cmd_out(content text);")
                 cn.commit()
@@ -167,7 +167,7 @@ class TestSet002__start2:
                 ))
                 cn.commit()
                 recs = cn.execute("select content from cmd_out;")
-                assert type(recs) == list  # noqa: E721
+                assert type(recs) is list
                 assert len(recs) == 1
                 assert type(recs[0]) == tuple  # noqa: E721
                 rec = recs[0]
@@ -183,7 +183,7 @@ class TestSet002__start2:
         assert isinstance(node_svc, PostgresNodeService)
 
         with PostgresNodeTestUtils.get_node(node_svc) as node:
-            assert type(node) == PostgresNode  # noqa: E721
+            assert type(node) is PostgresNode
             node.init()
             assert not node.is_started
             assert node.status() == NodeStatus.Stopped
@@ -200,7 +200,7 @@ class TestSet002__start2:
         assert isinstance(node_svc, PostgresNodeService)
 
         with PostgresNodeTestUtils.get_node(node_svc) as node:
-            assert type(node) == PostgresNode  # noqa: E721
+            assert type(node) is PostgresNode
             node.init()
             assert not node.is_started
             assert node.status() == NodeStatus.Stopped

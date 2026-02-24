@@ -49,11 +49,11 @@ class TestOsOpsLocal:
         v = os_ops.cwd()
 
         assert v is not None
-        assert type(v) == str  # noqa: E721
+        assert type(v) is str
 
         expectedValue = os.getcwd()
         assert expectedValue is not None
-        assert type(expectedValue) == str  # noqa: E721
+        assert type(expectedValue) is str
         assert expectedValue != ""  # research
 
         # Comp result

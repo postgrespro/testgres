@@ -18,9 +18,9 @@ import testgres
 
 assert testgres.__path__ is not None
 assert len(testgres.__path__) == 1
-assert type(testgres.__path__[0] == str)  # noqa: E721
+assert type(testgres.__path__[0]) is str
 p = os.path.dirname(testgres.__path__[0])
-assert type(p) == str  # noqa: E721
+assert type(p) is str
 sys.path.insert(0, os.path.abspath(p))
 
 # -- Project information -----------------------------------------------------

@@ -26,7 +26,7 @@ class NodeApp:
         os_ops: typing.Optional[OsOperations] = None,
         port_manager: typing.Optional[PortManager] = None,
     ):
-        assert test_path is None or type(test_path) == str  # noqa: E721
+        assert test_path is None or type(test_path) is str
         assert os_ops is None or isinstance(os_ops, OsOperations)
         assert port_manager is None or isinstance(port_manager, PortManager)
 
@@ -51,7 +51,7 @@ class NodeApp:
 
     @property
     def test_path(self) -> str:
-        assert type(self._test_path) == str  # noqa: E721
+        assert type(self._test_path) is str
         return self._test_path
 
     @property
@@ -66,7 +66,7 @@ class NodeApp:
 
     @property
     def nodes_to_cleanup(self) -> typing.List[PostgresNode]:
-        assert type(self._nodes_to_cleanup) == list  # noqa: E721
+        assert type(self._nodes_to_cleanup) is list
         return self._nodes_to_cleanup
 
     def make_empty(
@@ -75,12 +75,12 @@ class NodeApp:
             port: typing.Optional[int] = None,
             bin_dir: typing.Optional[str] = None
     ) -> PostgresNode:
-        assert type(base_dir) == str  # noqa: E721
-        assert port is None or type(port) == int  # noqa: E721
-        assert bin_dir is None or type(bin_dir) == str  # noqa: E721
+        assert type(base_dir) is str
+        assert port is None or type(port) is int
+        assert bin_dir is None or type(bin_dir) is str
 
         assert isinstance(self._os_ops, OsOperations)
-        assert type(self._test_path) == str  # noqa: E721
+        assert type(self._test_path) is str
 
         if base_dir is None:
             raise ValueError("Argument 'base_dir' is not defined.")
@@ -106,7 +106,7 @@ class NodeApp:
         )
 
         try:
-            assert type(self._nodes_to_cleanup) == list  # noqa: E721
+            assert type(self._nodes_to_cleanup) is list
             self._nodes_to_cleanup.append(node)
         except:  # noqa: E722
             node.cleanup(release_resources=True)
@@ -125,14 +125,14 @@ class NodeApp:
             checksum: bool = True,
             bin_dir: typing.Optional[str] = None
     ) -> PostgresNode:
-        assert type(base_dir) == str  # noqa: E721
-        assert port is None or type(port) == int  # noqa: E721
-        assert type(set_replication) == bool  # noqa: E721
-        assert type(ptrack_enable) == bool  # noqa: E721
-        assert initdb_params is None or type(initdb_params) == list  # noqa: E721
-        assert pg_options is None or type(pg_options) == dict  # noqa: E721
-        assert type(checksum) == bool  # noqa: E721
-        assert bin_dir is None or type(bin_dir) == str  # noqa: E721
+        assert type(base_dir) is str
+        assert port is None or type(port) is int
+        assert type(set_replication) is bool
+        assert type(ptrack_enable) is bool
+        assert initdb_params is None or type(initdb_params) is list
+        assert pg_options is None or type(pg_options) is dict
+        assert type(checksum) is bool
+        assert bin_dir is None or type(bin_dir) is str
 
         node = self.make_empty(
             base_dir,
@@ -194,12 +194,12 @@ class NodeApp:
 
         # Apply given parameters
         if pg_options is not None:
-            assert type(pg_options) == dict  # noqa: E721
+            assert type(pg_options) is dict
             for option_name, option_value in pg_options.items():
                 options[option_name] = option_value
 
         # Define delayed propertyes
-        if not ("unix_socket_directories" in options.keys()):
+        if "unix_socket_directories" not in options.keys():
             options["unix_socket_directories"] = __class__._gettempdir_for_socket()
 
         # Set config values
@@ -218,17 +218,14 @@ class NodeApp:
         params: typing.Optional[T_LIST_STR],
         param: str
     ) -> bool:
-        assert type(param) == str  # noqa: E721
+        assert type(param) is str
 
         if params is None:
             return False
 
-        assert type(params) == list  # noqa: E721
+        assert type(params) is list
 
-        if param in params:
-            return True
-
-        return False
+        return param in params
 
     @staticmethod
     def _paramlist_append(
@@ -236,9 +233,9 @@ class NodeApp:
         updated_params: typing.Optional[T_LIST_STR],
         param: str,
     ) -> T_LIST_STR:
-        assert user_params is None or type(user_params) == list  # noqa: E721
-        assert updated_params is None or type(updated_params) == list  # noqa: E721
-        assert type(param) == str  # noqa: E721
+        assert user_params is None or type(user_params) is list
+        assert updated_params is None or type(updated_params) is list
+        assert type(param) is str
 
         if updated_params is None:
             if user_params is None:
@@ -298,7 +295,7 @@ class NodeApp:
         #
         # Paranoid checks
         #
-        if type(v) != str:  # noqa: E721
+        if type(v) is str:
             __class__._raise_bugcheck("tempfile.gettempdir returned a value with type {0}.".format(type(v).__name__))
 
         if v == "":
@@ -312,6 +309,6 @@ class NodeApp:
 
     @staticmethod
     def _raise_bugcheck(msg):
-        assert type(msg) == str  # noqa: E721
+        assert type(msg) is str
         assert msg != ""
         raise Exception("[BUG CHECK] " + msg)

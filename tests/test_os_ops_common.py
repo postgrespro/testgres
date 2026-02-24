@@ -46,14 +46,14 @@ class TestOsOpsCommon:
         assert isinstance(os_ops, OsOperations)
         p = os_ops.get_platform()
         assert p is not None
-        assert type(p) == str  # noqa: E721
+        assert type(p) is str
         assert p == sys.platform
 
     def test_get_platform__is_known(self, os_ops: OsOperations):
         assert isinstance(os_ops, OsOperations)
         p = os_ops.get_platform()
         assert p is not None
-        assert type(p) == str  # noqa: E721
+        assert type(p) is str
         assert p in {"win32", "linux"}
 
     def test_create_clone(self, os_ops: OsOperations):
@@ -91,11 +91,11 @@ class TestOsOpsCommon:
             try:
                 os_ops.exec_command(cmd)
             except ExecUtilException as e:
-                assert type(e.exit_code) == int  # noqa: E721
+                assert type(e.exit_code) is int
                 assert e.exit_code == 127
 
-                assert type(e.message) == str  # noqa: E721
-                assert type(e.error) == bytes  # noqa: E721
+                assert type(e.message) is str
+                assert type(e.error) is bytes
 
                 assert e.message.startswith("Utility exited with non-zero code (127). Error:")
                 assert "nonexistent_command" in e.message
@@ -119,7 +119,7 @@ class TestOsOpsCommon:
 
         assert exit_status == 127
         assert result == b''
-        assert type(error) == bytes  # noqa: E721
+        assert type(error) is bytes
         assert b"nonexistent_command" in error
         assert b"not found" in error
 
@@ -136,12 +136,12 @@ class TestOsOpsCommon:
 
         response = os_ops.exec_command(cmd, exec_env=exec_env)
         assert response is not None
-        assert type(response) == bytes  # noqa: E721
+        assert type(response) is bytes
         assert response == b'Hello!\n'
 
         response = os_ops.exec_command(cmd)
         assert response is not None
-        assert type(response) == bytes  # noqa: E721
+        assert type(response) is bytes
         assert response == b'\n'
 
     def test_exec_command_with_exec_env__2(self, os_ops: OsOperations):
@@ -156,7 +156,7 @@ class TestOsOpsCommon:
         logging.info("content is [{}]".format(tmp_file_content))
 
         tmp_file = os_ops.mkstemp()
-        assert type(tmp_file) == str  # noqa: E721
+        assert type(tmp_file) is str
         assert tmp_file != ""
 
         logging.info("file is [{}]".format(tmp_file))
@@ -170,12 +170,12 @@ class TestOsOpsCommon:
 
         response = os_ops.exec_command(cmd, exec_env=exec_env)
         assert response is not None
-        assert type(response) == bytes  # noqa: E721
+        assert type(response) is bytes
         assert response == b'Hello!\n'
 
         response = os_ops.exec_command(cmd)
         assert response is not None
-        assert type(response) == bytes  # noqa: E721
+        assert type(response) is bytes
         assert response == b'\n'
 
         os_ops.remove_file(tmp_file)
@@ -191,12 +191,12 @@ class TestOsOpsCommon:
 
         response = os_ops.exec_command(cmd, cwd="/tmp")
         assert response is not None
-        assert type(response) == bytes  # noqa: E721
+        assert type(response) is bytes
         assert response == b'/tmp\n'
 
         response = os_ops.exec_command(cmd)
         assert response is not None
-        assert type(response) == bytes  # noqa: E721
+        assert type(response) is bytes
         assert response != b'/tmp\n'
 
     def test_exec_command__test_unset(self, os_ops: OsOperations):
@@ -210,7 +210,7 @@ class TestOsOpsCommon:
 
         response1 = os_ops.exec_command(cmd)
         assert response1 is not None
-        assert type(response1) == bytes  # noqa: E721
+        assert type(response1) is bytes
 
         if response1 == b'\n':
             logging.warning("Environment variable {} is not defined.".format(C_ENV_NAME))
@@ -219,12 +219,12 @@ class TestOsOpsCommon:
         exec_env = {C_ENV_NAME: None}
         response2 = os_ops.exec_command(cmd, exec_env=exec_env)
         assert response2 is not None
-        assert type(response2) == bytes  # noqa: E721
+        assert type(response2) is bytes
         assert response2 == b'\n'
 
         response3 = os_ops.exec_command(cmd)
         assert response3 is not None
-        assert type(response3) == bytes  # noqa: E721
+        assert type(response3) is bytes
         assert response3 == response1
 
     def test_exec_command__test_unset_dummy_var(self, os_ops: OsOperations):
@@ -239,7 +239,7 @@ class TestOsOpsCommon:
         exec_env = {C_ENV_NAME: None}
         response2 = os_ops.exec_command(cmd, exec_env=exec_env)
         assert response2 is not None
-        assert type(response2) == bytes  # noqa: E721
+        assert type(response2) is bytes
         assert response2 == b'\n'
 
     def test_is_executable_true(self, os_ops: OsOperations):
@@ -315,7 +315,7 @@ class TestOsOpsCommon:
         assert isinstance(files, list)
         for f in files:
             assert f is not None
-            assert type(f) == str  # noqa: E721
+            assert type(f) is str
 
     def test_path_exists_true__directory(self, os_ops: OsOperations):
         """
@@ -520,22 +520,22 @@ class TestOsOpsCommon:
         with open(filename, 'r') as file:  # open in a text mode
             response0 = file.read()
 
-        assert type(response0) == str  # noqa: E721
+        assert type(response0) is str
 
         response1 = os_ops.read(filename)
-        assert type(response1) == str  # noqa: E721
+        assert type(response1) is str
         assert response1 == response0
 
         response2 = os_ops.read(filename, encoding=None, binary=False)
-        assert type(response2) == str  # noqa: E721
+        assert type(response2) is str
         assert response2 == response0
 
         response3 = os_ops.read(filename, encoding="")
-        assert type(response3) == str  # noqa: E721
+        assert type(response3) is str
         assert response3 == response0
 
         response4 = os_ops.read(filename, encoding="UTF-8")
-        assert type(response4) == str  # noqa: E721
+        assert type(response4) is str
         assert response4 == response0
 
     def test_read__binary(self, os_ops: OsOperations):
@@ -547,10 +547,10 @@ class TestOsOpsCommon:
         with open(filename, 'rb') as file:  # open in a binary mode
             response0 = file.read()
 
-        assert type(response0) == bytes  # noqa: E721
+        assert type(response0) is bytes
 
         response1 = os_ops.read(filename, binary=True)
-        assert type(response1) == bytes  # noqa: E721
+        assert type(response1) is bytes
         assert response1 == response0
 
     def test_read__binary_and_encoding(self, os_ops: OsOperations):
@@ -577,29 +577,29 @@ class TestOsOpsCommon:
         with open(filename, 'rb') as file:  # open in a binary mode
             response0 = file.read()
 
-        assert type(response0) == bytes  # noqa: E721
+        assert type(response0) is bytes
 
         response1 = os_ops.read_binary(filename, 0)
-        assert type(response1) == bytes  # noqa: E721
+        assert type(response1) is bytes
         assert response1 == response0
 
         response2 = os_ops.read_binary(filename, 1)
-        assert type(response2) == bytes  # noqa: E721
+        assert type(response2) is bytes
         assert len(response2) < len(response1)
         assert len(response2) + 1 == len(response1)
         assert response2 == response1[1:]
 
         response3 = os_ops.read_binary(filename, len(response1))
-        assert type(response3) == bytes  # noqa: E721
+        assert type(response3) is bytes
         assert len(response3) == 0
 
         response4 = os_ops.read_binary(filename, len(response2))
-        assert type(response4) == bytes  # noqa: E721
+        assert type(response4) is bytes
         assert len(response4) == 1
         assert response4[0] == response1[len(response1) - 1]
 
         response5 = os_ops.read_binary(filename, len(response1) + 1)
-        assert type(response5) == bytes  # noqa: E721
+        assert type(response5) is bytes
         assert len(response5) == 0
 
     def test_read_binary__spec__negative_offset(self, os_ops: OsOperations):
@@ -622,10 +622,10 @@ class TestOsOpsCommon:
         filename = __file__  # current file
 
         sz0 = os.path.getsize(filename)
-        assert type(sz0) == int  # noqa: E721
+        assert type(sz0) is int
 
         sz1 = os_ops.get_file_size(filename)
-        assert type(sz1) == int  # noqa: E721
+        assert type(sz1) is int
         assert sz1 == sz0
 
     def test_isfile_true(self, os_ops: OsOperations):
@@ -713,7 +713,7 @@ class TestOsOpsCommon:
         v = os_ops.cwd()
 
         assert v is not None
-        assert type(v) == str  # noqa: E721
+        assert type(v) is str
         assert v != ""
 
     class tagWriteData001:
@@ -807,7 +807,7 @@ class TestOsOpsCommon:
         C_LIMIT = 128
 
         ports = set(range(1024, 65535))
-        assert type(ports) == set  # noqa: E721
+        assert type(ports) is set
 
         ok_count = 0
         no_count = 0
@@ -843,7 +843,7 @@ class TestOsOpsCommon:
         C_LIMIT = 10
 
         ports = set(range(1024, 65535))
-        assert type(ports) == set  # noqa: E721
+        assert type(ports) is set
 
         def LOCAL_server(s: socket.socket):
             assert s is not None
@@ -902,7 +902,7 @@ class TestOsOpsCommon:
         assert isinstance(os_ops, OsOperations)
 
         dir = os_ops.get_tempdir()
-        assert type(dir) == str  # noqa: E721
+        assert type(dir) is str
         assert os_ops.path_exists(dir)
         assert os.path.exists(dir)
 
@@ -927,15 +927,15 @@ class TestOsOpsCommon:
 
         actual_dir = os_ops.get_tempdir()
         assert actual_dir is not None
-        assert type(actual_dir) == str  # noqa: E721
+        assert type(actual_dir) is str
 
         # --------
         cmd = [sys.executable, "-c", "import tempfile;print(tempfile.gettempdir());"]
 
         expected_dir_b = os_ops.exec_command(cmd)
-        assert type(expected_dir_b) == bytes  # noqa: E721
+        assert type(expected_dir_b) is bytes
         expected_dir = expected_dir_b.decode()
-        assert type(expected_dir) == str  # noqa: E721
+        assert type(expected_dir) is str
         assert actual_dir + "\n" == expected_dir
         return
 
@@ -945,7 +945,7 @@ class TestOsOpsCommon:
 
         def __init__(self, os_ops_descr: OsOpsDescr, nums: int):
             assert isinstance(os_ops_descr, OsOpsDescr)
-            assert type(nums) == int  # noqa: E721
+            assert type(nums) is int
 
             self.os_ops_descr = os_ops_descr
             self.nums = nums
@@ -968,7 +968,7 @@ class TestOsOpsCommon:
 
         N_WORKERS = 4
         N_NUMBERS = data001.nums
-        assert type(N_NUMBERS) == int  # noqa: E721
+        assert type(N_NUMBERS) is int
 
         os_ops = data001.os_ops_descr.os_ops
         assert isinstance(os_ops, OsOperations)
@@ -982,8 +982,8 @@ class TestOsOpsCommon:
         assert os.path.exists(lock_dir)
 
         def MAKE_PATH(lock_dir: str, num: int) -> str:
-            assert type(lock_dir) == str  # noqa: E721
-            assert type(num) == int  # noqa: E721
+            assert type(lock_dir) is str
+            assert type(num) is int
             return os.path.join(lock_dir, str(num) + ".lock")
 
         def LOCAL_WORKER(os_ops: OsOperations,
@@ -992,21 +992,21 @@ class TestOsOpsCommon:
                          cNumbers: int,
                          reservedNumbers: typing.Set[int]) -> None:
             assert isinstance(os_ops, OsOperations)
-            assert type(workerID) == int  # noqa: E721
-            assert type(lock_dir) == str  # noqa: E721
-            assert type(cNumbers) == int  # noqa: E721
-            assert type(reservedNumbers) == set  # noqa: E721
+            assert type(workerID) is int
+            assert type(lock_dir) is str
+            assert type(cNumbers) is int
+            assert type(reservedNumbers) is set
             assert cNumbers > 0
             assert len(reservedNumbers) == 0
 
             assert os.path.exists(lock_dir)
 
             def LOG_INFO(template: str, *args) -> None:
-                assert type(template) == str  # noqa: E721
+                assert type(template) is str
                 assert type(args) == tuple  # noqa: E721
 
                 msg = template.format(*args)
-                assert type(msg) == str  # noqa: E721
+                assert type(msg) is str
 
                 logging.info("[Worker #{}] {}".format(workerID, msg))
                 return
@@ -1014,7 +1014,7 @@ class TestOsOpsCommon:
             LOG_INFO("HELLO! I am here!")
 
             for num in range(cNumbers):
-                assert not (num in reservedNumbers)
+                assert num not in reservedNumbers
 
                 file_path = MAKE_PATH(lock_dir, num)
 
@@ -1085,7 +1085,7 @@ class TestOsOpsCommon:
 
         nWorkers = 0
 
-        assert type(workerDatas) == list  # noqa: E721
+        assert type(workerDatas) is list
 
         for i in range(len(workerDatas)):
             worker = workerDatas[i].future
@@ -1122,7 +1122,7 @@ class TestOsOpsCommon:
             logging.info("Worker #{} is checked ...".format(i))
 
             workerNumbers = workerDatas[i].reservedNumbers
-            assert type(workerNumbers) == set  # noqa: E721
+            assert type(workerNumbers) is set
 
             for n in workerNumbers:
                 if n < 0 or n >= N_NUMBERS:
@@ -1150,7 +1150,7 @@ class TestOsOpsCommon:
         logging.info("OK. Let's check reservedNumbers!")
 
         for n in range(N_NUMBERS):
-            if not (n in reservedNumbers.keys()):
+            if n not in reservedNumbers.keys():
                 nErrors += 1
                 logging.error("Number {} is not reserved!".format(n))
                 continue
@@ -1263,7 +1263,7 @@ class TestOsOpsCommon:
         assert proc is not None
         assert type(proc) == subprocess.Popen  # noqa: E721
         proc_pid = proc.pid
-        assert type(proc_pid) == int  # noqa: E721
+        assert type(proc_pid) is int
         logging.info("Test process pid is {}".format(proc_pid))
 
         logging.info("Get this test process ...")
@@ -1334,18 +1334,18 @@ class TestOsOpsCommon:
         assert proc is not None
         assert type(proc) == subprocess.Popen  # noqa: E721
         proc_pid = proc.pid
-        assert type(proc_pid) == int  # noqa: E721
+        assert type(proc_pid) is int
         logging.info("Test process pid is {}".format(proc_pid))
 
         logging.info("Wait for finish ...")
         pout, perr = proc.communicate()
         logging.info("STDOUT: {}".format(pout))
         logging.info("STDERR: {}".format(pout))
-        assert type(pout) == str  # noqa: E721
-        assert type(perr) == str  # noqa: E721
+        assert type(pout) is str
+        assert type(perr) is str
         assert pout == "a\n"
         assert perr == "b\n"
-        assert type(proc.returncode) == int  # noqa: E721
+        assert type(proc.returncode) is int
         assert proc.returncode == 0
 
         logging.info("Try to get this test process ...")

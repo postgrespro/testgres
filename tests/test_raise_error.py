@@ -17,7 +17,7 @@ class TestRaiseError:
             expected_msg: str,
         ):
             assert type(node_status) == NodeStatus  # noqa: E721
-            assert type(expected_msg) == str  # noqa: E721
+            assert type(expected_msg) is str
             self.node_status = node_status
             self.expected_msg = expected_msg
             return
