@@ -23,15 +23,15 @@ class InternalPlatformUtils:
             code: InternalPlatformUtils.FindPostmasterResultCode,
             pid: typing.Optional[int]
         ):
-            assert type(code) == InternalPlatformUtils.FindPostmasterResultCode  # noqa: E721
-            assert pid is None or type(pid) == int  # noqa: E721
+            assert type(code) is InternalPlatformUtils.FindPostmasterResultCode
+            assert pid is None or type(pid) is int
             self.code = code
             self.pid = pid
             return
 
         @staticmethod
         def create_ok(pid: int) -> InternalPlatformUtils.FindPostmasterResult:
-            assert type(pid) == int  # noqa: E721
+            assert type(pid) is int
             return __class__(InternalPlatformUtils.FindPostmasterResultCode.ok, pid)
 
         @staticmethod
@@ -57,6 +57,6 @@ class InternalPlatformUtils:
         data_dir: str
     ) -> FindPostmasterResult:
         assert isinstance(os_ops, OsOperations)
-        assert type(bin_dir) == str  # noqa: E721
-        assert type(data_dir) == str  # noqa: E721
+        assert type(bin_dir) is str
+        assert type(data_dir) is str
         raise NotImplementedError("InternalPlatformUtils::FindPostmaster is not implemented.")

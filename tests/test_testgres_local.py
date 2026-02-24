@@ -93,7 +93,7 @@ class TestTestgresLocal:
 
     def test_ports_management(self):
         assert bound_ports is not None
-        assert type(bound_ports) == set  # noqa: E721
+        assert type(bound_ports) is set
 
         if len(bound_ports) != 0:
             logging.warning("bound_ports is not empty: {0}".format(bound_ports))
@@ -102,10 +102,10 @@ class TestTestgresLocal:
 
         with get_new_node() as node:
             assert bound_ports is not None
-            assert type(bound_ports) == set  # noqa: E721
+            assert type(bound_ports) is set
 
             assert node.port is not None
-            assert type(node.port) == int  # noqa: E721
+            assert type(node.port) is int
 
             logging.info("node port is {0}".format(node.port))
 
@@ -122,7 +122,7 @@ class TestTestgresLocal:
 
         # check that port has been freed successfully
         assert bound_ports is not None
-        assert type(bound_ports) == set  # noqa: E721
+        assert type(bound_ports) is set
         assert bound_ports == stage0__bound_ports
 
     def test_child_process_dies(self):
@@ -180,8 +180,8 @@ class TestTestgresLocal:
         sm_DummyPortTotalUsage = None
 
         def __init__(self, dummyPortNumber, dummyPortMaxUsage):
-            assert type(dummyPortNumber) == int  # noqa: E721
-            assert type(dummyPortMaxUsage) == int  # noqa: E721
+            assert type(dummyPortNumber) is int
+            assert type(dummyPortMaxUsage) is int
             assert dummyPortNumber >= 0
             assert dummyPortMaxUsage >= 0
 
@@ -225,9 +225,9 @@ class TestTestgresLocal:
 
         @staticmethod
         def _proxy__reserve_port():
-            assert type(__class__.sm_DummyPortMaxUsage) == int  # noqa: E721
-            assert type(__class__.sm_DummyPortTotalUsage) == int  # noqa: E721
-            assert type(__class__.sm_DummyPortCurrentUsage) == int  # noqa: E721
+            assert type(__class__.sm_DummyPortMaxUsage) is int
+            assert type(__class__.sm_DummyPortTotalUsage) is int
+            assert type(__class__.sm_DummyPortCurrentUsage) is int
             assert __class__.sm_DummyPortTotalUsage >= 0
             assert __class__.sm_DummyPortCurrentUsage >= 0
 
@@ -245,11 +245,11 @@ class TestTestgresLocal:
 
         @staticmethod
         def _proxy__release_port(dummyPortNumber):
-            assert type(dummyPortNumber) == int  # noqa: E721
+            assert type(dummyPortNumber) is int
 
-            assert type(__class__.sm_DummyPortMaxUsage) == int  # noqa: E721
-            assert type(__class__.sm_DummyPortTotalUsage) == int  # noqa: E721
-            assert type(__class__.sm_DummyPortCurrentUsage) == int  # noqa: E721
+            assert type(__class__.sm_DummyPortMaxUsage) is int
+            assert type(__class__.sm_DummyPortTotalUsage) is int
+            assert type(__class__.sm_DummyPortCurrentUsage) is int
             assert __class__.sm_DummyPortTotalUsage >= 0
             assert __class__.sm_DummyPortCurrentUsage >= 0
 
@@ -408,7 +408,7 @@ class TestTestgresLocal:
 
     @staticmethod
     def helper__skip_test_if_util_not_exist(name: str):
-        assert type(name) == str  # noqa: E721
+        assert type(name) is str
 
         if platform.system().lower() == "windows":
             name2 = name + ".exe"

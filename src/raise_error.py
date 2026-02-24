@@ -34,7 +34,7 @@ class RaiseError:
     def node_err__cant_enumerate_child_processes(
         node_status: NodeStatus
     ):
-        assert type(node_status) == NodeStatus  # noqa: E721
+        assert type(node_status) is NodeStatus
 
         msg = "Can't enumerate node child processes. {}.".format(
             __class__._map_node_status_to_reason(
@@ -49,7 +49,7 @@ class RaiseError:
     def node_err__cant_kill(
         node_status: NodeStatus
     ):
-        assert type(node_status) == NodeStatus  # noqa: E721
+        assert type(node_status) is NodeStatus
 
         msg = "Can't kill server process. {}.".format(
             __class__._map_node_status_to_reason(
@@ -65,8 +65,8 @@ class RaiseError:
         node_status: NodeStatus,
         node_pid: typing.Optional[int],
     ) -> str:
-        assert type(node_status) == NodeStatus  # noqa: E721
-        assert node_pid is None or type(node_pid) == int  # noqa: E721
+        assert type(node_status) is NodeStatus
+        assert node_pid is None or type(node_pid) is int
 
         if node_status == NodeStatus.Uninitialized:
             return "Node is not initialized"

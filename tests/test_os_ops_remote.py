@@ -25,7 +25,7 @@ class TestOsOpsRemote:
         assert isinstance(os_ops, OsOperations)
 
         path = os_ops.mkstemp()
-        assert type(path) == str  # noqa: E721
+        assert type(path) is str
         assert os.path.exists(path)
 
         with pytest.raises(ExecUtilException) as x:
@@ -36,9 +36,9 @@ class TestOsOpsRemote:
         assert type(x.value.description) == str   # noqa: E721
         assert x.value.description == "Utility exited with non-zero code (20). Error: `cannot remove '" + path + "': it is not a directory`"
         assert x.value.message.startswith(x.value.description)
-        assert type(x.value.error) == str  # noqa: E721
+        assert type(x.value.error) is str
         assert x.value.error.strip() == "cannot remove '" + path + "': it is not a directory"
-        assert type(x.value.exit_code) == int  # noqa: E721
+        assert type(x.value.exit_code) is int
         assert x.value.exit_code == 20
 
     def test_read__unknown_file(self, os_ops: OsOperations):

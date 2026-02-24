@@ -26,10 +26,10 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         data_dir: str
     ) -> InternalPlatformUtils.FindPostmasterResult:
         assert isinstance(os_ops, OsOperations)
-        assert type(bin_dir) == str  # noqa: E721
-        assert type(data_dir) == str  # noqa: E721
-        assert type(__class__.C_BASH_EXE) == str  # noqa: E721
-        assert type(__class__.sm_exec_env) == dict  # noqa: E721
+        assert type(bin_dir) is str
+        assert type(data_dir) is str
+        assert type(__class__.C_BASH_EXE) is str
+        assert type(__class__.sm_exec_env) is dict
         assert len(__class__.C_BASH_EXE) > 0
         assert len(bin_dir) > 0
         assert len(data_dir) > 0
@@ -37,8 +37,8 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         pg_path_e = re.escape(os_ops.build_path(bin_dir, "postgres"))
         data_dir_e = re.escape(data_dir)
 
-        assert type(pg_path_e) == str  # noqa: E721
-        assert type(data_dir_e) == str  # noqa: E721
+        assert type(pg_path_e) is str
+        assert type(data_dir_e) is str
 
         regexp = r"^\s*[0-9]+\s+" + pg_path_e + r"(\s+.*)?\s+\-[D]\s+" + data_dir_e + r"(\s+.*)?"
 
@@ -55,14 +55,14 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             exec_env=__class__.sm_exec_env,
         )
 
-        assert type(output_b) == bytes  # noqa: E721
-        assert type(error_b) == bytes  # noqa: E721
+        assert type(output_b) is bytes
+        assert type(error_b) is bytes
 
         output = output_b.decode("utf-8")
         error = error_b.decode("utf-8")
 
-        assert type(output) == str  # noqa: E721
-        assert type(error) == str  # noqa: E721
+        assert type(output) is str
+        assert type(error) is str
 
         if exit_status == 1:
             return __class__.FindPostmasterResult.create_not_found()
@@ -78,7 +78,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             )
 
         lines = output.splitlines()
-        assert type(lines) == list  # noqa: E721
+        assert type(lines) is list
 
         if len(lines) == 0:
             return __class__.FindPostmasterResult.create_not_found()
@@ -88,7 +88,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             msgs.append("Many processes like a postmaster are found: {}.".format(len(lines)))
 
             for i in range(len(lines)):
-                assert type(lines[i]) == str  # noqa: E721
+                assert type(lines[i]) is str
                 lines.append("[{}] '{}'".format(i, lines[i]))
                 continue
 
@@ -96,7 +96,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             return __class__.FindPostmasterResult.create_many_processes()
 
         def is_space_or_tab(ch) -> bool:
-            assert type(ch) == str  # noqa: E721
+            assert type(ch) is str
             return ch == " " or ch == "\t"
 
         line = lines[0]
@@ -115,6 +115,6 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             return __class__.FindPostmasterResult.create_has_problems()
 
         pid = int(line[start:pos])
-        assert type(pid) == int  # noqa: E721
+        assert type(pid) is int
 
         return __class__.FindPostmasterResult.create_ok(pid)

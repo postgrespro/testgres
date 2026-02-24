@@ -103,14 +103,14 @@ class TestStartupData__Helper:
             rootDir = __class__.CalcRootDir()
             resultPath = os.path.join(rootDir, "logs")
 
-        assert type(resultPath) == str  # noqa: E721
+        assert type(resultPath) is str
         return resultPath
 
     # --------------------------------------------------------------------
     @staticmethod
     def CalcCurrentTestWorkerSignature() -> str:
         currentPID = os.getpid()
-        assert type(currentPID) == int  # noqa: E721
+        assert type(currentPID) is int
 
         startTS = __class__.sm_StartTS
         assert type(startTS) == datetime.datetime  # noqa: E721
@@ -148,19 +148,19 @@ class TestStartupData:
     # --------------------------------------------------------------------
     @staticmethod
     def GetRootDir() -> str:
-        assert type(__class__.sm_RootDir) == str  # noqa: E721
+        assert type(__class__.sm_RootDir) is str
         return __class__.sm_RootDir
 
     # --------------------------------------------------------------------
     @staticmethod
     def GetRootLogDir() -> str:
-        assert type(__class__.sm_RootLogDir) == str  # noqa: E721
+        assert type(__class__.sm_RootLogDir) is str
         return __class__.sm_RootLogDir
 
     # --------------------------------------------------------------------
     @staticmethod
     def GetCurrentTestWorkerSignature() -> str:
-        assert type(__class__.sm_CurrentTestWorkerSignature) == str  # noqa: E721
+        assert type(__class__.sm_CurrentTestWorkerSignature) is str
         return __class__.sm_CurrentTestWorkerSignature
 
 
@@ -195,7 +195,7 @@ class TEST_PROCESS_STATS:
     # --------------------------------------------------------------------
     @staticmethod
     def incrementTotalTestCount() -> None:
-        assert type(__class__.cTotalTests) == int  # noqa: E721
+        assert type(__class__.cTotalTests) is int
         assert __class__.cTotalTests >= 0
 
         __class__.cTotalTests += 1
@@ -205,7 +205,7 @@ class TEST_PROCESS_STATS:
     # --------------------------------------------------------------------
     @staticmethod
     def incrementNotExecutedTestCount() -> None:
-        assert type(__class__.cNotExecutedTests) == int  # noqa: E721
+        assert type(__class__.cNotExecutedTests) is int
         assert __class__.cNotExecutedTests >= 0
 
         __class__.cNotExecutedTests += 1
@@ -215,7 +215,7 @@ class TEST_PROCESS_STATS:
     # --------------------------------------------------------------------
     @staticmethod
     def incrementExecutedTestCount() -> int:
-        assert type(__class__.cExecutedTests) == int  # noqa: E721
+        assert type(__class__.cExecutedTests) is int
         assert __class__.cExecutedTests >= 0
 
         __class__.cExecutedTests += 1
@@ -226,7 +226,7 @@ class TEST_PROCESS_STATS:
     # --------------------------------------------------------------------
     @staticmethod
     def incrementPassedTestCount() -> None:
-        assert type(__class__.cPassedTests) == int  # noqa: E721
+        assert type(__class__.cPassedTests) is int
         assert __class__.cPassedTests >= 0
 
         __class__.cPassedTests += 1
@@ -236,11 +236,11 @@ class TEST_PROCESS_STATS:
     # --------------------------------------------------------------------
     @staticmethod
     def incrementFailedTestCount(testID: str, errCount: int) -> None:
-        assert type(testID) == str  # noqa: E721
-        assert type(errCount) == int  # noqa: E721
+        assert type(testID) is str
+        assert type(errCount) is int
         assert errCount > 0
-        assert type(__class__.FailedTests) == list  # noqa: E721
-        assert type(__class__.cFailedTests) == int  # noqa: E721
+        assert type(__class__.FailedTests) is list
+        assert type(__class__.cFailedTests) is int
         assert __class__.cFailedTests >= 0
 
         __class__.FailedTests.append((testID, errCount))  # raise?
@@ -251,7 +251,7 @@ class TEST_PROCESS_STATS:
         assert len(__class__.FailedTests) == __class__.cFailedTests
 
         # --------
-        assert type(__class__.cTotalErrors) == int  # noqa: E721
+        assert type(__class__.cTotalErrors) is int
         assert __class__.cTotalErrors >= 0
 
         __class__.cTotalErrors += errCount
@@ -261,11 +261,11 @@ class TEST_PROCESS_STATS:
     # --------------------------------------------------------------------
     @staticmethod
     def incrementXFailedTestCount(testID: str, errCount: int) -> None:
-        assert type(testID) == str  # noqa: E721
-        assert type(errCount) == int  # noqa: E721
+        assert type(testID) is str
+        assert type(errCount) is int
         assert errCount >= 0
-        assert type(__class__.XFailedTests) == list  # noqa: E721
-        assert type(__class__.cXFailedTests) == int  # noqa: E721
+        assert type(__class__.XFailedTests) is list
+        assert type(__class__.cXFailedTests) is int
         assert __class__.cXFailedTests >= 0
 
         __class__.XFailedTests.append((testID, errCount))  # raise?
@@ -278,7 +278,7 @@ class TEST_PROCESS_STATS:
     # --------------------------------------------------------------------
     @staticmethod
     def incrementSkippedTestCount() -> None:
-        assert type(__class__.cSkippedTests) == int  # noqa: E721
+        assert type(__class__.cSkippedTests) is int
         assert __class__.cSkippedTests >= 0
 
         __class__.cSkippedTests += 1
@@ -288,9 +288,9 @@ class TEST_PROCESS_STATS:
     # --------------------------------------------------------------------
     @staticmethod
     def incrementNotXFailedTests(testID: str) -> None:
-        assert type(testID) == str  # noqa: E721
-        assert type(__class__.NotXFailedTests) == list  # noqa: E721
-        assert type(__class__.cNotXFailedTests) == int  # noqa: E721
+        assert type(testID) is str
+        assert type(__class__.NotXFailedTests) is list
+        assert type(__class__.cNotXFailedTests) is int
         assert __class__.cNotXFailedTests >= 0
 
         __class__.NotXFailedTests.append(testID)  # raise?
@@ -303,12 +303,12 @@ class TEST_PROCESS_STATS:
     # --------------------------------------------------------------------
     @staticmethod
     def incrementWarningTestCount(testID: str, warningCount: int) -> None:
-        assert type(testID) == str  # noqa: E721
-        assert type(warningCount) == int  # noqa: E721
+        assert type(testID) is str
+        assert type(warningCount) is int
         assert testID != ""
         assert warningCount > 0
-        assert type(__class__.WarningTests) == list  # noqa: E721
-        assert type(__class__.cWarningTests) == int  # noqa: E721
+        assert type(__class__.WarningTests) is list
+        assert type(__class__.cWarningTests) is int
         assert __class__.cWarningTests >= 0
 
         __class__.WarningTests.append((testID, warningCount))  # raise?
@@ -319,7 +319,7 @@ class TEST_PROCESS_STATS:
         assert len(__class__.WarningTests) == __class__.cWarningTests
 
         # --------
-        assert type(__class__.cTotalWarnings) == int  # noqa: E721
+        assert type(__class__.cTotalWarnings) is int
         assert __class__.cTotalWarnings >= 0
 
         __class__.cTotalWarnings += warningCount
@@ -329,7 +329,7 @@ class TEST_PROCESS_STATS:
     # --------------------------------------------------------------------
     @staticmethod
     def incrementUnexpectedTests() -> None:
-        assert type(__class__.cUnexpectedTests) == int  # noqa: E721
+        assert type(__class__.cUnexpectedTests) is int
         assert __class__.cUnexpectedTests >= 0
 
         __class__.cUnexpectedTests += 1
@@ -339,9 +339,9 @@ class TEST_PROCESS_STATS:
     # --------------------------------------------------------------------
     @staticmethod
     def incrementAchtungTestCount(testID: str) -> None:
-        assert type(testID) == str  # noqa: E721
-        assert type(__class__.AchtungTests) == list  # noqa: E721
-        assert type(__class__.cAchtungTests) == int  # noqa: E721
+        assert type(testID) is str
+        assert type(__class__.AchtungTests) is list
+        assert type(__class__.cAchtungTests) is int
         assert __class__.cAchtungTests >= 0
 
         __class__.AchtungTests.append(testID)  # raise?
@@ -479,18 +479,18 @@ def helper__makereport__call(
 
     # --------
     item_error_msg_count1 = item.stash.get(g_error_msg_count_key, 0)
-    assert type(item_error_msg_count1) == int  # noqa: E721
+    assert type(item_error_msg_count1) is int
     assert item_error_msg_count1 >= 0
 
     item_error_msg_count2 = item.stash.get(g_critical_msg_count_key, 0)
-    assert type(item_error_msg_count2) == int  # noqa: E721
+    assert type(item_error_msg_count2) is int
     assert item_error_msg_count2 >= 0
 
     item_error_msg_count = item_error_msg_count1 + item_error_msg_count2
 
     # --------
     item_warning_msg_count = item.stash.get(g_warning_msg_count_key, 0)
-    assert type(item_warning_msg_count) == int  # noqa: E721
+    assert type(item_warning_msg_count) is int
     assert item_warning_msg_count >= 0
 
     # --------
@@ -539,7 +539,7 @@ def helper__makereport__call(
             exitStatus = ExitStatusNames.XFAILED
             assert hasattr(rep, "wasxfail")
             assert rep.wasxfail is not None
-            assert type(rep.wasxfail) == str  # noqa: E721
+            assert type(rep.wasxfail) is str
 
             reasonText = rep.wasxfail
             reasonMsgTempl = "XFAIL REASON: {0}"
@@ -552,10 +552,10 @@ def helper__makereport__call(
 
             TEST_PROCESS_STATS.incrementXFailedTestCount(testID, item_error_msg_count)
 
-        assert type(reasonText) == str  # noqa: E721
+        assert type(reasonText) is str
 
         if reasonText != "":
-            assert type(reasonMsgTempl) == str  # noqa: E721
+            assert type(reasonMsgTempl) is str
             logging.info("*")
             logging.info("* " + reasonMsgTempl.format(reasonText))
 
@@ -578,7 +578,7 @@ def helper__makereport__call(
         assert call.excinfo is None
 
         if hasattr(rep, "wasxfail"):
-            assert type(rep.wasxfail) == str  # noqa: E721
+            assert type(rep.wasxfail) is str
 
             TEST_PROCESS_STATS.incrementNotXFailedTests(testID)
 
@@ -607,7 +607,7 @@ def helper__makereport__call(
 
     # --------
     assert exitStatus is not None
-    assert type(exitStatus) == str  # noqa: E721
+    assert type(exitStatus) is str
 
     if exitStatus == ExitStatusNames.FAILED:
         assert item_error_msg_count > 0
@@ -662,7 +662,7 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     assert outcome is not None
     assert type(outcome) == T_PLUGGY_RESULT  # noqa: E721
 
-    assert type(call.when) == str  # noqa: E721
+    assert type(call.when) is str
 
     if call.when == "collect":
         return
@@ -751,11 +751,11 @@ class LogWrapper2:
         assert self._warn_counter is not None
         assert self._critical_counter is not None
 
-        assert type(self._err_counter) == int  # noqa: E721
+        assert type(self._err_counter) is int
         assert self._err_counter >= 0
-        assert type(self._warn_counter) == int  # noqa: E721
+        assert type(self._warn_counter) is int
         assert self._warn_counter >= 0
-        assert type(self._critical_counter) == int  # noqa: E721
+        assert type(self._critical_counter) is int
         assert self._critical_counter >= 0
 
         r = self._old_method(record)
@@ -810,11 +810,11 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function):
         with LogWrapper2() as logWrapper:
             assert type(logWrapper) == LogWrapper2  # noqa: E721
             assert logWrapper._old_method is not None
-            assert type(logWrapper._err_counter) == int  # noqa: E721
+            assert type(logWrapper._err_counter) is int
             assert logWrapper._err_counter == 0
-            assert type(logWrapper._warn_counter) == int  # noqa: E721
+            assert type(logWrapper._warn_counter) is int
             assert logWrapper._warn_counter == 0
-            assert type(logWrapper._critical_counter) == int  # noqa: E721
+            assert type(logWrapper._critical_counter) is int
             assert logWrapper._critical_counter == 0
             assert logging.root.handle is logWrapper
 
@@ -824,11 +824,11 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function):
             assert type(r) == T_PLUGGY_RESULT  # noqa: E721
 
             assert logWrapper._old_method is not None
-            assert type(logWrapper._err_counter) == int  # noqa: E721
+            assert type(logWrapper._err_counter) is int
             assert logWrapper._err_counter >= 0
-            assert type(logWrapper._warn_counter) == int  # noqa: E721
+            assert type(logWrapper._warn_counter) is int
             assert logWrapper._warn_counter >= 0
-            assert type(logWrapper._critical_counter) == int  # noqa: E721
+            assert type(logWrapper._critical_counter) is int
             assert logWrapper._critical_counter >= 0
             assert logging.root.handle is logWrapper
 
@@ -864,7 +864,7 @@ def helper__calc_W(n: int) -> int:
     assert n > 0
 
     x = int(math.log10(n))
-    assert type(x) == int  # noqa: E721
+    assert type(x) is int
     assert x >= 0
     x += 1
     return x
@@ -872,7 +872,7 @@ def helper__calc_W(n: int) -> int:
 
 # ------------------------------------------------------------------------
 def helper__print_test_list(tests: typing.List[str]) -> None:
-    assert type(tests) == list  # noqa: E721
+    assert type(tests) is list
 
     assert helper__calc_W(9) == 1
     assert helper__calc_W(10) == 2
@@ -891,7 +891,7 @@ def helper__print_test_list(tests: typing.List[str]) -> None:
     nTest = 0
 
     for t in tests:
-        assert type(t) == str  # noqa: E721
+        assert type(t) is str
         assert t != ""
         nTest += 1
         logging.info(templateLine.format(nTest, t))
@@ -899,7 +899,7 @@ def helper__print_test_list(tests: typing.List[str]) -> None:
 
 # ------------------------------------------------------------------------
 def helper__print_test_list2(tests: typing.List[T_TUPLE__str_int]) -> None:
-    assert type(tests) == list  # noqa: E721
+    assert type(tests) is list
 
     assert helper__calc_W(9) == 1
     assert helper__calc_W(10) == 2
@@ -920,8 +920,8 @@ def helper__print_test_list2(tests: typing.List[T_TUPLE__str_int]) -> None:
     for t in tests:
         assert type(t) == tuple  # noqa: E721
         assert len(t) == 2
-        assert type(t[0]) == str  # noqa: E721
-        assert type(t[1]) == int  # noqa: E721
+        assert type(t[0]) is str
+        assert type(t[1]) is int
         assert t[0] != ""
         assert t[1] >= 0
         nTest += 1
@@ -958,23 +958,23 @@ def pytest_sessionfinish():
 
     assert g_test_process_mode == T_TEST_PROCESS_MODE.ExecTests
 
-    assert type(g_worker_log_is_created) == bool  # noqa: E721
+    assert type(g_worker_log_is_created) is bool
     assert g_worker_log_is_created
 
     C_LINE1 = "---------------------------"
 
     def LOCAL__print_line1_with_header(header: str):
-        assert type(C_LINE1) == str  # noqa: E721
-        assert type(header) == str  # noqa: E721
+        assert type(C_LINE1) is str
+        assert type(header) is str
         assert header != ""
         logging.info(C_LINE1 + " [" + header + "]")
 
     def LOCAL__print_test_list(
         header: str, test_count: int, test_list: typing.List[str]
     ):
-        assert type(header) == str  # noqa: E721
-        assert type(test_count) == int  # noqa: E721
-        assert type(test_list) == list  # noqa: E721
+        assert type(header) is str
+        assert type(test_count) is int
+        assert type(test_list) is list
         assert header != ""
         assert test_count >= 0
         assert len(test_list) == test_count
@@ -988,9 +988,9 @@ def pytest_sessionfinish():
     def LOCAL__print_test_list2(
         header: str, test_count: int, test_list: typing.List[T_TUPLE__str_int]
     ):
-        assert type(header) == str  # noqa: E721
-        assert type(test_count) == int  # noqa: E721
-        assert type(test_list) == list  # noqa: E721
+        assert type(header) is str
+        assert type(test_count) is int
+        assert type(test_list) is list
         assert header != ""
         assert test_count >= 0
         assert len(test_list) == test_count
@@ -1114,7 +1114,7 @@ def helper__pytest_configure__logging(config: pytest.Config) -> None:
 
     log_file_path = os.path.join(log_dir, log_name)
     assert log_file_path is not None
-    assert type(log_file_path) == str  # noqa: E721
+    assert type(log_file_path) is str
 
     logging_plugin.set_log_path(log_file_path)
     return

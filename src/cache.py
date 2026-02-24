@@ -34,7 +34,7 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = No
 
     def make_utility_path(name):
         assert name is not None
-        assert type(name) == str  # noqa: E721
+        assert type(name) is str
 
         if bin_path:
             return os_ops.build_path(bin_path, name)

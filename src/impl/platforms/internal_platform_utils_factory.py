@@ -9,7 +9,7 @@ def create_internal_platform_utils(
     assert isinstance(os_ops, OsOperations)
 
     platform_name = os_ops.get_platform()
-    assert type(platform_name) == str  # noqa: E721
+    assert type(platform_name) is str
 
     if platform_name == "linux":
         from .linux import internal_platform_utils as x

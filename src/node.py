@@ -127,14 +127,14 @@ class ProcessProxy(object):
 
     def __init__(self, process, ptype: typing.Optional[ProcessType] = None):
         assert process is not None
-        assert ptype is None or type(ptype) == ProcessType  # noqa: E721
+        assert ptype is None or type(ptype) is ProcessType
         self._process = process
 
         if ptype is not None:
             self._ptype = ptype
         else:
             self._ptype = ProcessType.from_process(process)
-            assert type(self._ptype) == ProcessType  # noqa: E721
+            assert type(self._ptype) is ProcessType
         return
 
     def __getattr__(self, name):
@@ -153,7 +153,7 @@ class ProcessProxy(object):
 
     @property
     def ptype(self) -> ProcessType:
-        assert type(self._ptype) == ProcessType  # noqa: E721
+        assert type(self._ptype) is ProcessType
         return self._ptype
 
 
@@ -190,12 +190,12 @@ class PostgresNode(object):
             os_ops: None or correct OS operation object.
             port_manager: None or correct port manager object.
         """
-        assert port is None or type(port) == int  # noqa: E721
+        assert port is None or type(port) is int
         assert os_ops is None or isinstance(os_ops, OsOperations)
         assert port_manager is None or isinstance(port_manager, PortManager)
 
         if conn_params is not None:
-            assert type(conn_params) == ConnectionParams  # noqa: E721
+            assert type(conn_params) is ConnectionParams
 
             raise InvalidOperationException("conn_params is deprecated, please use os_ops parameter instead.")
 
@@ -221,7 +221,7 @@ class PostgresNode(object):
         self._name = name or generate_app_name()
 
         if port is not None:
-            assert type(port) == int  # noqa: E721
+            assert type(port) is int
             assert port_manager is None
             self._port = port
             self._should_free_port = False
@@ -240,10 +240,10 @@ class PostgresNode(object):
             assert isinstance(self._port_manager, PortManager)
 
             self._port = self._port_manager.reserve_port()  # raises
-            assert type(self._port) == int  # noqa: E721
+            assert type(self._port) is int
             self._should_free_port = True
 
-        assert type(self._port) == int  # noqa: E721
+        assert type(self._port) is int
 
         # defaults for __exit__()
         self.cleanup_on_good_exit = testgres_config.node_cleanup_on_good_exit
@@ -262,7 +262,7 @@ class PostgresNode(object):
 
     def __exit__(self, type, value, traceback):
         # NOTE: Ctrl+C does not count!
-        got_exception = type is not None and type != KeyboardInterrupt
+        got_exception = type is not None and type is not KeyboardInterrupt
 
         c1 = self.cleanup_on_good_exit and not got_exception
         c2 = self.cleanup_on_bad_exit and got_exception
@@ -298,7 +298,7 @@ class PostgresNode(object):
 
         if os_ops is LocalOperations.get_single_instance():
             assert utils._old_port_manager is not None
-            assert type(utils._old_port_manager) == PortManager__Generic  # noqa: E721
+            assert type(utils._old_port_manager) is PortManager__Generic
             assert utils._old_port_manager._os_ops is os_ops
             return PortManager__ThisHost.get_single_instance()
 
@@ -306,8 +306,8 @@ class PostgresNode(object):
         return PortManager__Generic(os_ops)
 
     def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
-        assert name is None or type(name) == str  # noqa: E721
-        assert base_dir is None or type(base_dir) == str  # noqa: E721
+        assert name is None or type(name) is str
+        assert base_dir is None or type(base_dir) is str
 
         assert __class__ == PostgresNode
 
@@ -344,7 +344,7 @@ class PostgresNode(object):
     def name(self) -> str:
         if self._name is None:
             raise InvalidOperationException("PostgresNode name is not defined.")
-        assert type(self._name) == str  # noqa: E721
+        assert type(self._name) is str
         return self._name
 
     @property
@@ -358,7 +358,7 @@ class PostgresNode(object):
         if self._port is None:
             raise InvalidOperationException("PostgresNode port is not defined.")
 
-        assert type(self._port) == int  # noqa: E721
+        assert type(self._port) is int
         return self._port
 
     @property
@@ -374,14 +374,14 @@ class PostgresNode(object):
         """
 
         x = self._get_node_state()
-        assert type(x) == utils.PostgresNodeState  # noqa: E721
+        assert type(x) is utils.PostgresNodeState
 
         if x.pid is None:
             assert x.node_status != NodeStatus.Running
             return 0
 
         assert x.node_status == NodeStatus.Running
-        assert type(x.pid) == int  # noqa: E721
+        assert type(x.pid) is int
         return x.pid
 
     @property
@@ -389,7 +389,7 @@ class PostgresNode(object):
         if self._manually_started_pm_pid is None:
             return False
 
-        assert type(self._manually_started_pm_pid) == int  # noqa: E721
+        assert type(self._manually_started_pm_pid) is int
         return True
 
     @property
@@ -401,7 +401,7 @@ class PostgresNode(object):
         result = {}
 
         for process in self.auxiliary_processes:
-            assert type(process) == ProcessProxy  # noqa: E721
+            assert type(process) is ProcessProxy
             if process.ptype not in result:
                 result[process.ptype] = []
 
@@ -416,7 +416,7 @@ class PostgresNode(object):
         Each process is represented by :class:`.ProcessProxy` object.
         """
         def is_aux(process: ProcessProxy) -> bool:
-            assert type(process) == ProcessProxy  # noqa: E721
+            assert type(process) is ProcessProxy
             return process.ptype != ProcessType.Unknown
 
         return list(filter(is_aux, self.child_processes))
@@ -430,8 +430,7 @@ class PostgresNode(object):
 
         # get a list of postmaster's children
         x = self._get_node_state()
-        assert type(x) == utils.PostgresNodeState  # noqa: E721
-
+        assert type(x) is utils.PostgresNodeState
         if x.pid is None:
             assert x.node_status != NodeStatus.Running
             RaiseError.node_err__cant_enumerate_child_processes(
@@ -439,11 +438,11 @@ class PostgresNode(object):
             )
 
         assert x.node_status == NodeStatus.Running
-        assert type(x.pid) == int  # noqa: E721
+        assert type(x.pid) is int
         return self._get_child_processes(x.pid)
 
     def _get_child_processes(self, pid: int) -> typing.List[ProcessProxy]:
-        assert type(pid) == int  # noqa: E721
+        assert type(pid) is int
         assert isinstance(self._os_ops, OsOperations)
 
         # get a list of postmaster's children
@@ -466,7 +465,7 @@ class PostgresNode(object):
         if self.master is None:
             raise TestgresException("Node doesn't have a master")
 
-        assert type(self.master) == PostgresNode  # noqa: E721
+        assert type(self.master) is PostgresNode
 
         # master should be on the same host
         assert self.master.host == self.host
@@ -507,7 +506,7 @@ class PostgresNode(object):
         assert isinstance(self._os_ops, OsOperations)
 
         path = self._os_ops.build_path(self.base_dir, LOGS_DIR)
-        assert type(path) == str  # noqa: E721
+        assert type(path) is str
 
         # NOTE: it's safe to create a new dir
         if not self.os_ops.path_exists(path):
@@ -522,7 +521,7 @@ class PostgresNode(object):
 
         # NOTE: we can't run initdb without user's args
         path = self._os_ops.build_path(self.base_dir, DATA_DIR)
-        assert type(path) == str  # noqa: E721
+        assert type(path) is str
         return path
 
     @property
@@ -531,7 +530,7 @@ class PostgresNode(object):
         assert isinstance(self._os_ops, OsOperations)
 
         path = self._os_ops.build_path(self.logs_dir, UTILS_LOG_FILE)
-        assert type(path) == str  # noqa: E721
+        assert type(path) is str
         return path
 
     @property
@@ -540,7 +539,7 @@ class PostgresNode(object):
         assert isinstance(self._os_ops, OsOperations)
 
         path = self._os_ops.build_path(self.logs_dir, PG_LOG_FILE)
-        assert type(path) == str  # noqa: E721
+        assert type(path) is str
         return path
 
     @property
@@ -554,8 +553,8 @@ class PostgresNode(object):
         return self._pg_version
 
     def _try_shutdown(self, max_attempts, with_force=False):
-        assert type(max_attempts) == int  # noqa: E721
-        assert type(with_force) == bool  # noqa: E721
+        assert type(max_attempts) is int
+        assert type(with_force) is bool
         assert max_attempts > 0
 
         attempts = 0
@@ -579,7 +578,7 @@ class PostgresNode(object):
 
         node_pid = self.pid
         assert node_pid is not None
-        assert type(node_pid) == int  # noqa: E721
+        assert type(node_pid) is int
 
         if node_pid == 0:
             return
@@ -589,7 +588,7 @@ class PostgresNode(object):
         ps_command = ['ps', '-o', 'pid=', '-p', str(node_pid)]
 
         ps_output = self.os_ops.exec_command(cmd=ps_command, shell=True, ignore_errors=True).decode('utf-8')
-        assert type(ps_output) == str  # noqa: E721
+        assert type(ps_output) is str
 
         if ps_output == "":
             return
@@ -608,7 +607,7 @@ class PostgresNode(object):
 
         # Check that node stopped - print only column pid without headers
         ps_output = self.os_ops.exec_command(cmd=ps_command, shell=True, ignore_errors=True).decode('utf-8')
-        assert type(ps_output) == str  # noqa: E721
+        assert type(ps_output) is str
 
         if ps_output == "":
             eprint('Node {0} has been stopped successfully.'.format(self.name))
@@ -624,8 +623,8 @@ class PostgresNode(object):
 
     @staticmethod
     def _throw_bugcheck__unexpected_result_of_ps(result, cmd):
-        assert type(result) == str  # noqa: E721
-        assert type(cmd) == list  # noqa: E721
+        assert type(result) is str
+        assert type(cmd) is list
         errLines = []
         errLines.append("[BUG CHECK] Unexpected result of command ps:")
         errLines.append(result)
@@ -669,7 +668,7 @@ class PostgresNode(object):
             assert isinstance(self._os_ops, OsOperations)
 
             signal_name = self._os_ops.build_path(self.data_dir, "standby.signal")
-            assert type(signal_name) == str  # noqa: E721
+            assert type(signal_name) is str
             self.os_ops.touch(signal_name)
         else:
             line += "standby_mode=on\n"
@@ -928,7 +927,7 @@ class PostgresNode(object):
             An instance of :class:`.NodeStatus`.
         """
         x = self._get_node_state()
-        assert type(x) == utils.PostgresNodeState  # noqa: E721
+        assert type(x) is utils.PostgresNodeState
         return x.node_status
 
     def _get_node_state(self) -> utils.PostgresNodeState:
@@ -972,7 +971,7 @@ class PostgresNode(object):
                         If False, waits for the instance to be in primary mode. Default is False.
                max_attempts:
         """
-        assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert exec_env is None or type(exec_env) is dict
 
         self.start(exec_env=exec_env)
 
@@ -1021,9 +1020,9 @@ class PostgresNode(object):
         Returns:
             This instance of :class:`.PostgresNode`.
         """
-        assert params is None or type(params) == list  # noqa: E721
-        assert type(wait) == bool  # noqa: E721
-        assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert params is None or type(params) is list
+        assert type(wait) is bool
+        assert exec_env is None or type(exec_env) is dict
 
         self._start(params, wait, exec_env)
 
@@ -1035,7 +1034,7 @@ class PostgresNode(object):
             if self._manually_started_pm_pid is None:
                 self._raise_cannot_start_node(None, "Cannot detect postmaster pid.")
 
-        assert type(self._manually_started_pm_pid) == int  # noqa: E721
+        assert type(self._manually_started_pm_pid) is int
         return self
 
     def start2(
@@ -1057,9 +1056,9 @@ class PostgresNode(object):
         Returns:
             None.
         """
-        assert params is None or type(params) == list  # noqa: E721
-        assert type(wait) == bool  # noqa: E721
-        assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert params is None or type(params) is list
+        assert type(wait) is bool
+        assert exec_env is None or type(exec_env) is dict
 
         self._start(params, wait, exec_env)
         return
@@ -1070,16 +1069,16 @@ class PostgresNode(object):
         wait: bool = True,
         exec_env: typing.Optional[typing.Dict] = None,
     ) -> None:
-        assert params is None or type(params) == list  # noqa: E721
-        assert type(wait) == bool  # noqa: E721
-        assert exec_env is None or type(exec_env) == dict  # noqa: E721
+        assert params is None or type(params) is list
+        assert type(wait) is bool
+        assert exec_env is None or type(exec_env) is dict
 
         assert __class__._C_MAX_START_ATEMPTS > 1
 
         if self._port is None:
             raise InvalidOperationException("Can't start PostgresNode. Port is not defined.")
 
-        assert type(self._port) == int  # noqa: E721
+        assert type(self._port) is int
 
         _params = [
             self._get_bin_path("pg_ctl"),
@@ -1090,13 +1089,13 @@ class PostgresNode(object):
         ]
 
         if params is not None:
-            assert type(params) == list  # noqa: E721
+            assert type(params) is list
             _params += params
 
         def LOCAL__start_node():
             # 'error' will be None on Windows
             _, _, error = execute_utility2(self.os_ops, _params, self.utils_log_file, verbose=True, exec_env=exec_env)
-            assert error is None or type(error) == str  # noqa: E721
+            assert error is None or type(error) is str
             if error and 'does not exist' in error:
                 raise Exception(error)
 
@@ -1162,7 +1161,7 @@ class PostgresNode(object):
         msg: str
     ):
         assert from_exception is None or isinstance(from_exception, Exception)
-        assert type(msg) == str  # noqa: E721
+        assert type(msg) is str
         files = self._collect_special_files()
         raise_from(StartNodeException(msg, files), from_exception)
 
@@ -1200,14 +1199,14 @@ class PostgresNode(object):
                          If None, the main PostgreSQL node process will be killed. Defaults to None.
         """
         x = self._get_node_state()
-        assert type(x) == utils.PostgresNodeState  # noqa: E721
+        assert type(x) is utils.PostgresNodeState
 
         if x.node_status != NodeStatus.Running:
             RaiseError.node_err__cant_kill(x.node_status)
             assert False
 
         assert x.node_status == NodeStatus.Running
-        assert type(x.pid) == int  # noqa: E721
+        assert type(x.pid) is int
         sig = signal.SIGKILL if os.name != 'nt' else signal.SIGBREAK
         if someone is None:
             self._os_ops.kill(x.pid, sig)
@@ -1215,7 +1214,7 @@ class PostgresNode(object):
         else:
             childs = self._get_child_processes(x.pid)
             for c in childs:
-                assert type(c) == ProcessProxy  # noqa: E721
+                assert type(c) is ProcessProxy
                 if c.ptype == someone:
                     self._os_ops.kill(c.process.pid, sig)
                 continue
@@ -1402,9 +1401,9 @@ class PostgresNode(object):
             >>> psql(query='select 3', ON_ERROR_STOP=1)
         """
 
-        assert host is None or type(host) == str  # noqa: E721
-        assert port is None or type(port) == int  # noqa: E721
-        assert type(variables) == dict  # noqa: E721
+        assert host is None or type(host) is str
+        assert port is None or type(port) is int
+        assert type(variables) is dict
 
         return self._psql(
             ignore_errors=True,
@@ -1429,16 +1428,16 @@ class PostgresNode(object):
             host: typing.Optional[str] = None,
             port: typing.Optional[int] = None,
             **variables):
-        assert host is None or type(host) == str  # noqa: E721
-        assert port is None or type(port) == int  # noqa: E721
-        assert type(variables) == dict  # noqa: E721
+        assert host is None or type(host) is str
+        assert port is None or type(port) is int
+        assert type(variables) is dict
 
         #
         # We do not support encoding. It may be added later. Ok?
         #
         if input is None:
             pass
-        elif type(input) == bytes:  # noqa: E721
+        elif type(input) is bytes:
             pass
         else:
             raise Exception("Input data must be None or bytes.")
@@ -1451,8 +1450,8 @@ class PostgresNode(object):
 
         assert host is not None
         assert port is not None
-        assert type(host) == str  # noqa: E721
-        assert type(port) == int  # noqa: E721
+        assert type(host) is str
+        assert type(port) is int
 
         psql_params = [
             self._get_bin_path("psql"),
@@ -1505,9 +1504,9 @@ class PostgresNode(object):
         Returns:
             psql's output as str.
         """
-        assert type(kwargs) == dict  # noqa: E721
-        assert not ("ignore_errors" in kwargs.keys())
-        assert not ("expect_error" in kwargs.keys())
+        assert type(kwargs) is dict
+        assert "ignore_errors" not in kwargs.keys()
+        assert "expect_error" not in kwargs.keys()
 
         # force this setting
         kwargs['ON_ERROR_STOP'] = 1
@@ -1517,7 +1516,7 @@ class PostgresNode(object):
             if not expect_error:
                 raise QueryException(e.message, query)
 
-            if type(e.error) == bytes:  # noqa: E721
+            if type(e.error) is bytes:
                 return e.error.decode("utf-8")  # throw
 
             # [2024-12-09] This situation is not expected
@@ -1647,7 +1646,7 @@ class PostgresNode(object):
         """
 
         # sanity checks
-        assert type(max_attempts) == int  # noqa: E721
+        assert type(max_attempts) is int
         assert max_attempts >= 0
         assert type(sleep_time) in [int, float]
         assert sleep_time > 0
@@ -1999,20 +1998,20 @@ class PostgresNode(object):
         table: str,
         dbname: str = "postgres"
     ) -> int:
-        assert type(table) == str  # noqa: E721
-        assert type(dbname) == str  # noqa: E721
+        assert type(table) is str
+        assert type(dbname) is str
 
         cn = self.connect(dbname=dbname)
-        assert type(cn) == NodeConnection  # noqa: E721
+        assert type(cn) is NodeConnection
 
         try:
             sum = __class__._table_checksum__use_cn(cn, table)
-            assert type(sum) == int  # noqa: E721
+            assert type(sum) is int
         finally:
-            assert type(cn) == NodeConnection  # noqa: E721
+            assert type(cn) is NodeConnection
             cn.close()
 
-        assert type(sum) == int  # noqa: E721
+        assert type(sum) is int
         return sum
 
     sm_pgbench_tables = [
@@ -2027,13 +2026,13 @@ class PostgresNode(object):
         dbname: str = "postgres",
         pgbench_tables: typing.Iterable[str] = sm_pgbench_tables
     ) -> typing.Set[typing.Tuple[str, int]]:
-        assert type(dbname) == str  # noqa: E721
+        assert type(dbname) is str
 
         r1 = self._tables_checksum(dbname, pgbench_tables)
-        assert type(r1) == list  # noqa: E721
+        assert type(r1) is list
 
         r2 = set(r1)
-        assert type(r2) == set  # noqa: E721
+        assert type(r2) is set
         return r2
 
     def set_auto_conf(self, options, config='postgresql.auto.conf', rm_options={}):
@@ -2083,16 +2082,16 @@ class PostgresNode(object):
             current_options[name] = var
 
         for option in options:
-            assert type(option) == str  # noqa: E721
+            assert type(option) is str
             assert option != ""
             assert option.strip() == option
 
             value = options[option]
             valueType = type(value)
 
-            if valueType == str:
+            if valueType is str:
                 value = __class__._escape_config_value(value)
-            elif valueType == bool:
+            elif valueType is bool:
                 value = "on" if value else "off"
 
             current_options[option] = value
@@ -2145,12 +2144,12 @@ class PostgresNode(object):
         self._free_port()
 
     def _free_port(self):
-        assert type(self._should_free_port) == bool  # noqa: E721
+        assert type(self._should_free_port) is bool
 
         if not self._should_free_port:
             self._port = None
         else:
-            assert type(self._port) == int  # noqa: E721
+            assert type(self._port) is int
 
             assert self._port_manager is not None
             assert isinstance(self._port_manager, PortManager)
@@ -2172,7 +2171,7 @@ class PostgresNode(object):
 
     @staticmethod
     def _escape_config_value(value):
-        assert type(value) == str  # noqa: E721
+        assert type(value) is str
 
         result = "'"
 
@@ -2201,28 +2200,28 @@ class PostgresNode(object):
         tables: typing.Iterable[str],
     ) -> typing.List[typing.Tuple[str, int]]:
         assert isinstance(tables, typing.Iterable)
-        assert type(dbname) == str  # noqa: E721
+        assert type(dbname) is str
 
         result = []
 
         cn = self.connect(dbname=dbname)
-        assert type(cn) == NodeConnection  # noqa: E721
+        assert type(cn) is NodeConnection
 
         try:
             cn.begin()
 
             for table in tables:
-                assert type(table) == str  # noqa: E721
+                assert type(table) is str
                 sum = __class__._table_checksum__use_cn(cn, table)
-                assert type(sum) == int  # noqa: E721
+                assert type(sum) is int
                 result.append((table, sum))
 
             cn.commit()
         finally:
-            assert type(cn) == NodeConnection  # noqa: E721
+            assert type(cn) is NodeConnection
             cn.close()
 
-        assert type(result) == list  # noqa: E721
+        assert type(result) is list
         return result
 
     @staticmethod
@@ -2230,8 +2229,8 @@ class PostgresNode(object):
         cn: NodeConnection,
         table: str,
     ) -> int:
-        assert type(cn) == NodeConnection  # noqa: E721
-        assert type(table) == str  # noqa: E721
+        assert type(cn) is NodeConnection
+        assert type(table) is str
 
         sum = 0
 
@@ -2252,7 +2251,7 @@ class PostgresNode(object):
         finally:
             cursor.close()
 
-        assert type(sum) == int  # noqa: E721
+        assert type(sum) is int
         return sum
 
     @staticmethod
@@ -2291,9 +2290,9 @@ class PostgresNodeLogReader:
             position: int,
             data: str
         ):
-            assert type(file_name) == str  # noqa: E721
-            assert type(position) == int  # noqa: E721
-            assert type(data) == str  # noqa: E721
+            assert type(file_name) is str
+            assert type(position) is int
+            assert type(data) is str
             assert file_name != ""
             assert position >= 0
             self._file_name = file_name
@@ -2302,19 +2301,19 @@ class PostgresNodeLogReader:
 
         @property
         def file_name(self) -> str:
-            assert type(self._file_name) == str  # noqa: E721
+            assert type(self._file_name) is str
             assert self._file_name != ""
             return self._file_name
 
         @property
         def position(self) -> int:
-            assert type(self._position) == int  # noqa: E721
+            assert type(self._position) is int
             assert self._position >= 0
             return self._position
 
         @property
         def data(self) -> str:
-            assert type(self._data) == str  # noqa: E721
+            assert type(self._data) is str
             return self._data
 
     # --------------------------------------------------------------------
@@ -2325,7 +2324,7 @@ class PostgresNodeLogReader:
     def __init__(self, node: PostgresNode, from_beginnig: bool):
         assert node is not None
         assert isinstance(node, PostgresNode)
-        assert type(from_beginnig) == bool  # noqa: E721
+        assert type(from_beginnig) is bool
 
         self._node = node
 
@@ -2334,7 +2333,7 @@ class PostgresNodeLogReader:
         else:
             self._logs = self._collect_logs()
 
-        assert type(self._logs) == dict  # noqa: E721
+        assert type(self._logs) is dict
         return
 
     def read(self) -> typing.List[LogDataBlock]:
@@ -2343,31 +2342,31 @@ class PostgresNodeLogReader:
 
         cur_logs: typing.Dict[str, __class__.LogInfo] = self._collect_logs()
         assert cur_logs is not None
-        assert type(cur_logs) == dict  # noqa: E721
+        assert type(cur_logs) is dict
 
-        assert type(self._logs) == dict  # noqa: E721
+        assert type(self._logs) is dict
 
         result = list()
 
         for file_name, cur_log_info in cur_logs.items():
-            assert type(file_name) == str  # noqa: E721
-            assert type(cur_log_info) == __class__.LogInfo  # noqa: E721
+            assert type(file_name) is str
+            assert type(cur_log_info) is __class__.LogInfo
 
             read_pos = 0
 
             if file_name in self._logs.keys():
                 prev_log_info = self._logs[file_name]
-                assert type(prev_log_info) == __class__.LogInfo  # noqa: E721
+                assert type(prev_log_info) is __class__.LogInfo
                 read_pos = prev_log_info.position  # the previous size
 
             file_content_b = self._node.os_ops.read_binary(file_name, read_pos)
-            assert type(file_content_b) == bytes  # noqa: E721
+            assert type(file_content_b) is bytes
 
             #
             # A POTENTIAL PROBLEM: file_content_b may contain an incompleted UTF-8 symbol.
             #
             file_content_s = file_content_b.decode()
-            assert type(file_content_s) == str  # noqa: E721
+            assert type(file_content_s) is str
 
             next_read_pos = read_pos + len(file_content_b)
 
@@ -2401,14 +2400,14 @@ class PostgresNodeLogReader:
         result = dict()
 
         for f in files:
-            assert type(f) == str  # noqa: E721
+            assert type(f) is str
 
             # skip missing files
             if not self._node.os_ops.path_exists(f):
                 continue
 
             file_size = self._node.os_ops.get_file_size(f)
-            assert type(file_size) == int  # noqa: E721
+            assert type(file_size) is int
             assert file_size >= 0
 
             result[f] = __class__.LogInfo(file_size)
@@ -2419,13 +2418,13 @@ class PostgresNodeLogReader:
 class PostgresNodeUtils:
     @staticmethod
     def delect_port_conflict(log_reader: PostgresNodeLogReader) -> bool:
-        assert type(log_reader) == PostgresNodeLogReader  # noqa: E721
+        assert type(log_reader) is PostgresNodeLogReader
 
         blocks = log_reader.read()
-        assert type(blocks) == list  # noqa: E721
+        assert type(blocks) is list
 
         for block in blocks:
-            assert type(block) == PostgresNodeLogReader.LogDataBlock  # noqa: E721
+            assert type(block) is PostgresNodeLogReader.LogDataBlock
 
             if 'Is another postmaster already running on port' in block.data:
                 return True

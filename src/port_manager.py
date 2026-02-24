@@ -6,5 +6,5 @@ class PortManager:
         raise NotImplementedError("PortManager::reserve_port is not implemented.")
 
     def release_port(self, number: int) -> None:
-        assert type(number) == int  # noqa: E721
+        assert type(number) is int
         raise NotImplementedError("PortManager::release_port is not implemented.")

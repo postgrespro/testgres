@@ -65,7 +65,7 @@ def internal__release_port(port):
     Free port provided by reserve_port().
     """
 
-    assert type(port) == int  # noqa: E721
+    assert type(port) is int
     return _old_port_manager.release_port(port)
 
 
@@ -97,9 +97,9 @@ def execute_utility2(
 ):
     assert os_ops is not None
     assert isinstance(os_ops, OsOperations)
-    assert type(verbose) == bool  # noqa: E721
-    assert type(ignore_errors) == bool  # noqa: E721
-    assert exec_env is None or type(exec_env) == dict  # noqa: E721
+    assert type(verbose) is bool
+    assert type(ignore_errors) is bool
+    assert exec_env is None or type(exec_env) is dict
 
     exit_status, out, error = os_ops.exec_command(
         args,
@@ -243,7 +243,7 @@ def get_pg_version2(os_ops: OsOperations, bin_dir=None):
         postgres_path = get_bin_path2(os_ops, C_POSTGRES_BINARY)
     else:
         # [2025-06-25] OK ?
-        assert type(bin_dir) == str  # noqa: E721
+        assert type(bin_dir) is str
         assert bin_dir != ""
         postgres_path = os_ops.build_path(bin_dir, 'postgres')
 
@@ -335,8 +335,8 @@ class PostgresNodeState:
         node_status: NodeStatus,
         pid: typing.Optional[int]
     ):
-        assert type(node_status) == NodeStatus  # noqa: E721
-        assert pid is None or type(pid) == int  # noqa: E721
+        assert type(node_status) is NodeStatus
+        assert pid is None or type(pid) is int
 
         self.node_status = node_status
         self.pid = pid
@@ -350,9 +350,9 @@ def get_pg_node_state(
     utils_log_file: typing.Optional[str],
 ) -> PostgresNodeState:
     assert isinstance(os_ops, OsOperations)
-    assert type(bin_dir) == str  # noqa: E721
-    assert type(data_dir) == str  # noqa: E721
-    assert utils_log_file is None or type(utils_log_file) == str  # noqa: E721
+    assert type(bin_dir) is str
+    assert type(data_dir) is str
+    assert utils_log_file is None or type(utils_log_file) is str
 
     C_MAX_ATTEMPTS = 3
     C_SLEEP_TIME1 = 1
@@ -371,7 +371,7 @@ def get_pg_node_state(
     platform_utils: typing.Optional[internal_platform_utils_factory.InternalPlatformUtils] = None
 
     while True:
-        assert type(attempt) == int  # noqa: E721
+        assert type(attempt) is int
         assert attempt >= 0
         assert attempt < C_MAX_ATTEMPTS
 
@@ -393,9 +393,9 @@ def get_pg_node_state(
             ignore_errors=True,
         )
 
-        assert type(status_code) == int  # noqa: E721
-        assert type(out) == str  # noqa: E721
-        assert type(error) == str  # noqa: E721
+        assert type(status_code) is int
+        assert type(out) is str
+        assert type(error) is str
 
         # -----------------
         if status_code == PG_CTL__STATUS__NODE_IS_STOPPED:
@@ -516,7 +516,7 @@ def get_pg_node_state(
                 e2.__cause__ = e1
                 raise e2
 
-            assert type(find_postmaster_r) == internal_platform_utils_factory.InternalPlatformUtils.FindPostmasterResult  # noqa: E721
+            assert type(find_postmaster_r) is internal_platform_utils_factory.InternalPlatformUtils.FindPostmasterResult
 
             if find_postmaster_r.code == internal_platform_utils_factory.InternalPlatformUtils.FindPostmasterResultCode.ok:
                 # Postmaster is alive. Let's wait a few seconds and check its status again.
