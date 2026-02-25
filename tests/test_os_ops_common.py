@@ -61,7 +61,7 @@ class TestOsOpsCommon:
         clone = os_ops.create_clone()
         assert clone is not None
         assert clone is not os_ops
-        assert type(clone) == type(os_ops)  # noqa: E721
+        assert type(clone) is type(os_ops)
 
     def test_exec_command_success(self, os_ops: OsOperations):
         """
@@ -759,11 +759,11 @@ class TestOsOpsCommon:
     )
     def write_data001(self, request):
         assert isinstance(request, pytest.FixtureRequest)
-        assert type(request.param) == __class__.tagWriteData001  # noqa: E721
+        assert type(request.param) is __class__.tagWriteData001
         return request.param
 
     def test_write(self, write_data001: tagWriteData001, os_ops: OsOperations):
-        assert type(write_data001) == __class__.tagWriteData001  # noqa: E721
+        assert type(write_data001) is __class__.tagWriteData001
         assert isinstance(os_ops, OsOperations)
 
         mode = "w+b" if write_data001.call_param__binary else "w+"
@@ -847,7 +847,7 @@ class TestOsOpsCommon:
 
         def LOCAL_server(s: socket.socket):
             assert s is not None
-            assert type(s) == socket.socket  # noqa: E721
+            assert type(s) is socket.socket
 
             try:
                 while True:
@@ -873,7 +873,7 @@ class TestOsOpsCommon:
 
                 s.listen(10)
 
-                assert type(th) == threading.Thread  # noqa: E721
+                assert type(th) is threading.Thread
                 th.start()
 
                 try:
@@ -964,7 +964,7 @@ class TestOsOpsCommon:
         return request.param
 
     def test_mkdir__mt(self, data001: tagData_OS_OPS__NUMS):
-        assert type(data001) == __class__.tagData_OS_OPS__NUMS   # noqa: E721
+        assert type(data001) is __class__.tagData_OS_OPS__NUMS
 
         N_WORKERS = 4
         N_NUMBERS = data001.nums
@@ -1261,7 +1261,7 @@ class TestOsOpsCommon:
         )
 
         assert proc is not None
-        assert type(proc) == subprocess.Popen  # noqa: E721
+        assert type(proc) is subprocess.Popen
         proc_pid = proc.pid
         assert type(proc_pid) is int
         logging.info("Test process pid is {}".format(proc_pid))
@@ -1332,7 +1332,7 @@ class TestOsOpsCommon:
         )
 
         assert proc is not None
-        assert type(proc) == subprocess.Popen  # noqa: E721
+        assert type(proc) is subprocess.Popen
         proc_pid = proc.pid
         assert type(proc_pid) is int
         logging.info("Test process pid is {}".format(proc_pid))
@@ -1387,10 +1387,10 @@ class TestOsOpsCommon:
         logging.info("Our exception has type [{}]".format(type(x.value).__name__))
 
         if type(os_ops).__name__ == "LocalOsOperations":
-            assert type(x.value) == ProcessLookupError  # noqa: E721
+            assert type(x.value) is ProcessLookupError
             assert "No such process" in str(x.value)
         elif type(os_ops).__name__ == "RemoteOsOperations":
-            assert type(x.value) == ExecUtilException  # noqa: E721
+            assert type(x.value) is ExecUtilException
             assert "No such process" in str(x.value)
         else:
             RuntimeError("Unknown os_ops type: {}".format(type(os_ops).__name__))

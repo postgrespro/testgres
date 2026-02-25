@@ -2244,7 +2244,7 @@ class PostgresNode(object):
 
             row = cursor.fetchone()
             assert row is not None
-            assert type(row) in [list, tuple]  # noqa: E721
+            assert type(row) in [list, tuple]
             assert len(row) == 1
             v = row[0]
             sum += int(v if v is not None else 0)

@@ -16,7 +16,7 @@ class TestRaiseError:
             node_status: NodeStatus,
             expected_msg: str,
         ):
-            assert type(node_status) == NodeStatus  # noqa: E721
+            assert type(node_status) is NodeStatus
             assert type(expected_msg) is str
             self.node_status = node_status
             self.expected_msg = expected_msg
@@ -24,7 +24,7 @@ class TestRaiseError:
 
         @property
         def sign(self) -> str:
-            assert type(self.node_status) == NodeStatus  # noqa: E721
+            assert type(self.node_status) is NodeStatus
 
             msg = "status: {}".format(self.node_status)
             return msg
@@ -53,7 +53,7 @@ class TestRaiseError:
         self,
         data001: tagTestData001,
     ):
-        assert type(data001) == __class__.tagTestData001  # noqa: E721
+        assert type(data001) is __class__.tagTestData001
 
         with pytest.raises(expected_exception=InvalidOperationException) as x:
             RaiseError.node_err__cant_enumerate_child_processes(
@@ -88,7 +88,7 @@ class TestRaiseError:
         self,
         data002: tagTestData001,
     ):
-        assert type(data002) == __class__.tagTestData001  # noqa: E721
+        assert type(data002) is __class__.tagTestData001
 
         with pytest.raises(expected_exception=InvalidOperationException) as x:
             RaiseError.node_err__cant_kill(

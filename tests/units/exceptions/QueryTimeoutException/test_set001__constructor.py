@@ -6,7 +6,7 @@ from src.exceptions import TestgresException as testgres__TestgresException
 class TestSet001_Constructor:
     def test_001__default(self):
         e = QueryTimeoutException()
-        assert type(e) == QueryTimeoutException  # noqa: E721
+        assert type(e) is QueryTimeoutException
         assert isinstance(e, QueryException)
         assert isinstance(e, testgres__TestgresException)
         assert e.source is None
@@ -19,7 +19,7 @@ class TestSet001_Constructor:
 
     def test_002__message(self):
         e = QueryTimeoutException(message="abc\n123")
-        assert type(e) == QueryTimeoutException  # noqa: E721
+        assert type(e) is QueryTimeoutException
         assert isinstance(e, QueryException)
         assert isinstance(e, testgres__TestgresException)
         assert e.source is None
@@ -32,7 +32,7 @@ class TestSet001_Constructor:
 
     def test_003__query(self):
         e = QueryTimeoutException(query="cba\n321")
-        assert type(e) == QueryTimeoutException  # noqa: E721
+        assert type(e) is QueryTimeoutException
         assert isinstance(e, QueryException)
         assert isinstance(e, testgres__TestgresException)
         assert e.source is None
@@ -45,7 +45,7 @@ class TestSet001_Constructor:
 
     def test_004__all(self):
         e = QueryTimeoutException(message="mmm", query="cba\n321")
-        assert type(e) == QueryTimeoutException  # noqa: E721
+        assert type(e) is QueryTimeoutException
         assert isinstance(e, QueryException)
         assert isinstance(e, testgres__TestgresException)
         assert e.source is None

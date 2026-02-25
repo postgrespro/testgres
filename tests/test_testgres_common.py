@@ -1232,7 +1232,7 @@ class TestTestgresCommon:
         assert isinstance(node_svc, PostgresNodeService)
         with __class__.helper__get_node(node_svc).init().start() as node:
             err = node.safe_psql('select_or_not_select 1', expect_error=True)
-            assert (type(err) == str)  # noqa: E721
+            assert (type(err) is str)
             assert ('select_or_not_select' in err)
             assert ('ERROR:  syntax error at or near "select_or_not_select"' in err)
 

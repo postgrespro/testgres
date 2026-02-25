@@ -32,8 +32,8 @@ class TestOsOpsRemote:
             os_ops.rmdirs(path, ignore_errors=False)
 
         assert os.path.exists(path)
-        assert type(x.value) == ExecUtilException   # noqa: E721
-        assert type(x.value.description) == str   # noqa: E721
+        assert type(x.value) is ExecUtilException
+        assert type(x.value.description) is str
         assert x.value.description == "Utility exited with non-zero code (20). Error: `cannot remove '" + path + "': it is not a directory`"
         assert x.value.message.startswith(x.value.description)
         assert type(x.value.error) is str
