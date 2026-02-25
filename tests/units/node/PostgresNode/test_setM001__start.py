@@ -175,7 +175,7 @@ class TestSet001__start:
                 recs = cn.execute("select content from cmd_out;")
                 assert type(recs) is list
                 assert len(recs) == 1
-                assert type(recs[0]) == tuple  # noqa: E721
+                assert type(recs[0]) is tuple
                 rec = recs[0]
                 assert len(rec) == 1
                 assert rec[0] == C_ENV_VALUE

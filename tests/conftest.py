@@ -918,7 +918,7 @@ def helper__print_test_list2(tests: typing.List[T_TUPLE__str_int]) -> None:
     nTest = 0
 
     for t in tests:
-        assert type(t) == tuple  # noqa: E721
+        assert type(t) is tuple
         assert len(t) == 2
         assert type(t[0]) is str
         assert type(t[1]) is int

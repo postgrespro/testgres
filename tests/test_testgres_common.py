@@ -2276,7 +2276,7 @@ class TestTestgresCommon:
                 actual_result = node.pgbench_table_checksums(C_DB, ["t"])
                 assert type(actual_result) is set
                 actual1 = actual_result.pop()
-                assert type(actual1) == tuple  # noqa: E721
+                assert type(actual1) is tuple
                 assert len(actual1) == 2
                 assert type(actual1[0]) is str
                 assert type(actual1[1]) is int
@@ -2342,7 +2342,7 @@ class TestTestgresCommon:
         ok = True
 
         for tcs in full_checksums:
-            assert type(tcs) == tuple  # noqa: E721
+            assert type(tcs) is tuple
             assert len(tcs) == 2
             assert type(tcs[0]) is str
             assert type(tcs[1]) is int
@@ -2385,7 +2385,7 @@ where c.relname=%s;"""
                     ok = False
                     assert len(recs) == 1
                     rec = recs[0]
-                    assert type(rec) == tuple  # noqa: E721
+                    assert type(rec) is tuple
                     assert len(rec) == 2
                     logging.error("Table [{}] has a lock [granted: {}][mode: {}].".format(
                         tableName,

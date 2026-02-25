@@ -1003,7 +1003,7 @@ class TestOsOpsCommon:
 
             def LOG_INFO(template: str, *args) -> None:
                 assert type(template) is str
-                assert type(args) == tuple  # noqa: E721
+                assert type(args) is tuple
 
                 msg = template.format(*args)
                 assert type(msg) is str
@@ -1226,14 +1226,14 @@ class TestOsOpsCommon:
     )
     def kill_signal_id(self, request: pytest.FixtureRequest) -> T_KILL_SIGNAL_DESCR:
         assert isinstance(request, pytest.FixtureRequest)
-        assert type(request.param) == tuple  # noqa: E721
+        assert type(request.param) is tuple
         return request.param
 
     def test_kill_signal(
         self,
         kill_signal_id: T_KILL_SIGNAL_DESCR,
     ):
-        assert type(kill_signal_id) == tuple  # noqa: E721
+        assert type(kill_signal_id) is tuple
         assert "{}".format(kill_signal_id[1]) == kill_signal_id[2]
         assert "{}".format(int(kill_signal_id[1])) == kill_signal_id[2]
 
@@ -1246,7 +1246,7 @@ class TestOsOpsCommon:
         Test listdir for listing directory contents.
         """
         assert isinstance(os_ops, OsOperations)
-        assert type(kill_signal_id) == tuple  # noqa: E721
+        assert type(kill_signal_id) is tuple
 
         cmd = [
             sys.executable,
@@ -1315,7 +1315,7 @@ class TestOsOpsCommon:
         Test listdir for listing directory contents.
         """
         assert isinstance(os_ops, OsOperations)
-        assert type(kill_signal_id) == tuple  # noqa: E721
+        assert type(kill_signal_id) is tuple
 
         cmd = [
             sys.executable,
