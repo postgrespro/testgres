@@ -82,7 +82,7 @@ class TestStartupData__Helper:
     # --------------------------------------------------------------------
     @staticmethod
     def GetStartTS() -> datetime.datetime:
-        assert type(__class__.sm_StartTS) == datetime.datetime  # noqa: E721
+        assert type(__class__.sm_StartTS) is datetime.datetime
         return __class__.sm_StartTS
 
     # --------------------------------------------------------------------
@@ -113,7 +113,7 @@ class TestStartupData__Helper:
         assert type(currentPID) is int
 
         startTS = __class__.sm_StartTS
-        assert type(startTS) == datetime.datetime  # noqa: E721
+        assert type(startTS) is datetime.datetime
 
         result = "pytest-{0:04d}{1:02d}{2:02d}_{3:02d}{4:02d}{5:02d}".format(
             startTS.year,
@@ -405,8 +405,8 @@ def helper__makereport__setup(
     assert outcome is not None
     # it may be pytest.Function or _pytest.unittest.TestCaseFunction
     assert isinstance(item, pytest.Function)
-    assert type(call) == pytest.CallInfo  # noqa: E721
-    assert type(outcome) == T_PLUGGY_RESULT  # noqa: E721
+    assert type(call) is pytest.CallInfo
+    assert type(outcome) is T_PLUGGY_RESULT
 
     C_LINE1 = "******************************************************"
 
@@ -416,7 +416,7 @@ def helper__makereport__setup(
 
     rep: pytest.TestReport = outcome.get_result()
     assert rep is not None
-    assert type(rep) == pytest.TestReport  # noqa: E721
+    assert type(rep) is pytest.TestReport
 
     if rep.outcome == "skipped":
         TEST_PROCESS_STATS.incrementNotExecutedTestCount()
@@ -474,8 +474,8 @@ def helper__makereport__call(
     assert outcome is not None
     # it may be pytest.Function or _pytest.unittest.TestCaseFunction
     assert isinstance(item, pytest.Function)
-    assert type(call) == pytest.CallInfo  # noqa: E721
-    assert type(outcome) == T_PLUGGY_RESULT  # noqa: E721
+    assert type(call) is pytest.CallInfo
+    assert type(outcome) is T_PLUGGY_RESULT
 
     # --------
     item_error_msg_count1 = item.stash.get(g_error_msg_count_key, 0)
@@ -496,7 +496,7 @@ def helper__makereport__call(
     # --------
     rep = outcome.get_result()
     assert rep is not None
-    assert type(rep) == pytest.TestReport  # noqa: E721
+    assert type(rep) is pytest.TestReport
 
     # --------
     testID = helper__build_test_id(item)
@@ -505,12 +505,12 @@ def helper__makereport__call(
     assert call.start <= call.stop
 
     startDT = datetime.datetime.fromtimestamp(call.start)
-    assert type(startDT) == datetime.datetime  # noqa: E721
+    assert type(startDT) is datetime.datetime
     stopDT = datetime.datetime.fromtimestamp(call.stop)
-    assert type(stopDT) == datetime.datetime  # noqa: E721
+    assert type(stopDT) is datetime.datetime
 
     testDurration = stopDT - startDT
-    assert type(testDurration) == datetime.timedelta  # noqa: E721
+    assert type(testDurration) is datetime.timedelta
 
     # --------
     exitStatus = None
@@ -519,7 +519,7 @@ def helper__makereport__call(
         assert call.excinfo is not None  # research
         assert call.excinfo.value is not None  # research
 
-        if type(call.excinfo.value) == _pytest.outcomes.Skipped:  # noqa: E721
+        if type(call.excinfo.value) is _pytest.outcomes.Skipped:
             assert not hasattr(rep, "wasxfail")
 
             exitStatus = ExitStatusNames.SKIPPED
@@ -528,7 +528,7 @@ def helper__makereport__call(
 
             TEST_PROCESS_STATS.incrementSkippedTestCount()
 
-        elif type(call.excinfo.value) == _pytest.outcomes.XFailed:  # noqa: E721 E501
+        elif type(call.excinfo.value) is _pytest.outcomes.XFailed:
             exitStatus = ExitStatusNames.XFAILED
             reasonText = str(call.excinfo.value)
             reasonMsgTempl = "XFAIL REASON: {0}"
@@ -544,7 +544,7 @@ def helper__makereport__call(
             reasonText = rep.wasxfail
             reasonMsgTempl = "XFAIL REASON: {0}"
 
-            if type(call.excinfo.value) == SIGNAL_EXCEPTION:  # noqa: E721
+            if type(call.excinfo.value) is SIGNAL_EXCEPTION:
                 pass
             else:
                 logging.error(call.excinfo.value)
@@ -563,7 +563,7 @@ def helper__makereport__call(
         assert call.excinfo is not None
         assert call.excinfo.value is not None
 
-        if type(call.excinfo.value) == SIGNAL_EXCEPTION:  # noqa: E721
+        if type(call.excinfo.value) is SIGNAL_EXCEPTION:
             assert item_error_msg_count > 0
             pass
         else:
@@ -614,8 +614,8 @@ def helper__makereport__call(
         pass
 
     # --------
-    assert type(TEST_PROCESS_STATS.cTotalDuration) == datetime.timedelta  # noqa: E721
-    assert type(testDurration) == datetime.timedelta  # noqa: E721
+    assert type(TEST_PROCESS_STATS.cTotalDuration) is datetime.timedelta
+    assert type(testDurration) is datetime.timedelta
 
     TEST_PROCESS_STATS.cTotalDuration += testDurration
 
@@ -656,11 +656,11 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
     assert call is not None
     # it may be pytest.Function or _pytest.unittest.TestCaseFunction
     assert isinstance(item, pytest.Function)
-    assert type(call) == pytest.CallInfo  # noqa: E721
+    assert type(call) is pytest.CallInfo
 
     outcome = yield
     assert outcome is not None
-    assert type(outcome) == T_PLUGGY_RESULT  # noqa: E721
+    assert type(outcome) is T_PLUGGY_RESULT
 
     assert type(call.when) is str
 
@@ -808,7 +808,7 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function):
 
     try:
         with LogWrapper2() as logWrapper:
-            assert type(logWrapper) == LogWrapper2  # noqa: E721
+            assert type(logWrapper) is LogWrapper2
             assert logWrapper._old_method is not None
             assert type(logWrapper._err_counter) is int
             assert logWrapper._err_counter == 0
@@ -821,7 +821,7 @@ def pytest_pyfunc_call(pyfuncitem: pytest.Function):
             r = yield
 
             assert r is not None
-            assert type(r) == T_PLUGGY_RESULT  # noqa: E721
+            assert type(r) is T_PLUGGY_RESULT
 
             assert logWrapper._old_method is not None
             assert type(logWrapper._err_counter) is int
@@ -943,7 +943,7 @@ def pytest_sessionfinish():
     global g_worker_log_is_created  # noqa: F824
 
     assert g_test_process_kind is not None
-    assert type(g_test_process_kind) == T_TEST_PROCESS_KIND  # noqa: E721
+    assert type(g_test_process_kind) is T_TEST_PROCESS_KIND
 
     if g_test_process_kind == T_TEST_PROCESS_KIND.Master:
         return
@@ -951,7 +951,7 @@ def pytest_sessionfinish():
     assert g_test_process_kind == T_TEST_PROCESS_KIND.Worker
 
     assert g_test_process_mode is not None
-    assert type(g_test_process_mode) == T_TEST_PROCESS_MODE  # noqa: E721
+    assert type(g_test_process_mode) is T_TEST_PROCESS_MODE
 
     if g_test_process_mode == T_TEST_PROCESS_MODE.Collect:
         return
@@ -1050,7 +1050,7 @@ def pytest_sessionfinish():
     logging.info(" UNEXPECTED   : {0}".format(TEST_PROCESS_STATS.cUnexpectedTests))
     logging.info("")
 
-    assert type(TEST_PROCESS_STATS.cTotalDuration) == datetime.timedelta  # noqa: E721
+    assert type(TEST_PROCESS_STATS.cTotalDuration) is datetime.timedelta
 
     LOCAL__print_line1_with_header("TIME")
     logging.info("")
@@ -1136,8 +1136,8 @@ def pytest_configure(config: pytest.Config) -> None:
     g_test_process_mode = helper__detect_test_process_mode(config)
     g_test_process_kind = helper__detect_test_process_kind(config)
 
-    assert type(g_test_process_kind) == T_TEST_PROCESS_KIND  # noqa: E721
-    assert type(g_test_process_mode) == T_TEST_PROCESS_MODE  # noqa: E721
+    assert type(g_test_process_kind) is T_TEST_PROCESS_KIND
+    assert type(g_test_process_mode) is T_TEST_PROCESS_MODE
 
     if g_test_process_kind == T_TEST_PROCESS_KIND.Master:
         pass
