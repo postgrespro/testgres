@@ -58,7 +58,7 @@ class TestSet002__start2:
         data001: tagData001
     ):
         assert isinstance(node_svc, PostgresNodeService)
-        assert type(data001) == __class__.tagData001  # noqa: E721
+        assert type(data001) is __class__.tagData001
         assert data001.wait is None or type(data001.wait) is bool
 
         with PostgresNodeTestUtils.get_node(node_svc) as node:
@@ -169,7 +169,7 @@ class TestSet002__start2:
                 recs = cn.execute("select content from cmd_out;")
                 assert type(recs) is list
                 assert len(recs) == 1
-                assert type(recs[0]) == tuple  # noqa: E721
+                assert type(recs[0]) is tuple
                 rec = recs[0]
                 assert len(rec) == 1
                 assert rec[0] == C_ENV_VALUE

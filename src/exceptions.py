@@ -192,7 +192,7 @@ class StartNodeException(TestgresException):
 
         for f, lines in self._files or []:
             assert type(f) is str
-            assert type(lines) in [str, bytes]  # noqa: E721
+            assert type(lines) in [str, bytes]
             msg.append(u'{}\n----\n{}\n'.format(f, lines))
 
         return six.text_type('\n').join(msg)

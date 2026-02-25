@@ -273,7 +273,7 @@ class TestTestgresLocal:
         with get_new_node() as node1:
             node1.init().start()
             assert (node1._should_free_port)
-            assert (type(node1.port) == int)  # noqa: E721
+            assert (type(node1.port) is int)
             node1_port_copy = node1.port
             assert (rm_carriage_returns(node1.safe_psql("SELECT 1;")) == b'1\n')
 
@@ -306,7 +306,7 @@ class TestTestgresLocal:
         with get_new_node() as node1:
             node1.init().start()
             assert (node1._should_free_port)
-            assert (type(node1.port) == int)  # noqa: E721
+            assert (type(node1.port) is int)
             node1_port_copy = node1.port
             assert (rm_carriage_returns(node1.safe_psql("SELECT 1;")) == b'1\n')
 

@@ -48,7 +48,7 @@ class PortManager__Generic(PortManager):
             t = None
 
             for port in sampled_ports:
-                assert type(port) is int  # noqa: E721
+                assert type(port) is int
                 assert port not in self._reserved_ports
                 assert port in self._available_ports
 

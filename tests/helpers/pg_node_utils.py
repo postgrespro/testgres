@@ -59,7 +59,7 @@ class PostgresNodeUtils:
 
         def __repr__(self) -> str:
             # It must be overrided!
-            assert type(self) == __class__  # noqa: E721
+            assert type(self) is __class__
             r = "{}({}, {})".format(
                 __class__.__name__,
                 repr(self._data_dir),
@@ -100,7 +100,7 @@ class PostgresNodeUtils:
 
             for f, lines in self._files or []:
                 assert type(f) is str
-                assert type(lines) in [str, bytes]  # noqa: E721
+                assert type(lines) in [str, bytes]
                 msg_parts.append(u'{}\n----\n{}\n'.format(f, lines))
 
             return "\n".join(msg_parts)
@@ -157,7 +157,7 @@ class PostgresNodeUtils:
         timeout: T_WAIT_TIME,
     ):
         assert type(node) is PostgresNode
-        assert type(node_log_reader) == PostgresNodeLogReader  # noqa: E721
+        assert type(node_log_reader) is PostgresNodeLogReader
         assert type(timeout) in [int, float]
         assert node_log_reader._node is node
         assert timeout > 0
@@ -176,7 +176,7 @@ class PostgresNodeUtils:
             assert type(blocks) is list
 
             for block in blocks:
-                assert type(block) == PostgresNodeLogReader.LogDataBlock  # noqa: E721
+                assert type(block) is PostgresNodeLogReader.LogDataBlock
 
                 if 'Is another postmaster already running on port' in block.data:
                     raise __class__.PortConflictNodeException(node.data_dir, node.port)
