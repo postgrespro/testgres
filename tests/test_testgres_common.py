@@ -222,7 +222,7 @@ class TestTestgresCommon:
                 node.start()
 
             assert x is not None
-            assert type(x.value) == StartNodeException  # noqa: E721
+            assert type(x.value) is StartNodeException
             assert type(x.value.description) is str
             assert type(x.value.message) is str
 
@@ -301,7 +301,7 @@ class TestTestgresCommon:
                 node.start2()
 
             assert x is not None
-            assert type(x.value) == StartNodeException  # noqa: E721
+            assert type(x.value) is StartNodeException
             assert type(x.value.description) is str
             assert type(x.value.message) is str
 
@@ -705,7 +705,7 @@ class TestTestgresCommon:
                 logging.info("")
 
                 def LOCAL__safe_call_cmdline(p: ProcessProxy) -> str:
-                    assert type(p) == ProcessProxy  # noqa: E721
+                    assert type(p) is ProcessProxy
                     try:
                         return p.cmdline()
                     except Exception as e:
@@ -720,7 +720,7 @@ class TestTestgresCommon:
 
                     try:
                         assert child is not None
-                        assert type(child) == ProcessProxy  # noqa: E721
+                        assert type(child) is ProcessProxy
                         assert hasattr(child, "process")
                         assert hasattr(child, "ptype")
                         assert hasattr(child, "pid")
@@ -730,7 +730,7 @@ class TestTestgresCommon:
                         assert child.pid is not None
                         assert type(child.ptype) is ProcessType
                         assert type(child.pid) is int
-                        assert type(child.cmdline) == types.MethodType  # noqa: E721
+                        assert type(child.cmdline) is types.MethodType
 
                         logging.info("ptype is {}".format(child.ptype))
                         logging.info("pid is {}".format(child.pid))
@@ -1698,20 +1698,20 @@ class TestTestgresCommon:
                 assert (__class__.helper__rm_carriage_returns(res) == b'1\n')
 
     @pytest.fixture(
-            params=[
-                enums.DumpFormat.Plain,
-                enums.DumpFormat.Custom,
-                enums.DumpFormat.Directory,
-                enums.DumpFormat.Tar
-            ]
+        params=[
+            enums.DumpFormat.Plain,
+            enums.DumpFormat.Custom,
+            enums.DumpFormat.Directory,
+            enums.DumpFormat.Tar
+        ]
     )
     def dump_fmt(self, request: pytest.FixtureRequest) -> enums.DumpFormat:
-        assert type(request.param) == enums.DumpFormat  # noqa: E721
+        assert type(request.param) is enums.DumpFormat
         return request.param
 
     def test_dump(self, node_svc: PostgresNodeService, dump_fmt: enums.DumpFormat):
         assert isinstance(node_svc, PostgresNodeService)
-        assert type(dump_fmt) == enums.DumpFormat  # noqa: E721
+        assert type(dump_fmt) is enums.DumpFormat
         query_create = 'create table test as select generate_series(1, 2) as val'
         query_select = 'select * from test order by val asc'
 
@@ -1799,13 +1799,13 @@ class TestTestgresCommon:
         with __class__.helper__get_node(node_svc) as node:
             node.init().start()
             assert (node._should_free_port)
-            assert (type(node.port) == int)  # noqa: E721
+            assert (type(node.port) is int)
             node_port_copy = node.port
             r = node.safe_psql("SELECT 1;")
             assert (__class__.helper__rm_carriage_returns(r) == b'1\n')
 
             with __class__.helper__get_node(node_svc, port=node.port) as node2:
-                assert (type(node2.port) == int)  # noqa: E721
+                assert (type(node2.port) is int)
                 assert (node2.port == node.port)
                 assert (not node2._should_free_port)
                 assert (node2.status() == NodeStatus.Uninitialized)
@@ -2130,7 +2130,7 @@ class TestTestgresCommon:
             record_count: int,
         ):
             assert type(record_count) is int
-            self.record_count = record_count  # noqa: E721
+            self.record_count = record_count
             return
 
     sm_TableCheckSumTestDatas = [
@@ -2166,7 +2166,7 @@ class TestTestgresCommon:
         table_checksum_test_data: tagTableChecksumTestData,
     ):
         assert type(node_svc) is PostgresNodeService
-        assert type(table_checksum_test_data) == __class__.tagTableChecksumTestData  # noqa: E721
+        assert type(table_checksum_test_data) is __class__.tagTableChecksumTestData
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
 
@@ -2205,7 +2205,7 @@ class TestTestgresCommon:
                         row = cursor.fetchone()
                         if row is None:
                             break
-                        assert type(row) in [list, tuple]  # noqa: E721
+                        assert type(row) in [list, tuple]
                         assert len(row) == 1
                         record_count += 1
                         checksum1 += int(row[0])
@@ -2226,7 +2226,7 @@ class TestTestgresCommon:
         table_checksum_test_data: tagTableChecksumTestData,
     ):
         assert type(node_svc) is PostgresNodeService
-        assert type(table_checksum_test_data) == __class__.tagTableChecksumTestData  # noqa: E721
+        assert type(table_checksum_test_data) is __class__.tagTableChecksumTestData
         assert node_svc.port_manager is not None
         assert isinstance(node_svc.port_manager, PortManager)
 
@@ -2265,7 +2265,7 @@ class TestTestgresCommon:
                         row = cursor.fetchone()
                         if row is None:
                             break
-                        assert type(row) in [list, tuple]  # noqa: E721
+                        assert type(row) in [list, tuple]
                         assert len(row) == 1
                         record_count += 1
                         checksum1 += int(row[0])
@@ -2451,10 +2451,10 @@ where c.relname=%s;"""
             with pytest.raises(expected_exception=BaseException) as x:
                 node_app.make_empty(base_dir=None)
 
-            if type(x.value) == AssertionError:  # noqa: E721
+            if type(x.value) is AssertionError:
                 pass
             else:
-                assert type(x.value) == ValueError  # noqa: E721
+                assert type(x.value) is ValueError
                 assert str(x.value) == "Argument 'base_dir' is not defined."
 
         # -----------
