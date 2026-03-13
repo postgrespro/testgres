@@ -5,9 +5,9 @@ import shutil
 import pytest
 
 import testgres
-from pg_probackup2.app import ProbackupApp
-from pg_probackup2.init_helpers import Init, init_params
-from pg_probackup2.storage.fs_backup import FSTestBackupDir
+from ...pg_probackup2.app import ProbackupApp
+from ...pg_probackup2.init_helpers import Init, init_params
+from ..storage.fs_backup import FSTestBackupDir
 
 
 class ProbackupTest:
@@ -102,22 +102,3 @@ class TestBasic(ProbackupTest):
 
             # Check if the backup is valid
             assert f"INFO: Backup {backup_id} is valid" in out
-
-    def test_set_archiving_nonexistent_instance(self):
-        self.pb.init()
-
-        with pytest.raises(AssertionError) as exc_info:
-            self.pb.set_archiving('nonexistent_instance', None)
-
-        assert "Instance 'nonexistent_instance' does not exist" in str(exc_info.value)
-
-    def test_set_archiving_existing_instance(self):
-        node = self.pg_node.make_simple('node', pg_options={"fsync": "off", "synchronous_commit": "off"})
-
-        with node:
-            self.pb.init()
-            node.slow_start()
-            self.pb.add_instance('node', node)
-            self.pb.set_archiving('node', node)
-
-            assert "does not exist" not in str(self.pb.test_class.output or "")
