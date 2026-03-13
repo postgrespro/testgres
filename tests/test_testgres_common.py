@@ -5,6 +5,7 @@ from .helpers.global_data import PostgresNodeServices
 from .helpers.global_data import OsOperations
 from .helpers.global_data import PortManager
 
+from src import __version__ as testgres_version
 from src.node import PgVer
 from src.node import PostgresNode
 from src.node import NodeConnection
@@ -51,6 +52,8 @@ import typing
 import types
 import psutil
 
+from packaging.version import Version
+
 
 @contextmanager
 def removing(os_ops: OsOperations, f):
@@ -83,6 +86,19 @@ class TestTestgresCommon:
         assert isinstance(request.param.os_ops, OsOperations)
         assert isinstance(request.param.port_manager, PortManager)
         return request.param
+
+    def test_testgres_version(self):
+        assert type(testgres_version) is str
+
+        v = Version(testgres_version)
+
+        # Author: Mark G.
+        assert v.major == 1
+        assert v.minor == 13
+        assert v.micro == 6
+
+        assert str(v) == testgres_version
+        return
 
     def test_version_management(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
