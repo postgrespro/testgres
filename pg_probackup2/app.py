@@ -159,11 +159,12 @@ class ProbackupApp:
             command += ['--log-directory=' + self.pb_log_path]
             strcommand += ' ' + command[-1]
 
-        if 'pglz' in strcommand and \
-                ' -j' not in strcommand and \
-                '--thread' not in strcommand:
-            command += ['-j', '1']
-            strcommand += ' -j 1'
+        if init_params.major_version = 2:
+            if 'pglz' in strcommand and \
+                    ' -j' not in strcommand and \
+                    '--thread' not in strcommand:
+                command += ['-j', '1']
+                strcommand += ' -j 1'
 
         return command, strcommand
 
