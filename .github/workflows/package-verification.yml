@@ -109,23 +109,23 @@ jobs:
             python: "3"
             postgres: "17"
 
+    env:
+      BASE_SIGN: "${{ matrix.platform }}-py${{ matrix.python }}-pg${{ matrix.postgres }}"
+
     steps:
     - name: Prepare variables
       run: |
-        RUN_CFG__NOW="$(date +'%Y%m%d_%H%M%S')"
-        echo "RUN_CFG__NOW=$RUN_CFG__NOW" >> $GITHUB_ENV
-        RUN_CFG__LOGS_DIR="logs-${{ matrix.platform }}-py${{ matrix.python }}-pg${{ matrix.postgres }}"
-        echo "RUN_CFG__LOGS_DIR=$RUN_CFG__LOGS_DIR" >> $GITHUB_ENV
-        RUN_CFG__DOCKER_IMAGE_NAME="tests-${{ matrix.platform }}-py${{ matrix.python }}-pg${{ matrix.postgres }}"
-        echo "RUN_CFG__DOCKER_IMAGE_NAME=$RUN_CFG__DOCKER_IMAGE_NAME" >> $GITHUB_ENV
+        echo "RUN_CFG__NOW=$(date +'%Y%m%d_%H%M%S')" >> $GITHUB_ENV
+        echo "RUN_CFG__LOGS_DIR=logs-${{ env.BASE_SIGN }}" >> $GITHUB_ENV
+        echo "RUN_CFG__DOCKER_IMAGE_NAME=tests-${{ env.BASE_SIGN }}" >> $GITHUB_ENV
         echo "---------- [$GITHUB_ENV]"
         cat $GITHUB_ENV
+    - name: Checkout
+      uses: actions/checkout@v6
     - name: Prepare logs folder on the host
       run: mkdir -p "${{ env.RUN_CFG__LOGS_DIR }}"
     - name: Adjust logs folder permission
       run: chmod -R 777 "${{ env.RUN_CFG__LOGS_DIR }}"
-    - name: Checkout
-      uses: actions/checkout@v6
     - name: Build local image ${{ matrix.alpine }}
       run: docker build --build-arg PG_VERSION="${{ matrix.postgres }}" --build-arg PYTHON_VERSION="${{ matrix.python }}" -t "${{ env.RUN_CFG__DOCKER_IMAGE_NAME }}" -f Dockerfile--${{ matrix.platform }}.tmpl .
     - name: Run
@@ -134,5 +134,5 @@ jobs:
       uses: actions/upload-artifact@v7
       if: always() # IT IS IMPORTANT!
       with:
-        name: testgres--test_logs--${{ env.RUN_CFG__NOW }}-${{ matrix.platform }}-py${{ matrix.python }}-pg${{ matrix.postgres }}-id${{ github.run_id }}
+        name: testgres--test_logs--${{ env.RUN_CFG__NOW }}-${{ env.BASE_SIGN }}-id${{ github.run_id }}
         path: "${{ env.RUN_CFG__LOGS_DIR }}/"
