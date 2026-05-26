@@ -2422,13 +2422,14 @@ where c.relname=%s;"""
     class tag_rmdirs_protector:
         _os_ops: OsOperations
         _cwd: str
-        _old_rmdirs: any
+        _old_rmdirs: typing.Optional[typing.Callable]
         _cwd: str
 
         def __init__(self, os_ops: OsOperations):
             self._os_ops = os_ops
             self._cwd = os.path.abspath(os_ops.cwd())
             self._old_rmdirs = os_ops.rmdirs
+            return
 
         def __enter__(self):
             assert self._os_ops.rmdirs == self._old_rmdirs
@@ -2437,6 +2438,7 @@ where c.relname=%s;"""
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             assert self._os_ops.rmdirs == self.proxy__rmdirs
+            assert isinstance(self._old_rmdirs, typing.Callable)
             self._os_ops.rmdirs = self._old_rmdirs
             return False
 
@@ -2465,7 +2467,7 @@ where c.relname=%s;"""
             assert node_app.os_ops is os_ops
 
             with pytest.raises(expected_exception=BaseException) as x:
-                node_app.make_empty(base_dir=None)
+                node_app.make_empty(base_dir=None)  # type: ignore
 
             if type(x.value) is AssertionError:
                 pass
