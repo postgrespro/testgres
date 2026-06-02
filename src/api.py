@@ -31,6 +31,10 @@ PostgresNode(name='...', port=..., base_dir='...')
 [(3,)]
 """
 from .node import PostgresNode
+from testgres.operations.remote_ops import ConnectionParams
+from testgres.operations.remote_ops import RemoteOperations
+
+import typing
 
 
 def get_new_node(name=None, base_dir=None, **kwargs):
@@ -42,11 +46,18 @@ def get_new_node(name=None, base_dir=None, **kwargs):
     return PostgresNode(name=name, base_dir=base_dir, **kwargs)
 
 
-def get_remote_node(name=None, conn_params=None):
+def get_remote_node(name=None, conn_params: typing.Optional[ConnectionParams] = None):
     """
+    NOTE: [2026-06-02][v1.14.0] It is deprecated function. It will be removed in the future.
+
     Simply a wrapper around :class:`.PostgresNode` constructor for remote node.
     See :meth:`.PostgresNode.__init__` for details.
     For remote connection you can add the next parameter:
     conn_params = ConnectionParams(host='127.0.0.1', ssh_key=None, username=default_username())
     """
-    return get_new_node(name=name, conn_params=conn_params)
+
+    if conn_params is None:
+        raise ValueError("Argument 'conn_params' is None.")
+
+    os_ops = RemoteOperations(conn_params)
+    return get_new_node(name=name, os_ops=os_ops)

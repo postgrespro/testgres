@@ -152,16 +152,13 @@ with testgres.get_new_node().init() as master:
 You can provision nodes on a remote host (Linux only) by wiring `RemoteOperations` into the configuration:
 
 ```python
-from testgres import ConnectionParams, RemoteOperations, TestgresConfig, get_remote_node
+from testgres import ConnectionParams, get_remote_node
 
 conn_params = ConnectionParams(
     host='example.com',
     username='postgres',
     ssh_key='/path/to/ssh/key'
 )
-os_ops = RemoteOperations(conn_params)
-
-TestgresConfig.set_os_ops(os_ops=os_ops)
 
 def test_basic_query():
     with get_remote_node(conn_params=conn_params) as node:
