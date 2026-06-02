@@ -48,8 +48,6 @@ def get_new_node(name=None, base_dir=None, **kwargs):
 
 def get_remote_node(name=None, conn_params: typing.Optional[ConnectionParams] = None):
     """
-    NOTE: [2026-06-02][v1.14.0] It is deprecated function. It will be removed in the future.
-
     Simply a wrapper around :class:`.PostgresNode` constructor for remote node.
     See :meth:`.PostgresNode.__init__` for details.
     For remote connection you can add the next parameter:
