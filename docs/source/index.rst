@@ -165,6 +165,9 @@ Provision nodes on a remote host (Linux only) by wiring ``RemoteOperations`` int
         username='postgres',
         ssh_key='/path/to/ssh/key'
     )
+    os_ops = RemoteOperations(conn_params)
+
+    TestgresConfig.set_os_ops(os_ops=os_ops)
 
     def test_basic_query():
         with get_remote_node(conn_params=conn_params) as node:
