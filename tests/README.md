@@ -9,9 +9,6 @@ source venv/bin/activate
 
 pip install -r tests/requirements.txt
 
-# Install local version of testgres
-pip install -U .
-
 # Set path to PostgreSQL
 export PG_BIN=/path/to/pg/bin
 
