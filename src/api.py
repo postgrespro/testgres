@@ -58,4 +58,4 @@ def get_remote_node(name=None, conn_params: typing.Optional[ConnectionParams] = 
         raise ValueError("Argument 'conn_params' is None.")
 
     os_ops = RemoteOperations(conn_params)
-    return get_new_node(name=name, os_ops=os_ops)
+    return PostgresNode(name=name, os_ops=os_ops)
