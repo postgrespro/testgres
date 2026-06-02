@@ -101,7 +101,6 @@ from .raise_error import RaiseError
 
 from .backup import NodeBackup
 
-from testgres.operations.os_ops import ConnectionParams
 from testgres.operations.os_ops import OsOperations
 from testgres.operations.local_ops import LocalOperations
 
@@ -174,7 +173,6 @@ class PostgresNode(object):
                  name=None,
                  base_dir=None,
                  port: typing.Optional[int] = None,
-                 conn_params: typing.Optional[ConnectionParams] = None,
                  bin_dir=None,
                  prefix=None,
                  os_ops: typing.Optional[OsOperations] = None,
@@ -193,11 +191,6 @@ class PostgresNode(object):
         assert port is None or type(port) is int
         assert os_ops is None or isinstance(os_ops, OsOperations)
         assert port_manager is None or isinstance(port_manager, PortManager)
-
-        if conn_params is not None:
-            assert type(conn_params) is ConnectionParams
-
-            raise InvalidOperationException("conn_params is deprecated, please use os_ops parameter instead.")
 
         # private
         if os_ops is None:

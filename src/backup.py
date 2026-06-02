@@ -152,12 +152,7 @@ class NodeBackup(object):
         # Build a new PostgresNode
         assert self.original_node is not None
 
-        if (hasattr(self.original_node, "clone_with_new_name_and_base_dir")):
-            node = self.original_node.clone_with_new_name_and_base_dir(name=name, base_dir=base_dir)
-        else:
-            # For backward compatibility
-            NodeClass = self.original_node.__class__
-            node = NodeClass(name=name, base_dir=base_dir, conn_params=self.original_node.os_ops.conn_params)
+        node = self.original_node.clone_with_new_name_and_base_dir(name=name, base_dir=base_dir)
 
         assert node is not None
         assert type(node) is self.original_node.__class__
