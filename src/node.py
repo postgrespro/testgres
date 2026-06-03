@@ -985,7 +985,7 @@ class PostgresNode(object):
             self.poll_query_until(
                 query=query,
                 dbname=dbname,
-                username=username or self.os_ops.username,
+                username=username or self._os_ops.username,
                 suppress=suppressed_exceptions,
                 max_attempts=max_attempts,
             )
@@ -1450,7 +1450,7 @@ class PostgresNode(object):
             self._get_bin_path("psql"),
             "-p", str(port),
             "-h", host,
-            "-U", username or self.os_ops.username,
+            "-U", username or self._os_ops.username,
             "-d", dbname or default_dbname(),
             "-X",  # no .psqlrc
             "-A",  # unaligned output
@@ -1565,7 +1565,7 @@ class PostgresNode(object):
             "-p", str(self.port),
             "-h", self.host,
             "-f", filename,
-            "-U", username or self.os_ops.username,
+            "-U", username or self._os_ops.username,
             "-d", dbname or default_dbname(),
             "-F", format.value
         ]  # yapf: disable
@@ -1590,7 +1590,7 @@ class PostgresNode(object):
 
         # Set default arguments
         dbname = dbname or default_dbname()
-        username = username or self.os_ops.username
+        username = username or self._os_ops.username
 
         _params = [
             self._get_bin_path("pg_restore"),
@@ -1868,7 +1868,7 @@ class PostgresNode(object):
             self._get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
-            "-U", username or self.os_ops.username
+            "-U", username or self._os_ops.username
         ] + options  # yapf: disable
 
         # should be the last one
@@ -1941,7 +1941,7 @@ class PostgresNode(object):
             self._get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
-            "-U", username or self.os_ops.username
+            "-U", username or self._os_ops.username
         ] + options  # yapf: disable
 
         for key, value in iteritems(kwargs):
