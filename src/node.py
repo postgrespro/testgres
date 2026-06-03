@@ -951,7 +951,14 @@ class PostgresNode(object):
 
         return out_dict
 
-    def slow_start(self, replica=False, dbname='template1', username=None, max_attempts=0, exec_env=None):
+    def slow_start(
+        self,
+        replica: bool = False,
+        dbname: typing.Optional[str] = 'template1',
+        username: typing.Optional[str] = None,
+        max_attempts: int = 0,
+        exec_env: typing.Optional[typing.Dict[str, str]] = None,
+    ):
         """
         Starts the PostgreSQL instance and then polls the instance
         until it reaches the expected state (primary or replica). The state is checked
@@ -964,6 +971,8 @@ class PostgresNode(object):
                         If False, waits for the instance to be in primary mode. Default is False.
                max_attempts:
         """
+        assert dbname is None or type(dbname) is str
+        assert username is None or type(username) is str
         assert exec_env is None or type(exec_env) is dict
 
         self.start(exec_env=exec_env)
@@ -1608,15 +1617,17 @@ class PostgresNode(object):
             self.psql(filename=filename, dbname=dbname, username=username)
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
-    def poll_query_until(self,
-                         query,
-                         dbname=None,
-                         username=None,
-                         max_attempts=0,
-                         sleep_time: typing.Union[int, float] = 1,
-                         expected=True,
-                         commit=True,
-                         suppress=None):
+    def poll_query_until(
+        self,
+        query,
+        dbname: typing.Optional[str] = None,
+        username: typing.Optional[str] = None,
+        max_attempts: int = 0,
+        sleep_time: typing.Union[int, float] = 1,
+        expected: bool = True,
+        commit: bool = True,
+        suppress: typing.Optional[typing.Iterable[BaseException]] = None,
+    ) -> None:
         """
         Run a query once per second until it returns 'expected'.
         Query should return a single value (1 row, 1 column).
@@ -1643,6 +1654,8 @@ class PostgresNode(object):
         assert max_attempts >= 0
         assert type(sleep_time) in [int, float]
         assert sleep_time > 0
+        assert suppress is None or isinstance(suppress, typing.Iterable)
+
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
             try:
