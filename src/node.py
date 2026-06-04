@@ -91,7 +91,6 @@ from . import utils
 from .utils import \
     PgVer, \
     eprint, \
-    get_bin_path2, \
     get_pg_version2, \
     execute_utility2, \
     options_string, \
@@ -164,6 +163,7 @@ class PostgresNode(object):
 
     _name: typing.Optional[str]
     _port: typing.Optional[int]
+    _bin_dir: str
     _should_free_port: bool
     _os_ops: OsOperations
     _port_manager: typing.Optional[PortManager]
@@ -173,7 +173,7 @@ class PostgresNode(object):
                  name=None,
                  base_dir=None,
                  port: typing.Optional[int] = None,
-                 bin_dir=None,
+                 bin_dir: typing.Optional[str] = None,
                  prefix=None,
                  os_ops: typing.Optional[OsOperations] = None,
                  port_manager: typing.Optional[PortManager] = None):
@@ -189,6 +189,7 @@ class PostgresNode(object):
             port_manager: None or correct port manager object.
         """
         assert port is None or type(port) is int
+        assert bin_dir is None or type(bin_dir) is str
         assert os_ops is None or isinstance(os_ops, OsOperations)
         assert port_manager is None or isinstance(port_manager, PortManager)
 
@@ -203,9 +204,15 @@ class PostgresNode(object):
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
 
-        self._pg_version = PgVer(get_pg_version2(self._os_ops, bin_dir))
+        if bin_dir is not None:
+            self._bin_dir = bin_dir
+        else:
+            self._bin_dir = utils.get_bin_dir(self._os_ops)
+
+        assert type(self._bin_dir) is str
+
+        self._pg_version = PgVer(get_pg_version2(self._os_ops, self._bin_dir))
         self._base_dir = base_dir
-        self._bin_dir = bin_dir
         self._prefix = prefix
         self._logger = None
         self._master = None
@@ -488,9 +495,8 @@ class PostgresNode(object):
         return self._base_dir
 
     @property
-    def bin_dir(self):
-        if not self._bin_dir:
-            self._bin_dir = os.path.dirname(get_bin_path2(self._os_ops, "pg_config"))
+    def bin_dir(self) -> str:
+        assert type(self._bin_dir) is str
         return self._bin_dir
 
     @property
@@ -2168,12 +2174,9 @@ class PostgresNode(object):
     def _get_bin_path(self, filename):
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
+        assert type(self._bin_dir) is str
 
-        if self.bin_dir:
-            bin_path = self._os_ops.build_path(self.bin_dir, filename)
-        else:
-            bin_path = get_bin_path2(self._os_ops, filename)
-        return bin_path
+        return self._os_ops.build_path(self._bin_dir, filename)
 
     @staticmethod
     def _escape_config_value(value):

@@ -165,6 +165,33 @@ def get_bin_path2(os_ops: OsOperations, filename):
     return filename
 
 
+def get_bin_dir(os_ops: OsOperations) -> str:
+    assert os_ops is not None
+    assert isinstance(os_ops, OsOperations)
+
+    if isinstance(os_ops, RemoteOperations):
+        pg_config = os.environ.get("PG_CONFIG_REMOTE") or os.environ.get("PG_CONFIG")
+    else:
+        # try PG_CONFIG - get from local machine
+        pg_config = os.environ.get("PG_CONFIG")
+
+    if pg_config:
+        bindir = get_pg_config(pg_config, os_ops)["BINDIR"]
+        return bindir
+
+    # try PG_BIN
+    pg_bin = os_ops.environ("PG_BIN")
+    if pg_bin:
+        return pg_bin
+
+    pg_config_path = os_ops.find_executable('pg_config')
+    if pg_config_path:
+        bindir = get_pg_config(pg_config_path)["BINDIR"]
+        return bindir
+
+    raise RuntimeError("BinDir is not detected.")
+
+
 def get_pg_config(pg_config_path=None, os_ops=None):
     """
     Return output of pg_config (provided that it is installed).
