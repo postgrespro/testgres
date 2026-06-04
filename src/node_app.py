@@ -4,8 +4,6 @@ from .node import PostgresNode
 from .node import PortManager
 
 import os
-import platform
-import tempfile
 import typing
 
 
@@ -16,7 +14,7 @@ T_LIST_STR = typing.List[str]
 class NodeApp:
     _test_path: str
     _os_ops: OsOperations
-    _port_manager: PortManager
+    _port_manager: typing.Optional[PortManager]
     _nodes_to_cleanup: typing.List[PostgresNode]
 
     def __init__(
@@ -60,7 +58,7 @@ class NodeApp:
         return self._os_ops
 
     @property
-    def port_manager(self) -> PortManager:
+    def port_manager(self) -> typing.Optional[PortManager]:
         assert self._port_manager is None or isinstance(self._port_manager, PortManager)
         return self._port_manager
 
@@ -158,6 +156,8 @@ class NodeApp:
 
         # set major version
         pg_version_file = self._os_ops.read(self._os_ops.build_path(node.data_dir, 'PG_VERSION'))
+
+        # What is it ???
         node.major_version_str = str(pg_version_file.rstrip())
         node.major_version = float(node.major_version_str)
 
@@ -200,7 +200,7 @@ class NodeApp:
 
         # Define delayed propertyes
         if "unix_socket_directories" not in options.keys():
-            options["unix_socket_directories"] = __class__._gettempdir_for_socket()
+            options["unix_socket_directories"] = self._gettempdir_for_socket()
 
         # Set config values
         node.set_auto_conf(options)
@@ -260,49 +260,50 @@ class NodeApp:
             return updated_params
         return __class__._paramlist_append(user_params, updated_params, param)
 
-    @staticmethod
-    def _gettempdir_for_socket() -> str:
-        platform_system_name = platform.system().lower()
+    def _gettempdir_for_socket(self) -> str:
+        assert isinstance(self._os_ops, OsOperations)
 
-        if platform_system_name == "windows":
-            return __class__._gettempdir()
+        platform_name = self._os_ops.get_platform()
 
-        #
-        # [2025-02-17] Hot fix.
-        #
-        # Let's use hard coded path as Postgres likes.
-        #
-        # pg_config_manual.h:
-        #
-        # #ifndef WIN32
-        # #define DEFAULT_PGSOCKET_DIR  "/tmp"
-        # #else
-        # #define DEFAULT_PGSOCKET_DIR ""
-        # #endif
-        #
-        # On the altlinux-10 tempfile.gettempdir() may return
-        # the path to "private" temp directiry - "/temp/.private/<username>/"
-        #
-        # But Postgres want to find a socket file in "/tmp" (see above).
-        #
+        if platform_name == "linux":
+            #
+            # [2025-02-17] Hot fix.
+            #
+            # Let's use hard coded path as Postgres likes.
+            #
+            # pg_config_manual.h:
+            #
+            # #ifndef WIN32
+            # #define DEFAULT_PGSOCKET_DIR  "/tmp"
+            # #else
+            # #define DEFAULT_PGSOCKET_DIR ""
+            # #endif
+            #
+            # On the altlinux-10 tempfile.gettempdir() may return
+            # the path to "private" temp directiry - "/temp/.private/<username>/"
+            #
+            # But Postgres want to find a socket file in "/tmp" (see above).
+            #
+            return "/tmp"
 
-        return "/tmp"
+        return self._gettempdir()
 
-    @staticmethod
-    def _gettempdir() -> str:
-        v = tempfile.gettempdir()
+    def _gettempdir(self) -> str:
+        assert isinstance(self._os_ops, OsOperations)
+
+        v = self._os_ops.get_tempdir()
 
         #
         # Paranoid checks
         #
         if type(v) is str:
-            __class__._raise_bugcheck("tempfile.gettempdir returned a value with type {0}.".format(type(v).__name__))
+            __class__._raise_bugcheck("os_ops.get_tempdir returned a value with type {0}.".format(type(v).__name__))
 
         if v == "":
-            __class__._raise_bugcheck("tempfile.gettempdir returned an empty string.")
+            __class__._raise_bugcheck("os_ops.get_tempdir returned an empty string.")
 
-        if not os.path.exists(v):
-            __class__._raise_bugcheck("tempfile.gettempdir returned a not exist path [{0}].".format(v))
+        if not self._os_ops.path_exists(v):
+            __class__._raise_bugcheck("os_ops.get_tempdir returned a not exist path [{0}].".format(v))
 
         # OK
         return v
