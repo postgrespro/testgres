@@ -140,7 +140,7 @@ def get_bin_path2(os_ops: OsOperations, filename):
     assert isinstance(os_ops, OsOperations)
 
     # check if it's already absolute
-    if os.path.isabs(filename):
+    if os_ops.is_abs_path(filename):
         return filename
     if isinstance(os_ops, RemoteOperations):
         pg_config = os.environ.get("PG_CONFIG_REMOTE") or os.environ.get("PG_CONFIG")

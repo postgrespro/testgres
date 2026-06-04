@@ -3,7 +3,6 @@ from .node import LocalOperations
 from .node import PostgresNode
 from .node import PortManager
 
-import os
 import typing
 
 
@@ -37,7 +36,7 @@ class NodeApp:
 
         if test_path is None:
             self._test_path = os_ops.cwd()
-        elif os.path.isabs(test_path):
+        elif self._os_ops.is_abs_path(test_path):
             self._test_path = test_path
         else:
             self._test_path = os_ops.build_path(os_ops.cwd(), test_path)
