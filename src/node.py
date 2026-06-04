@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import signal
 import subprocess
 
@@ -1215,7 +1214,10 @@ class PostgresNode(object):
 
         assert x.node_status == NodeStatus.Running
         assert type(x.pid) is int
-        sig = signal.SIGKILL if os.name != 'nt' else signal.SIGBREAK
+        if self._os_ops.get_platform() == "win32":
+            sig = 21  # signal.SIGBREAK
+        else:
+            sig = signal.SIGKILL
         if someone is None:
             self._os_ops.kill(x.pid, sig)
             self._manually_started_pm_pid = None
