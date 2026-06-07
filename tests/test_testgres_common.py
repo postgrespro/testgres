@@ -137,32 +137,31 @@ class TestTestgresCommon:
 
         unique_id = uuid.uuid4().hex
 
-        node = PostgresNode(
-            host=C_HOST,
-        )
-        assert node.host == C_HOST
-        assert isinstance(node.os_ops, OsOperations)
+        with PostgresNode(host=C_HOST) as node:
+            assert node._host == C_HOST
+            assert node.host == C_HOST
+            assert isinstance(node.os_ops, OsOperations)
 
-        tmpdir = node.os_ops.get_tempdir()
-        nodedir2 = node.os_ops.build_path(tmpdir, "node2--" + unique_id)
+            tmpdir = node.os_ops.get_tempdir()
+            nodedir2 = node.os_ops.build_path(tmpdir, "node2--" + unique_id)
 
-        C_NODE2_NAME = "node2"
+            C_NODE2_NAME = "node2"
 
-        node2 = node.clone_with_new_name_and_base_dir(
-            name=C_NODE2_NAME,
-            base_dir=nodedir2,
-        )
-        assert node2 is not None
-        assert node2 is not node
+            with node.clone_with_new_name_and_base_dir(
+                name=C_NODE2_NAME,
+                base_dir=nodedir2,
+            ) as node2:
+                assert node2 is not None
+                assert node2 is not node
 
-        assert node2.name == C_NODE2_NAME
-        assert node2.base_dir == nodedir2
-        assert node2.host == C_HOST
-        assert node2.port != node.port
-        assert node2.os_ops is node.os_ops
-        assert node2.port_manager is node.port_manager
+                assert node2._host == C_HOST
+                assert node2.host == C_HOST
 
-        assert node2.os_ops.path_exists(nodedir2)
+                assert node2._name == C_NODE2_NAME
+                assert node2._base_dir == nodedir2
+                assert node2._port != node._port
+                assert node2._os_ops is node._os_ops
+                assert node2._port_manager is node._port_manager
         return
 
     def test_node_repr(self, node_svc: PostgresNodeService):
