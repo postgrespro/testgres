@@ -132,7 +132,42 @@ class TestTestgresCommon:
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
 
+    def test_node_constructor__host(self):
+        C_HOST = "AbCdE"
+
+        unique_id = uuid.uuid4().hex
+
+        node = PostgresNode(
+            host=C_HOST,
+        )
+        assert node.host == C_HOST
+        assert isinstance(node.os_ops, OsOperations)
+
+        tmpdir = node.os_ops.get_tempdir()
+        nodedir2 = node.os_ops.build_path(tmpdir, "node2--" + unique_id)
+
+        C_NODE2_NAME = "node2"
+
+        node2 = node.clone_with_new_name_and_base_dir(
+            name=C_NODE2_NAME,
+            base_dir=nodedir2,
+        )
+        assert node2 is not None
+        assert node2 is not node
+
+        assert node2.name == C_NODE2_NAME
+        assert node2.base_dir == nodedir2
+        assert node2.host == C_HOST
+        assert node2.port != node.port
+        assert node2.os_ops is node.os_ops
+        assert node2.port_manager is node.port_manager
+
+        assert node2.os_ops.path_exists(nodedir2)
+        return
+
     def test_node_repr(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
         with __class__.helper__get_node(node_svc).init() as node:
             pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
             assert re.match(pattern, str(node)) is not None
