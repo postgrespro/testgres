@@ -169,15 +169,16 @@ class PostgresNode(object):
     _port_manager: typing.Optional[PortManager]
     _manually_started_pm_pid: typing.Optional[int]
 
-    def __init__(self,
-                 name=None,
-                 base_dir=None,
-                 port: typing.Optional[int] = None,
-                 bin_dir: typing.Optional[str] = None,
-                 prefix=None,
-                 os_ops: typing.Optional[OsOperations] = None,
-                 port_manager: typing.Optional[PortManager] = None,
-                 host: typing.Optional[str] = None,
+    def __init__(
+        self,
+        name=None,
+        base_dir=None,
+        port: typing.Optional[int] = None,
+        bin_dir: typing.Optional[str] = None,
+        prefix=None,
+        os_ops: typing.Optional[OsOperations] = None,
+        port_manager: typing.Optional[PortManager] = None,
+        host: typing.Optional[str] = None,
     ):
         """
         PostgresNode constructor.
@@ -230,7 +231,7 @@ class PostgresNode(object):
         else:
             self._host = self._os_ops.host
             assert type(self._host) is str
-        
+
         if self._host == "":
             raise RuntimeError("PostgresNode host is empty.")
 
