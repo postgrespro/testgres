@@ -132,6 +132,18 @@ class TestTestgresCommon:
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
 
+    def test_node_constructor__default(self):
+        node = PostgresNode()
+        assert node._os_ops is not None
+        assert isinstance(node._os_ops, OsOperations)
+        assert node._port_manager is not None
+        assert isinstance(node._port_manager, PortManager)
+        assert node._name is not None
+        assert type(node._name) is str
+        assert node._name != ""
+        assert node._base_dir is None
+        return
+
     def test_node_constructor__host(self):
         C_HOST = "AbCdE"
 
