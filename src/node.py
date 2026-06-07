@@ -954,6 +954,12 @@ class PostgresNode(object):
         return x.node_status
 
     def _get_node_state(self) -> utils.PostgresNodeState:
+        if self._base_dir is None:
+            return utils.PostgresNodeState(
+                node_status=NodeStatus.Uninitialized,
+                pid=None,
+            )
+
         return utils.get_pg_node_state(
             self._os_ops,
             self.bin_dir,
