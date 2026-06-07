@@ -249,10 +249,6 @@ class PostgresNode(object):
         self.cleanup_on_bad_exit = testgres_config.node_cleanup_on_bad_exit
         self.shutdown_max_attempts = 3
 
-        # NOTE: for compatibility
-        self.utils_log_name = self.utils_log_file
-        self.pg_log_name = self.pg_log_file
-
         # Node state
         self._manually_started_pm_pid = None
 
@@ -539,6 +535,16 @@ class PostgresNode(object):
         path = self._os_ops.build_path(self.logs_dir, PG_LOG_FILE)
         assert type(path) is str
         return path
+
+    # NOTE: for compatibility
+    @property
+    def utils_log_name(self) -> str:
+        return self.utils_log_file
+
+    # NOTE: for compatibility
+    @property
+    def pg_log_name(self) -> str:
+        return self.pg_log_file
 
     @property
     def version(self):
@@ -1620,7 +1626,7 @@ class PostgresNode(object):
 
         # try pg_restore if dump is binary format, and psql if not
         try:
-            execute_utility2(self._os_ops, _params, self.utils_log_name)
+            execute_utility2(self._os_ops, _params, self.utils_log_file)
         except ExecUtilException:
             self.psql(filename=filename, dbname=dbname, username=username)
 
