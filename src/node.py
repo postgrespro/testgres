@@ -161,6 +161,7 @@ class PostgresNode(object):
     _C_PM_PID__IS_NOT_DETECTED = -1
 
     _name: typing.Optional[str]
+    _host: str
     _port: typing.Optional[int]
     _bin_dir: str
     _should_free_port: bool
@@ -168,14 +169,17 @@ class PostgresNode(object):
     _port_manager: typing.Optional[PortManager]
     _manually_started_pm_pid: typing.Optional[int]
 
-    def __init__(self,
-                 name=None,
-                 base_dir=None,
-                 port: typing.Optional[int] = None,
-                 bin_dir: typing.Optional[str] = None,
-                 prefix=None,
-                 os_ops: typing.Optional[OsOperations] = None,
-                 port_manager: typing.Optional[PortManager] = None):
+    def __init__(
+        self,
+        name=None,
+        base_dir=None,
+        port: typing.Optional[int] = None,
+        bin_dir: typing.Optional[str] = None,
+        prefix=None,
+        os_ops: typing.Optional[OsOperations] = None,
+        port_manager: typing.Optional[PortManager] = None,
+        host: typing.Optional[str] = None,
+    ):
         """
         PostgresNode constructor.
 
@@ -186,11 +190,13 @@ class PostgresNode(object):
             bin_dir: path to node's binary directory.
             os_ops: None or correct OS operation object.
             port_manager: None or correct port manager object.
+            host: None or valid address of node host.
         """
         assert port is None or type(port) is int
         assert bin_dir is None or type(bin_dir) is str
         assert os_ops is None or isinstance(os_ops, OsOperations)
         assert port_manager is None or isinstance(port_manager, PortManager)
+        assert host is None or type(host) is str
 
         # private
         if os_ops is None:
@@ -218,6 +224,16 @@ class PostgresNode(object):
 
         # basic
         self._name = name or generate_app_name()
+
+        if host is not None:
+            assert type(host) is str
+            self._host = host
+        else:
+            self._host = self._os_ops.host
+            assert type(self._host) is str
+
+        if self._host == "":
+            raise RuntimeError("PostgresNode host is empty.")
 
         if port is not None:
             assert type(port) is int
@@ -313,6 +329,7 @@ class PostgresNode(object):
         assert isinstance(self._port_manager, PortManager)
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
+        assert type(self._host) is str
 
         node = PostgresNode(
             name=name,
@@ -320,7 +337,9 @@ class PostgresNode(object):
             bin_dir=self._bin_dir,
             prefix=self._prefix,
             os_ops=self._os_ops,
-            port_manager=self._port_manager)
+            port_manager=self._port_manager,
+            host=self._host,
+        )
 
         return node
 
@@ -344,9 +363,9 @@ class PostgresNode(object):
 
     @property
     def host(self) -> str:
-        assert self._os_ops is not None
-        assert isinstance(self._os_ops, OsOperations)
-        return self._os_ops.host
+        assert self._host is not None
+        assert type(self._host) is str
+        return self._host
 
     @property
     def port(self) -> int:
@@ -463,7 +482,7 @@ class PostgresNode(object):
         assert type(self.master) is PostgresNode
 
         # master should be on the same host
-        assert self.master.host == self.host
+        assert self.master.host == self._host
 
         with self.master.connect() as con:
             for row in con.execute(sql, self.name):
@@ -844,7 +863,7 @@ class PostgresNode(object):
         self.append_conf(fsync=fsync,
                          max_worker_processes=MAX_WORKER_PROCESSES,
                          log_statement=log_statement,
-                         listen_addresses=self.host,
+                         listen_addresses=self._host,
                          port=self.port)  # yapf:disable
 
         # common replication settings
@@ -1459,7 +1478,7 @@ class PostgresNode(object):
             raise Exception("Input data must be None or bytes.")
 
         if host is None:
-            host = self.host
+            host = self._host
 
         if port is None:
             port = self.port
@@ -1586,7 +1605,7 @@ class PostgresNode(object):
         _params = [
             self._get_bin_path("pg_dump"),
             "-p", str(self.port),
-            "-h", self.host,
+            "-h", self._host,
             "-f", filename,
             "-U", username or self._os_ops.username,
             "-d", dbname or default_dbname(),
@@ -1618,7 +1637,7 @@ class PostgresNode(object):
         _params = [
             self._get_bin_path("pg_restore"),
             "-p", str(self.port),
-            "-h", self.host,
+            "-h", self._host,
             "-U", username,
             "-d", dbname,
             filename
@@ -1894,7 +1913,7 @@ class PostgresNode(object):
         _params = [
             self._get_bin_path("pgbench"),
             "-p", str(self.port),
-            "-h", self.host,
+            "-h", self._host,
             "-U", username or self._os_ops.username
         ] + options  # yapf: disable
 
@@ -1967,7 +1986,7 @@ class PostgresNode(object):
         _params = [
             self._get_bin_path("pgbench"),
             "-p", str(self.port),
-            "-h", self.host,
+            "-h", self._host,
             "-U", username or self._os_ops.username
         ] + options  # yapf: disable
 
