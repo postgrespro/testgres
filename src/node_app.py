@@ -99,7 +99,7 @@ class NodeApp:
             port=port,
             bin_dir=bin_dir,
             os_ops=self._os_ops,
-            port_manager=port_manager
+            port_manager=port_manager,
         )
 
         try:
@@ -150,7 +150,7 @@ class NodeApp:
 
         node.init(
             initdb_params=final_initdb_params,
-            allow_streaming=set_replication
+            allow_streaming=set_replication,
         )
 
         # set major version
