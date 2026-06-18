@@ -150,7 +150,10 @@ class NodeApp:
 
         node.init(
             initdb_params=final_initdb_params,
+            # params for node.default_conf
+            fsync=False,
             allow_streaming=set_replication,
+            log_statement="none",
         )
 
         # set major version
@@ -164,11 +167,9 @@ class NodeApp:
         options = {
             'max_connections': 100,
             'shared_buffers': '10MB',
-            'fsync': 'off',
             'wal_level': 'logical',
             'hot_standby': 'off',
             'log_line_prefix': '%t [%p]: [%l-1] ',
-            'log_statement': 'none',
             'log_duration': 'on',
             'log_min_duration_statement': 0,
             'log_connections': 'on',
