@@ -56,7 +56,7 @@ from testgres.operations.os_ops import OsOperations, ConnectionParams
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.remote_ops import RemoteOperations
 
-__version__ = "1.14.1"
+__version__ = "1.14.2"
 
 __all__ = [
     "get_new_node",
