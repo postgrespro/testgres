@@ -51,6 +51,7 @@ import subprocess
 import typing
 import types
 import psutil
+import testgres.postgres_configuration as testgres_pgconf
 
 from packaging.version import Version
 
@@ -2758,6 +2759,56 @@ where c.relname=%s;"""
         # -----------
         logging.info("temp directory [{}] is deleting".format(tmp_dir))
         node_svc.os_ops.rmdirs(tmp_dir)
+        return
+
+    def test_node_app__make_empty_and_pgconf(self, node_svc: PostgresNodeService):
+        assert type(node_svc) is PostgresNodeService
+
+        assert type(node_svc) is PostgresNodeService
+
+        assert isinstance(node_svc.os_ops, OsOperations)
+        assert node_svc.port_manager is not None
+        assert isinstance(node_svc.port_manager, PortManager)
+
+        tmp_dir = node_svc.os_ops.mkdtemp()
+        assert tmp_dir is not None
+        assert type(tmp_dir) is str
+        logging.info("temp directory is [{}]".format(tmp_dir))
+
+        # -----------
+        node_app = NodeApp(
+            test_path=tmp_dir,
+            os_ops=node_svc.os_ops,
+            port_manager=node_svc.port_manager
+        )
+
+        # TODO: We have to use node_svc.os_ops here
+
+        with node_app.make_simple("abc") as node:
+            node_conf = testgres_pgconf.PostgresConfiguration(node.data_dir)
+
+            logging.info("Configuration is readed ...")
+            testgres_pgconf.PostgresConfigurationReader.LoadConfiguration(node_conf)
+
+            logging.info("Configuration is checked ...")
+            prop__port = node_conf.GetOptionValue("port")
+            assert type(prop__port) is int
+            assert prop__port == node.port
+            # presets are checked
+            prop__fsync = node_conf.GetOptionValue("fsync")
+            assert prop__fsync == "off" or prop__fsync is False
+            prop__log_statement = node_conf.GetOptionValue("log_statement")
+            assert type(prop__log_statement) is str
+            assert prop__log_statement == "none"
+            prop__wal_level = node_conf.GetOptionValue("wal_level")
+            assert type(prop__wal_level) is str
+            assert prop__wal_level == "logical"
+
+            logging.info("Configuration is written ...")
+            testgres_pgconf.PostgresConfigurationWriter.WriteConfiguration(node_conf)
+
+            logging.info("Node is started ...")
+            node.slow_start()
         return
 
     @staticmethod
