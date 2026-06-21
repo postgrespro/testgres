@@ -1926,8 +1926,10 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        proc = self._os_ops.exec_command(_params, stdout=stdout, stderr=stderr, wait_exit=True, get_process=True)
+        proc = self._os_ops.exec_command(_params, stdout=stdout, stderr=stderr, get_process=True)
 
+        # [2026-06-21] It is so
+        assert isinstance(proc, subprocess.Popen)
         return proc
 
     def pgbench_with_wait(self,
