@@ -74,7 +74,7 @@ class TestOsOpsCommon:
         cmd = ["sh", "-c", "python3 --version"]
 
         response = os_ops.exec_command(cmd)
-
+        assert type(response) is bytes
         assert b'Python 3.' in response
 
     def test_exec_command_failure(self, os_ops: OsOperations):
@@ -273,7 +273,9 @@ class TestOsOpsCommon:
         RunConditions.skip_if_windows()
 
         cmd = "pwd"
-        pwd = os_ops.exec_command(cmd, wait_exit=True, encoding='utf-8').strip()
+        stdout = os_ops.exec_command(cmd, encoding='utf-8')
+        assert type(stdout) is str
+        pwd = stdout.strip()
 
         path = "{}/test_dir".format(pwd)
 
@@ -898,7 +900,7 @@ class TestOsOpsCommon:
         if ok_count == 0:
             raise RuntimeError("No one free port was found.")
 
-    def test_get_tmpdir(self, os_ops: OsOperations):
+    def test_get_tempdir(self, os_ops: OsOperations):
         assert isinstance(os_ops, OsOperations)
 
         dir = os_ops.get_tempdir()
@@ -922,7 +924,7 @@ class TestOsOpsCommon:
         assert not os_ops.path_exists(file_path)
         assert not os.path.exists(file_path)
 
-    def test_get_tmpdir__compare_with_py_info(self, os_ops: OsOperations):
+    def test_get_tempdir__compare_with_py_info(self, os_ops: OsOperations):
         assert isinstance(os_ops, OsOperations)
 
         actual_dir = os_ops.get_tempdir()
