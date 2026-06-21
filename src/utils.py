@@ -101,14 +101,21 @@ def execute_utility2(
     assert type(ignore_errors) is bool
     assert exec_env is None or type(exec_env) is dict
 
-    exit_status, out, error = os_ops.exec_command(
+    exec_r = os_ops.exec_command(
         args,
         verbose=True,
         ignore_errors=ignore_errors,
         encoding=OsHelpers.GetDefaultEncoding(),
-        exec_env=exec_env)
+        exec_env=exec_env,
+    )
 
-    out = '' if not out else out
+    assert type(exec_r) is tuple
+    assert len(exec_r) == 3
+
+    exit_status, out, _ = exec_r
+
+    assert type(exit_status) is int
+    assert type(out) is str
 
     # write new log entry if possible
     if logfile:
@@ -122,9 +129,9 @@ def execute_utility2(
             raise ExecUtilException(
                 "Problem with writing to logfile `{}` during run command `{}`".format(logfile, args))
     if verbose:
-        return exit_status, out, error
-    else:
-        return out
+        return exec_r
+
+    return out
 
 
 def get_bin_path(filename):
@@ -211,6 +218,7 @@ def get_pg_config2(os_ops: OsOperations, pg_config_path):
     def cache_pg_config_data(cmd):
         # execute pg_config and get the output
         out = os_ops.exec_command(cmd, encoding='utf-8')
+        assert type(out) is str
 
         data = {}
         for line in out.splitlines():
