@@ -273,7 +273,7 @@ class TestOsOpsCommon:
         RunConditions.skip_if_windows()
 
         cmd = "pwd"
-        pwd = os_ops.exec_command(cmd, wait_exit=True, encoding='utf-8').strip()
+        pwd = os_ops.exec_command(cmd, encoding='utf-8').strip()
 
         path = "{}/test_dir".format(pwd)
 
