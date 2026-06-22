@@ -24,7 +24,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v6
       with:
@@ -45,7 +45,7 @@ jobs:
     needs: lint
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     
     - name: Set up Python 3.12
       uses: actions/setup-python@v6
@@ -151,7 +151,7 @@ jobs:
         echo "---------- [$GITHUB_ENV]"
         cat $GITHUB_ENV
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     - name: Prepare logs folder on the host
       run: mkdir -p "${{ env.RUN_CFG__LOGS_DIR }}"
     - name: Adjust logs folder permission
