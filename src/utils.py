@@ -304,7 +304,8 @@ def parse_pg_version(version_out):
     version = raw_ver.split(' ')[-1] \
                      .partition('devel')[0] \
                      .partition('beta')[0] \
-                     .partition('rc')[0]
+                     .partition('rc')[0] \
+                     .partition('-')[0]
     return version
 
 
