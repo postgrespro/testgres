@@ -34,6 +34,9 @@ class TestUtils:
         assert parse_pg_version("postgres (PostgreSQL) 11.4") == "11.4"
         # Macos
         assert parse_pg_version("postgres (PostgreSQL) 14.9 (Homebrew)") == "14.9"
+        # Postgres Pro trial
+        assert parse_pg_version("postgres (PostgreSQL) 18.4-TRIAL") == "18.4"
+        assert parse_pg_version("PostgreSQL 18.4-TRIAL") == "18.4"
 
     def test_get_pg_config2(self, os_ops: OsOperations):
         assert isinstance(os_ops, OsOperations)
