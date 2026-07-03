@@ -183,8 +183,7 @@ def get_bin_dir(os_ops: OsOperations) -> str:
         pg_config = os.environ.get("PG_CONFIG")
 
     if pg_config:
-        bindir = get_pg_config(pg_config, os_ops)["BINDIR"]
-        return bindir
+        return get_pg_config(pg_config, os_ops)["BINDIR"]
 
     # try PG_BIN
     pg_bin = os_ops.environ("PG_BIN")
@@ -193,8 +192,11 @@ def get_bin_dir(os_ops: OsOperations) -> str:
 
     pg_config_path = os_ops.find_executable('pg_config')
     if pg_config_path:
-        bindir = get_pg_config(pg_config_path)["BINDIR"]
-        return bindir
+        return get_pg_config(pg_config_path)["BINDIR"]
+
+    postgres = os_ops.find_executable('postgres')
+    if postgres:
+        return os.path.dirname(postgres)
 
     raise RuntimeError("BinDir is not detected.")
 
