@@ -192,7 +192,7 @@ def get_bin_dir(os_ops: OsOperations) -> str:
 
     pg_config_path = os_ops.find_executable('pg_config')
     if pg_config_path:
-        return get_pg_config(pg_config_path)["BINDIR"]
+        return get_pg_config(pg_config_path, os_ops)["BINDIR"]
 
     postgres = os_ops.find_executable('postgres')
     if postgres:
