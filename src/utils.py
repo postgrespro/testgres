@@ -166,7 +166,7 @@ def get_bin_path2(os_ops: OsOperations, filename):
 
     pg_config_path = os_ops.find_executable('pg_config')
     if pg_config_path:
-        bindir = get_pg_config(pg_config_path)["BINDIR"]
+        bindir = get_pg_config(pg_config_path, os_ops)["BINDIR"]
         return os_ops.build_path(bindir, filename)
 
     return filename
