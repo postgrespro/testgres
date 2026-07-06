@@ -196,7 +196,7 @@ def get_bin_dir(os_ops: OsOperations) -> str:
 
     postgres = os_ops.find_executable('postgres')
     if postgres:
-        return os.path.dirname(postgres)
+        return os_ops.get_dirname(postgres)
 
     raise RuntimeError("BinDir is not detected.")
 
