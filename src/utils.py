@@ -263,7 +263,12 @@ def get_pg_config2(os_ops: OsOperations, pg_config_path):
         return cache_pg_config_data(cmd)
 
     # try plain name
-    return cache_pg_config_data("pg_config")
+    try:
+        pg_config_data = cache_pg_config_data("pg_config")
+    except Exception:
+        raise Exception(
+            "Failed to determine how to start pg_config. Specify the path to pg_config in PG_CONFIG or the path to the Postgres directory containing it in PG_BIN, or put it into the system PATH.")
+    return pg_config_data
 
 
 def get_pg_version2(os_ops: OsOperations, bin_dir=None):
