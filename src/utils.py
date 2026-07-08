@@ -156,7 +156,7 @@ def get_bin_path2(os_ops: OsOperations, filename):
         pg_config = os.environ.get("PG_CONFIG")
 
     if pg_config:
-        bindir = get_pg_config(pg_config, os_ops)["BINDIR"]
+        bindir = get_pg_config2(os_ops, pg_config)["BINDIR"]
         return os_ops.build_path(bindir, filename)
 
     # try PG_BIN
@@ -166,7 +166,7 @@ def get_bin_path2(os_ops: OsOperations, filename):
 
     pg_config_path = os_ops.find_executable('pg_config')
     if pg_config_path:
-        bindir = get_pg_config(pg_config_path, os_ops)["BINDIR"]
+        bindir = get_pg_config2(os_ops, pg_config_path)["BINDIR"]
         return os_ops.build_path(bindir, filename)
 
     return filename
@@ -183,7 +183,7 @@ def get_bin_dir(os_ops: OsOperations) -> str:
         pg_config = os.environ.get("PG_CONFIG")
 
     if pg_config:
-        return get_pg_config(pg_config, os_ops)["BINDIR"]
+        return get_pg_config2(os_ops, pg_config)["BINDIR"]
 
     # try PG_BIN
     pg_bin = os_ops.environ("PG_BIN")
@@ -192,7 +192,7 @@ def get_bin_dir(os_ops: OsOperations) -> str:
 
     pg_config_path = os_ops.find_executable('pg_config')
     if pg_config_path:
-        return get_pg_config(pg_config_path, os_ops)["BINDIR"]
+        return get_pg_config2(os_ops, pg_config_path)["BINDIR"]
 
     postgres = os_ops.find_executable('postgres')
     if postgres:
