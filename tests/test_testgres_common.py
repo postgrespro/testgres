@@ -1801,7 +1801,7 @@ class TestTestgresCommon:
             # Test dump with --schema-only option
             with removing(node_svc.os_ops, node1.dump(options=['--schema-only'])) as dump:
                 with __class__.helper__get_node(node_svc).init().start() as node2:
-                    assert (os.path.isfile(dump))
+                    assert (node_svc.os_ops.isfile(dump))
                     # restore schema-only dump
                     node2.restore(filename=dump)
 
