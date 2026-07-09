@@ -807,7 +807,7 @@ class PostgresNode(object):
         Args:
             fsync: should this node use fsync to keep data safe?
             unix_sockets: should we enable UNIX sockets?
-            allow_streaming: should this node add a hba entry for replication?
+            allow_streaming: (ignored) should this node add a hba entry for replication?
             allow_logical: can this node be used as a logical replication publisher?
             log_statement: one of ('all', 'off', 'mod', 'ddl').
 
@@ -818,44 +818,10 @@ class PostgresNode(object):
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
 
+        # hba file is updated
+        self._default_conf__hba()
+
         postgres_conf = self._os_ops.build_path(self.data_dir, PG_CONF_FILE)
-        hba_conf = self._os_ops.build_path(self.data_dir, HBA_CONF_FILE)
-
-        # filter lines in hba file
-        # get rid of comments and blank lines
-        hba_conf_file = self._os_ops.readlines(hba_conf)
-        lines = [
-            s for s in hba_conf_file
-            if len(s.strip()) > 0 and not s.startswith('#')
-        ]
-
-        # write filtered lines
-        self._os_ops.write(hba_conf, lines, truncate=True)
-
-        # replication-related settings
-        if allow_streaming:
-            # get auth method for host or local users
-            def get_auth_method(t):
-                return next((s.split()[-1]
-                             for s in lines if s.startswith(t)), 'trust')
-
-            # get auth methods
-            auth_local = get_auth_method('local')
-            auth_host = get_auth_method('host')
-            subnet_base = ".".join(self._os_ops.host.split('.')[:-1] + ['0'])
-
-            new_lines = [
-                u"local\treplication\tall\t\t\t{}\n".format(auth_local),
-                u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
-                u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host),
-                u"host\treplication\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
-                u"host\tall\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
-                u"host\tall\tall\tall\t{}\n".format(auth_host),
-                u"host\treplication\tall\tall\t{}\n".format(auth_host)
-            ]  # yapf: disable
-
-            # write missing lines
-            self._os_ops.write(hba_conf, new_lines)
 
         # overwrite config file
         self._os_ops.write(postgres_conf, '', truncate=True)
@@ -900,6 +866,88 @@ class PostgresNode(object):
             self.append_conf(unix_socket_directories='')
 
         return self
+
+    def _default_conf__hba(self) -> None:
+        hba_conf = self._os_ops.build_path(self.data_dir, HBA_CONF_FILE)
+
+        # filter lines in hba file
+        # get rid of comments and blank lines
+        hba_conf_file = self._os_ops.readlines(hba_conf, binary=False)
+
+        assert type(hba_conf_file) is list
+
+        hba_conf_file_finished_with_eol = True
+        if len(hba_conf_file) > 0:
+            last_line = hba_conf_file[-1]
+            assert type(last_line) is str
+            hba_conf_file_finished_with_eol = last_line.endswith("\n")
+
+        # Normalize function: turns a string into a list of pure words
+        def normalize_line(line_str):
+            return line_str.strip().split()
+
+        # We collect a list of rules that already exist in the file (in the form of word lists)
+        existing_normalized = []
+        for s in hba_conf_file:
+            s_clean = s.strip()
+            if s_clean and not s_clean.startswith("#"):
+                existing_normalized.append(normalize_line(s_clean))
+            continue
+
+        # get auth method for host or local users
+        def get_auth_method(t):
+            for x in existing_normalized:
+                assert type(x) is list
+                if len(x) > 0 and x[0] == t:
+                    return x[-1]
+                continue
+            return 'trust'
+
+        # get auth methods
+        auth_local = get_auth_method('local')
+        auth_host = get_auth_method('host')
+
+        # Basic rules that we want to see in the file
+        raw_rules = [
+            ("local", "replication", "all", "", auth_local),
+            ("host", "replication", "all", "0.0.0.0/0", auth_host),
+            ("host", "replication", "all", "::/0", auth_host),
+            ("local", "all", "all", "", auth_local),
+            ("host", "all", "all", "0.0.0.0/0", auth_host),
+            ("host", "all", "all", "::/0", auth_host),
+        ]
+
+        add_rules = []
+
+        for type_hba, db, user, addr, method in raw_rules:
+            # We check if such a rule already exists in the file (by meaning, not by tabs!)
+            target_words = [type_hba, db, user, method]
+            if addr:
+                target_words.insert(3, addr)
+
+            if target_words in existing_normalized:
+                continue  # Такое правило уже есть, пропускаем!
+
+            # Beautiful, smooth enterprise formatting with spaces!
+            # Text will be left-aligned and aligned strictly within columns.
+            formatted_rule = "{:<8} {:<16} {:<16} {:<24} {}\n".format(
+                type_hba, db, user, addr if addr else "", method
+            )
+            add_rules.append(formatted_rule)
+            continue
+
+        if len(add_rules) > 0:
+            add_lines = []
+            if not hba_conf_file_finished_with_eol:
+                add_lines.append("\n")
+
+            add_lines.append("\n")
+            add_lines.append("# Testgres default configuration\n")
+            add_lines += add_rules
+
+            # We add only real, beautifully formatted new items
+            self._os_ops.write(hba_conf, add_lines, truncate=False)
+        return
 
     @method_decorator(positional_args_hack(['filename', 'line']))
     def append_conf(self, line='', filename=PG_CONF_FILE, **kwargs):
