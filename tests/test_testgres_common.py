@@ -2811,6 +2811,8 @@ where c.relname=%s;"""
 
             logging.info("Node is started ...")
             node.slow_start()
+
+            assert node.status() == NodeStatus.Running
         return
 
     @staticmethod
