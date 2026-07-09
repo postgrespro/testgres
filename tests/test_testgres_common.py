@@ -2680,6 +2680,7 @@ where c.relname=%s;"""
         )
 
         assert node_app.os_ops is node_svc.os_ops
+        assert node_app.port_manager is not None
         assert node_app.port_manager is node_svc.port_manager
         assert type(node_app.nodes_to_cleanup) is list
         assert len(node_app.nodes_to_cleanup) == 0
@@ -2753,6 +2754,7 @@ where c.relname=%s;"""
                 assert not node._should_free_port
                 break
         finally:
+            assert node_app.port_manager is not None
             while len(ports) > 0:
                 node_app.port_manager.release_port(ports.pop())
 
