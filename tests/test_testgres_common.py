@@ -1783,9 +1783,9 @@ class TestTestgresCommon:
             with removing(node_svc.os_ops, node1.dump(format=dump_fmt)) as dump:
                 with __class__.helper__get_node(node_svc).init().start() as node3:
                     if dump_fmt == enums.DumpFormat.Directory:
-                        assert (os.path.isdir(dump))
+                        assert (node_svc.os_ops.isdir(dump))
                     else:
-                        assert (os.path.isfile(dump))
+                        assert (node_svc.os_ops.isfile(dump))
                     # restore dump
                     node3.restore(filename=dump)
                     res = node3.execute(query_select)
