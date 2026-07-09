@@ -14,7 +14,7 @@ import typing
 
 from six import iteritems
 
-from .exceptions import ExecUtilException
+from .exceptions import ExecUtilException, InvalidOperationException
 from .config import testgres_config as tconf
 from .raise_error import RaiseError
 from .enums import NodeStatus
@@ -266,8 +266,8 @@ def get_pg_config2(os_ops: OsOperations, pg_config_path):
     try:
         pg_config_data = cache_pg_config_data("pg_config")
     except Exception:
-        raise Exception(
-            "Failed to determine how to start pg_config. Specify the path to pg_config in PG_CONFIG or the path to the Postgres directory containing it in PG_BIN, or put it into the system PATH.")
+        raise InvalidOperationException(
+            "Failed to determine how to start pg_config. Either specify the path to pg_config in PG_CONFIG or specify the path to the Postgres directory containing pg_config in PG_BIN, or put pg_config into the system PATH.")
     return pg_config_data
 
 
