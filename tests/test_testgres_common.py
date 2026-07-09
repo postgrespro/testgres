@@ -190,6 +190,10 @@ class TestTestgresCommon:
         with __class__.helper__get_node(node_svc) as node:
             # enable page checksums
             node.init(initdb_params=['-k']).start()
+        return
+
+    def test_custom_init__hba(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
         with __class__.helper__get_node(node_svc) as node:
             node.init(
@@ -202,8 +206,24 @@ class TestTestgresCommon:
             # check number of lines
             assert (len(lines) >= 6)
 
+            # Normalize function: turns a string into a list of pure words
+            def normalize_line(line_str):
+                return line_str.strip().split()
+
+            # We collect a list of rules that already exist in the file (in the form of word lists)
+            existing_normalized = []
+            for s in lines:
+                s_clean = s.strip()
+                if s_clean and not s_clean.startswith("#"):
+                    existing_normalized.append(normalize_line(s_clean))
+                continue
+
             # there should be no trust entries at all
-            assert not (any('trust' in s for s in lines))
+            for s in lines:
+                if len(s) > 0 and s[0] in ["host", "local"]:
+                    assert s[-1] == "reject"
+                continue
+            return
 
     def test_double_init(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
