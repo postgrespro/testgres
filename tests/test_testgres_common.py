@@ -1783,9 +1783,9 @@ class TestTestgresCommon:
             with removing(node_svc.os_ops, node1.dump(format=dump_fmt)) as dump:
                 with __class__.helper__get_node(node_svc).init().start() as node3:
                     if dump_fmt == enums.DumpFormat.Directory:
-                        assert (os.path.isdir(dump))
+                        assert (node_svc.os_ops.isdir(dump))
                     else:
-                        assert (os.path.isfile(dump))
+                        assert (node_svc.os_ops.isfile(dump))
                     # restore dump
                     node3.restore(filename=dump)
                     res = node3.execute(query_select)
@@ -1801,7 +1801,7 @@ class TestTestgresCommon:
             # Test dump with --schema-only option
             with removing(node_svc.os_ops, node1.dump(options=['--schema-only'])) as dump:
                 with __class__.helper__get_node(node_svc).init().start() as node2:
-                    assert (os.path.isfile(dump))
+                    assert (node_svc.os_ops.isfile(dump))
                     # restore schema-only dump
                     node2.restore(filename=dump)
 
@@ -2680,6 +2680,7 @@ where c.relname=%s;"""
         )
 
         assert node_app.os_ops is node_svc.os_ops
+        assert node_app.port_manager is not None
         assert node_app.port_manager is node_svc.port_manager
         assert type(node_app.nodes_to_cleanup) is list
         assert len(node_app.nodes_to_cleanup) == 0
@@ -2753,6 +2754,7 @@ where c.relname=%s;"""
                 assert not node._should_free_port
                 break
         finally:
+            assert node_app.port_manager is not None
             while len(ports) > 0:
                 node_app.port_manager.release_port(ports.pop())
 
@@ -2809,6 +2811,8 @@ where c.relname=%s;"""
 
             logging.info("Node is started ...")
             node.slow_start()
+
+            assert node.status() == NodeStatus.Running
         return
 
     @staticmethod
