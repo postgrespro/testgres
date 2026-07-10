@@ -2370,9 +2370,11 @@ class PostgresNode(object):
 class PostgresNodeLogReader:
     class LogInfo:
         position: int
+        tail: bytes
 
         def __init__(self, position: int):
             self.position = position
+            self.tail = b''
 
     # --------------------------------------------------------------------
     class LogDataBlock:
@@ -2448,37 +2450,62 @@ class PostgresNodeLogReader:
             assert type(file_name) is str
             assert type(cur_log_info) is __class__.LogInfo
 
-            read_pos = 0
-
-            if file_name in self._logs.keys():
+            if file_name not in self._logs.keys():
+                read_pos = 0
+                file_content_b = b''
+            else:
                 prev_log_info = self._logs[file_name]
                 assert type(prev_log_info) is __class__.LogInfo
                 read_pos = prev_log_info.position  # the previous size
+                file_content_b = prev_log_info.tail
 
-            file_content_b = self._node.os_ops.read_binary(file_name, read_pos)
+            prev_data_sz = len(file_content_b)
+            assert prev_data_sz <= read_pos
+
+            file_content_b += self._node.os_ops.read_binary(file_name, read_pos)
             assert type(file_content_b) is bytes
 
-            #
-            # A POTENTIAL PROBLEM: file_content_b may contain an incompleted UTF-8 symbol.
-            #
-            file_content_s = file_content_b.decode()
-            assert type(file_content_s) is str
+            assert prev_data_sz <= len(file_content_b)
 
-            next_read_pos = read_pos + len(file_content_b)
+            #
+            # We will process completed lines only
+            #
+            completed_data_size = file_content_b.rfind(b"\n") + 1
 
-            # It is a research/paranoja check.
-            # When we will process partial UTF-8 symbol, it must be adjusted.
+            assert completed_data_size >= 0
+            assert completed_data_size <= len(file_content_b)
+
+            completed_data = file_content_b[:completed_data_size]
+            assert type(completed_data) is bytes
+            assert len(completed_data) == completed_data_size
+
+            new_tail = file_content_b[completed_data_size:]
+            assert type(new_tail) is bytes
+            assert len(new_tail) == len(file_content_b) - completed_data_size
+
+            completed_data_s = completed_data.decode()
+            assert type(completed_data_s) is str
+
+            next_read_pos = read_pos - prev_data_sz + len(file_content_b)
+
+            assert read_pos <= next_read_pos
+
+            # It is a FINAL paranoja check.
+            # [2026-07-10] Verified
             assert cur_log_info.position <= next_read_pos
-
-            cur_log_info.position = next_read_pos
 
             block = __class__.LogDataBlock(
                 file_name,
                 read_pos,
-                file_content_s
+                completed_data_s,
             )
 
             result.append(block)
+
+            # Save information to next iteration
+            cur_log_info.position = next_read_pos
+            cur_log_info.tail = new_tail
+            continue
 
         # A new check point
         self._logs = cur_logs
