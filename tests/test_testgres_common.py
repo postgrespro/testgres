@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .helpers.global_data import OsOpsDescrs
+from .helpers.global_data import OsOpsDescr
 from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
 from .helpers.global_data import OsOperations
@@ -16,6 +18,9 @@ from src.utils import get_pg_version2
 from src.utils import file_tail
 from src.utils import get_bin_path2
 from src.utils import execute_utility2
+from src.defaults import default_username
+from src.defaults import default_username2
+from src.config import testgres_config as tconf
 from src import ProcessType
 from src import NodeStatus
 from src import IsolationLevel
@@ -71,6 +76,25 @@ def removing(os_ops: OsOperations, f):
 
 
 class TestTestgresCommon:
+    sm_os_ops_descrs: typing.List[OsOpsDescr] = [
+        OsOpsDescrs.sm_local_os_ops_descr,
+        OsOpsDescrs.sm_remote_os_ops_descr
+    ]
+
+    @pytest.fixture(
+        params=[
+            pytest.param(
+                descr,
+                id=descr.sign,
+            )
+            for descr in sm_os_ops_descrs
+        ],
+    )
+    def os_ops_descr(self, request: pytest.FixtureRequest) -> OsOpsDescr:
+        assert isinstance(request, pytest.FixtureRequest)
+        assert isinstance(request.param, OsOpsDescr)
+        return request.param
+
     sm_node_svcs: typing.List[PostgresNodeService] = [
         PostgresNodeServices.sm_local,
         PostgresNodeServices.sm_local2,
@@ -132,6 +156,37 @@ class TestTestgresCommon:
             assert (isinstance(version, six.string_types))
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
+
+    def test_default_username(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        assert default_username(os_ops) == os_ops.get_user()
+        assert default_username(os_ops) == os_ops.username
+
+        assert default_username() == tconf.os_ops.username
+        assert default_username() == tconf.os_ops.get_user()
+        return
+
+    def test_default_username2(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        assert default_username2(os_ops) == os_ops.get_user()
+        assert default_username2(os_ops) == os_ops.username
+        return
 
     def test_node_constructor__default(self):
         node = PostgresNode()

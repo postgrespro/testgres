@@ -1,6 +1,9 @@
 import datetime
 import struct
 import uuid
+import typing
+
+from testgres.operations.os_ops import OsOperations
 
 from .config import testgres_config as tconf
 
@@ -13,11 +16,30 @@ def default_dbname():
     return 'postgres'
 
 
-def default_username():
+def default_username(os_ops: typing.Optional[OsOperations] = None) -> str:
     """
     Return default username (current user).
     """
-    return tconf.os_ops.get_user()
+    assert os_ops is None or isinstance(os_ops, OsOperations)
+
+    if os_ops is None:
+        os_ops = tconf.os_ops
+
+    assert isinstance(os_ops, OsOperations)
+    result = default_username2(os_ops)
+    assert type(result) is str
+    return result
+
+
+def default_username2(os_ops: OsOperations) -> str:
+    """
+    Return default username (current user).
+    """
+    assert isinstance(os_ops, OsOperations)
+
+    result = os_ops.get_user()
+    assert type(result) is str
+    return result
 
 
 def generate_app_name():
