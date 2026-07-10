@@ -63,6 +63,12 @@ class Publication(object):
             dbname: database name used to connect and perform subscription.
             username: username used to connect to the database.
         """
+        assert type(name) is str
+        assert node is not None
+        assert node.os_ops is not None
+        assert dbname is None or type(dbname) is str
+        assert username is None or type(username) is str
+
         self.name = name
         self.node = node
         self.dbname = dbname or default_dbname()
@@ -71,15 +77,32 @@ class Publication(object):
         # create publication in database
         t = "table " + ", ".join(tables) if tables else "all tables"
         query = "create publication {} for {}"
-        node.execute(query.format(name, t), dbname=dbname, username=username)
+        self.node.execute(
+            query.format(name, t),
+            dbname=self.dbname,
+            username=self.username,
+        )
 
     def drop(self, dbname=None, username=None):
         """
         Drop publication
         """
-        self.node.execute("drop publication {}".format(self.name),
-                          dbname=dbname,
-                          username=username)
+        assert dbname is None or type(dbname) is str
+        assert username is None or type(username) is str
+
+        #
+        # [2026-07-10] [BUG FIX]
+        #   dbname and username are ignored.
+        #   We will use settings of our object.
+        #
+        assert dbname is None or dbname == self.dbname
+        assert username is None or username == self.username
+
+        self.node.execute(
+            "drop publication {}".format(self.name),
+            dbname=self.dbname,
+            username=self.username,
+        )
 
     def add_tables(self, tables, dbname=None, username=None):
         """
@@ -89,13 +112,26 @@ class Publication(object):
         Args:
             tables: a list of tables to be added to the publication.
         """
+        assert dbname is None or type(dbname) is str
+        assert username is None or type(username) is str
+
+        #
+        # [2026-07-10] [BUG FIX]
+        #   dbname and username are ignored.
+        #   We will use settings of our object.
+        #
+        assert dbname is None or dbname == self.dbname
+        assert username is None or username == self.username
+
         if not tables:
             raise ValueError("Tables list is empty")
 
         query = "alter publication {} add table {}"
-        self.node.execute(query.format(self.name, ", ".join(tables)),
-                          dbname=dbname or self.dbname,
-                          username=username or self.username)
+        self.node.execute(
+            query.format(self.name, ", ".join(tables)),
+            dbname=self.dbname,
+            username=self.username,
+        )
 
 
 class Subscription(object):
@@ -121,9 +157,17 @@ class Subscription(object):
                  <https://www.postgresql.org/docs/current/static/sql-createsubscription.html>`_
                  for details).
         """
+        assert type(name) is str
+        assert node is not None
+        assert node.os_ops is not None
+        assert dbname is None or type(dbname) is str
+        assert username is None or type(username) is str
+
         self.name = name
         self.node = node
         self.pub = publication
+        self.dbname = dbname or default_dbname()
+        self.username = username or default_username()
 
         # connection info
         conninfo = {
@@ -142,38 +186,99 @@ class Subscription(object):
             query += " with ({})".format(options_string(**params))
 
         # Note: cannot run 'create subscription' query in transaction mode
-        node.execute(query, dbname=dbname, username=username)
+        self.node.execute(
+            query,
+            dbname=self.dbname,
+            username=self.username,
+        )
 
     def disable(self, dbname=None, username=None):
         """
         Disables the running subscription.
         """
+        assert dbname is None or type(dbname) is str
+        assert username is None or type(username) is str
+
+        #
+        # [2026-07-10] [BUG FIX]
+        #   dbname and username are ignored.
+        #   We will use settings of our object.
+        #
+        assert dbname is None or dbname == self.dbname
+        assert username is None or username == self.username
+
         query = "alter subscription {} disable"
-        self.node.execute(query.format(self.name), dbname=None, username=None)
+        self.node.execute(
+            query.format(self.name),
+            dbname=self.dbname,
+            username=self.username,
+        )
 
     def enable(self, dbname=None, username=None):
         """
         Enables the previously disabled subscription.
         """
+        assert dbname is None or type(dbname) is str
+        assert username is None or type(username) is str
+
+        #
+        # [2026-07-10] [BUG FIX]
+        #   dbname and username were and are ignored.
+        #   We will use settings of our object.
+        #
+        assert dbname is None or dbname == self.dbname
+        assert username is None or username == self.username
+
         query = "alter subscription {} enable"
-        self.node.execute(query.format(self.name), dbname=None, username=None)
+
+        self.node.execute(
+            query.format(self.name),
+            dbname=self.dbname,
+            username=self.username,
+        )
 
     def refresh(self, copy_data=True, dbname=None, username=None):
         """
         Disables the running subscription.
         """
+        assert dbname is None or type(dbname) is str
+        assert username is None or type(username) is str
+
+        #
+        # [2026-07-10] [BUG FIX]
+        #   dbname and username are ignored.
+        #   We will use settings of our object.
+        #
+        assert dbname is None or dbname == self.dbname
+        assert username is None or username == self.username
+
         query = "alter subscription {} refresh publication with (copy_data={})"
-        self.node.execute(query.format(self.name, copy_data),
-                          dbname=dbname,
-                          username=username)
+        self.node.execute(
+            query.format(self.name, copy_data),
+            dbname=self.dbname,
+            username=self.username,
+        )
 
     def drop(self, dbname=None, username=None):
         """
         Drops subscription
         """
-        self.node.execute("drop subscription {}".format(self.name),
-                          dbname=dbname,
-                          username=username)
+        assert dbname is None or type(dbname) is str
+        assert username is None or type(username) is str
+
+        #
+        # [2026-07-10] [BUG FIX]
+        #   dbname and username are ignored.
+        #   We will use settings of our object.
+        #
+        assert dbname is None or dbname == self.dbname
+        assert username is None or username == self.username
+
+        self.node.execute(
+            "drop subscription {}".format(self.name),
+            dbname=self.dbname,
+            username=self.username,
+        )
 
     def catchup(self, username=None):
         """
@@ -182,14 +287,32 @@ class Subscription(object):
         Args:
             username: remote node's user name.
         """
+        assert username is None or type(username) is str
+
+        #
+        # [2026-07-10] [BUG FIX]
+        #   username is ignored.
+        #   We will use settings of objects.
+        #
+        assert username is None or username == self.username
+
         try:
-            pub_lsn = self.pub.node.execute(query="select pg_current_wal_lsn()",
-                                            dbname=None,
-                                            username=None)[0][0]  # yapf: disable
+            #
+            # [2026-07-10]
+            #   About dbname=None and username=None
+            #   We will try to use self.pub.xxx the next time. OK?
+            #
+            pub_lsn = self.pub.node.execute(
+                query="select pg_current_wal_lsn()",
+                dbname=None,
+                username=None,
+            )[0][0]  # yapf: disable
             # create dummy xact, as LR replicates only on commit.
-            self.pub.node.execute(query="select txid_current()",
-                                  dbname=None,
-                                  username=None)
+            self.pub.node.execute(
+                query="select txid_current()",
+                dbname=None,
+                username=None,
+            )
             query = """
             select '{}'::pg_lsn - replay_lsn <= 0
             from pg_catalog.pg_stat_replication where application_name = '{}'
@@ -199,8 +322,9 @@ class Subscription(object):
             self.pub.node.poll_query_until(
                 query=query,
                 dbname=self.pub.dbname,
-                username=username or self.pub.username,
-                max_attempts=LOGICAL_REPL_MAX_CATCHUP_ATTEMPTS)
+                username=self.pub.username,
+                max_attempts=LOGICAL_REPL_MAX_CATCHUP_ATTEMPTS,
+            )
 
             # Now, wait until there are no tablesync workers: probably
             # replay_lsn above was sent with changes of new tables just skipped;
@@ -210,8 +334,9 @@ class Subscription(object):
             """
             self.node.poll_query_until(
                 query=query,
-                dbname=self.pub.dbname,
-                username=username or self.pub.username,
-                max_attempts=LOGICAL_REPL_MAX_CATCHUP_ATTEMPTS)
+                dbname=self.dbname,
+                username=self.username,
+                max_attempts=LOGICAL_REPL_MAX_CATCHUP_ATTEMPTS,
+            )
         except Exception as e:
             raise_from(CatchUpException("Failed to catch up"), e)
