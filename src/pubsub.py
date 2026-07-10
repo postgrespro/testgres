@@ -45,7 +45,7 @@ PostgresNode(name='...', port=..., base_dir='...')
 from six import raise_from
 
 from .consts import LOGICAL_REPL_MAX_CATCHUP_ATTEMPTS
-from .defaults import default_dbname, default_username
+from .defaults import default_dbname, default_username2
 from .exceptions import CatchUpException
 from .utils import options_string
 
@@ -72,7 +72,7 @@ class Publication(object):
         self.name = name
         self.node = node
         self.dbname = dbname or default_dbname()
-        self.username = username or default_username()
+        self.username = username or default_username2(node.os_ops)
 
         # create publication in database
         t = "table " + ", ".join(tables) if tables else "all tables"
@@ -167,7 +167,7 @@ class Subscription(object):
         self.node = node
         self.pub = publication
         self.dbname = dbname or default_dbname()
-        self.username = username or default_username()
+        self.username = username or default_username2(node.os_ops)
 
         # connection info
         conninfo = {
