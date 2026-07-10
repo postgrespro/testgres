@@ -729,7 +729,11 @@ class PostgresNode(object):
         if testgres_config.use_python_logging:
             # spawn new logger if it doesn't exist or is stopped
             if not self._logger or not self._logger.is_alive():
-                self._logger = TestgresLogger(self.name, self.pg_log_file)
+                self._logger = TestgresLogger(
+                    self.name,
+                    self.pg_log_file,
+                    os_ops=self._os_ops,
+                )
                 self._logger.start()
 
     def _maybe_stop_logger(self):
