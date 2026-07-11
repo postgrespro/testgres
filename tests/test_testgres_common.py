@@ -120,7 +120,7 @@ class TestTestgresCommon:
         # Author: Mark G.
         assert v.major == 1
         assert v.minor == 14
-        assert v.micro == 4
+        assert v.micro == 5
 
         assert str(v) == testgres_version
         return
