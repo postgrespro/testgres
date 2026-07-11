@@ -53,10 +53,10 @@ class TestOsOpsRemote:
         assert os_ops.path_exists(path)
         assert type(x.value) is ExecUtilException
         assert type(x.value.description) is str
-        assert x.value.description == "Utility exited with non-zero code (20). Error: `cannot remove '" + path + "': it is not a directory`"
+        assert x.value.description == "Utility exited with non-zero code (20). Error: `cannot remove " + path + ": it is not a directory`"
         assert x.value.message.startswith(x.value.description)
         assert type(x.value.error) is str
-        assert x.value.error.strip() == "cannot remove '" + path + "': it is not a directory"
+        assert x.value.error.strip() == "cannot remove " + path + ": it is not a directory"
         assert type(x.value.exit_code) is int
         assert x.value.exit_code == 20
         return
