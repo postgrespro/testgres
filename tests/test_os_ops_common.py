@@ -3727,18 +3727,38 @@ print('b', file=sys.stderr)
 
         C_NUM_THREADS = 2
 
-        if OsOpsHelpers.is_localhost(os_ops):
-            C_NUM_ITERATIONS = 2000
-        else:
+        if type(os_ops).__name__ == "RemoteOperations":
             C_NUM_ITERATIONS = 200
+        else:
+            C_NUM_ITERATIONS = 2000
+
+        logging.info("NUM_ITERATIONS: {}".format(C_NUM_ITERATIONS))
 
         # Queue for collecting exceptions from background threads
         exceptions_queue = queue.Queue()
 
         # The function that each thread will run
-        def thread_worker(var_name: str, var_value: str, iterations: int):
+        def thread_worker(
+            thread_num: int,
+            var_name: str,
+            var_value: str,
+            iterations: int,
+        ):
+            logging.info("Hello from thread [{}].".format(
+                thread_num,
+            ))
+
             try:
-                for _ in range(iterations):
+                nPass = 0
+                while nPass < iterations:
+                    nPass += 1
+
+                    if (nPass % 100) == 0:
+                        logging.info("thread [{}]: {}".format(
+                            thread_num,
+                            nPass,
+                        ))
+
                     # 1. The thread writes ITS own isolated variable
                     os_ops.set_env(var_name, var_value)
 
@@ -3755,7 +3775,12 @@ print('b', file=sys.stderr)
                     # 3. Clean up after yourself
                     os_ops.reset_env(var_name, None)
                     assert os_ops.environ(var_name) is None
+                    continue
 
+                logging.info("thread [{}] finished ({})".format(
+                    thread_num,
+                    nPass,
+                ))
             except Exception as e:
                 # If something goes wrong, we pass the error to the main test thread
                 exceptions_queue.put(e)
@@ -3774,7 +3799,7 @@ print('b', file=sys.stderr)
 
             threads[i] = threading.Thread(
                 target=thread_worker,
-                args=(thread_name, thread_val, C_NUM_ITERATIONS),
+                args=(i, thread_name, thread_val, C_NUM_ITERATIONS),
             )
             continue
 
