@@ -17,6 +17,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     time \
     && rm -rf /var/lib/apt/lists/*
 
+RUN sed -i 's/#MaxStartups 10:30:100/MaxStartups 2000:30:2000/' /etc/ssh/sshd_config && \
+    sed -i 's/#MaxSessions 10/MaxSessions 500/' /etc/ssh/sshd_config && \
+    sed -i 's/#MaxAuthTries 6/MaxAuthTries 20/' /etc/ssh/sshd_config
+
 # --------------------------------------------- postgres
 FROM base1 AS base1_with_dev_tools
 
