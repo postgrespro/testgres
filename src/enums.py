@@ -29,7 +29,7 @@ class NodeStatus(IntEnum):
     Status of a PostgresNode
     """
 
-    Running, Stopped, Uninitialized = range(3)
+    Running, Stopped, Uninitialized, Zombie = range(4)
 
     # for Python 3.x
     def __bool__(self):
