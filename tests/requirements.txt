@@ -4,5 +4,5 @@ pytest-env
 pytest-xdist
 psycopg2
 six
-testgres.os_ops>=2.4.0,<3.0.0
+testgres.os_ops>=3.1.0,<4.0.0
 testgres.postgres_configuration>=0.2.2,<1.0.0

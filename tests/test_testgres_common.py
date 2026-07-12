@@ -6,6 +6,7 @@ from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
 from .helpers.global_data import OsOperations
 from .helpers.global_data import PortManager
+from .helpers.pg_cfg_os_ops import PgCfgOsOps
 
 from src import __version__ as testgres_version
 from src.node import PgVer
@@ -2860,9 +2861,13 @@ where c.relname=%s;"""
         )
 
         # TODO: We have to use node_svc.os_ops here
+        pgConfOsOps = PgCfgOsOps(
+            node_svc.os_ops,
+            "utf-8",
+        )
 
         with node_app.make_simple("abc") as node:
-            node_conf = testgres_pgconf.PostgresConfiguration(node.data_dir)
+            node_conf = testgres_pgconf.PostgresConfiguration(node.data_dir, pgConfOsOps)
 
             logging.info("Configuration is readed ...")
             testgres_pgconf.PostgresConfigurationReader.LoadConfiguration(node_conf)

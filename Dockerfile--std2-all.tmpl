@@ -4,6 +4,8 @@ ARG PYTHON_VERSION=3.12
 # --------------------------------------------- base1
 FROM postgres:${PG_VERSION}-alpine AS base1
 
+RUN apk add --no-cache coreutils
+
 # --------------------------------------------- base2_with_python-3
 FROM base1 AS base2_with_python-3
 ENV PYTHON_BINARY=python3
