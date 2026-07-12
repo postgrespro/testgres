@@ -1630,7 +1630,13 @@ class TestTestgresCommon:
             logging.info("Attempt #{0}.".format(nAttempt))
             s1 = node.status()
 
+            logging.info("Node status is {}.".format(s1.name))
+
             if s1 == NodeStatus.Running:
+                continue
+
+            if s1 == NodeStatus.Zombie:
+                # [2026-07-12] We will wait for final stop (stabilization). OK?
                 continue
 
             if s1 == NodeStatus.Stopped:
