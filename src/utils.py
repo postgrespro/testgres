@@ -412,17 +412,19 @@ def get_pg_node_state(
     sleep_time = C_SLEEP_TIME1
 
     class tagPlaformUtilsProvider:
-        _platform_utils: typing.Optional[internal_platform_utils_factory.InternalPlatformUtils] = None
+        T_PLATFORM_UTILS = internal_platform_utils_factory.InternalPlatformUtils
+
+        _platform_utils: typing.Optional[T_PLATFORM_UTILS] = None
 
         def __init__(self):
             self._platform_utils = None
 
-        def get(self) -> internal_platform_utils_factory.InternalPlatformUtils:
+        def get(self) -> T_PLATFORM_UTILS:
             if self._platform_utils is None:
                 self._platform_utils = internal_platform_utils_factory.create_internal_platform_utils(os_ops)
-                assert isinstance(self._platform_utils, internal_platform_utils_factory.InternalPlatformUtils)
+                assert isinstance(self._platform_utils, __class__.T_PLATFORM_UTILS)
 
-            assert isinstance(self._platform_utils, internal_platform_utils_factory.InternalPlatformUtils)
+            assert isinstance(self._platform_utils, __class__.T_PLATFORM_UTILS)
             return self._platform_utils
 
     platform_utils_provider = tagPlaformUtilsProvider()
