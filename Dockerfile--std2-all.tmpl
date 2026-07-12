@@ -140,5 +140,5 @@ if [ -n \"${TEST_CFG__REMOTE_SSH_KEY:-}\" ]; then \
     ls -la /home/test/.ssh/; \
 fi; \
 ls -la ./; \
-su test -c \"TEST_FILTER='app' PATH=\"/home/test/.pyenv/bin:$PATH\" bash ./run_tests2.sh\"; \
+su test -c \"TEST_FILTER='app or prove' PATH=\"/home/test/.pyenv/bin:$PATH\" bash ./run_tests2.sh\"; \
 "]
