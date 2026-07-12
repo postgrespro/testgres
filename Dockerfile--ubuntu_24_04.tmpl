@@ -1,78 +1,103 @@
-ARG PG_VERSION
+ARG PG_VERSION=17
 ARG PYTHON_VERSION=3
 
 # --------------------------------------------- base1
 FROM ubuntu:24.04 AS base1
 ARG PG_VERSION
 
-RUN apt update
-RUN apt install -y sudo curl ca-certificates
-RUN apt update
-RUN apt install -y openssh-server
-RUN apt install -y time
-RUN apt install -y netcat-traditional
+# Disable interactive apt questions so that the build doesn't hang when setting time zones
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt install -y git
-RUN apt install -y iproute2
-
-RUN apt update
-RUN apt install -y postgresql-common
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    sudo \
+    curl \
+    ca-certificates \
+    openssh-server \
+    sshpass \
+    time \
+    netcat-traditional \
+    iproute2 \
+    git \
+    postgresql-common \
+    libpq-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN bash /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
 
 RUN install -d /usr/share/postgresql-common/pgdg
 RUN curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
 
-RUN apt update
-RUN apt install -y postgresql-${PG_VERSION}
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-${PG_VERSION}
 
 # --------------------------------------------- base2_with_python-3
 FROM base1 AS base2_with_python-3
-RUN apt install -y python3 python3-dev python3-venv libpq-dev build-essential
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-dev \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHON_BINARY=python3
 
 # --------------------------------------------- final
 FROM base2_with_python-${PYTHON_VERSION} AS final
 
 EXPOSE 22
-
 RUN ssh-keygen -A
 
-RUN adduser test
-RUN chown postgres:postgres /var/run/postgresql
-RUN chmod 775 /var/run/postgresql
-RUN usermod -aG postgres test
+RUN useradd -m test
 
 # It enables execution of "sudo service ssh start" without password
-# RUN echo "test ALL=NOPASSWD:/usr/sbin/service ssh start" >> /etc/sudoers
-# RUN echo "test ALL=NOPASSWD:ALL" >> /etc/sudoers
-RUN echo "test ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+RUN echo "test ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-ADD --chown=test:test . /home/test/testgres
+COPY --chown=test:test . /home/test/testgres
 WORKDIR /home/test/testgres
-RUN mkdir /home/test/testgres/logs
-RUN chown -R test:test /home/test/testgres/logs
 
 ENV LANG=C.UTF-8
 
-USER test
+RUN chmod 700 /home/test/ && \
+    mkdir -p /home/test/.ssh && \
+    chown -R test:test /home/test/.ssh
 
-RUN chmod 700 ~/
-RUN mkdir -p ~/.ssh
+#
+# \"$@\"
+#   - quote is important!
+#   - "DUMMY-DUMMY-DUMMY" will be ignored. Do not ask me "why?". AXEZ.
+#
+ENTRYPOINT ["sh", "-c", " \
+    set -eux; \
+    echo 'SYSTEM START: PREPARING SSH'; \
+    service ssh start; \
+    ls -la /home/test/.ssh/; \
+    \"$@\" \
+", "DUMMY-DUMMY-DUMMY"]
 
-ENTRYPOINT sh -c " \
-#set -eux; \
-echo HELLO FROM ENTRYPOINT; \
-echo HOME DIR IS [`realpath ~/`]; \
-ls -la .; \
-service ssh enable; \
-sudo service ssh start; \
-sudo chmod 777 /home/test/testgres/logs; \
-ls -la . | grep logs; \
-ssh-keyscan -H localhost >> ~/.ssh/known_hosts; \
-ssh-keyscan -H 127.0.0.1 >> ~/.ssh/known_hosts; \
-ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -N ''; \
-cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys; \
-chmod 600 ~/.ssh/authorized_keys; \
-ls -la ~/.ssh/; \
-TEST_FILTER=\"\" bash ./run_tests.sh;"
+# Run tests by default (master machine role)
+CMD ["bash", "-c", " \
+set -eux; \
+echo \"HOME DIR IS [`realpath ~/`]\"; \
+echo \"WORK DIR IS [$(pwd)]\"; \
+if [ ! -f /home/test/.ssh/id_rsa ]; then \
+    su test -c \"ssh-keygen -t rsa -f /home/test/.ssh/id_rsa -q -N ''\"; \
+    su test -c \"cat /home/test/.ssh/id_rsa.pub >> /home/test/.ssh/authorized_keys\"; \
+    chmod 600 /home/test/.ssh/authorized_keys; \
+fi; \
+ls -la /home/test/.ssh/; \
+su test -c \"ssh-keyscan -H localhost >> /home/test/.ssh/known_hosts\"; \
+su test -c \"ssh-keyscan -H 127.0.0.1 >> /home/test/.ssh/known_hosts\"; \
+if [ -n \"${TEST_CFG__REMOTE_HOST:-}\" ]; then \
+    su test -c \"ssh-keyscan -H ${TEST_CFG__REMOTE_HOST} >> /home/test/.ssh/known_hosts\"; \
+fi; \
+if [ -n \"${TEST_CFG__REMOTE_SSH_KEY:-}\" ]; then \
+    cp \"${TEST_CFG__REMOTE_SSH_KEY}\" \"${TEST_CFG__REMOTE_SSH_KEY}_ci\"; \
+    export TEST_CFG__REMOTE_SSH_KEY=\"${TEST_CFG__REMOTE_SSH_KEY}_ci\"; \
+    chown test:test \"${TEST_CFG__REMOTE_SSH_KEY}\"; \
+    chmod 600 \"${TEST_CFG__REMOTE_SSH_KEY}\"; \
+    ls -la /home/test/.ssh/; \
+fi; \
+ls -la ./; \
+su test -c \"TEST_FILTER='app or prove' bash ./run_tests.sh\"; \
+"]
