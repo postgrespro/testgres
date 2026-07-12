@@ -4,24 +4,38 @@ ARG PYTHON_VERSION=3.12
 # --------------------------------------------- base1
 FROM postgres:${PG_VERSION}-alpine AS base1
 
-RUN apk add --no-cache coreutils
+RUN apk add --no-cache \
+    coreutils \
+    bash \
+    mc \
+    procps \
+    openssh \
+    sshpass \
+    sudo \
+    git
 
 # --------------------------------------------- base2_with_python-3
 FROM base1 AS base2_with_python-3
-ENV PYTHON_BINARY=python3
-RUN apk add --no-cache curl python3 python3-dev build-base musl-dev linux-headers
 
-# For pyenv
-RUN apk add patch
-RUN apk add git
-RUN apk add xz-dev
-RUN apk add zip
-RUN apk add zlib-dev
-RUN apk add libffi-dev
-RUN apk add readline-dev
-RUN apk add openssl openssl-dev
-RUN apk add sqlite-dev
-RUN apk add bzip2-dev
+RUN apk add --no-cache \
+    curl \
+    python3 \
+    python3-dev \
+    build-base \
+    musl-dev \
+    linux-headers \
+    # For pyenv \
+    patch \
+    xz-dev \
+    zip \
+    zlib-dev \
+    libffi-dev \
+    readline-dev \
+    openssl openssl-dev \
+    sqlite-dev \
+    bzip2-dev
+
+ENV PYTHON_BINARY=python3
 
 # --------------------------------------------- base3_with_python-3.7
 FROM base2_with_python-3 AS base3_with_python-3.7
@@ -62,22 +76,10 @@ ENV PYTHON_VERSION=3.14
 # --------------------------------------------- final
 FROM base3_with_python-${PYTHON_VERSION} AS final
 
-#RUN apk add --no-cache mc
-
-# Full version of "ps" command
-RUN apk add --no-cache procps
-
-RUN apk add --no-cache openssh
-RUN apk add --no-cache sudo
-
-ENV LANG=C.UTF-8
-
-RUN addgroup -S sudo
-RUN adduser -D test
-RUN addgroup test sudo
-
 EXPOSE 22
 RUN ssh-keygen -A
+
+RUN adduser -D test && addgroup -S sudo && adduser test sudo
 
 # It allows to use sudo without password
 RUN echo "test ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
@@ -86,33 +88,59 @@ RUN echo "test ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
 RUN echo "test:*" | chpasswd -e
 
 USER test
-
 RUN curl https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer | bash
 RUN ~/.pyenv/bin/pyenv install ${PYTHON_VERSION}
+USER root
 
-ADD --chown=test:test . /home/test/testgres
+COPY --chown=test:test . /home/test/testgres
 WORKDIR /home/test/testgres
-RUN mkdir /home/test/testgres/logs
-RUN chown -R test:test /home/test/testgres/logs
 
-# THIS CMD IS NEEDED TO CONNECT THROUGH SSH WITHOUT PASSWORD
-RUN chmod 700 ~/
+ENV LANG=C.UTF-8
 
-RUN mkdir -p ~/.ssh
+RUN chmod 700 /home/test/ && \
+    mkdir -p /home/test/.ssh && \
+    chown -R test:test /home/test/.ssh && \
+    mkdir /home/test/testgres/logs && \
+    chown -R test:test /home/test/testgres/logs
 
-ENTRYPOINT sh -c " \
+#
+# \"$@\"
+#   - quote is important!
+#   - "DUMMY-DUMMY-DUMMY" will be ignored. Do not ask me "why?". AXEZ.
+#
+ENTRYPOINT ["sh", "-c", " \
+    set -eux; \
+    echo 'SYSTEM START: PREPARING SSH'; \
+    /usr/sbin/sshd; \
+    ls -la /home/test/.ssh/; \
+    \"$@\" \
+", "DUMMY-DUMMY-DUMMY"]
+
+# Run tests by default (master machine role)
+CMD ["bash", "-c",  " \
 set -eux; \
-echo HELLO FROM ENTRYPOINT; \
-echo HOME DIR IS [`realpath ~/`]; \
-ls -la .; \
-ssh-keygen -t rsa -f ~/.ssh/id_rsa -q -N ''; \
-cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys; \
-chmod 600 ~/.ssh/authorized_keys; \
-ls -la ~/.ssh/; \
-sudo /usr/sbin/sshd; \
+echo \"HOME DIR IS [`realpath ~/`]\"; \
+echo \"WORK DIR IS [$(pwd)]\"; \
+if [ ! -f /home/test/.ssh/id_rsa ]; then \
+    su test -c \"ssh-keygen -t rsa -f /home/test/.ssh/id_rsa -q -N ''\"; \
+    su test -c \"cat /home/test/.ssh/id_rsa.pub >> /home/test/.ssh/authorized_keys\"; \
+    chmod 600 /home/test/.ssh/authorized_keys; \
+fi; \
+ls -la /home/test/.ssh/; \
 sudo chmod 777 /home/test/testgres/logs; \
 ls -la . | grep logs; \
-ssh-keyscan -H localhost >> ~/.ssh/known_hosts; \
-ssh-keyscan -H 127.0.0.1 >> ~/.ssh/known_hosts; \
-export PATH=\"~/.pyenv/bin:$PATH\"; \
-TEST_FILTER=\"\" bash run_tests2.sh;"
+su test -c \"ssh-keyscan -H localhost >> /home/test/.ssh/known_hosts\"; \
+su test -c \"ssh-keyscan -H 127.0.0.1 >> /home/test/.ssh/known_hosts\"; \
+if [ -n \"${TEST_CFG__REMOTE_HOST:-}\" ]; then \
+    su test -c \"ssh-keyscan -H ${TEST_CFG__REMOTE_HOST} >> /home/test/.ssh/known_hosts\"; \
+fi; \
+if [ -n \"${TEST_CFG__REMOTE_SSH_KEY:-}\" ]; then \
+    cp \"${TEST_CFG__REMOTE_SSH_KEY}\" \"${TEST_CFG__REMOTE_SSH_KEY}_ci\"; \
+    export TEST_CFG__REMOTE_SSH_KEY=\"${TEST_CFG__REMOTE_SSH_KEY}_ci\"; \
+    chown test:test \"${TEST_CFG__REMOTE_SSH_KEY}\"; \
+    chmod 600 \"${TEST_CFG__REMOTE_SSH_KEY}\"; \
+    ls -la /home/test/.ssh/; \
+fi; \
+ls -la ./; \
+su test -c \"TEST_FILTER='init or kill or app' PATH=\"/home/test/.pyenv/bin:$PATH\" bash ./run_tests2.sh\"; \
+"]
