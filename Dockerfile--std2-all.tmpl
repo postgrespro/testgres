@@ -127,8 +127,6 @@ if [ ! -f /home/test/.ssh/id_rsa ]; then \
     chmod 600 /home/test/.ssh/authorized_keys; \
 fi; \
 ls -la /home/test/.ssh/; \
-sudo chmod 777 /home/test/testgres/logs; \
-ls -la . | grep logs; \
 su test -c \"ssh-keyscan -H localhost >> /home/test/.ssh/known_hosts\"; \
 su test -c \"ssh-keyscan -H 127.0.0.1 >> /home/test/.ssh/known_hosts\"; \
 if [ -n \"${TEST_CFG__REMOTE_HOST:-}\" ]; then \
