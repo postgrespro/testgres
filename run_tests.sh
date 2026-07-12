@@ -6,6 +6,8 @@ if [ -z ${TEST_FILTER+x} ]; \
 then export TEST_FILTER="TestTestgresLocal or (TestTestgresCommon and (not remote))"; \
 fi
 
+echo NPROC: $(nproc)
+
 # fail early
 echo check that pg_config is in PATH
 command -v pg_config
