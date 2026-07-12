@@ -411,7 +411,23 @@ def get_pg_node_state(
     attempt = 0
     sleep_time = C_SLEEP_TIME1
 
-    platform_utils: typing.Optional[internal_platform_utils_factory.InternalPlatformUtils] = None
+    class tagPlaformUtilsProvider:
+        T_PLATFORM_UTILS = internal_platform_utils_factory.InternalPlatformUtils
+
+        _platform_utils: typing.Optional[T_PLATFORM_UTILS] = None
+
+        def __init__(self):
+            self._platform_utils = None
+
+        def get(self) -> T_PLATFORM_UTILS:
+            if self._platform_utils is None:
+                self._platform_utils = internal_platform_utils_factory.create_internal_platform_utils(os_ops)
+                assert isinstance(self._platform_utils, __class__.T_PLATFORM_UTILS)
+
+            assert isinstance(self._platform_utils, __class__.T_PLATFORM_UTILS)
+            return self._platform_utils
+
+    platform_utils_provider = tagPlaformUtilsProvider()
 
     while True:
         assert type(attempt) is int
@@ -513,6 +529,13 @@ def get_pg_node_state(
 
             assert pid != 0
 
+            # ----------------- detect zombie
+            if platform_utils_provider.get().ProcessIsZombi_soft_check(os_ops, pid) is True:
+                internal_utils.send_log_debug("Postmaster process {} is a zombie.".format(
+                    pid,
+                ))
+                return PostgresNodeState(NodeStatus.Zombie, pid)
+
             # -----------------
             return PostgresNodeState(NodeStatus.Running, pid)
 
@@ -543,14 +566,8 @@ def get_pg_node_state(
                     bin_dir,
                 ))
 
-            if platform_utils is None:
-                platform_utils = internal_platform_utils_factory.create_internal_platform_utils(os_ops)
-                assert isinstance(platform_utils, internal_platform_utils_factory.InternalPlatformUtils)
-
-            assert isinstance(platform_utils, internal_platform_utils_factory.InternalPlatformUtils)
-
             try:
-                find_postmaster_r = platform_utils.FindPostmaster(
+                find_postmaster_r = platform_utils_provider.get().FindPostmaster(
                     os_ops,
                     bin_dir,
                     data_dir,

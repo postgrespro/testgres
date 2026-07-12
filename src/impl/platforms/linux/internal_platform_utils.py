@@ -8,6 +8,7 @@ from testgres.operations.exceptions import ExecUtilException
 
 import re
 import shlex
+import typing
 
 
 class InternalPlatformUtils(base.InternalPlatformUtils):
@@ -118,3 +119,53 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         assert type(pid) is int
 
         return __class__.FindPostmasterResult.create_ok(pid)
+
+    def ProcessIsZombi_soft_check(
+        self,
+        os_ops: OsOperations,
+        pid: int,
+    ) -> typing.Optional[bool]:
+        assert isinstance(os_ops, OsOperations)
+        assert type(pid) is int
+
+        proc_stat_file = os_ops.build_path("/proc", str(pid), "stat")
+
+        if not os_ops.path_exists(proc_stat_file):
+            return False
+
+        result: typing.Optional[bool] = None
+
+        try:
+            # Read one line from /proc/PID/stat
+            stat_content = os_ops.read_binary(proc_stat_file, 0).decode("utf-8", errors="ignore")
+
+            # We look for the closing parenthesis of the process name to ensure that
+            # we start from it and not depend on spaces inside the parentheses!
+            r_paren_idx = stat_content.rfind(")")
+
+            if r_paren_idx == -1:
+                pass
+            elif len(stat_content) <= r_paren_idx + 2:
+                pass
+            else:
+                # The status goes exactly one space after the closing bracket
+                assert (r_paren_idx + 2) < len(stat_content)
+                proc_status = stat_content[r_paren_idx + 2]
+                result = proc_status == "Z"
+        except Exception as e:
+            # If the file disappeared right during reading, it means the process is completely erased
+            if __class__._is_file_not_found_exception(e):
+                result = False
+
+        return result
+
+    @staticmethod
+    def _is_file_not_found_exception(e: Exception) -> bool:
+        if isinstance(e, FileNotFoundError):
+            return True
+
+        if isinstance(e, ExecUtilException):
+            if e.exit_code == 2:
+                return True
+
+        return False
