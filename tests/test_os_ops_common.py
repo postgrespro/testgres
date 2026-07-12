@@ -3751,7 +3751,7 @@ print('b', file=sys.stderr)
             try:
                 nPass = 0
                 while nPass < iterations:
-                    if (nPass % 100) == 0:
+                    if nPass > 0 and (nPass % 100) == 0:
                         logging.info("thread [{}]: {}".format(
                             thread_num,
                             nPass,
