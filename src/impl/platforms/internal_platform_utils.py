@@ -60,3 +60,12 @@ class InternalPlatformUtils:
         assert type(bin_dir) is str
         assert type(data_dir) is str
         raise NotImplementedError("InternalPlatformUtils::FindPostmaster is not implemented.")
+
+    def ProcessIsZombi_soft_check(
+        self,
+        os_ops: OsOperations,
+        pid: int,
+    ) -> typing.Optional[bool]:
+        assert isinstance(os_ops, OsOperations)
+        assert type(pid) is int
+        raise NotImplementedError("InternalPlatformUtils::ProcessIsZombi_soft_ver is not implemented.")

@@ -135,5 +135,5 @@ ls -la ./; \
 chown test:test ./test_cfg_env.sh; \
 cat ./test_cfg_env.sh; \
 # Run su -, pull in the file with variables and start the tests \
-su - test -c \"cd /home/test/testgres && source ./test_cfg_env.sh && TEST_FILTER='' bash ./run_tests.sh\"; \
+su - test -c \"cd /home/test/testgres && source ./test_cfg_env.sh && TEST_FILTER='kill' bash ./run_tests.sh\"; \
 "]

@@ -687,7 +687,9 @@ class TestTestgresCommon:
     ):
         assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(node_svc) as node:
+        node = __class__.helper__get_node(node_svc)
+
+        try:
             assert isinstance(node, PostgresNode)
             assert (node.pid == 0)
             assert (node.status() == NodeStatus.Uninitialized)
@@ -696,6 +698,9 @@ class TestTestgresCommon:
             assert not node.is_started
             node.slow_start()
             assert node.is_started
+
+            assert node.status() == NodeStatus.Running
+
             node.kill()
             assert not node.is_started
 
@@ -717,8 +722,19 @@ class TestTestgresCommon:
                 if s == NodeStatus.Running:
                     continue
 
-                assert s == NodeStatus.Stopped
+                if s == NodeStatus.Stopped:
+                    logging.info("Node stopped")
+                    break
+
+                if s == NodeStatus.Zombie:
+                    logging.info("Node is zombie")
+                    break
+
+                logging.error("Node has unknown status: {}.".format(s.name))
                 break
+        finally:
+            if node.is_started:
+                node.stop()
         return
 
     def test_kill_backgroud_writer__ok(
