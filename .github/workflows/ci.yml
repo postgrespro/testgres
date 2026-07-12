@@ -24,6 +24,9 @@ jobs:
           - platform: "ubuntu_24_04"
             python: "3"
             postgres: "17"
+          - platform: "astralinux_1_7"
+            python: "3"
+            postgres: "17"
 
     env:
       BASE_SIGN: "${{ matrix.platform }}-py${{ matrix.python }}-pg${{ matrix.postgres }}"
