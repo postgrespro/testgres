@@ -135,5 +135,5 @@ if [ -n \"${TEST_CFG__REMOTE_SSH_KEY:-}\" ]; then \
     ls -la /home/test/.ssh/; \
 fi; \
 ls -la ./; \
-su test -c \"TEST_FILTER='app or prove' bash ./run_tests.sh\"; \
+su test -c \"TEST_FILTER='' bash ./run_tests.sh\"; \
 "]
