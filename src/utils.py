@@ -26,7 +26,7 @@ from testgres.operations.remote_ops import RemoteOperations
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.helpers import Helpers as OsHelpers
 
-from .impl.port_manager__generic import PortManager__Generic
+from .impl.port_manager__generic2 import PortManager__Generic2
 
 from .impl.platforms import internal_platform_utils_factory
 from .impl import internal_utils
@@ -37,10 +37,7 @@ _pg_config_data = {}
 #
 # The old, global "port manager" always worked with LOCAL system
 #
-_old_port_manager = PortManager__Generic(LocalOperations.get_single_instance())
-
-# ports used by nodes
-bound_ports = _old_port_manager._reserved_ports
+_old_port_manager = PortManager__Generic2(LocalOperations.get_single_instance())
 
 
 # re-export version type
@@ -55,7 +52,7 @@ class PgVer(Version):
 
 def internal__reserve_port():
     """
-    Generate a new port and add it to 'bound_ports'.
+    Generate a new port.
     """
     return _old_port_manager.reserve_port()
 

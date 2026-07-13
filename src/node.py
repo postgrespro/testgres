@@ -77,7 +77,7 @@ from .exceptions import \
 
 from .port_manager import PortManager
 from .impl.port_manager__this_host import PortManager__ThisHost
-from .impl.port_manager__generic import PortManager__Generic
+from .impl.port_manager__generic2 import PortManager__Generic2
 
 from .logger import TestgresLogger
 
@@ -309,12 +309,12 @@ class PostgresNode(object):
 
         if os_ops is LocalOperations.get_single_instance():
             assert utils._old_port_manager is not None
-            assert type(utils._old_port_manager) is PortManager__Generic
+            assert type(utils._old_port_manager) is PortManager__Generic2
             assert utils._old_port_manager._os_ops is os_ops
             return PortManager__ThisHost.get_single_instance()
 
         # TODO: Throw the exception "Please define a port manager." ?
-        return PortManager__Generic(os_ops)
+        return PortManager__Generic2(os_ops)
 
     def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
         assert name is None or type(name) is str

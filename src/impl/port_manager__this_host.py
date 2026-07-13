@@ -3,10 +3,11 @@ from ..port_manager import PortManager
 from .. import utils
 
 import threading
+import typing
 
 
 class PortManager__ThisHost(PortManager):
-    sm_single_instance: PortManager = None
+    sm_single_instance: typing.Optional[PortManager] = None
     sm_single_instance_guard = threading.Lock()
 
     @staticmethod
