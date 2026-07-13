@@ -5,7 +5,7 @@ from testgres.operations.remote_ops import RemoteOperations
 
 from src.node import PortManager
 from src.node import PortManager__ThisHost
-from src.node import PortManager__Generic
+from src.node import PortManager__Generic2
 
 import os
 import typing
@@ -45,11 +45,11 @@ class OsOpsDescrs:
 
 
 class PortManagers:
-    sm_remote_port_manager = PortManager__Generic(OsOpsDescrs.sm_remote_os_ops)
+    sm_remote_port_manager = PortManager__Generic2(OsOpsDescrs.sm_remote_os_ops)
 
     sm_local_port_manager = PortManager__ThisHost.get_single_instance()
 
-    sm_local2_port_manager = PortManager__Generic(OsOpsDescrs.sm_local_os_ops)
+    sm_local2_port_manager = PortManager__Generic2(OsOpsDescrs.sm_local_os_ops)
 
 
 class PostgresNodeService:
