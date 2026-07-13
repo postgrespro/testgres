@@ -639,6 +639,7 @@ class TestTestgresCommon:
             )
 
             if sleep_after_clean:
+                # server removes pid file and shutdown within 60 seconds.
                 logging.info("SLEEP 65 sec!")
                 time.sleep(65)
 
@@ -800,7 +801,8 @@ class TestTestgresCommon:
                     break
 
                 bw_attempt += 1
-                if bw_attempt == 30:  # We give the server up to 3 seconds to start all background workers.
+                # We give the server up to 3 seconds to start all background workers.
+                if bw_attempt == 30:
                     raise RuntimeError("BackgroundWriter process did not start in time under heavy load.")
 
                 time.sleep(0.1)
@@ -810,7 +812,6 @@ class TestTestgresCommon:
             aux_pids = node.auxiliary_pids
             assert type(aux_pids) is dict
             assert ProcessType.BackgroundWriter in aux_pids
-
             bw_pids = aux_pids[ProcessType.BackgroundWriter]
             assert type(bw_pids) is list
             assert len(bw_pids) == 1
@@ -3056,14 +3057,3 @@ where c.relname=%s;"""
         for path in os_ops.environ("PATH").split(os.pathsep):
             if good_properties(os.path.join(path, util)):
                 return True
-
-    @staticmethod
-    def helper__is_file_not_found_exception(e: Exception) -> bool:
-        if isinstance(e, FileNotFoundError):
-            return True
-
-        if isinstance(e, ExecUtilException):
-            if e.exit_code == 2:
-                return True
-
-        return False
