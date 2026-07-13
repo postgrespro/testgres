@@ -92,7 +92,7 @@ class PortManager__Generic2(PortManager):
 
             for port in sampled_ports:
                 assert type(port) is int
-                assert not (port in self._reserved_ports)
+                assert port not in self._reserved_ports
                 assert port in self._available_ports
 
                 assert port >= __class__._C_MIN_PORT_NUMBER
@@ -104,7 +104,7 @@ class PortManager__Generic2(PortManager):
                 try:
                     lock_path = self.helper__make_lock_path(port)
                     lock_obj = OsLockFsObj(self._os_ops, lock_path)  # raise
-                except:  # noqa: 722
+                except:  # noqa: E722
                     continue
 
                 assert isinstance(lock_obj, OsLockFsObj)
@@ -112,14 +112,14 @@ class PortManager__Generic2(PortManager):
 
                 try:
                     self._reserved_ports[port] = lock_obj
-                except:  # noqa: 722
-                    assert not (port in self._reserved_ports)
+                except:  # noqa: E722
+                    assert port not in self._reserved_ports
                     lock_obj.release()
                     raise
 
                 self._available_ports.discard(port)
                 assert port in self._reserved_ports
-                assert not (port in self._available_ports)
+                assert port not in self._available_ports
                 __class__.helper__send_debug_msg("Port {} is reserved.", port)
                 return port
 
@@ -135,10 +135,10 @@ class PortManager__Generic2(PortManager):
 
         with self._guard:
             assert number in self._reserved_ports
-            assert not (number in self._available_ports)
+            assert number not in self._available_ports
             self._available_ports.add(number)
             lock_obj = self._reserved_ports.pop(number)
-            assert not (number in self._reserved_ports)
+            assert number not in self._reserved_ports
             assert number in self._available_ports
             assert isinstance(lock_obj, OsLockFsObj)
             lock_obj.release()
