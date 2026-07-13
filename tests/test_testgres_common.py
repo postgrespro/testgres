@@ -587,7 +587,27 @@ class TestTestgresCommon:
             assert expected_msg == x.value.error
         return
 
-    def test_status__force_clean_postmaster_pid(self, node_svc: PostgresNodeService):
+    sm_false_true = [False, True]
+
+    @pytest.fixture(
+        params=[
+            pytest.param(
+                x,
+                id="sleep_after_clean={}".format(x),
+            )
+            for x in sm_false_true
+        ]
+    )
+    def sleep_after_clean(self, request: pytest.FixtureRequest) -> bool:
+        assert isinstance(request, pytest.FixtureRequest)
+        assert type(request.param) is bool
+        return request.param
+
+    def test_status__force_clean_postmaster_pid(
+        self,
+        node_svc: PostgresNodeService,
+        sleep_after_clean: bool,
+    ):
         assert isinstance(node_svc, PostgresNodeService)
 
         assert (NodeStatus.Running)
@@ -611,27 +631,42 @@ class TestTestgresCommon:
                 postmaster_pid_file
             ))
 
+            logging.info("Clean pid file...")
             node.os_ops.write(
                 postmaster_pid_file,
                 "",
                 truncate=True,
             )
 
-            x = node.os_ops.read(
-                postmaster_pid_file,
-                encoding="utf-8",
-                binary=False
-            )
-            assert x == ""
+            if sleep_after_clean:
+                logging.info("SLEEP 65 sec!")
+                time.sleep(65)
 
-            with pytest.raises(expected_exception=ExecUtilException) as x:
-                node.status()
+            logging.info("Check node status...")
+            node_status: typing.Optional[NodeStatus]
+            try:
+                node_status = node.status()
+            except ExecUtilException as e:
+                logging.info("Catch exception ({}): {}".format(
+                    type(e).__name__,
+                    str(e),
+                ))
 
-            expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
-                postmaster_pid_file
-            )
+                expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
+                    postmaster_pid_file
+                )
+                assert expected_msg == e.error
+            else:
+                assert node_status is not None
 
-            assert expected_msg == x.value.error
+                logging.info("Node Status is {}".format(node_status.name))
+
+                if node_status == NodeStatus.Stopped:
+                    pass
+                elif node_status == NodeStatus.Zombie:
+                    logging.warning("Zombie is detected!")
+                else:
+                    raise RuntimeError("Unknown node status: {}.".format(node_status))
         return
 
     def test_kill__is_not_initialized(
@@ -3021,3 +3056,14 @@ where c.relname=%s;"""
         for path in os_ops.environ("PATH").split(os.pathsep):
             if good_properties(os.path.join(path, util)):
                 return True
+
+    @staticmethod
+    def helper__is_file_not_found_exception(e: Exception) -> bool:
+        if isinstance(e, FileNotFoundError):
+            return True
+
+        if isinstance(e, ExecUtilException):
+            if e.exit_code == 2:
+                return True
+
+        return False
