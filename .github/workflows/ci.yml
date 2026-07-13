@@ -165,6 +165,7 @@ jobs:
       BASE_SIGN: "${{ matrix.platform }}-${{ matrix.case_suffix }}"
 
       DOCKER_HIGHLOAD_FLAGS: >-
+        --init
         --sysctl net.core.somaxconn=4096
         --sysctl net.ipv4.tcp_max_syn_backlog=4096
         --ulimit nofile=524288:524288
