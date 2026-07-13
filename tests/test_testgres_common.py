@@ -754,9 +754,28 @@ class TestTestgresCommon:
             assert node.is_started
             node_pid = node.pid
             assert type(node_pid) is int
+
+            # --- We expect BackgroundWriter to appear under load ------------------------
+            bw_attempt = 0
+            while True:
+                aux_pids = node.auxiliary_pids
+                assert type(aux_pids) is dict
+
+                if ProcessType.BackgroundWriter in aux_pids:
+                    break
+
+                bw_attempt += 1
+                if bw_attempt == 30:  # We give the server up to 3 seconds to start all background workers.
+                    raise RuntimeError("BackgroundWriter process did not start in time under heavy load.")
+
+                time.sleep(0.1)
+                continue
+
+            # ----------------------------------------------------------------------------
             aux_pids = node.auxiliary_pids
             assert type(aux_pids) is dict
             assert ProcessType.BackgroundWriter in aux_pids
+
             bw_pids = aux_pids[ProcessType.BackgroundWriter]
             assert type(bw_pids) is list
             assert len(bw_pids) == 1
