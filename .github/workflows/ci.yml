@@ -164,6 +164,14 @@ jobs:
     env:
       BASE_SIGN: "${{ matrix.platform }}-${{ matrix.case_suffix }}"
 
+      DOCKER_HIGHLOAD_FLAGS: >-
+        --sysctl net.core.somaxconn=4096
+        --sysctl net.ipv4.tcp_max_syn_backlog=4096
+        --ulimit nofile=524288:524288
+        --ulimit nproc=65535:65535
+        --sysctl net.ipv4.tcp_tw_reuse=1
+        --sysctl net.ipv4.ip_local_port_range="1024 65535"
+
     steps:
     - name: Prepare variables
       run: |
@@ -199,10 +207,9 @@ jobs:
         # "- sleep infinity" is a right command. Docker ignores "-" and runs "sleep infinity".
         #
         docker run -d -t \
-          --sysctl net.core.somaxconn=4096 \
-          --sysctl net.ipv4.tcp_max_syn_backlog=4096 \
-          --ulimit nofile=524288:524288 \
-          --ulimit nproc=65535:65535 \
+          ${{ env.DOCKER_HIGHLOAD_FLAGS }} \
+          --sysctl net.ipv4.tcp_tw_reuse=1 \
+          --sysctl net.ipv4.ip_local_port_range="1024 65535" \
           --network ${{ env.RUN_CFG__NETWORK_NAME }} \
           --name ${{ env.RUN_CFG__MACHINE2_NAME }} \
           "${{ env.RUN_CFG__DOCKER_IMAGE_NAME }}" \
@@ -250,10 +257,7 @@ jobs:
         # Pass environment variables so Python tests know where to start.
         # Added the --rm flag so that the container is automatically deleted after the tests are completed
         docker run --rm -t \
-          --sysctl net.core.somaxconn=4096 \
-          --sysctl net.ipv4.tcp_max_syn_backlog=4096 \
-          --ulimit nofile=524288:524288 \
-          --ulimit nproc=65535:65535 \
+          ${{ env.DOCKER_HIGHLOAD_FLAGS }} \
           --network ${{ env.RUN_CFG__NETWORK_NAME }} \
           --name ${{ env.RUN_CFG__MACHINE1_NAME }} \
           -v ${{ github.workspace }}/${{ env.RUN_CFG__LOGS_DIR }}:/home/test/testgres/logs \
