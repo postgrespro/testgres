@@ -16,7 +16,7 @@ class OsLockFsObj:
 
     def __init__(self, os_ops: OsOperations, path: str):
         assert isinstance(os_ops, OsOperations)
-        assert type(path) == str  # noqa: str
+        assert type(path) is str
 
         os_ops.makedir(path)  # throw
 
@@ -25,7 +25,7 @@ class OsLockFsObj:
         return
 
     def release(self) -> None:
-        assert type(self._path) == str  # noqa: str
+        assert type(self._path) is str
         assert isinstance(self._os_ops, OsOperations)
         assert self._os_ops.path_exists(self._path)
 
@@ -69,21 +69,21 @@ class PortManager__Generic2(PortManager):
 
     def reserve_port(self) -> int:
         assert self._guard is not None
-        assert type(self._available_ports) == set  # noqa: E721
-        assert type(self._reserved_ports) == dict  # noqa: E721
+        assert type(self._available_ports) is set
+        assert type(self._reserved_ports) is dict
         assert isinstance(self._os_ops, OsOperations)
 
         with self._guard:
             if self._lock_dir is None:
                 temp_dir = self._os_ops.get_tempdir()
-                assert type(temp_dir) == str  # noqa: E721
+                assert type(temp_dir) is str
                 lock_dir = self._os_ops.build_path(temp_dir, consts.TMP_TESTGRES_PORTS)
-                assert type(lock_dir) == str  # noqa: E721
+                assert type(lock_dir) is str
                 self._os_ops.makedirs(lock_dir)
                 self._lock_dir = lock_dir
 
             assert self._lock_dir is not None
-            assert type(self._lock_dir) == str  # noqa: E721
+            assert type(self._lock_dir) is str
 
             t = tuple(self._available_ports)
             assert len(t) == len(self._available_ports)
@@ -91,7 +91,7 @@ class PortManager__Generic2(PortManager):
             t = None
 
             for port in sampled_ports:
-                assert type(port) == int  # noqa: E721
+                assert type(port) is int
                 assert not (port in self._reserved_ports)
                 assert port in self._available_ports
 
@@ -126,12 +126,12 @@ class PortManager__Generic2(PortManager):
         raise PortForException("Can't select a port.")
 
     def release_port(self, number: int) -> None:
-        assert type(number) == int  # noqa: E721
+        assert type(number) is int
         assert number >= __class__._C_MIN_PORT_NUMBER
         assert number <= __class__._C_MAX_PORT_NUMBER
 
         assert self._guard is not None
-        assert type(self._reserved_ports) == dict  # noqa: E721
+        assert type(self._reserved_ports) is dict
 
         with self._guard:
             assert number in self._reserved_ports
@@ -149,18 +149,18 @@ class PortManager__Generic2(PortManager):
     def helper__send_debug_msg(msg_template: str, *args) -> None:
         assert msg_template is not None
         assert args is not None
-        assert type(msg_template) == str  # noqa: E721
-        assert type(args) == tuple  # noqa: E721
+        assert type(msg_template) is str
+        assert type(args) is tuple
         assert msg_template != ""
         s = "[port manager] "
         s += msg_template.format(*args)
         logging.debug(s)
 
     def helper__make_lock_path(self, port_number: int) -> str:
-        assert type(port_number) == int  # noqa: E721
+        assert type(port_number) is int
         # You have to call the reserve_port at first!
-        assert type(self._lock_dir) == str  # noqa: E721
+        assert type(self._lock_dir) is str
 
         result = self._os_ops.build_path(self._lock_dir, str(port_number) + ".lock")
-        assert type(result) == str  # noqa: E721
+        assert type(result) is str
         return result
