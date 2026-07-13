@@ -55,7 +55,7 @@ show_fs_state() {
 show_fs_state
 
 # run tests (PATH)
-time coverage run -a -m pytest -l -vvv -n 8 -k "${TEST_FILTER}"
+time coverage run -a -m pytest -l -vvv -n 4 -k "${TEST_FILTER}"
 
 # ---------------------------------------- PG_BIN
 
@@ -63,7 +63,7 @@ show_fs_state
 
 # run tests (PG_BIN)
 PG_BIN=$(pg_config --bindir) \
-time coverage run -a -m pytest -l -vvv -n 8 -k "${TEST_FILTER}"
+time coverage run -a -m pytest -l -vvv -n 4 -k "${TEST_FILTER}"
 
 # ---------------------------------------- PG_CONFIG
 
@@ -71,7 +71,7 @@ show_fs_state
 
 # run tests (PG_CONFIG)
 PG_CONFIG=$(pg_config --bindir)/pg_config \
-time coverage run -a -m pytest -l -vvv -n 8 -k "${TEST_FILTER}"
+time coverage run -a -m pytest -l -vvv -n 4 -k "${TEST_FILTER}"
 
 # ---------------------------------------- pg8000
 
@@ -81,7 +81,7 @@ show_fs_state
 pip uninstall -y psycopg2
 pip install pg8000
 PG_CONFIG=$(pg_config --bindir)/pg_config \
-time coverage run -a -m pytest -l -vvv -n 8 -k "${TEST_FILTER}"
+time coverage run -a -m pytest -l -vvv -n 4 -k "${TEST_FILTER}"
 
 # ---------------------------------------- finish
 
