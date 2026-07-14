@@ -81,7 +81,7 @@ jobs:
           - platform: "alpine"
             python: "3.8.0"
             postgres: "17"
-            case_suffix: "py3_08_88-pg17_xx"
+            case_suffix: "py3_08_00-pg17_xx"
           - platform: "alpine"
             python: "3.8"
             postgres: "17"
