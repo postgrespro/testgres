@@ -1,0 +1,150 @@
+ARG PG_VERSION=17
+ARG PYTHON_VERSION=3
+
+# --------------------------------------------- base1
+FROM rockylinux:8 AS base1
+
+# Enable the PowerTools repository (called crb or powertools in Rocky/Alma),
+# since without it, dnf won't find the python3-devel packages for building extensions.
+RUN dnf install -y 'dnf-command(config-manager)' && \
+    dnf config-manager --set-enabled powertools
+
+# Combine the installation of system utilities, SSH into one layer
+RUN dnf install -y \
+    sudo \
+    curl \
+    ca-certificates \
+    openssh-server \
+    openssh-clients \
+    sshpass \
+    time \
+    util-linux \
+    procps-ng \
+    git \
+    iproute \
+    bzip2 \
+    && dnf clean all
+
+RUN sed -i 's/#MaxStartups 10:30:100/MaxStartups 2000:30:2000/' /etc/ssh/sshd_config && \
+    sed -i 's/#MaxSessions 10/MaxSessions 500/' /etc/ssh/sshd_config && \
+    sed -i 's/#MaxAuthTries 6/MaxAuthTries 20/' /etc/ssh/sshd_config
+
+# --------------------------------------------- postgres dev tools
+FROM base1 AS base1_with_dev_tools
+
+RUN dnf install -y \
+    gcc \
+    make \
+    meson \
+    flex \
+    bison \
+    pkg-config \
+    openssl-devel \
+    libicu-devel \
+    libzstd-devel \
+    zlib-devel \
+    lz4-devel \
+    libxml2-devel \
+    && dnf clean all
+
+# --------------------------------------------- postgres build
+FROM base1_with_dev_tools AS base1_with_pg-17
+
+RUN curl -fsSL https://ftp.postgresql.org/pub/source/v17.7/postgresql-17.7.tar.bz2 -o postgresql.tar.bz2 \
+    && mkdir -p /pg/postgres/source \
+    && tar -xjf postgresql.tar.bz2 -C /pg/postgres/source --strip-components=1 \
+    && rm postgresql.tar.bz2
+
+WORKDIR /pg/postgres/source
+
+RUN ./configure --prefix=/pg/postgres/install --with-zlib --with-openssl --without-readline --with-lz4 --with-zstd --with-libxml
+RUN make -j 4 install
+RUN make -j 4 -C contrib install
+
+# SETUP PG_CONFIG
+# When pg_config symlink in /usr/local/bin it returns a real (right) result of --bindir
+RUN ln -s /pg/postgres/install/bin/pg_config -t /usr/local/bin
+
+# SETUP PG CLIENT LIBRARY
+# libpq.so.5 is enough
+RUN ln -s /pg/postgres/install/lib/libpq.so.5 /usr/lib/libpq.so.5
+
+# --------------------------------------------- base2_with_python-3
+FROM base1_with_pg-${PG_VERSION} AS base2_with_python-3
+
+RUN dnf install -y \
+    python39 \
+    python39-devel \
+    && dnf clean all
+
+ENV PYTHON_BINARY=/usr/bin/python3.9
+
+# --------------------------------------------- final
+FROM base2_with_python-${PYTHON_VERSION} AS final
+
+EXPOSE 22
+# In RHEL/CentOS, SSH host keys are generated via sshd-keygen
+RUN ssh-keygen -A
+
+# In the RedHat family, the equivalent of the wheel/sudo group is the wheel group
+RUN useradd -m test && usermod -aG wheel test
+
+# Enable sudo without a password
+RUN echo "test ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Setting a blank password and disabling UsePAM (like in Astra),
+# since SELinux/PAM in RHEL blocks blank passwords over SSH.
+#
+# On local tests it produces:
+#  WARNING: 'UsePAM no' is not supported in RHEL and may cause several problems.
+#
+# But without "sed -i 's/UsePAM yes/UsePAM no/' /etc/ssh/sshd_config" remote tests
+# does not work!
+#
+RUN echo "test:*" | chpasswd -e && \
+    sed -i 's/UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
+
+COPY --chown=test:test . /home/test/testgres
+WORKDIR /home/test/testgres
+
+ENV LANG=C.UTF-8
+
+RUN chmod 700 /home/test/ && \
+    mkdir -p /home/test/.ssh && \
+    chown -R test:test /home/test/.ssh
+
+# Our proven ENTRYPOINT with a DUMMY plug
+ENTRYPOINT ["sh", "-c", " \
+    set -eux; \
+    echo 'SYSTEM START: PREPARING SSH'; \
+    /usr/sbin/sshd; \
+    ls -la /home/test/.ssh/; \
+    \"$@\" \
+", "DUMMY-DUMMY-DUMMY"]
+
+# Standard CMD for tests
+CMD ["bash", "-c", " \
+set -eux; \
+echo \"HOME DIR IS [`realpath ~/`]\"; \
+echo \"WORK DIR IS [$(pwd)]\"; \
+if [ ! -f /home/test/.ssh/id_rsa ]; then \
+    su test -c \"ssh-keygen -t rsa -f /home/test/.ssh/id_rsa -q -N ''\"; \
+    su test -c \"cat /home/test/.ssh/id_rsa.pub >> /home/test/.ssh/authorized_keys\"; \
+    chmod 600 /home/test/.ssh/authorized_keys; \
+fi; \
+ls -la /home/test/.ssh/; \
+su test -c \"ssh-keyscan -H localhost >> /home/test/.ssh/known_hosts\"; \
+su test -c \"ssh-keyscan -H 127.0.0.1 >> /home/test/.ssh/known_hosts\"; \
+if [ -n \"${TEST_CFG__REMOTE_HOST:-}\" ]; then \
+    su test -c \"ssh-keyscan -H ${TEST_CFG__REMOTE_HOST} >> /home/test/.ssh/known_hosts\"; \
+fi; \
+if [ -n \"${TEST_CFG__REMOTE_SSH_KEY:-}\" ]; then \
+    cp \"${TEST_CFG__REMOTE_SSH_KEY}\" \"${TEST_CFG__REMOTE_SSH_KEY}_ci\"; \
+    export TEST_CFG__REMOTE_SSH_KEY=\"${TEST_CFG__REMOTE_SSH_KEY}_ci\"; \
+    chown test:test \"${TEST_CFG__REMOTE_SSH_KEY}\"; \
+    chmod 600 \"${TEST_CFG__REMOTE_SSH_KEY}\"; \
+    ls -la /home/test/.ssh/; \
+fi; \
+ls -la ./; \
+su test -c \"TEST_FILTER='' bash ./run_tests.sh\"; \
+"]
