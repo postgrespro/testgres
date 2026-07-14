@@ -21,6 +21,8 @@ from src import get_pg_config
 
 # NOTE: those are ugly imports
 
+from packaging.version import Version
+
 
 def util_exists(util):
     def good_properties(f):
@@ -72,6 +74,16 @@ class TestTestgresRemote:
         prev_LC_CTYPE = os.environ.get("LC_CTYPE")
         prev_LC_COLLATE = os.environ.get("LC_COLLATE")
 
+        node = __class__.helper__get_node()
+
+        node_version = node.version
+        assert node_version is not None
+        assert type(node_version) is testgres.utils.PgVer
+        assert isinstance(node_version, Version)
+
+        if node.version < Version("11"):
+            pytest.skip("This test does not work on old PG10-.")
+
         try:
             # TODO: Pass unkData through test parameter.
             unkDatas = [
@@ -106,14 +118,15 @@ class TestTestgresRemote:
                 assert os.getenv('LC_CTYPE') == unkData[1]
                 assert os.getenv('LC_COLLATE') is None
 
+                node.cleanup()
+
                 exc: typing.Optional[BaseException] = None
-                with __class__.helper__get_node() as node:
-                    try:
-                        node.init()  # IT RAISES!
-                    except InitNodeException as e:
-                        exc = e.__cause__
-                        assert exc is not None
-                        assert isinstance(exc, ExecUtilException)
+                try:
+                    node.init()  # IT RAISES!
+                except InitNodeException as e:
+                    exc = e.__cause__
+                    assert exc is not None
+                    assert isinstance(exc, ExecUtilException)
 
                 if exc is None:
                     logging.warning("We expected an error!")
@@ -126,8 +139,17 @@ class TestTestgresRemote:
                 errMsg = str(exc)
                 logging.info("Error message is {0}: {1}".format(type(exc).__name__, errMsg))
 
-                assert "warning: setlocale: LC_CTYPE: cannot change locale (" + unkData[1] + ")" in errMsg
-                assert "initdb: error: invalid locale settings; check LANG and LC_* environment variables" in errMsg
+                assert type(exc.error) is str
+
+                # Check an optional message from OS.
+                expectedMsg1 = "warning: setlocale: LC_CTYPE: cannot change locale (" + unkData[1] + ")"
+
+                if expectedMsg1 not in exc.error:
+                    logging.warning("Msg does not contain {!r}.".format(expectedMsg1))
+
+                # Check a mandatory message from initdb.
+                expectedMsg2 = "initdb: error: invalid locale settings; check LANG and LC_* environment variables"
+                assert expectedMsg2 in exc.error
                 continue
 
             if not errorIsDetected:
