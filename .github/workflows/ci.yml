@@ -209,8 +209,6 @@ jobs:
         #
         docker run -d -t \
           ${{ env.DOCKER_HIGHLOAD_FLAGS }} \
-          --sysctl net.ipv4.tcp_tw_reuse=1 \
-          --sysctl net.ipv4.ip_local_port_range="1024 65535" \
           --network ${{ env.RUN_CFG__NETWORK_NAME }} \
           --name ${{ env.RUN_CFG__MACHINE2_NAME }} \
           "${{ env.RUN_CFG__DOCKER_IMAGE_NAME }}" \
