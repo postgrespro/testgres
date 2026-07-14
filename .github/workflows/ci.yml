@@ -158,6 +158,10 @@ jobs:
             python: "3"
             postgres: "17"
             case_suffix: "py3_xx_xx-pg17_xx"
+          - platform: "rockylinux_8"
+            python: "3"
+            postgres: "17"
+            case_suffix: "py3_xx_xx-pg17_xx"
 
     name: "test: ${{ matrix.platform }} | ${{ matrix.case_suffix }}"
 
