@@ -1,0 +1,148 @@
+ARG PG_VERSION=17
+ARG PYTHON_VERSION=3.12
+
+# --------------------------------------------- base1
+FROM postgres:${PG_VERSION}-alpine AS base1
+
+RUN apk add --no-cache \
+    coreutils \
+    bash \
+    mc \
+    procps \
+    openssh \
+    sshpass \
+    sudo \
+    git
+
+RUN sed -i 's/#MaxStartups 10:30:100/MaxStartups 2000:30:2000/' /etc/ssh/sshd_config && \
+    sed -i 's/#MaxSessions 10/MaxSessions 500/' /etc/ssh/sshd_config && \
+    sed -i 's/#MaxAuthTries 6/MaxAuthTries 20/' /etc/ssh/sshd_config
+
+# --------------------------------------------- base2_with_python-3
+FROM base1 AS base2_with_python-3
+
+RUN apk add --no-cache \
+    curl \
+    python3 \
+    python3-dev \
+    build-base \
+    musl-dev \
+    linux-headers \
+    # For pyenv \
+    patch \
+    xz-dev \
+    zip \
+    zlib-dev \
+    libffi-dev \
+    readline-dev \
+    openssl openssl-dev \
+    sqlite-dev \
+    bzip2-dev
+
+ENV PYTHON_BINARY=python3
+
+# --------------------------------------------- base3_with_python-3.7
+FROM base2_with_python-3 AS base3_with_python-3.7
+ENV PYTHON_VERSION=3.7
+
+# --------------------------------------------- base3_with_python-3.8.0
+FROM base2_with_python-3 AS base3_with_python-3.8.0
+ENV PYTHON_VERSION=3.8.0
+
+# --------------------------------------------- base3_with_python-3.8
+FROM base2_with_python-3 AS base3_with_python-3.8
+ENV PYTHON_VERSION=3.8
+
+# --------------------------------------------- base3_with_python-3.9
+FROM base2_with_python-3 AS base3_with_python-3.9
+ENV PYTHON_VERSION=3.9
+
+# --------------------------------------------- base3_with_python-3.10
+FROM base2_with_python-3 AS base3_with_python-3.10
+ENV PYTHON_VERSION=3.10
+
+# --------------------------------------------- base3_with_python-3.11
+FROM base2_with_python-3 AS base3_with_python-3.11
+ENV PYTHON_VERSION=3.11
+
+# --------------------------------------------- base3_with_python-3.12
+FROM base2_with_python-3 AS base3_with_python-3.12
+ENV PYTHON_VERSION=3.12
+
+# --------------------------------------------- base3_with_python-3.13
+FROM base2_with_python-3 AS base3_with_python-3.13
+ENV PYTHON_VERSION=3.13
+
+# --------------------------------------------- base3_with_python-3.14
+FROM base2_with_python-3 AS base3_with_python-3.14
+ENV PYTHON_VERSION=3.14
+
+# --------------------------------------------- final
+FROM base3_with_python-${PYTHON_VERSION} AS final
+
+EXPOSE 22
+RUN ssh-keygen -A
+
+RUN adduser -D test && addgroup -S sudo && adduser test sudo
+
+# It allows to use sudo without password
+RUN echo "test ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# THIS CMD IS NEEDED TO CONNECT THROUGH SSH WITHOUT PASSWORD
+RUN echo "test:*" | chpasswd -e
+
+USER test
+RUN curl https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer | bash
+RUN ~/.pyenv/bin/pyenv install ${PYTHON_VERSION}
+USER root
+
+COPY --chown=test:test . /home/test/testgres
+WORKDIR /home/test/testgres
+
+ENV LANG=C.UTF-8
+
+RUN chmod 700 /home/test/ && \
+    mkdir -p /home/test/.ssh && \
+    chown -R test:test /home/test/.ssh && \
+    mkdir /home/test/testgres/logs && \
+    chown -R test:test /home/test/testgres/logs
+
+#
+# \"$@\"
+#   - quote is important!
+#   - "DUMMY-DUMMY-DUMMY" will be ignored. Do not ask me "why?". AXEZ.
+#
+ENTRYPOINT ["sh", "-c", " \
+    set -eux; \
+    echo 'SYSTEM START: PREPARING SSH'; \
+    /usr/sbin/sshd; \
+    ls -la /home/test/.ssh/; \
+    \"$@\" \
+", "DUMMY-DUMMY-DUMMY"]
+
+# Run tests by default (master machine role)
+CMD ["bash", "-c",  " \
+set -eux; \
+echo \"HOME DIR IS [`realpath ~/`]\"; \
+echo \"WORK DIR IS [$(pwd)]\"; \
+if [ ! -f /home/test/.ssh/id_rsa ]; then \
+    su test -c \"ssh-keygen -t rsa -f /home/test/.ssh/id_rsa -q -N ''\"; \
+    su test -c \"cat /home/test/.ssh/id_rsa.pub >> /home/test/.ssh/authorized_keys\"; \
+    chmod 600 /home/test/.ssh/authorized_keys; \
+fi; \
+ls -la /home/test/.ssh/; \
+su test -c \"ssh-keyscan -H localhost >> /home/test/.ssh/known_hosts\"; \
+su test -c \"ssh-keyscan -H 127.0.0.1 >> /home/test/.ssh/known_hosts\"; \
+if [ -n \"${TEST_CFG__REMOTE_HOST:-}\" ]; then \
+    su test -c \"ssh-keyscan -H ${TEST_CFG__REMOTE_HOST} >> /home/test/.ssh/known_hosts\"; \
+fi; \
+if [ -n \"${TEST_CFG__REMOTE_SSH_KEY:-}\" ]; then \
+    cp \"${TEST_CFG__REMOTE_SSH_KEY}\" \"${TEST_CFG__REMOTE_SSH_KEY}_ci\"; \
+    export TEST_CFG__REMOTE_SSH_KEY=\"${TEST_CFG__REMOTE_SSH_KEY}_ci\"; \
+    chown test:test \"${TEST_CFG__REMOTE_SSH_KEY}\"; \
+    chmod 600 \"${TEST_CFG__REMOTE_SSH_KEY}\"; \
+    ls -la /home/test/.ssh/; \
+fi; \
+ls -la ./; \
+su test -c \"TEST_FILTER='' PATH=\"/home/test/.pyenv/bin:$PATH\" bash ./run_tests2.sh\"; \
+"]

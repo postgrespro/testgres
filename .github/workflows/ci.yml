@@ -74,75 +74,104 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: "std2-all"
+          - platform: "alpine"
             python: "3.7"
             postgres: "17"
-          - platform: "std2-all"
+            case_suffix: "py3_07_xx-pg17_xx"
+          - platform: "alpine"
             python: "3.8.0"
             postgres: "17"
-          - platform: "std2-all"
+            case_suffix: "py3_08_88-pg17_xx"
+          - platform: "alpine"
             python: "3.8"
             postgres: "17"
-          - platform: "std2-all"
+            case_suffix: "py3_08_xx-pg17_xx"
+          - platform: "alpine"
             python: "3.9"
             postgres: "17"
-          - platform: "std2-all"
+            case_suffix: "py3_09_xx-pg17_xx"
+          - platform: "alpine"
             python: "3.10"
             postgres: "17"
-          - platform: "std2-all"
+            case_suffix: "py3_10_xx-pg17_xx"
+          - platform: "alpine"
             python: "3.11"
             postgres: "17"
-          - platform: "std2-all"
+            case_suffix: "py3_11_xx-pg17_xx"
+          - platform: "alpine"
             python: "3.12"
             postgres: "17"
-          - platform: "std2-all"
+            case_suffix: "py3_12_xx-pg17_xx"
+          - platform: "alpine"
             python: "3.13"
             postgres: "17"
-          - platform: "std2-all"
+            case_suffix: "py3_13_xx-pg17_xx"
+          - platform: "alpine"
             python: "3.14"
             postgres: "17"
-          - platform: "std"
-            python: "3"
+            case_suffix: "py3_14_xx-pg17_xx"
+          - platform: "alpine"
+            python: "3.12"
             postgres: "10"
-          - platform: "std"
-            python: "3"
+            case_suffix: "py3_12_xx-pg10_xx"
+          - platform: "alpine"
+            python: "3.12"
             postgres: "11"
-          - platform: "std"
-            python: "3"
+            case_suffix: "py3_12_xx-pg11_xx"
+          - platform: "alpine"
+            python: "3.12"
             postgres: "12"
-          - platform: "std"
-            python: "3"
+            case_suffix: "py3_12_xx-pg12_xx"
+          - platform: "alpine"
+            python: "3.12"
             postgres: "13"
-          - platform: "std"
-            python: "3"
+            case_suffix: "py3_12_xx-pg13_xx"
+          - platform: "alpine"
+            python: "3.12"
             postgres: "14"
-          - platform: "std"
-            python: "3"
+            case_suffix: "py3_12_xx-pg14_xx"
+          - platform: "alpine"
+            python: "3.12"
             postgres: "15"
-          - platform: "std"
-            python: "3"
+            case_suffix: "py3_12_xx-pg15_xx"
+          - platform: "alpine"
+            python: "3.12"
             postgres: "16"
-          - platform: "std-all"
-            python: "3"
-            postgres: "17"
-          - platform: "std-all"
-            python: "3"
+            case_suffix: "py3_12_xx-pg16_xx"
+          - platform: "alpine"
+            python: "3.12"
             postgres: "18"
+            case_suffix: "py3_12_xx-pg18_xx"
           - platform: "ubuntu_24_04"
             python: "3"
             postgres: "17"
+            case_suffix: "py3_xx_xx-pg17_xx"
           - platform: "altlinux_10"
             python: "3"
             postgres: "17"
+            case_suffix: "py3_xx_xx-pg17_xx"
           - platform: "altlinux_11"
             python: "3"
             postgres: "17"
+            case_suffix: "py3_xx_xx-pg17_xx"
           - platform: "astralinux_1_7"
             python: "3"
             postgres: "17"
+            case_suffix: "py3_xx_xx-pg17_xx"
+
+    name: "test: ${{ matrix.platform }} | ${{ matrix.case_suffix }}"
 
     env:
-      BASE_SIGN: "${{ matrix.platform }}-py${{ matrix.python }}-pg${{ matrix.postgres }}"
+      BASE_SIGN: "${{ matrix.platform }}-${{ matrix.case_suffix }}"
+
+      DOCKER_HIGHLOAD_FLAGS: >-
+        --init
+        --sysctl net.core.somaxconn=4096
+        --sysctl net.ipv4.tcp_max_syn_backlog=4096
+        --ulimit nofile=524288:524288
+        --ulimit nproc=65535:65535
+        --sysctl net.ipv4.tcp_tw_reuse=1
+        --sysctl net.ipv4.ip_local_port_range="1024 65535"
 
     steps:
     - name: Prepare variables
@@ -150,6 +179,10 @@ jobs:
         echo "RUN_CFG__NOW=$(date +'%Y%m%d_%H%M%S')" >> $GITHUB_ENV
         echo "RUN_CFG__LOGS_DIR=logs-${{ env.BASE_SIGN }}" >> $GITHUB_ENV
         echo "RUN_CFG__DOCKER_IMAGE_NAME=tests-${{ env.BASE_SIGN }}" >> $GITHUB_ENV
+        echo "RUN_CFG__NETWORK_NAME=network-${{ env.BASE_SIGN }}" >> $GITHUB_ENV
+        echo "RUN_CFG__MACHINE1_NAME=machine1-${{ env.BASE_SIGN }}" >> $GITHUB_ENV
+        echo "RUN_CFG__MACHINE2_NAME=machine2-${{ env.BASE_SIGN }}" >> $GITHUB_ENV
+        echo "RUN_CFG__SSH_KEY_NAME=id_ed25519-${{ env.BASE_SIGN }}" >> $GITHUB_ENV
         echo "---------- [$GITHUB_ENV]"
         cat $GITHUB_ENV
     - name: Checkout
@@ -158,10 +191,83 @@ jobs:
       run: mkdir -p "${{ env.RUN_CFG__LOGS_DIR }}"
     - name: Adjust logs folder permission
       run: chmod -R 777 "${{ env.RUN_CFG__LOGS_DIR }}"
-    - name: Build local image ${{ matrix.alpine }}
+    - name: Build local image
       run: docker build --build-arg PG_VERSION="${{ matrix.postgres }}" --build-arg PYTHON_VERSION="${{ matrix.python }}" -t "${{ env.RUN_CFG__DOCKER_IMAGE_NAME }}" -f Dockerfile--${{ matrix.platform }}.tmpl .
-    - name: Run
-      run: docker run $(bash <(curl -s https://codecov.io/env)) -t -v ${{ github.workspace }}/${{ env.RUN_CFG__LOGS_DIR }}:/home/test/testgres/logs "${{ env.RUN_CFG__DOCKER_IMAGE_NAME }}"
+    - name: Generate temporary SSH Key pair for CI
+      run: |
+        # Generate a key without a password directly on the GitHub Actions host
+        ssh-keygen -q -t ed25519 -N "" -f ${{ github.workspace }}/${{ env.RUN_CFG__SSH_KEY_NAME }}
+
+    - name: Setup network
+      run: |
+        docker network create ${{ env.RUN_CFG__NETWORK_NAME }}
+
+    - name: Run machine2 (for remote operations)
+      run: |
+        #
+        # "- sleep infinity" is a right command. Docker ignores "-" and runs "sleep infinity".
+        #
+        docker run -d -t \
+          ${{ env.DOCKER_HIGHLOAD_FLAGS }} \
+          --sysctl net.ipv4.tcp_tw_reuse=1 \
+          --sysctl net.ipv4.ip_local_port_range="1024 65535" \
+          --network ${{ env.RUN_CFG__NETWORK_NAME }} \
+          --name ${{ env.RUN_CFG__MACHINE2_NAME }} \
+          "${{ env.RUN_CFG__DOCKER_IMAGE_NAME }}" \
+          sleep infinity
+
+        echo "Waiting for container ${{ env.RUN_CFG__MACHINE2_NAME }} to start ..."
+        
+        # Set the timeout using the attempt counter
+        MAX_ATTEMPTS=50
+        ATTEMPT=0
+        
+        until [ "$(docker container inspect --format '{{.State.Running}}' "${{ env.RUN_CFG__MACHINE2_NAME }}")" = "true" ]; do
+          ATTEMPT=$((ATTEMPT + 1))
+          if [ $ATTEMPT -ge $MAX_ATTEMPTS ]; then
+            echo "Error: Container did not start within the allotted time (timeout)!"
+            exit 1
+          fi
+          sleep 0.2
+        done
+        
+        echo "Container successfully launched in $((ATTEMPT * 2 / 10)) second(s)!"
+
+        #
+        # Setup authorized_keys
+        #
+        cat ${{ github.workspace }}/${{ env.RUN_CFG__SSH_KEY_NAME }}.pub | \
+        docker exec -i -u test ${{ env.RUN_CFG__MACHINE2_NAME }} sh -c " \
+          cat >> /home/test/.ssh/authorized_keys && \
+          chmod 600 /home/test/.ssh/authorized_keys \
+        "
+
+        #
+        # Log status
+        #
+        docker exec -u root ${{ env.RUN_CFG__MACHINE2_NAME }} sh -c "
+          echo '--- INSIDE CONTAINER OS ---' && \
+          cat /etc/os-release && \
+          echo '--- INSIDE CONTAINER .SSH ---' && \
+          ls -la /home/test/.ssh/ \
+        "
+
+    - name: Run machine1 (main test container)
+      run: |
+        # Launch the main container, passing the private key to the .ssh folder of the test user.
+        # Pass environment variables so Python tests know where to start.
+        # Added the --rm flag so that the container is automatically deleted after the tests are completed
+        docker run --rm -t \
+          ${{ env.DOCKER_HIGHLOAD_FLAGS }} \
+          --network ${{ env.RUN_CFG__NETWORK_NAME }} \
+          --name ${{ env.RUN_CFG__MACHINE1_NAME }} \
+          -v ${{ github.workspace }}/${{ env.RUN_CFG__LOGS_DIR }}:/home/test/testgres/logs \
+          -v ${{ github.workspace }}/${{ env.RUN_CFG__SSH_KEY_NAME }}:/home/test/testgres/id_ed25519_test:ro \
+          -e TEST_CFG__REMOTE_HOST="${{ env.RUN_CFG__MACHINE2_NAME }}" \
+          -e TEST_CFG__REMOTE_PORT="22" \
+          -e TEST_CFG__REMOTE_USERNAME="test" \
+          -e TEST_CFG__REMOTE_SSH_KEY="/home/test/testgres/id_ed25519_test" \
+          "${{ env.RUN_CFG__DOCKER_IMAGE_NAME }}"
     - name: Upload Logs
       uses: actions/upload-artifact@v7
       if: always() # IT IS IMPORTANT!
