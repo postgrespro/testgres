@@ -61,6 +61,38 @@ class RaiseError:
         raise InvalidOperationException(msg)
 
     @staticmethod
+    def function_did_multiple_attempts_without_stable_result(
+        function_name: str,
+        failures: typing.List[Exception],
+    ) -> typing.NoReturn:
+        assert type(function_name) is str
+        assert type(failures) is list
+
+        err_msg = "{} did {} attempts and has not gotten a stable result.".format(
+            function_name,
+            len(failures),
+        )
+
+        err_msg += " List of failures:\n"
+
+        n = 0
+        sep = ""
+        for e in failures:
+            assert isinstance(e, Exception)
+
+            n += 1
+            err_msg += sep
+            err_msg += "Failure #{}. Exception ({}):\n{}".format(
+                n,
+                type(e).__name__,
+                str(e),
+            )
+            sep = "\n"
+            continue
+
+        raise InvalidOperationException(err_msg)
+
+    @staticmethod
     def _map_node_status_to_reason(
         node_status: NodeStatus,
         node_pid: typing.Optional[int],
