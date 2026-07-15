@@ -1,0 +1,158 @@
+#
+# NOTE: RockyLinux-10 creates zomby processes!
+#
+ARG PG_VERSION=17
+ARG PYTHON_VERSION=3
+
+# --------------------------------------------- base1
+FROM rockylinux/rockylinux:10 AS base1
+
+# In RHEL 9/10, the repository for dev packages is called CRB (instead of powertools)
+RUN dnf install -y 'dnf-command(config-manager)' && \
+    dnf config-manager --set-enabled crb
+
+# Consolidating system utilities, including iproute (to prevent tests from failing)
+# Added the --allowerasing flag so dnf can seamlessly replace curl-minimal with full-fledged curl
+RUN dnf install -y --allowerasing \
+    sudo \
+    curl \
+    ca-certificates \
+    openssh-server \
+    openssh-clients \
+    sshpass \
+    time \
+    util-linux \
+    procps-ng \
+    git \
+    iproute \
+    bzip2 \
+    && dnf clean all
+
+# In RHEL 9/10, to generate host keys inside Docker, you need to call this binary
+RUN /usr/libexec/openssh/sshd-keygen rsa && \
+    /usr/libexec/openssh/sshd-keygen ed25519
+
+RUN sed -i 's/#MaxStartups 10:30:100/MaxStartups 2000:30:2000/' /etc/ssh/sshd_config && \
+    sed -i 's/#MaxSessions 10/MaxSessions 500/' /etc/ssh/sshd_config && \
+    sed -i 's/#MaxAuthTries 6/MaxAuthTries 20/' /etc/ssh/sshd_config
+
+# --------------------------------------------- postgres dev tools
+FROM base1 AS base1_with_dev_tools
+
+RUN dnf install -y \
+    gcc \
+    make \
+    meson \
+    flex \
+    bison \
+    pkg-config \
+    openssl-devel \
+    libicu-devel \
+    libzstd-devel \
+    zlib-devel \
+    lz4-devel \
+    libxml2-devel \
+    perl-interpreter \
+    perl-FindBin \
+    perl-File-Compare \
+    && dnf clean all
+
+# --------------------------------------------- postgres build
+FROM base1_with_dev_tools AS base1_with_pg-17
+
+RUN curl -fsSL https://ftp.postgresql.org/pub/source/v17.7/postgresql-17.7.tar.bz2 -o postgresql.tar.bz2 \
+    && mkdir -p /pg/postgres/source \
+    && tar -xjf postgresql.tar.bz2 -C /pg/postgres/source --strip-components=1 \
+    && rm postgresql.tar.bz2
+
+WORKDIR /pg/postgres/source
+
+RUN ./configure --prefix=/pg/postgres/install --with-zlib --with-openssl --without-readline --with-lz4 --with-zstd --with-libxml
+RUN make -j 4 install
+RUN make -j 4 -C contrib install
+
+# SETUP PG_CONFIG
+RUN ln -s /pg/postgres/install/bin/pg_config -t /usr/local/bin
+
+# SETUP PG CLIENT LIBRARY
+# ИСПРАВЛЕНО: ссылаемся на базовое имя libpq.so.5, чтобы Dockerfile не ломался при обновлении минорных версий PG
+RUN ln -s /pg/postgres/install/lib/libpq.so.5 /usr/lib64/libpq.so.5 && \
+    echo "/pg/postgres/install/lib" > /etc/ld.so.conf.d/postgres.conf && ldconfig
+
+# --------------------------------------------- base2_with_python-3
+FROM base1_with_pg-${PG_VERSION} AS base2_with_python-3
+
+# Rocky 9/10 installs python3.9 or higher (depending on the repository)
+RUN dnf install -y \
+    python3 \
+    python3-devel \
+    && dnf clean all
+
+ENV PYTHON_BINARY=/usr/bin/python3
+
+# --------------------------------------------- final
+FROM base2_with_python-${PYTHON_VERSION} AS final
+
+EXPOSE 22
+
+RUN useradd -m test && usermod -aG wheel test
+
+# Enable sudo without a password
+RUN echo "test ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# HACK FOR RHEL 9/10: Allow legacy key types and disable UsePAM.
+# Additionally, allow passwordless root/test authentication for testing.
+RUN echo "test:*" | chpasswd -e && \
+    sed -i 's/UsePAM yes/UsePAM no/' /etc/ssh/sshd_config && \
+    echo "PubkeyAcceptedKeyTypes +ssh-rsa" >> /etc/ssh/sshd_config && \
+    echo "PermitEmptyPasswords yes" >> /etc/ssh/sshd_config
+
+COPY --chown=test:test . /home/test/testgres
+WORKDIR /home/test/testgres
+
+ENV LANG=C.UTF-8
+
+RUN chmod 700 /home/test/ && \
+    mkdir -p /home/test/.ssh && \
+    echo 'Host *' > /home/test/.ssh/config && \
+    echo '    ControlMaster auto' >> /home/test/.ssh/config && \
+    echo '    ControlPath /home/test/.ssh/master-%r@%h:%p' >> /home/test/.ssh/config && \
+    echo '    ControlPersist 30m' >> /home/test/.ssh/config && \
+    echo '    StrictHostKeyChecking no' >> /home/test/.ssh/config && \
+    echo '    UserKnownHostsFile /dev/null' >> /home/test/.ssh/config && \
+    echo '    GSSAPIAuthentication no' >> /home/test/.ssh/config && \
+    chown -R test:test /home/test/.ssh && \
+    chmod 700 /home/test/.ssh && \
+    chmod 600 /home/test/.ssh/config
+
+# Our ENTRYPOINT with a stub
+ENTRYPOINT ["sh", "-c", " \
+    set -eux; \
+    echo 'SYSTEM START: PREPARING SSH'; \
+    /usr/sbin/sshd; \
+    ls -la /home/test/.ssh/; \
+    \"$@\" \
+", "DUMMY-DUMMY-DUMMY"]
+
+# In CMD, we change the key generation from the deprecated -t rsa to the modern -t ed25519!
+# This ensures that Rocky 9/10 will accept this key without any cryptographic policy issues.
+CMD ["bash", "-c", " \
+set -eux; \
+echo \"HOME DIR IS [`realpath ~/`]\"; \
+echo \"WORK DIR IS [$(pwd)]\"; \
+if [ ! -f /home/test/.ssh/id_ed25519 ]; then \
+    su test -c \"ssh-keygen -t ed25519 -f /home/test/.ssh/id_ed25519 -q -N ''\"; \
+    su test -c \"cat /home/test/.ssh/id_ed25519.pub >> /home/test/.ssh/authorized_keys\"; \
+    chmod 600 /home/test/.ssh/authorized_keys; \
+fi; \
+ls -la /home/test/.ssh/; \
+if [ -n \"${TEST_CFG__REMOTE_SSH_KEY:-}\" ]; then \
+    cp \"${TEST_CFG__REMOTE_SSH_KEY}\" \"${TEST_CFG__REMOTE_SSH_KEY}_ci\"; \
+    export TEST_CFG__REMOTE_SSH_KEY=\"${TEST_CFG__REMOTE_SSH_KEY}_ci\"; \
+    chown test:test \"${TEST_CFG__REMOTE_SSH_KEY}\"; \
+    chmod 600 \"${TEST_CFG__REMOTE_SSH_KEY}\"; \
+    ls -la /home/test/.ssh/; \
+fi; \
+ls -la ./; \
+su test -c \"TEST_FILTER='' bash ./run_tests.sh\"; \
+"]
