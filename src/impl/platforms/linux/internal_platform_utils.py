@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .. import internal_platform_utils as base
 from ... import internal_utils
+from ....raise_error import RaiseError
 
 from testgres.operations.os_ops import OsOperations
 from testgres.operations.exceptions import ExecUtilException
@@ -417,21 +418,12 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         assert type(data_dir) is str
         assert type(failures) is list
 
-        err_msg = "FindPostmater did {} attempts and has not gotten a stable result. List of failures:\n"
+        method_name = "InternalPlatformUtils::FindPostmaster(bin_dir={!r}, data_dir={!r})".format(
+            bin_dir,
+            data_dir,
+        )
 
-        n = 0
-        sep = ""
-        for e in failures:
-            assert isinstance(e, Exception)
-
-            n += 1
-            err_msg += sep
-            err_msg += "Failure #{}. Exception ({}):\n{}".format(
-                n,
-                type(e).__name__,
-                str(e),
-            )
-            sep = "\n"
-            continue
-
-        raise RuntimeError(err_msg)
+        RaiseError.function_did_multiple_attempts_without_stable_result(
+            method_name,
+            failures,
+        )

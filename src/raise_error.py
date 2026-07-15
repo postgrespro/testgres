@@ -6,14 +6,14 @@ import typing
 
 class RaiseError:
     @staticmethod
-    def pg_ctl_returns_an_empty_string(_params):
+    def pg_ctl_returns_an_empty_string(_params) -> typing.NoReturn:
         errLines = []
         errLines.append("Utility pg_ctl returns an empty string.")
         errLines.append("Command line is {0}".format(_params))
         raise RuntimeError("\n".join(errLines))
 
     @staticmethod
-    def pg_ctl_returns_an_unexpected_string(out, _params):
+    def pg_ctl_returns_an_unexpected_string(out, _params) -> typing.NoReturn:
         errLines = []
         errLines.append("Utility pg_ctl returns an unexpected string:")
         errLines.append(out)
@@ -22,7 +22,7 @@ class RaiseError:
         raise RuntimeError("\n".join(errLines))
 
     @staticmethod
-    def pg_ctl_returns_a_zero_pid(out, _params):
+    def pg_ctl_returns_a_zero_pid(out, _params) -> typing.NoReturn:
         errLines = []
         errLines.append("Utility pg_ctl returns a zero pid. Output string is:")
         errLines.append(out)
@@ -33,7 +33,7 @@ class RaiseError:
     @staticmethod
     def node_err__cant_enumerate_child_processes(
         node_status: NodeStatus
-    ):
+    ) -> typing.NoReturn:
         assert type(node_status) is NodeStatus
 
         msg = "Can't enumerate node child processes. {}.".format(
@@ -48,7 +48,7 @@ class RaiseError:
     @staticmethod
     def node_err__cant_kill(
         node_status: NodeStatus
-    ):
+    ) -> typing.NoReturn:
         assert type(node_status) is NodeStatus
 
         msg = "Can't kill server process. {}.".format(
@@ -59,6 +59,38 @@ class RaiseError:
         )
 
         raise InvalidOperationException(msg)
+
+    @staticmethod
+    def function_did_multiple_attempts_without_stable_result(
+        function_name: str,
+        failures: typing.List[Exception],
+    ) -> typing.NoReturn:
+        assert type(function_name) is str
+        assert type(failures) is list
+
+        err_msg = "{} did {} attempts and has not gotten a stable result.".format(
+            function_name,
+            len(failures),
+        )
+
+        err_msg += " List of failures:\n"
+
+        n = 0
+        sep = ""
+        for e in failures:
+            assert isinstance(e, Exception)
+
+            n += 1
+            err_msg += sep
+            err_msg += "Failure #{}. Exception ({}):\n{}".format(
+                n,
+                type(e).__name__,
+                str(e),
+            )
+            sep = "\n"
+            continue
+
+        raise InvalidOperationException(err_msg)
 
     @staticmethod
     def _map_node_status_to_reason(
