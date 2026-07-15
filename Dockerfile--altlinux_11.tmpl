@@ -95,7 +95,16 @@ ENV LANG=C.UTF-8
 
 RUN chmod 700 /home/test/ && \
     mkdir -p /home/test/.ssh && \
-    chown -R test:test /home/test/.ssh
+    echo 'Host *' > /home/test/.ssh/config && \
+    echo '    ControlMaster auto' >> /home/test/.ssh/config && \
+    echo '    ControlPath /home/test/.ssh/master-%r@%h:%p' >> /home/test/.ssh/config && \
+    echo '    ControlPersist 30m' >> /home/test/.ssh/config && \
+    echo '    StrictHostKeyChecking no' >> /home/test/.ssh/config && \
+    echo '    UserKnownHostsFile /dev/null' >> /home/test/.ssh/config && \
+    echo '    GSSAPIAuthentication no' >> /home/test/.ssh/config && \
+    chown -R test:test /home/test/.ssh && \
+    chmod 700 /home/test/.ssh && \
+    chmod 600 /home/test/.ssh/config
 
 #
 # \"$@\"
@@ -105,7 +114,7 @@ RUN chmod 700 /home/test/ && \
 ENTRYPOINT ["sh", "-c", " \
     set -eux; \
     echo 'SYSTEM START: PREPARING SSH'; \
-    /usr/sbin/sshd; \
+    (ulimit -n 1024 && /usr/sbin/sshd); \
     ls -la /home/test/.ssh/; \
     \"$@\" \
 ", "DUMMY-DUMMY-DUMMY"]
