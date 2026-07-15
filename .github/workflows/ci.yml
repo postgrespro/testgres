@@ -74,15 +74,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # altlinux too slow. run it early
-          - platform: "altlinux_10"
-            python: "3"
-            postgres: "17"
-            case_suffix: "py3_xx_xx-pg17_xx"
-          - platform: "altlinux_11"
-            python: "3"
-            postgres: "17"
-            case_suffix: "py3_xx_xx-pg17_xx"
           - platform: "alpine"
             python: "3.7"
             postgres: "17"
@@ -152,6 +143,14 @@ jobs:
             postgres: "18"
             case_suffix: "py3_12_xx-pg18_xx"
           - platform: "ubuntu_24_04"
+            python: "3"
+            postgres: "17"
+            case_suffix: "py3_xx_xx-pg17_xx"
+          - platform: "altlinux_10"
+            python: "3"
+            postgres: "17"
+            case_suffix: "py3_xx_xx-pg17_xx"
+          - platform: "altlinux_11"
             python: "3"
             postgres: "17"
             case_suffix: "py3_xx_xx-pg17_xx"
