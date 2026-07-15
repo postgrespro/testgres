@@ -78,6 +78,7 @@ from .exceptions import \
 from .port_manager import PortManager
 from .impl.port_manager__this_host import PortManager__ThisHost
 from .impl.port_manager__generic2 import PortManager__Generic2
+from .impl import internal_utils
 
 from .logger import TestgresLogger
 
@@ -157,6 +158,8 @@ class ProcessProxy(object):
 class PostgresNode(object):
     # a max number of node start attempts
     _C_MAX_START_ATEMPTS = 5
+
+    _C_MAX_GET_CHILDREN_ATTEMPTS = 5
 
     _C_PM_PID__IS_NOT_DETECTED = -1
 
@@ -459,10 +462,65 @@ class PostgresNode(object):
         assert type(pid) is int
         assert isinstance(self._os_ops, OsOperations)
 
-        # get a list of postmaster's children
-        children = self._os_ops.get_process_children(pid)
+        C_MAX_ATTEMPT_COUNT = __class__. _C_MAX_GET_CHILDREN_ATTEMPTS
+        assert type(C_MAX_ATTEMPT_COUNT) is int
+        assert C_MAX_ATTEMPT_COUNT > 0
 
-        return [ProcessProxy(p) for p in children]
+        failures: typing.List[Exception] = []
+
+        nAttempt = 0
+
+        while True:
+            assert nAttempt < C_MAX_ATTEMPT_COUNT
+
+            nAttempt += 1
+
+            # get a list of postmaster's children
+            children = self._os_ops.get_process_children(pid)
+            assert type(children) is list
+
+            result: typing.List[ProcessProxy] = []
+
+            for p in children:
+                assert hasattr(p, "pid")
+                try:
+                    proxy = ProcessProxy(p)  # raise
+                except Exception as e:
+                    internal_utils.send_log_debug(
+                        "Failed to process a node child process [pid: {}]. Exception ({}): {}".format(
+                            p.pid,
+                            type(e).__name__,
+                            e,
+                        )
+                    )
+                    failures.append(e)
+                    break
+
+                assert type(proxy) is ProcessProxy
+                result.append(proxy)
+                continue
+
+            if len(result) == len(children):
+                return result
+
+            assert len(result) < len(children)
+
+            if nAttempt < C_MAX_ATTEMPT_COUNT:
+                time.sleep(0.05)
+                continue
+            break
+
+        assert nAttempt == C_MAX_ATTEMPT_COUNT
+        assert len(failures) == C_MAX_ATTEMPT_COUNT
+
+        method_name = "PostgresNode::_get_child_processes(pid={!r})".format(
+            pid,
+        )
+
+        RaiseError.function_did_multiple_attempts_without_stable_result(
+            method_name,
+            failures,
+        )
 
     @property
     def source_walsender(self):
