@@ -10,7 +10,7 @@ RUN dnf install -y 'dnf-command(config-manager)' && \
     dnf config-manager --set-enabled powertools
 
 # Combine the installation of system utilities, SSH into one layer
-RUN dnf install -y \
+RUN dnf install -y --setopt=retries=10 --setopt=max_parallel_downloads=10 \
     sudo \
     curl \
     ca-certificates \
@@ -32,7 +32,7 @@ RUN sed -i 's/#MaxStartups 10:30:100/MaxStartups 2000:30:2000/' /etc/ssh/sshd_co
 # --------------------------------------------- postgres dev tools
 FROM base1 AS base1_with_dev_tools
 
-RUN dnf install -y \
+RUN dnf install -y --setopt=retries=10 --setopt=max_parallel_downloads=10 \
     gcc \
     make \
     meson \
@@ -72,7 +72,7 @@ RUN ln -s /pg/postgres/install/lib/libpq.so.5 /usr/lib/libpq.so.5
 # --------------------------------------------- base2_with_python-3
 FROM base1_with_pg-${PG_VERSION} AS base2_with_python-3
 
-RUN dnf install -y \
+RUN dnf install -y --setopt=retries=10 --setopt=max_parallel_downloads=10 \
     python39 \
     python39-devel \
     && dnf clean all

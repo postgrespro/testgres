@@ -13,7 +13,7 @@ RUN dnf install -y 'dnf-command(config-manager)' && \
 
 # Consolidating system utilities, including iproute (to prevent tests from failing)
 # Added the --allowerasing flag so dnf can seamlessly replace curl-minimal with full-fledged curl
-RUN dnf install -y --allowerasing \
+RUN dnf install -y --setopt=retries=10 --setopt=max_parallel_downloads=10 --allowerasing \
     sudo \
     curl \
     ca-certificates \
@@ -39,7 +39,7 @@ RUN sed -i 's/#MaxStartups 10:30:100/MaxStartups 2000:30:2000/' /etc/ssh/sshd_co
 # --------------------------------------------- postgres dev tools
 FROM base1 AS base1_with_dev_tools
 
-RUN dnf install -y \
+RUN dnf install -y --setopt=retries=10 --setopt=max_parallel_downloads=10 --allowerasing \
     gcc \
     make \
     meson \
@@ -75,7 +75,6 @@ RUN make -j 4 -C contrib install
 RUN ln -s /pg/postgres/install/bin/pg_config -t /usr/local/bin
 
 # SETUP PG CLIENT LIBRARY
-# ИСПРАВЛЕНО: ссылаемся на базовое имя libpq.so.5, чтобы Dockerfile не ломался при обновлении минорных версий PG
 RUN ln -s /pg/postgres/install/lib/libpq.so.5 /usr/lib64/libpq.so.5 && \
     echo "/pg/postgres/install/lib" > /etc/ld.so.conf.d/postgres.conf && ldconfig
 
@@ -83,7 +82,7 @@ RUN ln -s /pg/postgres/install/lib/libpq.so.5 /usr/lib64/libpq.so.5 && \
 FROM base1_with_pg-${PG_VERSION} AS base2_with_python-3
 
 # Rocky 9/10 installs python3.9 or higher (depending on the repository)
-RUN dnf install -y \
+RUN dnf install -y --setopt=retries=10 --setopt=max_parallel_downloads=10 --allowerasing \
     python3 \
     python3-devel \
     && dnf clean all
