@@ -112,9 +112,7 @@ RUN chmod 700 /home/test/ && \
     # echo '    GSSAPIAuthentication no' >> /home/test/.ssh/config && \
     chown -R test:test /home/test/.ssh && \
     chmod 700 /home/test/.ssh && \
-    chmod 600 /home/test/.ssh/config && \
-    mkdir /home/test/testgres/logs && \
-    chown -R test:test /home/test/testgres/logs
+    chmod 600 /home/test/.ssh/config
 
 #
 # \"$@\"
