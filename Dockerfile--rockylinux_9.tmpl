@@ -7,6 +7,10 @@ ARG PYTHON_VERSION=3
 # --------------------------------------------- base1
 FROM rockylinux/rockylinux:9 AS base1
 
+# STEP 1: Fix the root cause (unstable mirrors). Switch to the official CDN.
+RUN sed -i 's/mirrorlist=/ #mirrorlist=/g' /etc/yum.repos.d/rocky*.repo && \
+    sed -i 's/#baseurl=http:\/\/dl.rockylinux.org/baseurl=https:\/\/dl.rockylinux.org/g' /etc/yum.repos.d/rocky*.repo
+
 # In RHEL 9/10, the repository for dev packages is called CRB (instead of powertools)
 RUN dnf install -y 'dnf-command(config-manager)' && \
     dnf config-manager --set-enabled crb
