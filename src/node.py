@@ -2430,9 +2430,14 @@ class PostgresNodeLogReader:
         position: int
         tail: bytes
 
-        def __init__(self, position: int):
+        def __init__(self, position: int, tail: bytes = b''):
+            assert type(position) is int
+            assert type(tail) is bytes
+            assert position >= 0
+
             self.position = position
-            self.tail = b''
+            self.tail = tail
+            return
 
     # --------------------------------------------------------------------
     class LogDataBlock:
@@ -2487,7 +2492,7 @@ class PostgresNodeLogReader:
         if from_beginnig:
             self._logs = dict()
         else:
-            self._logs = self._collect_logs()
+            self._logs = self._collect_logs(find_line_start=True)
 
         assert type(self._logs) is dict
         return
@@ -2496,7 +2501,7 @@ class PostgresNodeLogReader:
         assert self._node is not None
         assert isinstance(self._node, PostgresNode)
 
-        cur_logs: typing.Dict[str, __class__.LogInfo] = self._collect_logs()
+        cur_logs = self._collect_logs(find_line_start=False)
         assert cur_logs is not None
         assert type(cur_logs) is dict
 
@@ -2570,7 +2575,8 @@ class PostgresNodeLogReader:
 
         return result
 
-    def _collect_logs(self) -> typing.Dict[str, LogInfo]:
+    def _collect_logs(self, find_line_start: bool) -> typing.Dict[str, LogInfo]:
+        assert type(find_line_start) is bool
         assert self._node is not None
         assert isinstance(self._node, PostgresNode)
 
@@ -2587,13 +2593,85 @@ class PostgresNodeLogReader:
             if not self._node.os_ops.path_exists(f):
                 continue
 
-            file_size = self._node.os_ops.get_file_size(f)
-            assert type(file_size) is int
-            assert file_size >= 0
-
-            result[f] = __class__.LogInfo(file_size)
+            result[f] = self._create_log_info(f, find_line_start)
+            continue
 
         return result
+
+    def _create_log_info(
+        self,
+        filename: str,
+        find_line_start: bool,
+    ) -> LogInfo:
+        assert type(filename) is str
+        assert type(find_line_start) is bool
+        assert len(filename) > 0
+        assert self._node is not None
+        assert isinstance(self._node, PostgresNode)
+
+        file_size = self._node.os_ops.get_file_size(filename)
+        assert type(file_size) is int
+        assert file_size >= 0
+
+        if not find_line_start:
+            return __class__.LogInfo(
+                position=file_size,
+                tail=b'',
+            )
+
+        read_position = file_size
+        tail = b''
+
+        C_BACK_READ_BLOCK_SIZE = 4096
+
+        while read_position > 0:
+            if read_position < C_BACK_READ_BLOCK_SIZE:
+                read_offset = 0
+            else:
+                read_offset = read_position - C_BACK_READ_BLOCK_SIZE
+
+            assert read_offset >= 0
+            assert read_offset < file_size
+            assert read_offset < read_position
+
+            block_sz = read_position - read_offset
+
+            expected_min_size = (file_size - read_offset)
+
+            assert block_sz <= expected_min_size
+
+            # read from read_offset to file end
+            # TODO: improve it when os_ops_will support size in read_binary operation
+            tail = self._node.os_ops.read_binary(filename, read_offset)
+
+            assert type(tail) is bytes
+
+            if len(tail) < expected_min_size:
+                err_msg = "[BUG CHECK] Readed block less ({}) than expected ({}). File name {}.".format(
+                    len(tail),
+                    expected_min_size,
+                    filename,
+                )
+                raise RuntimeError(err_msg)
+
+            assert expected_min_size <= len(tail)
+
+            x = tail.rfind(b"\n", 0, block_sz)
+
+            if x == -1:
+                read_position = read_offset
+                continue
+
+            file_size = read_offset + len(tail)
+
+            tail = tail[x + 1:]
+            assert type(tail) is bytes
+            break
+
+        return __class__.LogInfo(
+            position=file_size,
+            tail=tail,
+        )
 
 
 class PostgresNodeUtils:

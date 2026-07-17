@@ -456,12 +456,70 @@ class TestTestgresCommon:
         assert isinstance(node_svc, PostgresNodeService)
 
         with __class__.helper__get_node(node_svc) as node:
-            node.init().start()
+            node.init()
 
-            # restart, ok
-            res = node.execute('select 1')
-            assert (res == [(1,)])
-            node.restart()
+            nRestartAttempt = 0
+
+            while True:
+                nRestartAttempt += 1
+
+                logging.info("Attempt #{}".format(nRestartAttempt))
+
+                node.start()
+
+                # restart, ok
+                res = node.execute('select 1')
+                assert (res == [(1,)])
+
+                node_log_reader = PostgresNodeLogReader(
+                    node,
+                    from_beginnig=False,
+                )
+
+                try:
+                    node.restart()
+                except StartNodeException as e:
+                    logging.info("Exception ({}): {}".format(
+                        type(e).__name__,
+                        e,
+                    ))
+
+                    if nRestartAttempt == 5:
+                        raise
+
+                    if not PostgresNodeUtils.detect_port_conflict(node_log_reader):
+                        raise
+
+                    logging.info("Node port {} conflicted with another PostgreSQL instance.".format(
+                        node.port
+                    ))
+
+                    logging.info("Wait for node stop")
+
+                    nStopAttemtp = 0
+
+                    while True:
+                        if nStopAttemtp == 5:
+                            raise RuntimeError("Node is not stopped!")
+
+                        nStopAttemtp += 1
+
+                        time.sleep(1)
+
+                        node_status = node.status()
+
+                        logging.info("Node status is {}".format(node_status))
+
+                        if node_status == NodeStatus.Stopped:
+                            break
+                        continue
+
+                    # node is stopped. try again
+                    continue
+
+                assert node.status() == NodeStatus.Running
+                break
+
             res = node.execute('select 2')
             assert (res == [(2,)])
 
