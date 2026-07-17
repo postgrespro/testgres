@@ -1630,7 +1630,7 @@ class TestTestgresCommon:
 
         nAttempt = 0
         while True:
-            if PostgresNodeUtils.delect_port_conflict(node_log_reader):
+            if PostgresNodeUtils.detect_port_conflict(node_log_reader):
                 logging.info("Node port {} conflicted with another PostgreSQL instance.".format(
                     node.port
                 ))

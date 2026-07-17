@@ -1278,7 +1278,7 @@ class PostgresNode(object):
                     if nAttempt == __class__._C_MAX_START_ATEMPTS:
                         self._raise_cannot_start_node(e, "Cannot start node after multiple attempts.")
 
-                    is_it_port_conflict = PostgresNodeUtils.delect_port_conflict(log_reader)
+                    is_it_port_conflict = PostgresNodeUtils.detect_port_conflict(log_reader)
 
                     if not is_it_port_conflict:
                         LOCAL__raise_cannot_start_node__std(e)
@@ -2598,7 +2598,7 @@ class PostgresNodeLogReader:
 
 class PostgresNodeUtils:
     @staticmethod
-    def delect_port_conflict(log_reader: PostgresNodeLogReader) -> bool:
+    def detect_port_conflict(log_reader: PostgresNodeLogReader) -> bool:
         assert type(log_reader) is PostgresNodeLogReader
 
         blocks = log_reader.read()
