@@ -2593,23 +2593,28 @@ class PostgresNodeLogReader:
             if not self._node.os_ops.path_exists(f):
                 continue
 
-            result[f] = self._create_log_info(f, find_line_start)
+            result[f] = self._create_log_info(
+                self._node.os_ops,
+                f,
+                find_line_start,
+            )
             continue
 
         return result
 
+    @staticmethod
     def _create_log_info(
-        self,
+        os_ops: OsOperations,
         filename: str,
         find_line_start: bool,
     ) -> LogInfo:
         assert type(filename) is str
         assert type(find_line_start) is bool
         assert len(filename) > 0
-        assert self._node is not None
-        assert isinstance(self._node, PostgresNode)
+        assert os_ops is not None
+        assert isinstance(os_ops, OsOperations)
 
-        file_size = self._node.os_ops.get_file_size(filename)
+        file_size = os_ops.get_file_size(filename)
         assert type(file_size) is int
         assert file_size >= 0
 
@@ -2642,7 +2647,7 @@ class PostgresNodeLogReader:
 
             # read from read_offset to file end
             # TODO: improve it when os_ops_will support size in read_binary operation
-            tail = self._node.os_ops.read_binary(filename, read_offset)
+            tail = os_ops.read_binary(filename, read_offset)
 
             assert type(tail) is bytes
 
