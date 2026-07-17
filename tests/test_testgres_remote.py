@@ -82,6 +82,7 @@ class TestTestgresRemote:
         assert isinstance(node_version, Version)
 
         if node.version < Version("11"):
+            node.cleanup(release_resources=True)
             pytest.skip("This test does not work on old PG10-.")
 
         try:
@@ -151,6 +152,8 @@ class TestTestgresRemote:
                 expectedMsg2 = "initdb: error: invalid locale settings; check LANG and LC_* environment variables"
                 assert expectedMsg2 in exc.error
                 continue
+
+            node.cleanup(release_resources=True)
 
             if not errorIsDetected:
                 pytest.xfail("All the bad data are processed without errors!")
