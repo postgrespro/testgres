@@ -1726,12 +1726,9 @@ class TestTestgresCommon:
         __class__.helper__skip_test_if_pg_version_is_not_ge(current_version, "9.6")
 
         with __class__.helper__get_node(node_svc) as master:
-            old_version = not __class__.helper__pg_version_ge(current_version, '9.6')
-
             master.init(allow_streaming=True).start()
 
-            if not old_version:
-                master.append_conf('synchronous_commit = remote_apply')
+            master.append_conf('synchronous_commit = remote_apply')
 
             # create standby
             with master.replicate() as standby1, master.replicate() as standby2:
@@ -1748,21 +1745,20 @@ class TestTestgresCommon:
 
                 # set synchronous_standby_names
                 master.set_synchronous_standbys(First(2, [standby1, standby2]))
-                master.restart()
+                master.reload()
 
-                # the following part of the test is only applicable to newer
-                # versions of PostgresQL
-                if not old_version:
-                    master.safe_psql('create table abc(a int)')
+                master.safe_psql('create table abc(a int)')
 
-                    # Create a large transaction that will take some time to apply
-                    # on standby to check that it applies synchronously
-                    # (If set synchronous_commit to 'on' or other lower level then
-                    # standby most likely won't catchup so fast and test will fail)
-                    master.safe_psql(
-                        'insert into abc select generate_series(1, 1000000)')
-                    res = standby1.safe_psql('select count(*) from abc')
-                    assert (__class__.helper__rm_carriage_returns(res) == b'1000000\n')
+                # Create a large transaction that will take some time to apply
+                # on standby to check that it applies synchronously
+                # (If set synchronous_commit to 'on' or other lower level then
+                # standby most likely won't catchup so fast and test will fail)
+                master.safe_psql(
+                    'insert into abc select generate_series(1, 1000000)',
+                )
+                res = standby1.safe_psql('select count(*) from abc')
+                assert (__class__.helper__rm_carriage_returns(res) == b'1000000\n')
+        return
 
     def test_logical_replication(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
