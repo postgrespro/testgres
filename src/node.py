@@ -2625,7 +2625,7 @@ class PostgresNodeLogReader:
             )
 
         read_position = file_size
-        tail = b''
+        tail_blocks: typing.List[bytes] = []
 
         C_BACK_READ_BLOCK_SIZE = 4096
 
@@ -2641,37 +2641,38 @@ class PostgresNodeLogReader:
 
             block_sz = read_position - read_offset
 
-            expected_min_size = (file_size - read_offset)
-
-            assert block_sz <= expected_min_size
+            assert block_sz > 0
 
             # read from read_offset to file end
-            # TODO: improve it when os_ops_will support size in read_binary operation
-            tail = os_ops.read_binary(filename, read_offset)
+            block = os_ops.read_binary(filename, read_offset, block_sz)
 
-            assert type(tail) is bytes
+            assert type(block) is bytes
 
-            if len(tail) < expected_min_size:
-                err_msg = "[BUG CHECK] Readed block less ({}) than expected ({}). File name {}.".format(
-                    len(tail),
-                    expected_min_size,
+            if len(block) != block_sz:
+                err_msg = "[BUG CHECK] Readed block has bad size ({}). Expected size is ({}). File name {}.".format(
+                    len(block),
+                    block_sz,
                     filename,
                 )
                 raise RuntimeError(err_msg)
 
-            assert expected_min_size <= len(tail)
+            assert len(block) == block_sz
 
-            x = tail.rfind(b"\n", 0, block_sz)
+            x = block.rfind(b"\n", 0, block_sz)
 
             if x == -1:
+                tail_blocks.append(block)
                 read_position = read_offset
                 continue
 
-            file_size = read_offset + len(tail)
+            if x == block_sz - 1:
+                break
 
-            tail = tail[x + 1:]
-            assert type(tail) is bytes
+            block = block[x + 1:]
+            tail_blocks.append(block)
             break
+
+        tail = b''.join(reversed(tail_blocks))
 
         return __class__.LogInfo(
             position=file_size,

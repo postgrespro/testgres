@@ -36,8 +36,17 @@ class TestSetM001__helper_create_log_info:
         os_ops = os_ops_descr.os_ops
         assert isinstance(os_ops, OsOperations)
 
-        # Scenario 1: The log file ends with a normal line feed
         filename = os_ops.mkstemp("data_for_create_log_info")
+
+        # Scenario 0: The log file ends with a normal line feed
+        C_DATA0 = b""
+        os_ops.write(filename, C_DATA0, binary=True, truncate=True)
+
+        log_info1 = PostgresNodeLogReader._create_log_info(os_ops, filename, find_line_start=True)
+        assert log_info1.tail == b""
+        assert log_info1.position == len(C_DATA0)
+
+        # Scenario 1: The log file ends with a normal line feed
         C_DATA1 = b"Line 1\nLine 2\n"
         os_ops.write(filename, C_DATA1, binary=True, truncate=True)
 
@@ -61,7 +70,7 @@ class TestSetM001__helper_create_log_info:
 
         log_info3 = PostgresNodeLogReader._create_log_info(os_ops, filename, find_line_start=True)
         # Should take the entire file in tail, and set the position to the file size
-        assert log_info3.tail == b"Just one long line without newlines"
+        assert log_info3.tail == C_DATA3
         assert log_info3.position == len(C_DATA3)
 
         # 4. Large data (two segments)
