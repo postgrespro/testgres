@@ -1352,8 +1352,15 @@ class TestOsOpsCommon:
 
         tmpdir = os_ops.get_tempdir()
 
-        filename = os_ops.build_path(
+        filedir = os_ops.build_path(
             tmpdir,
+            "test_isfile_false__not_exist-" + uuid.uuid4().bytes.hex(),
+        )
+
+        os_ops.makedir(filedir)
+
+        filename = os_ops.build_path(
+            filedir,
             name_with_surprize.value,
         )
 
@@ -1369,7 +1376,11 @@ class TestOsOpsCommon:
             pass
         else:
             # We will check a real work with another host
+            assert not os.path.exists(filedir)
             assert not os.path.exists(filename)
+
+            os.mkdir(filedir)
+
             with open(filename, "a"):
                 os.utime(filename, None)
             assert os.path.exists(filename)
@@ -1384,7 +1395,11 @@ class TestOsOpsCommon:
             assert os.path.exists(filename)
             os.remove(filename)
             assert not os.path.exists(filename)
+            os.rmdir(filedir)
+            assert not os.path.exists(filedir)
             logging.info("Local detecter is deleted [{}]".format(filename))
+
+        os_ops.rmdir(filedir)
         return
 
     def test_isfile_false__directory(
