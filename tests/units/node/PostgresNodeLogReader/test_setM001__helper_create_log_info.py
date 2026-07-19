@@ -100,6 +100,13 @@ class TestSetM001__helper_create_log_info:
         assert log_info.tail == C_DATA5
         assert log_info.position == 5 + len(C_DATA5)
 
+        # Scenario 7: The log file has one line with the normal end
+        os_ops.write(filename, b"\n", binary=True, truncate=True)
+
+        log_info = PostgresNodeLogReader._create_log_info(os_ops, filename, find_line_start=True)
+        assert log_info.tail == b""
+        assert log_info.position == 1
+
         # Cleanup
         os_ops.remove_file(filename)
         return

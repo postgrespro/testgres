@@ -38,6 +38,7 @@ class TestFileLineReader:
         write_data: bytes
         read_lines: typing.List[typing.Optional[str]]
 
+    # --------------------------------------------------------------------
     sm_Steps001: typing.List[tagStep] = [
         tagStep(
             b"",
@@ -91,13 +92,79 @@ class TestFileLineReader:
 
     ]
 
-    # --------------------------------------------------------------------
-    def test_001__common(
+    # -------------------------------------------------------------------
+    def test_001__from_beginnig(
         self,
         os_ops_descr: OsOpsDescr,
     ):
         assert type(os_ops_descr) is OsOpsDescr
         assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        __class__.helper__player(
+            os_ops_descr,
+            __class__.sm_Steps001,
+            0,
+        )
+        return
+
+    # --------------------------------------------------------------------
+    sm_Steps002: typing.List[tagStep] = [
+        tagStep(
+            b"abc\ndefg\n",
+            ["abc\n", "defg\n", None]
+        ),
+    ]
+
+    # -------------------------------------------------------------------
+    def test_002__from_1(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        __class__.helper__player(
+            os_ops_descr,
+            __class__.sm_Steps002,
+            1,
+        )
+        return
+
+    # --------------------------------------------------------------------
+    sm_Steps003: typing.List[tagStep] = [
+        tagStep(
+            b"abc\ndefg\n",
+            ["defg\n", None]
+        ),
+    ]
+
+    # -------------------------------------------------------------------
+    def test_003__from_second_line(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        __class__.helper__player(
+            os_ops_descr,
+            __class__.sm_Steps003,
+            4,
+        )
+        return
+
+    # --------------------------------------------------------------------
+    @staticmethod
+    def helper__player(
+        os_ops_descr: OsOpsDescr,
+        steps: typing.List[tagStep],
+        initial_pos: int,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+        assert type(steps) is list
+        assert type(initial_pos) is int
+        assert initial_pos >= 0
 
         os_ops = os_ops_descr.os_ops
         assert isinstance(os_ops_descr.os_ops, OsOperations)
@@ -110,22 +177,26 @@ class TestFileLineReader:
         assert os_ops.path_exists(filename)
         assert os_ops.get_file_size(filename) == 0
 
-        file_line_reader = FileLineReader(
-            os_ops,
-            filename,
-            file_encoding="utf-8",
-        )
+        file_line_reader: typing.Optional[FileLineReader] = None
 
         # -----------------------
         nStep = 0
 
-        for step in __class__.sm_Steps001:
+        for step in steps:
             nStep += 1
 
             logging.info("-------------------- step: {}".format(nStep))
 
             logging.info("write: {}".format(step.write_data))
             os_ops.write(filename, step.write_data, binary=True)
+
+            if file_line_reader is None:
+                file_line_reader = FileLineReader(
+                    os_ops,
+                    filename,
+                    file_encoding="utf-8",
+                    file_pos=initial_pos,
+                )
 
             nRead = 0
             for expected_line in step.read_lines:

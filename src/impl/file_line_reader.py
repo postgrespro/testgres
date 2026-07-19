@@ -1,5 +1,7 @@
 # coding: utf-8
 
+from . import internal_utils
+
 import typing
 
 from testgres.operations.os_ops import OsOperations
@@ -19,15 +21,20 @@ class FileLineReader:
         os_ops: OsOperations,
         file_name: str,
         file_encoding: str = "utf-8",
+        file_pos: int = 0
     ):
         assert isinstance(os_ops, OsOperations)
         assert type(file_encoding) is str
         self._os_ops = os_ops
         self._file_name = file_name
         self._file_encoding = file_encoding
-        self._file_pos = 0
+        self._file_pos = file_pos
         self._buffer_pos = 0
-        self._buffer = b''
+        self._buffer = internal_utils.read_line_to_pos__bin(
+            os_ops,
+            file_name,
+            file_pos,
+        )
         return
 
     # interface ----------------------------------------------------------

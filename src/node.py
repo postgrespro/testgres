@@ -2507,7 +2507,7 @@ class PostgresNodeLogReader:
 
         assert type(self._logs) is dict
 
-        result = list()
+        result: typing.List[__class__.LogDataBlock] = []
 
         for file_name, cur_log_info in cur_logs.items():
             assert type(file_name) is str
@@ -2624,55 +2624,11 @@ class PostgresNodeLogReader:
                 tail=b'',
             )
 
-        read_position = file_size
-        tail_blocks: typing.List[bytes] = []
-
-        C_BACK_READ_BLOCK_SIZE = 4096
-
-        while read_position > 0:
-            if read_position < C_BACK_READ_BLOCK_SIZE:
-                read_offset = 0
-            else:
-                read_offset = read_position - C_BACK_READ_BLOCK_SIZE
-
-            assert read_offset >= 0
-            assert read_offset < file_size
-            assert read_offset < read_position
-
-            block_sz = read_position - read_offset
-
-            assert block_sz > 0
-
-            # read from read_offset to file end
-            block = os_ops.read_binary(filename, read_offset, block_sz)
-
-            assert type(block) is bytes
-
-            if len(block) != block_sz:
-                err_msg = "[BUG CHECK] Readed block has bad size ({}). Expected size is ({}). File name {}.".format(
-                    len(block),
-                    block_sz,
-                    filename,
-                )
-                raise RuntimeError(err_msg)
-
-            assert len(block) == block_sz
-
-            x = block.rfind(b"\n", 0, block_sz)
-
-            if x == -1:
-                tail_blocks.append(block)
-                read_position = read_offset
-                continue
-
-            if x == block_sz - 1:
-                break
-
-            block = block[x + 1:]
-            tail_blocks.append(block)
-            break
-
-        tail = b''.join(reversed(tail_blocks))
+        tail = internal_utils.read_line_to_pos__bin(
+            os_ops,
+            filename,
+            file_size,
+        )
 
         return __class__.LogInfo(
             position=file_size,
