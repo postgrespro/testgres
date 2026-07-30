@@ -11,7 +11,7 @@ class TestgresLogger(threading.Thread):
     Helper class to implement reading from log files.
     """
     def __init__(self, node_name, log_file_name):
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, daemon=True)
 
         self._node_name = node_name
         self._log_file_name = log_file_name
