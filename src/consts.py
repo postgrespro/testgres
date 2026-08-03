@@ -10,6 +10,10 @@ TMP_DUMP = 'tgsd_'
 TMP_CACHE = 'tgsc_'
 TMP_BACKUP = 'tgsb_'
 
+TMP_TESTGRES = "testgres"
+
+TMP_TESTGRES_PORTS = TMP_TESTGRES + "/ports"
+
 # path to control file
 XLOG_CONTROL_FILE = "global/pg_control"
 

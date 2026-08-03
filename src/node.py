@@ -77,7 +77,8 @@ from .exceptions import \
 
 from .port_manager import PortManager
 from .impl.port_manager__this_host import PortManager__ThisHost
-from .impl.port_manager__generic import PortManager__Generic
+from .impl.port_manager__generic2 import PortManager__Generic2
+from .impl import internal_utils
 
 from .logger import TestgresLogger
 
@@ -157,6 +158,8 @@ class ProcessProxy(object):
 class PostgresNode(object):
     # a max number of node start attempts
     _C_MAX_START_ATEMPTS = 5
+
+    _C_MAX_GET_CHILDREN_ATTEMPTS = 5
 
     _C_PM_PID__IS_NOT_DETECTED = -1
 
@@ -309,12 +312,12 @@ class PostgresNode(object):
 
         if os_ops is LocalOperations.get_single_instance():
             assert utils._old_port_manager is not None
-            assert type(utils._old_port_manager) is PortManager__Generic
+            assert type(utils._old_port_manager) is PortManager__Generic2
             assert utils._old_port_manager._os_ops is os_ops
             return PortManager__ThisHost.get_single_instance()
 
         # TODO: Throw the exception "Please define a port manager." ?
-        return PortManager__Generic(os_ops)
+        return PortManager__Generic2(os_ops)
 
     def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
         assert name is None or type(name) is str
@@ -448,10 +451,10 @@ class PostgresNode(object):
         if x.pid is None:
             assert x.node_status != NodeStatus.Running
             RaiseError.node_err__cant_enumerate_child_processes(
-                x.node_status
+                x.node_status,
             )
 
-        assert x.node_status == NodeStatus.Running
+        assert x.node_status != NodeStatus.Stopped
         assert type(x.pid) is int
         return self._get_child_processes(x.pid)
 
@@ -459,10 +462,65 @@ class PostgresNode(object):
         assert type(pid) is int
         assert isinstance(self._os_ops, OsOperations)
 
-        # get a list of postmaster's children
-        children = self._os_ops.get_process_children(pid)
+        C_MAX_ATTEMPT_COUNT = __class__. _C_MAX_GET_CHILDREN_ATTEMPTS
+        assert type(C_MAX_ATTEMPT_COUNT) is int
+        assert C_MAX_ATTEMPT_COUNT > 0
 
-        return [ProcessProxy(p) for p in children]
+        failures: typing.List[Exception] = []
+
+        nAttempt = 0
+
+        while True:
+            assert nAttempt < C_MAX_ATTEMPT_COUNT
+
+            nAttempt += 1
+
+            # get a list of postmaster's children
+            children = self._os_ops.get_process_children(pid)
+            assert type(children) is list
+
+            result: typing.List[ProcessProxy] = []
+
+            for p in children:
+                assert hasattr(p, "pid")
+                try:
+                    proxy = ProcessProxy(p)  # raise
+                except Exception as e:
+                    internal_utils.send_log_debug(
+                        "Failed to process a node child process [pid: {}]. Exception ({}): {}".format(
+                            p.pid,
+                            type(e).__name__,
+                            e,
+                        )
+                    )
+                    failures.append(e)
+                    break
+
+                assert type(proxy) is ProcessProxy
+                result.append(proxy)
+                continue
+
+            if len(result) == len(children):
+                return result
+
+            assert len(result) < len(children)
+
+            if nAttempt < C_MAX_ATTEMPT_COUNT:
+                time.sleep(0.05)
+                continue
+            break
+
+        assert nAttempt == C_MAX_ATTEMPT_COUNT
+        assert len(failures) == C_MAX_ATTEMPT_COUNT
+
+        method_name = "PostgresNode::_get_child_processes(pid={!r})".format(
+            pid,
+        )
+
+        RaiseError.function_did_multiple_attempts_without_stable_result(
+            method_name,
+            failures,
+        )
 
     @property
     def source_walsender(self):
@@ -735,7 +793,11 @@ class PostgresNode(object):
         if testgres_config.use_python_logging:
             # spawn new logger if it doesn't exist or is stopped
             if not self._logger or not self._logger.is_alive():
-                self._logger = TestgresLogger(self.name, self.pg_log_file)
+                self._logger = TestgresLogger(
+                    self.name,
+                    self.pg_log_file,
+                    os_ops=self._os_ops,
+                )
                 self._logger.start()
 
     def _maybe_stop_logger(self):
@@ -813,7 +875,7 @@ class PostgresNode(object):
         Args:
             fsync: should this node use fsync to keep data safe?
             unix_sockets: should we enable UNIX sockets?
-            allow_streaming: should this node add a hba entry for replication?
+            allow_streaming: (ignored) should this node add a hba entry for replication?
             allow_logical: can this node be used as a logical replication publisher?
             log_statement: one of ('all', 'off', 'mod', 'ddl').
 
@@ -824,44 +886,10 @@ class PostgresNode(object):
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
 
+        # hba file is updated
+        self._default_conf__hba()
+
         postgres_conf = self._os_ops.build_path(self.data_dir, PG_CONF_FILE)
-        hba_conf = self._os_ops.build_path(self.data_dir, HBA_CONF_FILE)
-
-        # filter lines in hba file
-        # get rid of comments and blank lines
-        hba_conf_file = self._os_ops.readlines(hba_conf)
-        lines = [
-            s for s in hba_conf_file
-            if len(s.strip()) > 0 and not s.startswith('#')
-        ]
-
-        # write filtered lines
-        self._os_ops.write(hba_conf, lines, truncate=True)
-
-        # replication-related settings
-        if allow_streaming:
-            # get auth method for host or local users
-            def get_auth_method(t):
-                return next((s.split()[-1]
-                             for s in lines if s.startswith(t)), 'trust')
-
-            # get auth methods
-            auth_local = get_auth_method('local')
-            auth_host = get_auth_method('host')
-            subnet_base = ".".join(self._os_ops.host.split('.')[:-1] + ['0'])
-
-            new_lines = [
-                u"local\treplication\tall\t\t\t{}\n".format(auth_local),
-                u"host\treplication\tall\t127.0.0.1/32\t{}\n".format(auth_host),
-                u"host\treplication\tall\t::1/128\t\t{}\n".format(auth_host),
-                u"host\treplication\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
-                u"host\tall\tall\t{}/24\t\t{}\n".format(subnet_base, auth_host),
-                u"host\tall\tall\tall\t{}\n".format(auth_host),
-                u"host\treplication\tall\tall\t{}\n".format(auth_host)
-            ]  # yapf: disable
-
-            # write missing lines
-            self._os_ops.write(hba_conf, new_lines)
 
         # overwrite config file
         self._os_ops.write(postgres_conf, '', truncate=True)
@@ -906,6 +934,88 @@ class PostgresNode(object):
             self.append_conf(unix_socket_directories='')
 
         return self
+
+    def _default_conf__hba(self) -> None:
+        hba_conf = self._os_ops.build_path(self.data_dir, HBA_CONF_FILE)
+
+        # filter lines in hba file
+        # get rid of comments and blank lines
+        hba_conf_file = self._os_ops.readlines(hba_conf, binary=False)
+
+        assert type(hba_conf_file) is list
+
+        hba_conf_file_finished_with_eol = True
+        if len(hba_conf_file) > 0:
+            last_line = hba_conf_file[-1]
+            assert type(last_line) is str
+            hba_conf_file_finished_with_eol = last_line.endswith("\n")
+
+        # Normalize function: turns a string into a list of pure words
+        def normalize_line(line_str):
+            return line_str.strip().split()
+
+        # We collect a list of rules that already exist in the file (in the form of word lists)
+        existing_normalized = []
+        for s in hba_conf_file:
+            s_clean = s.strip()
+            if s_clean and not s_clean.startswith("#"):
+                existing_normalized.append(normalize_line(s_clean))
+            continue
+
+        # get auth method for host or local users
+        def get_auth_method(t):
+            for x in existing_normalized:
+                assert type(x) is list
+                if len(x) > 0 and x[0] == t:
+                    return x[-1]
+                continue
+            return 'trust'
+
+        # get auth methods
+        auth_local = get_auth_method('local')
+        auth_host = get_auth_method('host')
+
+        # Basic rules that we want to see in the file
+        raw_rules = [
+            ("local", "replication", "all", "", auth_local),
+            ("host", "replication", "all", "0.0.0.0/0", auth_host),
+            ("host", "replication", "all", "::/0", auth_host),
+            ("local", "all", "all", "", auth_local),
+            ("host", "all", "all", "0.0.0.0/0", auth_host),
+            ("host", "all", "all", "::/0", auth_host),
+        ]
+
+        add_rules = []
+
+        for type_hba, db, user, addr, method in raw_rules:
+            # We check if such a rule already exists in the file (by meaning, not by tabs!)
+            target_words = [type_hba, db, user, method]
+            if addr:
+                target_words.insert(3, addr)
+
+            if target_words in existing_normalized:
+                continue  # Такое правило уже есть, пропускаем!
+
+            # Beautiful, smooth enterprise formatting with spaces!
+            # Text will be left-aligned and aligned strictly within columns.
+            formatted_rule = "{:<8} {:<16} {:<16} {:<24} {}\n".format(
+                type_hba, db, user, addr if addr else "", method
+            )
+            add_rules.append(formatted_rule)
+            continue
+
+        if len(add_rules) > 0:
+            add_lines = []
+            if not hba_conf_file_finished_with_eol:
+                add_lines.append("\n")
+
+            add_lines.append("\n")
+            add_lines.append("# Testgres default configuration\n")
+            add_lines += add_rules
+
+            # We add only real, beautifully formatted new items
+            self._os_ops.write(hba_conf, add_lines, truncate=False)
+        return
 
     @method_decorator(positional_args_hack(['filename', 'line']))
     def append_conf(self, line='', filename=PG_CONF_FILE, **kwargs):
@@ -1174,7 +1284,7 @@ class PostgresNode(object):
                     if nAttempt == __class__._C_MAX_START_ATEMPTS:
                         self._raise_cannot_start_node(e, "Cannot start node after multiple attempts.")
 
-                    is_it_port_conflict = PostgresNodeUtils.delect_port_conflict(log_reader)
+                    is_it_port_conflict = PostgresNodeUtils.detect_port_conflict(log_reader)
 
                     if not is_it_port_conflict:
                         LOCAL__raise_cannot_start_node__std(e)
@@ -2326,9 +2436,16 @@ class PostgresNode(object):
 class PostgresNodeLogReader:
     class LogInfo:
         position: int
+        tail: bytes
 
-        def __init__(self, position: int):
+        def __init__(self, position: int, tail: bytes = b''):
+            assert type(position) is int
+            assert type(tail) is bytes
+            assert position >= 0
+
             self.position = position
+            self.tail = tail
+            return
 
     # --------------------------------------------------------------------
     class LogDataBlock:
@@ -2383,7 +2500,7 @@ class PostgresNodeLogReader:
         if from_beginnig:
             self._logs = dict()
         else:
-            self._logs = self._collect_logs()
+            self._logs = self._collect_logs(find_line_start=True)
 
         assert type(self._logs) is dict
         return
@@ -2392,56 +2509,82 @@ class PostgresNodeLogReader:
         assert self._node is not None
         assert isinstance(self._node, PostgresNode)
 
-        cur_logs: typing.Dict[str, __class__.LogInfo] = self._collect_logs()
+        cur_logs = self._collect_logs(find_line_start=False)
         assert cur_logs is not None
         assert type(cur_logs) is dict
 
         assert type(self._logs) is dict
 
-        result = list()
+        result: typing.List[__class__.LogDataBlock] = []
 
         for file_name, cur_log_info in cur_logs.items():
             assert type(file_name) is str
             assert type(cur_log_info) is __class__.LogInfo
 
-            read_pos = 0
-
-            if file_name in self._logs.keys():
+            if file_name not in self._logs.keys():
+                read_pos = 0
+                file_content_b = b''
+            else:
                 prev_log_info = self._logs[file_name]
                 assert type(prev_log_info) is __class__.LogInfo
                 read_pos = prev_log_info.position  # the previous size
+                file_content_b = prev_log_info.tail
 
-            file_content_b = self._node.os_ops.read_binary(file_name, read_pos)
+            prev_data_sz = len(file_content_b)
+            assert prev_data_sz <= read_pos
+
+            file_content_b += self._node.os_ops.read_binary(file_name, read_pos)
             assert type(file_content_b) is bytes
 
-            #
-            # A POTENTIAL PROBLEM: file_content_b may contain an incompleted UTF-8 symbol.
-            #
-            file_content_s = file_content_b.decode()
-            assert type(file_content_s) is str
+            assert prev_data_sz <= len(file_content_b)
 
-            next_read_pos = read_pos + len(file_content_b)
+            #
+            # We will process completed lines only
+            #
+            completed_data_size = file_content_b.rfind(b"\n") + 1
 
-            # It is a research/paranoja check.
-            # When we will process partial UTF-8 symbol, it must be adjusted.
+            assert completed_data_size >= 0
+            assert completed_data_size <= len(file_content_b)
+
+            completed_data = file_content_b[:completed_data_size]
+            assert type(completed_data) is bytes
+            assert len(completed_data) == completed_data_size
+
+            new_tail = file_content_b[completed_data_size:]
+            assert type(new_tail) is bytes
+            assert len(new_tail) == len(file_content_b) - completed_data_size
+
+            completed_data_s = completed_data.decode()
+            assert type(completed_data_s) is str
+
+            next_read_pos = read_pos - prev_data_sz + len(file_content_b)
+
+            assert read_pos <= next_read_pos
+
+            # It is a FINAL paranoja check.
+            # [2026-07-10] Verified
             assert cur_log_info.position <= next_read_pos
-
-            cur_log_info.position = next_read_pos
 
             block = __class__.LogDataBlock(
                 file_name,
                 read_pos,
-                file_content_s
+                completed_data_s,
             )
 
             result.append(block)
+
+            # Save information to next iteration
+            cur_log_info.position = next_read_pos
+            cur_log_info.tail = new_tail
+            continue
 
         # A new check point
         self._logs = cur_logs
 
         return result
 
-    def _collect_logs(self) -> typing.Dict[str, LogInfo]:
+    def _collect_logs(self, find_line_start: bool) -> typing.Dict[str, LogInfo]:
+        assert type(find_line_start) is bool
         assert self._node is not None
         assert isinstance(self._node, PostgresNode)
 
@@ -2458,18 +2601,52 @@ class PostgresNodeLogReader:
             if not self._node.os_ops.path_exists(f):
                 continue
 
-            file_size = self._node.os_ops.get_file_size(f)
-            assert type(file_size) is int
-            assert file_size >= 0
-
-            result[f] = __class__.LogInfo(file_size)
+            result[f] = self._create_log_info(
+                self._node.os_ops,
+                f,
+                find_line_start,
+            )
+            continue
 
         return result
+
+    @staticmethod
+    def _create_log_info(
+        os_ops: OsOperations,
+        filename: str,
+        find_line_start: bool,
+    ) -> LogInfo:
+        assert type(filename) is str
+        assert type(find_line_start) is bool
+        assert len(filename) > 0
+        assert os_ops is not None
+        assert isinstance(os_ops, OsOperations)
+
+        file_size = os_ops.get_file_size(filename)
+        assert type(file_size) is int
+        assert file_size >= 0
+
+        if not find_line_start:
+            return __class__.LogInfo(
+                position=file_size,
+                tail=b'',
+            )
+
+        tail = internal_utils.read_line_to_pos__bin(
+            os_ops,
+            filename,
+            file_size,
+        )
+
+        return __class__.LogInfo(
+            position=file_size,
+            tail=tail,
+        )
 
 
 class PostgresNodeUtils:
     @staticmethod
-    def delect_port_conflict(log_reader: PostgresNodeLogReader) -> bool:
+    def detect_port_conflict(log_reader: PostgresNodeLogReader) -> bool:
         assert type(log_reader) is PostgresNodeLogReader
 
         blocks = log_reader.read()

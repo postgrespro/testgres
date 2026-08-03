@@ -14,7 +14,7 @@ import typing
 
 from six import iteritems
 
-from .exceptions import ExecUtilException
+from .exceptions import ExecUtilException, InvalidOperationException
 from .config import testgres_config as tconf
 from .raise_error import RaiseError
 from .enums import NodeStatus
@@ -26,7 +26,7 @@ from testgres.operations.remote_ops import RemoteOperations
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.helpers import Helpers as OsHelpers
 
-from .impl.port_manager__generic import PortManager__Generic
+from .impl.port_manager__generic2 import PortManager__Generic2
 
 from .impl.platforms import internal_platform_utils_factory
 from .impl import internal_utils
@@ -37,10 +37,7 @@ _pg_config_data = {}
 #
 # The old, global "port manager" always worked with LOCAL system
 #
-_old_port_manager = PortManager__Generic(LocalOperations.get_single_instance())
-
-# ports used by nodes
-bound_ports = _old_port_manager._reserved_ports
+_old_port_manager = PortManager__Generic2(LocalOperations.get_single_instance())
 
 
 # re-export version type
@@ -55,7 +52,7 @@ class PgVer(Version):
 
 def internal__reserve_port():
     """
-    Generate a new port and add it to 'bound_ports'.
+    Generate a new port.
     """
     return _old_port_manager.reserve_port()
 
@@ -156,7 +153,7 @@ def get_bin_path2(os_ops: OsOperations, filename):
         pg_config = os.environ.get("PG_CONFIG")
 
     if pg_config:
-        bindir = get_pg_config(pg_config, os_ops)["BINDIR"]
+        bindir = get_pg_config2(os_ops, pg_config)["BINDIR"]
         return os_ops.build_path(bindir, filename)
 
     # try PG_BIN
@@ -166,7 +163,7 @@ def get_bin_path2(os_ops: OsOperations, filename):
 
     pg_config_path = os_ops.find_executable('pg_config')
     if pg_config_path:
-        bindir = get_pg_config(pg_config_path)["BINDIR"]
+        bindir = get_pg_config2(os_ops, pg_config_path)["BINDIR"]
         return os_ops.build_path(bindir, filename)
 
     return filename
@@ -183,8 +180,7 @@ def get_bin_dir(os_ops: OsOperations) -> str:
         pg_config = os.environ.get("PG_CONFIG")
 
     if pg_config:
-        bindir = get_pg_config(pg_config, os_ops)["BINDIR"]
-        return bindir
+        return get_pg_config2(os_ops, pg_config)["BINDIR"]
 
     # try PG_BIN
     pg_bin = os_ops.environ("PG_BIN")
@@ -193,8 +189,11 @@ def get_bin_dir(os_ops: OsOperations) -> str:
 
     pg_config_path = os_ops.find_executable('pg_config')
     if pg_config_path:
-        bindir = get_pg_config(pg_config_path)["BINDIR"]
-        return bindir
+        return get_pg_config2(os_ops, pg_config_path)["BINDIR"]
+
+    postgres = os_ops.find_executable('postgres')
+    if postgres:
+        return os_ops.get_dirname(postgres)
 
     raise RuntimeError("BinDir is not detected.")
 
@@ -261,7 +260,12 @@ def get_pg_config2(os_ops: OsOperations, pg_config_path):
         return cache_pg_config_data(cmd)
 
     # try plain name
-    return cache_pg_config_data("pg_config")
+    try:
+        pg_config_data = cache_pg_config_data("pg_config")
+    except Exception:
+        raise InvalidOperationException(
+            "Failed to determine how to start pg_config. Either specify the path to pg_config in PG_CONFIG or specify the path to the Postgres directory containing pg_config in PG_BIN, or put pg_config into the system PATH.")
+    return pg_config_data
 
 
 def get_pg_version2(os_ops: OsOperations, bin_dir=None):
@@ -404,7 +408,23 @@ def get_pg_node_state(
     attempt = 0
     sleep_time = C_SLEEP_TIME1
 
-    platform_utils: typing.Optional[internal_platform_utils_factory.InternalPlatformUtils] = None
+    class tagPlaformUtilsProvider:
+        T_PLATFORM_UTILS = internal_platform_utils_factory.InternalPlatformUtils
+
+        _platform_utils: typing.Optional[T_PLATFORM_UTILS] = None
+
+        def __init__(self):
+            self._platform_utils = None
+
+        def get(self) -> T_PLATFORM_UTILS:
+            if self._platform_utils is None:
+                self._platform_utils = internal_platform_utils_factory.create_internal_platform_utils(os_ops)
+                assert isinstance(self._platform_utils, __class__.T_PLATFORM_UTILS)
+
+            assert isinstance(self._platform_utils, __class__.T_PLATFORM_UTILS)
+            return self._platform_utils
+
+    platform_utils_provider = tagPlaformUtilsProvider()
 
     while True:
         assert type(attempt) is int
@@ -506,6 +526,13 @@ def get_pg_node_state(
 
             assert pid != 0
 
+            # ----------------- detect zombie
+            if platform_utils_provider.get().ProcessIsZombi_soft_check(os_ops, pid) is True:
+                internal_utils.send_log_debug("Postmaster process {} is a zombie.".format(
+                    pid,
+                ))
+                return PostgresNodeState(NodeStatus.Zombie, pid)
+
             # -----------------
             return PostgresNodeState(NodeStatus.Running, pid)
 
@@ -536,14 +563,8 @@ def get_pg_node_state(
                     bin_dir,
                 ))
 
-            if platform_utils is None:
-                platform_utils = internal_platform_utils_factory.create_internal_platform_utils(os_ops)
-                assert isinstance(platform_utils, internal_platform_utils_factory.InternalPlatformUtils)
-
-            assert isinstance(platform_utils, internal_platform_utils_factory.InternalPlatformUtils)
-
             try:
-                find_postmaster_r = platform_utils.FindPostmaster(
+                find_postmaster_r = platform_utils_provider.get().FindPostmaster(
                     os_ops,
                     bin_dir,
                     data_dir,

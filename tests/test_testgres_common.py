@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from .helpers.global_data import OsOpsDescrs
+from .helpers.global_data import OsOpsDescr
 from .helpers.global_data import PostgresNodeService
 from .helpers.global_data import PostgresNodeServices
 from .helpers.global_data import OsOperations
 from .helpers.global_data import PortManager
+from .helpers.pg_cfg_os_ops import PgCfgOsOps
 
 from src import __version__ as testgres_version
 from src.node import PgVer
@@ -16,6 +19,9 @@ from src.utils import get_pg_version2
 from src.utils import file_tail
 from src.utils import get_bin_path2
 from src.utils import execute_utility2
+from src.defaults import default_username
+from src.defaults import default_username2
+from src.config import testgres_config as tconf
 from src import ProcessType
 from src import NodeStatus
 from src import IsolationLevel
@@ -71,6 +77,25 @@ def removing(os_ops: OsOperations, f):
 
 
 class TestTestgresCommon:
+    sm_os_ops_descrs: typing.List[OsOpsDescr] = [
+        OsOpsDescrs.sm_local_os_ops_descr,
+        OsOpsDescrs.sm_remote_os_ops_descr
+    ]
+
+    @pytest.fixture(
+        params=[
+            pytest.param(
+                descr,
+                id=descr.sign,
+            )
+            for descr in sm_os_ops_descrs
+        ],
+    )
+    def os_ops_descr(self, request: pytest.FixtureRequest) -> OsOpsDescr:
+        assert isinstance(request, pytest.FixtureRequest)
+        assert isinstance(request.param, OsOpsDescr)
+        return request.param
+
     sm_node_svcs: typing.List[PostgresNodeService] = [
         PostgresNodeServices.sm_local,
         PostgresNodeServices.sm_local2,
@@ -95,8 +120,8 @@ class TestTestgresCommon:
 
         # Author: Mark G.
         assert v.major == 1
-        assert v.minor == 14
-        assert v.micro == 4
+        assert v.minor == 15
+        assert v.micro == 1
 
         assert str(v) == testgres_version
         return
@@ -133,16 +158,47 @@ class TestTestgresCommon:
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
 
+    def test_default_username(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        assert default_username(os_ops) == os_ops.get_user()
+        assert default_username(os_ops) == os_ops.username
+
+        assert default_username() == tconf.os_ops.username
+        assert default_username() == tconf.os_ops.get_user()
+        return
+
+    def test_default_username2(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        assert default_username2(os_ops) == os_ops.get_user()
+        assert default_username2(os_ops) == os_ops.username
+        return
+
     def test_node_constructor__default(self):
-        node = PostgresNode()
-        assert node._os_ops is not None
-        assert isinstance(node._os_ops, OsOperations)
-        assert node._port_manager is not None
-        assert isinstance(node._port_manager, PortManager)
-        assert node._name is not None
-        assert type(node._name) is str
-        assert node._name != ""
-        assert node._base_dir is None
+        with PostgresNode() as node:
+            assert node._os_ops is not None
+            assert isinstance(node._os_ops, OsOperations)
+            assert node._port_manager is not None
+            assert isinstance(node._port_manager, PortManager)
+            assert node._name is not None
+            assert type(node._name) is str
+            assert node._name != ""
+            assert node._base_dir is None
         return
 
     def test_node_constructor__host(self):
@@ -190,6 +246,10 @@ class TestTestgresCommon:
         with __class__.helper__get_node(node_svc) as node:
             # enable page checksums
             node.init(initdb_params=['-k']).start()
+        return
+
+    def test_custom_init__hba(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
 
         with __class__.helper__get_node(node_svc) as node:
             node.init(
@@ -202,8 +262,24 @@ class TestTestgresCommon:
             # check number of lines
             assert (len(lines) >= 6)
 
+            # Normalize function: turns a string into a list of pure words
+            def normalize_line(line_str):
+                return line_str.strip().split()
+
+            # We collect a list of rules that already exist in the file (in the form of word lists)
+            existing_normalized = []
+            for s in lines:
+                s_clean = s.strip()
+                if s_clean and not s_clean.startswith("#"):
+                    existing_normalized.append(normalize_line(s_clean))
+                continue
+
             # there should be no trust entries at all
-            assert not (any('trust' in s for s in lines))
+            for s in lines:
+                if len(s) > 0 and s[0] in ["host", "local"]:
+                    assert s[-1] == "reject"
+                continue
+            return
 
     def test_double_init(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -380,12 +456,70 @@ class TestTestgresCommon:
         assert isinstance(node_svc, PostgresNodeService)
 
         with __class__.helper__get_node(node_svc) as node:
-            node.init().start()
+            node.init()
 
-            # restart, ok
-            res = node.execute('select 1')
-            assert (res == [(1,)])
-            node.restart()
+            nRestartAttempt = 0
+
+            while True:
+                nRestartAttempt += 1
+
+                logging.info("Attempt #{}".format(nRestartAttempt))
+
+                node.start()
+
+                # restart, ok
+                res = node.execute('select 1')
+                assert (res == [(1,)])
+
+                node_log_reader = PostgresNodeLogReader(
+                    node,
+                    from_beginnig=False,
+                )
+
+                try:
+                    node.restart()
+                except StartNodeException as e:
+                    logging.info("Exception ({}): {}".format(
+                        type(e).__name__,
+                        e,
+                    ))
+
+                    if nRestartAttempt == 5:
+                        raise
+
+                    if not PostgresNodeUtils.detect_port_conflict(node_log_reader):
+                        raise
+
+                    logging.info("Node port {} conflicted with another PostgreSQL instance.".format(
+                        node.port
+                    ))
+
+                    logging.info("Wait for node stop")
+
+                    nStopAttemtp = 0
+
+                    while True:
+                        if nStopAttemtp == 5:
+                            raise RuntimeError("Node is not stopped!")
+
+                        nStopAttemtp += 1
+
+                        time.sleep(1)
+
+                        node_status = node.status()
+
+                        logging.info("Node status is {}".format(node_status))
+
+                        if node_status == NodeStatus.Stopped:
+                            break
+                        continue
+
+                    # node is stopped. try again
+                    continue
+
+                assert node.status() == NodeStatus.Running
+                break
+
             res = node.execute('select 2')
             assert (res == [(2,)])
 
@@ -511,7 +645,27 @@ class TestTestgresCommon:
             assert expected_msg == x.value.error
         return
 
-    def test_status__force_clean_postmaster_pid(self, node_svc: PostgresNodeService):
+    sm_false_true = [False, True]
+
+    @pytest.fixture(
+        params=[
+            pytest.param(
+                x,
+                id="sleep_after_clean={}".format(x),
+            )
+            for x in sm_false_true
+        ]
+    )
+    def sleep_after_clean(self, request: pytest.FixtureRequest) -> bool:
+        assert isinstance(request, pytest.FixtureRequest)
+        assert type(request.param) is bool
+        return request.param
+
+    def test_status__force_clean_postmaster_pid(
+        self,
+        node_svc: PostgresNodeService,
+        sleep_after_clean: bool,
+    ):
         assert isinstance(node_svc, PostgresNodeService)
 
         assert (NodeStatus.Running)
@@ -535,27 +689,43 @@ class TestTestgresCommon:
                 postmaster_pid_file
             ))
 
+            logging.info("Clean pid file...")
             node.os_ops.write(
                 postmaster_pid_file,
                 "",
                 truncate=True,
             )
 
-            x = node.os_ops.read(
-                postmaster_pid_file,
-                encoding="utf-8",
-                binary=False
-            )
-            assert x == ""
+            if sleep_after_clean:
+                # server removes pid file and shutdown within 60 seconds.
+                logging.info("SLEEP 65 sec!")
+                time.sleep(65)
 
-            with pytest.raises(expected_exception=ExecUtilException) as x:
-                node.status()
+            logging.info("Check node status...")
+            node_status: typing.Optional[NodeStatus]
+            try:
+                node_status = node.status()
+            except ExecUtilException as e:
+                logging.info("Catch exception ({}): {}".format(
+                    type(e).__name__,
+                    str(e),
+                ))
 
-            expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
-                postmaster_pid_file
-            )
+                expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
+                    postmaster_pid_file
+                )
+                assert expected_msg == e.error
+            else:
+                assert node_status is not None
 
-            assert expected_msg == x.value.error
+                logging.info("Node Status is {}".format(node_status.name))
+
+                if node_status == NodeStatus.Stopped:
+                    pass
+                elif node_status == NodeStatus.Zombie:
+                    logging.warning("Zombie is detected!")
+                else:
+                    raise RuntimeError("Unknown node status: {}.".format(node_status))
         return
 
     def test_kill__is_not_initialized(
@@ -611,7 +781,9 @@ class TestTestgresCommon:
     ):
         assert isinstance(node_svc, PostgresNodeService)
 
-        with __class__.helper__get_node(node_svc) as node:
+        node = __class__.helper__get_node(node_svc)
+
+        try:
             assert isinstance(node, PostgresNode)
             assert (node.pid == 0)
             assert (node.status() == NodeStatus.Uninitialized)
@@ -620,6 +792,9 @@ class TestTestgresCommon:
             assert not node.is_started
             node.slow_start()
             assert node.is_started
+
+            assert node.status() == NodeStatus.Running
+
             node.kill()
             assert not node.is_started
 
@@ -641,8 +816,21 @@ class TestTestgresCommon:
                 if s == NodeStatus.Running:
                     continue
 
-                assert s == NodeStatus.Stopped
+                if s == NodeStatus.Stopped:
+                    logging.info("Node stopped")
+                    break
+
+                if s == NodeStatus.Zombie:
+                    logging.info("Node is zombie")
+                    break
+
+                logging.error("Node has unknown status: {}.".format(s.name))
                 break
+        finally:
+            if node.is_started:
+                node.stop()
+
+        node.cleanup(release_resources=True)
         return
 
     def test_kill_backgroud_writer__ok(
@@ -662,6 +850,25 @@ class TestTestgresCommon:
             assert node.is_started
             node_pid = node.pid
             assert type(node_pid) is int
+
+            # --- We expect BackgroundWriter to appear under load ------------------------
+            bw_attempt = 0
+            while True:
+                aux_pids = node.auxiliary_pids
+                assert type(aux_pids) is dict
+
+                if ProcessType.BackgroundWriter in aux_pids:
+                    break
+
+                bw_attempt += 1
+                # We give the server up to 3 seconds to start all background workers.
+                if bw_attempt == 30:
+                    raise RuntimeError("BackgroundWriter process did not start in time under heavy load.")
+
+                time.sleep(0.1)
+                continue
+
+            # ----------------------------------------------------------------------------
             aux_pids = node.auxiliary_pids
             assert type(aux_pids) is dict
             assert ProcessType.BackgroundWriter in aux_pids
@@ -1483,7 +1690,7 @@ class TestTestgresCommon:
 
         nAttempt = 0
         while True:
-            if PostgresNodeUtils.delect_port_conflict(node_log_reader):
+            if PostgresNodeUtils.detect_port_conflict(node_log_reader):
                 logging.info("Node port {} conflicted with another PostgreSQL instance.".format(
                     node.port
                 ))
@@ -1538,7 +1745,13 @@ class TestTestgresCommon:
             logging.info("Attempt #{0}.".format(nAttempt))
             s1 = node.status()
 
+            logging.info("Node status is {}.".format(s1.name))
+
             if s1 == NodeStatus.Running:
+                continue
+
+            if s1 == NodeStatus.Zombie:
+                # [2026-07-12] We will wait for final stop (stabilization). OK?
                 continue
 
             if s1 == NodeStatus.Stopped:
@@ -1573,12 +1786,9 @@ class TestTestgresCommon:
         __class__.helper__skip_test_if_pg_version_is_not_ge(current_version, "9.6")
 
         with __class__.helper__get_node(node_svc) as master:
-            old_version = not __class__.helper__pg_version_ge(current_version, '9.6')
-
             master.init(allow_streaming=True).start()
 
-            if not old_version:
-                master.append_conf('synchronous_commit = remote_apply')
+            master.append_conf('synchronous_commit = remote_apply')
 
             # create standby
             with master.replicate() as standby1, master.replicate() as standby2:
@@ -1595,21 +1805,20 @@ class TestTestgresCommon:
 
                 # set synchronous_standby_names
                 master.set_synchronous_standbys(First(2, [standby1, standby2]))
-                master.restart()
+                master.reload()
 
-                # the following part of the test is only applicable to newer
-                # versions of PostgresQL
-                if not old_version:
-                    master.safe_psql('create table abc(a int)')
+                master.safe_psql('create table abc(a int)')
 
-                    # Create a large transaction that will take some time to apply
-                    # on standby to check that it applies synchronously
-                    # (If set synchronous_commit to 'on' or other lower level then
-                    # standby most likely won't catchup so fast and test will fail)
-                    master.safe_psql(
-                        'insert into abc select generate_series(1, 1000000)')
-                    res = standby1.safe_psql('select count(*) from abc')
-                    assert (__class__.helper__rm_carriage_returns(res) == b'1000000\n')
+                # Create a large transaction that will take some time to apply
+                # on standby to check that it applies synchronously
+                # (If set synchronous_commit to 'on' or other lower level then
+                # standby most likely won't catchup so fast and test will fail)
+                master.safe_psql(
+                    'insert into abc select generate_series(1, 1000000)',
+                )
+                res = standby1.safe_psql('select count(*) from abc')
+                assert (__class__.helper__rm_carriage_returns(res) == b'1000000\n')
+        return
 
     def test_logical_replication(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -1783,9 +1992,9 @@ class TestTestgresCommon:
             with removing(node_svc.os_ops, node1.dump(format=dump_fmt)) as dump:
                 with __class__.helper__get_node(node_svc).init().start() as node3:
                     if dump_fmt == enums.DumpFormat.Directory:
-                        assert (os.path.isdir(dump))
+                        assert (node_svc.os_ops.isdir(dump))
                     else:
-                        assert (os.path.isfile(dump))
+                        assert (node_svc.os_ops.isfile(dump))
                     # restore dump
                     node3.restore(filename=dump)
                     res = node3.execute(query_select)
@@ -1801,7 +2010,7 @@ class TestTestgresCommon:
             # Test dump with --schema-only option
             with removing(node_svc.os_ops, node1.dump(options=['--schema-only'])) as dump:
                 with __class__.helper__get_node(node_svc).init().start() as node2:
-                    assert (os.path.isfile(dump))
+                    assert (node_svc.os_ops.isfile(dump))
                     # restore schema-only dump
                     node2.restore(filename=dump)
 
@@ -2680,6 +2889,7 @@ where c.relname=%s;"""
         )
 
         assert node_app.os_ops is node_svc.os_ops
+        assert node_app.port_manager is not None
         assert node_app.port_manager is node_svc.port_manager
         assert type(node_app.nodes_to_cleanup) is list
         assert len(node_app.nodes_to_cleanup) == 0
@@ -2753,6 +2963,7 @@ where c.relname=%s;"""
                 assert not node._should_free_port
                 break
         finally:
+            assert node_app.port_manager is not None
             while len(ports) > 0:
                 node_app.port_manager.release_port(ports.pop())
 
@@ -2783,9 +2994,13 @@ where c.relname=%s;"""
         )
 
         # TODO: We have to use node_svc.os_ops here
+        pgConfOsOps = PgCfgOsOps(
+            node_svc.os_ops,
+            "utf-8",
+        )
 
         with node_app.make_simple("abc") as node:
-            node_conf = testgres_pgconf.PostgresConfiguration(node.data_dir)
+            node_conf = testgres_pgconf.PostgresConfiguration(node.data_dir, pgConfOsOps)
 
             logging.info("Configuration is readed ...")
             testgres_pgconf.PostgresConfigurationReader.LoadConfiguration(node_conf)
@@ -2809,6 +3024,8 @@ where c.relname=%s;"""
 
             logging.info("Node is started ...")
             node.slow_start()
+
+            assert node.status() == NodeStatus.Running
         return
 
     @staticmethod

@@ -1,8 +1,8 @@
 ARG PG_VERSION=17
-ARG PYTHON_VERSION=3
+ARG PYTHON_VERSION=3.12
 
 # --------------------------------------------- base1
-FROM ubuntu:24.04 AS base1
+FROM ubuntu:26.04 AS base1
 ARG PG_VERSION
 
 # Disable interactive apt questions so that the build doesn't hang when setting time zones
@@ -21,6 +21,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-common \
     libpq-dev \
     build-essential \
+    # FIX FOR TestOsOpsCommon::test_mkdir__mt[remote_ops] \
+    #   INFO [2026-07-14 11:12:31] [Worker #3] Number 0 is reserved! \
+    #   INFO [2026-07-14 11:12:31] [Worker #0] Number 0 is reserved! \
+    # Returning classic GNU coreutils instead of the default Rust/uutils \
+    && apt-get install -y --allow-remove-essential coreutils-from-gnu coreutils-from-uutils- \
     && rm -rf /var/lib/apt/lists/*
 
 RUN sed -i 's/#MaxStartups 10:30:100/MaxStartups 2000:30:2000/' /etc/ssh/sshd_config && \
@@ -45,6 +50,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHON_BINARY=python3
+
+# --------------------------------------------- base2_with_python-3.12
+FROM base1 AS base2_with_python-3.12
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    gnupg \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 \
+    python3.12-venv \
+    python3.12-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHON_BINARY=/usr/bin/python3.12
 
 # --------------------------------------------- final
 FROM base2_with_python-${PYTHON_VERSION} AS final

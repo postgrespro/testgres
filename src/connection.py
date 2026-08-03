@@ -14,7 +14,7 @@ from .enums import IsolationLevel
 
 from .defaults import \
     default_dbname, \
-    default_username
+    default_username2
 
 from .exceptions import QueryException
 
@@ -38,7 +38,7 @@ class NodeConnection(object):
 
         # Set default arguments
         dbname = dbname or default_dbname()
-        username = username or default_username()
+        username = username or default_username2(node.os_ops)
 
         self._node = node
 
