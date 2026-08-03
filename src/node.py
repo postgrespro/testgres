@@ -638,6 +638,12 @@ class PostgresNode(object):
         assert type(with_force) is bool
         assert max_attempts > 0
 
+        try:
+            self._try_shutdown_internal(max_attempts, with_force)
+        finally:
+            self._maybe_stop_logger()
+
+    def _try_shutdown_internal(self, max_attempts, with_force):
         attempts = 0
 
         # try stopping server N times
@@ -1331,11 +1337,13 @@ class PostgresNode(object):
             "stop"
         ] + params  # yapf: disable
 
-        execute_utility2(self._os_ops, _params, self.utils_log_file)
-
-        self._manually_started_pm_pid = None
-
-        self._maybe_stop_logger()
+        try:
+            execute_utility2(self._os_ops, _params, self.utils_log_file)
+            self._manually_started_pm_pid = None
+        finally:
+            # always stop the reader thread, even if pg_ctl stop failed,
+            # so it can't leak into interpreter shutdown.
+            self._maybe_stop_logger()
         return self
 
     def kill(self, someone=None):

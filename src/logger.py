@@ -31,7 +31,7 @@ class TestgresLogger(threading.Thread):
         assert type(log_file_encoding) is str
         assert os_ops is None or isinstance(os_ops, OsOperations)
 
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, daemon=True)
 
         if os_ops is None:
             os_ops = tconf.os_ops
