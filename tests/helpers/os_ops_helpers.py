@@ -1,5 +1,5 @@
 # coding: utf-8
-from testgres.operations.local_ops import OsOperations
+from testgres.operations.os_ops import OsOperations
 
 
 class OsOpsHelpers:

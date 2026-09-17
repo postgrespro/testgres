@@ -1,12 +1,12 @@
 # coding: utf-8
 from __future__ import annotations
 
-from .helpers.global_data import OsOpsDescr
-from .helpers.global_data import OsOpsDescrs
-from .helpers.global_data import OsOperations
-from .helpers.run_conditions import RunConditions
-from .helpers.local_check import LocalCheck
-from .helpers.local_check import OsOpsHelpers
+from tests.helpers.global_data import OsOpsDescr
+from tests.helpers.global_data import OsOpsDescrs
+from tests.helpers.global_data import OsOperations
+from tests.helpers.run_conditions import RunConditions
+from tests.helpers.local_check import LocalCheck
+from tests.helpers.local_check import OsOpsHelpers
 
 import os
 import sys
@@ -26,8 +26,8 @@ import datetime
 import threading
 import queue
 
-from src import InvalidOperationException
-from src import ExecUtilException
+from src.exceptions import InvalidOperationException
+from src.exceptions import ExecUtilException
 
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import Future as ThreadFuture
