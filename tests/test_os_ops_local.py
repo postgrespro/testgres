@@ -1,7 +1,7 @@
 # coding: utf-8
-from .helpers.global_data import OsOpsDescr
-from .helpers.global_data import OsOpsDescrs
-from .helpers.global_data import OsOperations
+from tests.helpers.global_data import OsOpsDescr
+from tests.helpers.global_data import OsOpsDescrs
+from tests.helpers.global_data import OsOperations
 
 import os
 

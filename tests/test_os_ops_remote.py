@@ -1,11 +1,11 @@
 # coding: utf-8
 
-from .helpers.global_data import OsOpsDescr
-from .helpers.global_data import OsOpsDescrs
-from .helpers.global_data import OsOperations
-from .helpers.local_check import LocalCheck
+from tests.helpers.global_data import OsOpsDescr
+from tests.helpers.global_data import OsOpsDescrs
+from tests.helpers.global_data import OsOperations
+from tests.helpers.local_check import LocalCheck
 
-from src import ExecUtilException
+from src.exceptions import ExecUtilException
 
 import pytest
 
