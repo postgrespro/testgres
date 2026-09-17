@@ -6,6 +6,7 @@ from tests.helpers.global_data import OsOperations
 from tests.helpers.local_check import LocalCheck
 
 from src.exceptions import ExecUtilException
+from testgres.operations.remote_ops import RemoteProcessController
 
 import pytest
 
@@ -122,4 +123,26 @@ class TestOsOpsRemote:
         assert "Utility exited with non-zero code (1)." in str(x.value)
         assert "No such file or directory" in str(x.value)
         assert "/dummy" in str(x.value)
+        return
+
+    def test_popen_communicate__rc_file_is_deleted(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "echo 123"]
+
+        with os_ops.popen(cmd) as controller:
+            assert type(controller) is RemoteProcessController
+
+            assert controller._remote_rc_file is not None
+            assert os_ops.path_exists(controller._remote_rc_file)
+            rc_file = controller._remote_rc_file
+
+        assert not os_ops.path_exists(rc_file)
         return

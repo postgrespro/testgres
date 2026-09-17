@@ -18,6 +18,7 @@ from .connection import \
 from .exceptions import \
     TestgresException, \
     ExecUtilException, \
+    ExecTimeoutException, \
     QueryException, \
     QueryTimeoutException, \
     TimeoutException, \
@@ -53,7 +54,9 @@ from .standby import \
 
 from .config import testgres_config
 
-from testgres.operations.os_ops import OsOperations, ConnectionParams
+from testgres.operations.os_ops import OsOperations
+from testgres.operations.os_ops import ConnectionParams
+from testgres.operations.os_ops import OsProcessController
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.remote_ops import RemoteOperations
 
@@ -66,6 +69,7 @@ __all__ = [
     "TestgresConfig", "configure_testgres", "scoped_config", "push_config", "pop_config",
     "NodeConnection", "DatabaseError", "InternalError", "ProgrammingError", "OperationalError",
     "TestgresException", "ExecUtilException", "QueryException",
+    "ExecTimeoutException",
     "QueryTimeoutException",
     "TimeoutException", "CatchUpException", "StartNodeException", "InitNodeException", "BackupException", "InvalidOperationException",
     "XLogMethod", "IsolationLevel", "NodeStatus", "ProcessType", "DumpFormat",
@@ -74,5 +78,6 @@ __all__ = [
     "PortManager",
     "reserve_port", "release_port", "get_bin_path", "get_bin_dir", "get_pg_config", "get_pg_version", "parse_pg_version",
     "First", "Any",
-    "OsOperations", "LocalOperations", "RemoteOperations", "ConnectionParams"
+    "OsOperations", "LocalOperations", "RemoteOperations", "ConnectionParams",
+    "OsProcessController",
 ]
