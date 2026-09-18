@@ -9,12 +9,12 @@ from .helpers.global_data import PortManager
 from .helpers.pg_cfg_os_ops import PgCfgOsOps
 
 from src import __version__ as testgres_version
-from src.node import PgVer
 from src.node import PostgresNode
 from src.node import NodeConnection
 from src.node import PostgresNodeLogReader
 from src.node import PostgresNodeUtils
 from src.node import ProcessProxy
+from src.utils import PgVer
 from src.utils import get_pg_version2
 from src.utils import file_tail
 from src.utils import get_bin_path2

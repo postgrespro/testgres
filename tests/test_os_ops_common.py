@@ -1351,8 +1351,9 @@ class TestOsOpsCommon:
         filename = os_ops.mkstemp(name_with_surprize.value)
 
         with pytest.raises(
-                ValueError,
-                match=re.escape("Negative 'size' is not supported.")):
+            ValueError,
+            match=re.escape("Negative 'size' is not supported."),
+        ):
             os_ops.read_binary(filename, 0, size=-1)
 
         os_ops.remove_file(filename)
@@ -1998,17 +1999,23 @@ exit(0)
         LocalCheck.check_path_exists(os_ops, lock_dir)
         assert os_ops.path_exists(lock_dir) is True
 
-        def MAKE_PATH(os_ops: OsOperations, lock_dir: str, num: int) -> str:
+        def MAKE_PATH(
+            os_ops: OsOperations,
+            lock_dir: str,
+            num: int,
+        ) -> str:
             assert isinstance(os_ops, OsOperations)
             assert type(lock_dir) is str
             assert type(num) is int
             return os_ops.build_path(lock_dir, str(num) + ".lock")
 
-        def LOCAL_WORKER(os_ops: OsOperations,
-                         workerID: int,
-                         lock_dir: str,
-                         cNumbers: int,
-                         reservedNumbers: typing.Set[int]) -> None:
+        def LOCAL_WORKER(
+            os_ops: OsOperations,
+            workerID: int,
+            lock_dir: str,
+            cNumbers: int,
+            reservedNumbers: typing.Set[int],
+        ) -> None:
             assert isinstance(os_ops, OsOperations)
             assert type(workerID) is int
             assert type(lock_dir) is str
@@ -2064,7 +2071,7 @@ exit(0)
 
         threadPool = ThreadPoolExecutor(
             max_workers=N_WORKERS,
-            thread_name_prefix="ex_creator"
+            thread_name_prefix="ex_creator",
         )
 
         class tadWorkerData:
@@ -2089,7 +2096,7 @@ exit(0)
                     n,
                     lock_dir,
                     N_NUMBERS,
-                    workerDatas[n].reservedNumbers
+                    workerDatas[n].reservedNumbers,
                 )
 
                 assert workerDatas[n].future is not None
@@ -2152,7 +2159,7 @@ exit(0)
                     nErrors += 1
                     logging.error("Number {} was already reserved by worker #{}".format(
                         n,
-                        reservedNumbers[n]
+                        reservedNumbers[n],
                     ))
                 else:
                     reservedNumbers[n] = i
@@ -2198,7 +2205,7 @@ exit(0)
                     logging.error("Cannot delete directory [{}]. Error ({}): {}".format(
                         file_path,
                         type(e).__name__,
-                        str(e)
+                        str(e),
                     ))
                     continue
 
@@ -2215,7 +2222,7 @@ exit(0)
                     logging.error("Cannot delete directory [{}]. Error ({}): {}".format(
                         lock_dir,
                         type(e).__name__,
-                        str(e)
+                        str(e),
                     ))
 
         logging.info("Test is finished! Total error count is {}.".format(nErrors))
@@ -2278,7 +2285,7 @@ exit(0)
             "python3",
             "-u",
             "-c",
-            "import os, time; print(os.getpid());time.sleep(300);print('EXIT')"
+            "import os, time; print(os.getpid());time.sleep(300);print('EXIT')",
         ]
 
         logging.info("Local test process is creating ...")
@@ -2532,7 +2539,10 @@ print('b', file=sys.stderr)
         assert actual_value is True
         return
 
-    def test_is_abs_path__no(self, os_ops_descr: OsOpsDescr):
+    def test_is_abs_path__no(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
         assert type(os_ops_descr) is OsOpsDescr
         assert isinstance(os_ops_descr.os_ops, OsOperations)
 
@@ -3085,7 +3095,10 @@ print('b', file=sys.stderr)
             for x in sm_ReadLinesData_TXT
         ]
     )
-    def readlines_data_txt(self, request: pytest.FixtureRequest) -> tagReadLinesData_TXT:
+    def readlines_data_txt(
+        self,
+        request: pytest.FixtureRequest,
+    ) -> tagReadLinesData_TXT:
         assert isinstance(request, pytest.FixtureRequest)
         return request.param
 
@@ -3143,7 +3156,7 @@ print('b', file=sys.stderr)
 
     def test_prove_environment_isolation(
         self,
-        os_ops_descr: OsOpsDescr
+        os_ops_descr: OsOpsDescr,
     ):
         #
         # Author: Marg G. (mark@google.com)
@@ -4540,7 +4553,7 @@ print('b', file=sys.stderr)
 
         controller = os_ops.popen(
             fx_data_wait_timeout.cmd,
-            shell=type(fx_data_wait_timeout.cmd) is str
+            shell=type(fx_data_wait_timeout.cmd) is str,
         )
 
         assert isinstance(controller, OsProcessController)
@@ -4855,7 +4868,7 @@ print('b', file=sys.stderr)
                 local_p = controller._local_process
             else:
                 raise RuntimeError("Unknown controller type: {}.".format(
-                    type(controller).__name__
+                    type(controller).__name__,
                 ))
 
             assert local_p is not None
@@ -5149,6 +5162,8 @@ print('b', file=sys.stderr)
             assert controller.stderr is not None
             s = controller.stderr.read()
             assert s == ""
+
+        return
 
     def test_popen_communicate_timeout(
         self,
@@ -6313,11 +6328,20 @@ print('b', file=sys.stderr)
         RunConditions.skip_if_windows()
         os_ops = os_ops_descr.os_ops
 
-        cmd = ["sh", "-c", "echo normal_out && echo error_err >&2 && exit 1"]
+        cmd = [
+            "sh",
+            "-c",
+            "echo normal_out && echo error_err >&2 && exit 1",
+        ]
 
         # 1. Check default behavior (check=True)
         with pytest.raises(expected_exception=ExecUtilException) as x:
-            os_ops.run(cmd, text=True, encoding="utf-8", check=True)
+            os_ops.run(
+                cmd,
+                text=True,
+                encoding="utf-8",
+                check=True,
+            )
 
         assert x.type is ExecUtilException
         assert type(x.value.out) is str
@@ -6343,7 +6367,12 @@ print('b', file=sys.stderr)
         )
 
         # 2. Test the negative scenario with validation disabled (check=False)
-        result = os_ops.run(cmd, text=True, encoding="utf-8", check=False)
+        result = os_ops.run(
+            cmd,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
 
         assert isinstance(result, OsCommandResult)
         assert result.returncode == 1
@@ -6364,7 +6393,13 @@ print('b', file=sys.stderr)
 
         # 1. Check default behavior (check=True)
         with pytest.raises(expected_exception=ExecUtilException) as x:
-            os_ops.run(cmd, text=True, encoding="utf-8", shell=True, check=True)
+            os_ops.run(
+                cmd,
+                text=True,
+                encoding="utf-8",
+                shell=True,
+                check=True,
+            )
 
         assert x.type is ExecUtilException
         assert type(x.value.out) is str

@@ -135,13 +135,15 @@ class Publication(object):
 
 
 class Subscription(object):
-    def __init__(self,
-                 node,
-                 publication,
-                 name=None,
-                 dbname=None,
-                 username=None,
-                 **params):
+    def __init__(
+        self,
+        node,
+        publication,
+        name=None,
+        dbname=None,
+        username=None,
+        **params,
+    ):
         """
         Constructor. Use :meth:`.PostgresNode.subscribe()` instead of direct
         constructing subscription objects.
@@ -174,7 +176,7 @@ class Subscription(object):
             "dbname": self.pub.dbname,
             "user": self.pub.username,
             "host": self.pub.node.host,
-            "port": self.pub.node.port
+            "port": self.pub.node.port,
         }
 
         query = (

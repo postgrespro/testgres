@@ -113,7 +113,7 @@ class QueryTimeoutException(QueryException):
     def __init__(
         self,
         message: typing.Optional[str] = None,
-        query: typing.Optional[str] = None
+        query: typing.Optional[str] = None,
     ):
         assert message is None or type(message) is str
         assert query is None or type(query) is str
@@ -170,7 +170,7 @@ class StartNodeException(TestgresException):
     def __init__(
         self,
         message: typing.Optional[str] = None,
-        files: typing.Optional[typing.Iterable] = None
+        files: typing.Optional[typing.Iterable] = None,
     ):
         assert message is None or type(message) is str
         assert files is None or isinstance(files, typing.Iterable)

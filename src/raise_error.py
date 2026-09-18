@@ -108,10 +108,10 @@ class RaiseError:
 
         if node_status == NodeStatus.Running:
             return "Node is running (pid: {})".format(
-                node_pid
+                node_pid,
             )
 
         # assert False
         return "Node has unknown status {}".format(
-            node_status
+            node_status,
         )
