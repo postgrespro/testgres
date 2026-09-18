@@ -335,7 +335,8 @@ def get_pg_version2(os_ops: OsOperations, bin_dir=None):
         postgres_path = os_ops.build_path(bin_dir, 'postgres')
 
     cmd = [postgres_path, '--version']
-    raw_ver = os_ops.exec_command(cmd, encoding='utf-8')
+    raw_ver = os_ops.run(cmd, encoding='utf-8').stdout
+    assert type(raw_ver) is str
 
     return parse_pg_version(raw_ver)
 
