@@ -5,7 +5,9 @@ from ... import internal_utils
 from ....raise_error import RaiseError
 
 from testgres.operations.os_ops import OsOperations
+from testgres.operations.os_ops import OsCommandResult
 from testgres.operations.exceptions import ExecUtilException
+from testgres.operations.types import T_OS_EXEC_ENV
 
 import re
 import shlex
@@ -17,7 +19,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
     C_MAX_FIND_POSTMASTER_ATTEMPTS = 5
     C_BASH_EXE = "/bin/bash"
 
-    sm_exec_env = {
+    sm_exec_env: T_OS_EXEC_ENV = {
         "LANG": "en_US.UTF-8",
         "LC_ALL": "en_US.UTF-8",
     }
@@ -113,37 +115,32 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             "ps -ewwo \"pid=,ppid=,args=\" | grep -E " + shlex.quote(regexp),
            ]
 
-        exec_r = os_ops.exec_command(
+        exec_r = os_ops.run(
             cmd=cmd,
-            ignore_errors=True,
-            verbose=True,
+            check=False,
             exec_env=__class__.sm_exec_env,
         )
 
-        assert type(exec_r) is tuple
-        assert len(exec_r) == 3
+        assert type(exec_r) is OsCommandResult
+        assert type(exec_r.returncode) is int
+        assert type(exec_r.stdout) is bytes
+        assert type(exec_r.stderr) is bytes
 
-        exit_status, output_b, error_b = exec_r
-
-        assert type(exit_status) is int
-        assert type(output_b) is bytes
-        assert type(error_b) is bytes
-
-        if exit_status == 1:
+        if exec_r.returncode == 1:
             return None
 
-        output = output_b.decode("utf-8")
-        error = error_b.decode("utf-8")
+        output = exec_r.stdout.decode("utf-8")
+        error = exec_r.stderr.decode("utf-8")
 
         assert type(output) is str
         assert type(error) is str
 
-        if exit_status != 0:
-            errMsg = f"test command returned an unexpected exit code: {exit_status}"
+        if exec_r.returncode != 0:
+            errMsg = f"test command returned an unexpected exit code: {exec_r.returncode}"
             raise ExecUtilException(
                 message=errMsg,
                 command=cmd,
-                exit_code=exit_status,
+                exit_code=exec_r.returncode,
                 out=output,
                 error=error,
             )

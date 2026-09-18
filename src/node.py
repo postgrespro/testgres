@@ -100,6 +100,8 @@ from .raise_error import RaiseError
 from .backup import NodeBackup
 
 from testgres.operations.os_ops import OsOperations
+from testgres.operations.os_ops import OsCommandResult
+from testgres.operations.os_ops import OsProcessController
 from testgres.operations.local_ops import LocalOperations
 
 InternalError = pglib.InternalError
@@ -673,7 +675,11 @@ class PostgresNode(object):
 
         ps_command = ['ps', '-o', 'pid=', '-p', str(node_pid)]
 
-        ps_output = self._os_ops.exec_command(cmd=ps_command, shell=True, ignore_errors=True).decode('utf-8')
+        ps_output = self._os_ops.run(
+            cmd=ps_command,
+            shell=True,
+            check=False,
+        ).stdout.decode('utf-8')
         assert type(ps_output) is str
 
         if ps_output == "":
@@ -692,7 +698,11 @@ class PostgresNode(object):
             pass
 
         # Check that node stopped - print only column pid without headers
-        ps_output = self._os_ops.exec_command(cmd=ps_command, shell=True, ignore_errors=True).decode('utf-8')
+        ps_output = self._os_ops.run(
+            cmd=ps_command,
+            shell=True,
+            check=False,
+        ).stdout.decode('utf-8')
         assert type(ps_output) is str
 
         if ps_output == "":
@@ -1598,7 +1608,7 @@ class PostgresNode(object):
         assert port is None or type(port) is int
         assert type(variables) is dict
 
-        return self._psql(
+        r = self._psql(
             ignore_errors=True,
             query=query,
             filename=filename,
@@ -1609,6 +1619,8 @@ class PostgresNode(object):
             port=port,
             **variables
         )
+        assert type(r) is OsCommandResult
+        return r.returncode, r.stdout, r.stderr
 
     def _psql(
             self,
@@ -1620,7 +1632,8 @@ class PostgresNode(object):
             input=None,
             host: typing.Optional[str] = None,
             port: typing.Optional[int] = None,
-            **variables):
+            **variables
+    ) -> OsCommandResult:
         assert host is None or type(host) is str
         assert port is None or type(port) is int
         assert type(variables) is dict
@@ -1670,13 +1683,15 @@ class PostgresNode(object):
         else:
             raise QueryException('Query or filename must be provided')
 
-        return self._os_ops.exec_command(
+        r = self._os_ops.run(
             psql_params,
-            verbose=True,
             input=input,
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            ignore_errors=ignore_errors)
+            check=not ignore_errors,
+        )
+        assert type(r) is OsCommandResult
+        return r
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def safe_psql(self, query=None, expect_error=False, **kwargs):
@@ -1704,7 +1719,7 @@ class PostgresNode(object):
         # force this setting
         kwargs['ON_ERROR_STOP'] = 1
         try:
-            ret, out, err = self._psql(ignore_errors=False, query=query, **kwargs)
+            exec_r = self._psql(ignore_errors=False, query=query, **kwargs)
         except ExecUtilException as e:
             if not expect_error:
                 raise QueryException(e.message, query)
@@ -1719,7 +1734,7 @@ class PostgresNode(object):
         if expect_error:
             raise InvalidOperationException("Exception was expected, but query finished successfully: `{}`.".format(query))
 
-        return out
+        return exec_r.stdout
 
     def dump(self,
              filename=None,
@@ -2052,12 +2067,14 @@ class PostgresNode(object):
                             dbname=dbname, username=username, **params)
         # yapf: enable
 
-    def pgbench(self,
-                dbname=None,
-                username=None,
-                stdout=None,
-                stderr=None,
-                options=None):
+    def pgbench(
+        self,
+        dbname=None,
+        username=None,
+        stdout=None,
+        stderr=None,
+        options=None,
+    ) -> OsProcessController:
         """
         Spawn a pgbench process.
 
@@ -2069,7 +2086,7 @@ class PostgresNode(object):
             options: additional options for pgbench (list).
 
         Returns:
-            Process created by subprocess.Popen.
+            OsProcessController.
         """
         if options is None:
             options = []
@@ -2086,10 +2103,14 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        proc = self._os_ops.exec_command(_params, stdout=stdout, stderr=stderr, get_process=True)
+        proc = self._os_ops.popen(
+            _params,
+            stdout=stdout,
+            stderr=stderr,
+        )
 
         # [2026-06-21] It is so
-        assert isinstance(proc, subprocess.Popen)
+        assert isinstance(proc, OsProcessController)
         return proc
 
     def pgbench_with_wait(self,
@@ -2349,7 +2370,22 @@ class PostgresNode(object):
         ]
         upgrade_command += options
 
-        return self._os_ops.exec_command(upgrade_command, expect_error=expect_error)
+        r: typing.Optional[typing.Any] = None
+        try:
+            r = self._os_ops.run(upgrade_command).stdout
+        except BaseException as e:
+            if not expect_error:
+                raise
+
+            logging.info("Exception ({}): {}".format(
+                type(e).__name__,
+                e,
+            ))
+
+        if expect_error:
+            raise RuntimeError("Operation executed without any errors.")
+
+        return r
 
     def _release_resources(self):
         self._free_port()
