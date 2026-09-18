@@ -117,11 +117,19 @@ def execute_utility2(
     # write new log entry if possible
     if logfile:
         try:
-            os_ops.write(filename=logfile, data=args, truncate=True)
+            os_ops.write(
+                filename=logfile,
+                data=os_ops.join_command_arguments(args),
+                truncate=False,
+            )
             if out:
                 # comment-out lines
                 lines = [u'\n'] + ['# ' + line for line in out.splitlines()] + [u'\n']
-                os_ops.write(filename=logfile, data=lines)
+                os_ops.write(
+                    filename=logfile,
+                    data=lines,
+                    truncate=False,
+                )
         except IOError:
             raise ExecUtilException(
                 "Problem with writing to logfile `{}` during run command `{}`".format(logfile, args))

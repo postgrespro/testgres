@@ -4,6 +4,7 @@ from .helpers.global_data import OsOperations
 
 from src.utils import parse_pg_version
 from src.utils import get_pg_config2
+from src.utils import execute_utility2
 from src import scoped_config
 
 import pytest
@@ -64,3 +65,55 @@ class TestUtils:
             a = get_pg_config2(os_ops, None)
             b = get_pg_config2(os_ops, None)
             assert (id(a) != id(b))
+
+    def test_execute_utility2__log(self, os_ops: OsOperations):
+        assert isinstance(os_ops, OsOperations)
+
+        log_file: typing.Optional[str] = None
+
+        try:
+            C_OUT_DATA = "AAAA"
+
+            log_file = os_ops.mkstemp("testgres--")
+            assert os_ops.path_exists(log_file)
+
+            os_ops.write(
+                log_file,
+                C_OUT_DATA + "\n",
+                truncate=False,
+                binary=False,
+            )
+
+            cmd = ["sh", "-c", "echo BBBB"]
+
+            execute_utility2(
+                os_ops,
+                cmd,
+                logfile=log_file,
+            )
+
+            assert os_ops.path_exists(log_file)
+
+            log_content = os_ops.read(
+                log_file,
+                binary=False,
+            )
+
+            expected_content_lines = [
+                C_OUT_DATA,
+                "sh -c 'echo BBBB'",
+                "# BBBB",
+                "",
+            ]
+
+            expected_content_s = "\n".join(expected_content_lines)
+
+            assert log_content == expected_content_s
+        finally:
+            if log_file is not None:
+                assert type(log_file) is str
+                os_ops.remove_file(log_file)
+
+        assert type(log_file) is str
+        assert not os_ops.path_exists(log_file)
+        return
