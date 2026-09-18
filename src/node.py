@@ -92,7 +92,6 @@ from .utils import \
     PgVer, \
     eprint, \
     get_pg_version2, \
-    execute_utility2, \
     options_string, \
     clean_on_error
 
@@ -1093,11 +1092,16 @@ class PostgresNode(object):
         _params += ["-D"] if self._pg_version >= PgVer('9.5') else []
         _params += [self.data_dir]
 
-        data = execute_utility2(self._os_ops, _params, self.utils_log_file)
+        exec_r = utils.execute_utility3(
+            self._os_ops,
+            _params,
+            self.utils_log_file,
+        )
+        assert type(exec_r.stdout) is str
 
         out_dict = {}
 
-        for line in data.splitlines():
+        for line in exec_r.stdout.splitlines():
             key, _, value = line.partition(':')
             out_dict[key.strip()] = value.strip()
 
@@ -1248,10 +1252,17 @@ class PostgresNode(object):
 
         def LOCAL__start_node():
             # 'error' will be None on Windows
-            _, _, error = execute_utility2(self._os_ops, _params, self.utils_log_file, verbose=True, exec_env=exec_env)
-            assert error is None or type(error) is str
-            if error and 'does not exist' in error:
-                raise Exception(error)
+            exec_r = utils.execute_utility3(
+                self._os_ops,
+                _params,
+                self.utils_log_file,
+                exec_env=exec_env,
+            )
+            # TODO: WTF? Remove it!
+            assert exec_r.returncode == 0
+            assert exec_r.stderr is None or type(exec_r.stderr) is str
+            if exec_r.stderr is not None and 'does not exist' in exec_r.stderr:
+                raise ExecUtilException(exec_r.stderr)
 
         def LOCAL__raise_cannot_start_node__std(from_exception):
             assert isinstance(from_exception, Exception)
@@ -1338,7 +1349,11 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            execute_utility2(self._os_ops, _params, self.utils_log_file)
+            utils.execute_utility3(
+                self._os_ops,
+                _params,
+                logfile=self.utils_log_file,
+            )
             self._manually_started_pm_pid = None
         finally:
             # always stop the reader thread, even if pg_ctl stop failed,
@@ -1399,9 +1414,16 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            error_code, out, error = execute_utility2(self._os_ops, _params, self.utils_log_file, verbose=True)
-            if error and 'could not start server' in error:
-                raise ExecUtilException
+            exec_r = utils.execute_utility3(
+                self._os_ops,
+                _params,
+                logfile=self.utils_log_file,
+            )
+            # TODO: WTF? Remove it!
+            assert exec_r.returncode == 0
+            assert exec_r.stderr is None or type(exec_r.stderr) is str
+            if exec_r.stderr is not None and 'could not start server' in exec_r.stderr:
+                raise ExecUtilException(exec_r.stderr)
         except ExecUtilException as e:
             msg = 'Cannot restart node'
             files = self._collect_special_files()
@@ -1428,7 +1450,11 @@ class PostgresNode(object):
             "reload"
         ] + params  # yapf: disable
 
-        execute_utility2(self._os_ops, _params, self.utils_log_file)
+        utils.execute_utility3(
+            self._os_ops,
+            _params,
+            logfile=self.utils_log_file,
+        )
 
         return self
 
@@ -1450,7 +1476,11 @@ class PostgresNode(object):
             "promote"
         ]  # yapf: disable
 
-        execute_utility2(self._os_ops, _params, self.utils_log_file)
+        utils.execute_utility3(
+            self._os_ops,
+            _params,
+            self.utils_log_file,
+        )
 
         # for versions below 10 `promote` is asynchronous so we need to wait
         # until it actually becomes writable
@@ -1485,7 +1515,11 @@ class PostgresNode(object):
             "-w"  # wait
         ] + params  # yapf: disable
 
-        return execute_utility2(self._os_ops, _params, self.utils_log_file)
+        return utils.execute_utility3(
+            self._os_ops,
+            _params,
+            self.utils_log_file,
+        ).stdout
 
     def release_resources(self):
         """
@@ -1740,7 +1774,11 @@ class PostgresNode(object):
         if options:
             _params.extend(options)
 
-        execute_utility2(self._os_ops, _params, self.utils_log_file)
+        utils.execute_utility3(
+            self._os_ops,
+            _params,
+            self.utils_log_file,
+        )
 
         return filename
 
@@ -1769,7 +1807,11 @@ class PostgresNode(object):
 
         # try pg_restore if dump is binary format, and psql if not
         try:
-            execute_utility2(self._os_ops, _params, self.utils_log_file)
+            utils.execute_utility3(
+                self._os_ops,
+                _params,
+                self.utils_log_file,
+            )
         except ExecUtilException:
             self.psql(filename=filename, dbname=dbname, username=username)
 
@@ -2130,7 +2172,11 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        return execute_utility2(self._os_ops, _params, self.utils_log_file)
+        return utils.execute_utility3(
+            self._os_ops,
+            _params,
+            self.utils_log_file,
+        ).stdout
 
     def connect(self,
                 dbname=None,
