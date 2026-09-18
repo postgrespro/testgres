@@ -8,6 +8,11 @@ from tests.helpers.run_conditions import RunConditions
 from tests.helpers.local_check import LocalCheck
 from tests.helpers.local_check import OsOpsHelpers
 
+from testgres.operations.os_ops import OsProcessController
+from testgres.operations.os_ops import OsCommandResult
+from testgres.operations.os_ops import T_OS_EXEC_ENV
+from src import ExecTimeoutException
+
 import os
 import sys
 
@@ -25,6 +30,9 @@ import random
 import datetime
 import threading
 import queue
+import gc
+import warnings
+import tempfile
 
 from src.exceptions import InvalidOperationException
 from src.exceptions import ExecUtilException
@@ -180,6 +188,17 @@ class TestOsOpsCommon:
         assert isinstance(os_ops, OsOperations)
 
         v = os_ops.username
+        assert v is None or type(v) is str
+        return
+
+    def test_prop__get_user(self, os_ops_descr: OsOpsDescr):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        v = os_ops.get_user()
         assert v is None or type(v) is str
         return
 
@@ -1250,6 +1269,42 @@ class TestOsOpsCommon:
         assert type(response5) is bytes
         assert len(response5) == 0
 
+        response6 = os_ops.read_binary(filename, 0, 1)
+        assert type(response6) is bytes
+        assert len(response6) == 1
+        assert response6 == response0[:1]
+
+        r = os_ops.read_binary(filename, 10, 7)
+        assert type(r) is bytes
+        assert len(r) == 7
+        assert r == response0[10:17]
+
+        r = os_ops.read_binary(filename, 10, len(response0))
+        assert type(r) is bytes
+        assert len(r) == len(response0) - 10
+        assert r == response0[10:]
+
+        r = os_ops.read_binary(filename, 10, 2 * len(response0))
+        assert type(r) is bytes
+        assert len(r) == len(response0) - 10
+        assert r == response0[10:]
+
+        r = os_ops.read_binary(filename, len(response0) - 1, 2 * len(response0))
+        assert type(r) is bytes
+        assert len(r) == 1
+        assert r == response0[-1:]
+        assert r[0] == response0[-1]
+
+        r = os_ops.read_binary(filename, len(response0), 1)
+        assert type(r) is bytes
+        assert len(r) == 0
+        assert r == b''
+
+        r = os_ops.read_binary(filename, len(response0) + 1, 1)
+        assert type(r) is bytes
+        assert len(r) == 0
+        assert r == b''
+
         os_ops.remove_file(filename)
         return
 
@@ -1274,6 +1329,31 @@ class TestOsOpsCommon:
                 ValueError,
                 match=re.escape("Negative 'offset' is not supported.")):
             os_ops.read_binary(filename, -1)
+
+        os_ops.remove_file(filename)
+        return
+
+    def test_read_binary__spec__negative_size(
+        self,
+        os_ops_descr: OsOpsDescr,
+        name_with_surprize: tagNameWithSurprize,
+    ):
+        """
+        Test OsOperations::read_binary with negative size.
+        """
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+        assert type(name_with_surprize) is __class__.tagNameWithSurprize
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        filename = os_ops.mkstemp(name_with_surprize.value)
+
+        with pytest.raises(
+                ValueError,
+                match=re.escape("Negative 'size' is not supported.")):
+            os_ops.read_binary(filename, 0, size=-1)
 
         os_ops.remove_file(filename)
         return
@@ -1771,12 +1851,11 @@ exit(0)
             py_server_code = py_server_code_templ.format(port)
 
             # Start a background process on the target machine
-            p = os_ops.exec_command(
+            p = os_ops.popen(
                 ["python3", "-u", "-c", py_server_code],
-                get_process=True,
                 encoding="utf-8",
             )
-            assert isinstance(p, subprocess.Popen)
+            assert isinstance(p, OsProcessController)
             assert p.stdout is not None
 
             try:
@@ -2203,14 +2282,15 @@ exit(0)
         ]
 
         logging.info("Local test process is creating ...")
-        proc = os_ops.exec_command(
+        proc = os_ops.popen(
             cmd,
             encoding="utf-8",
-            get_process=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
 
         assert proc is not None
-        assert type(proc) is subprocess.Popen
+        assert isinstance(proc, OsProcessController)
         assert proc.stdout is not None
         line = proc.stdout.readline()
         assert line is not None
@@ -2303,14 +2383,13 @@ print('b', file=sys.stderr)
         ]
 
         logging.info("Local test process is creating ...")
-        proc = os_ops.exec_command(
+        proc = os_ops.popen(
             cmd,
             encoding="utf-8",
-            get_process=True,
         )
 
         assert proc is not None
-        assert type(proc) is subprocess.Popen
+        assert isinstance(proc, OsProcessController)
 
         proc_pid = proc.pid
         assert type(proc_pid) is int
@@ -2718,13 +2797,12 @@ print('b', file=sys.stderr)
 
         sh_cmd = ["sh", "-c", "python3 -u -c 'import time;import os; print(os.getpid()); time.sleep(60)'"]
 
-        p1 = os_ops.exec_command(
+        p1 = os_ops.popen(
             sh_cmd,
-            get_process=True,
             encoding="utf-8",
         )
 
-        assert isinstance(p1, subprocess.Popen)
+        assert isinstance(p1, OsProcessController)
         assert p1.stdout is not None
 
         line = p1.stdout.readline()
@@ -2755,20 +2833,19 @@ print('b', file=sys.stderr)
         script = (
             "import time, os, subprocess; "
             "s = str(os.getpid()); "
-            "p = subprocess.Popen('exec sleep 60', shell=True, stdout=subprocess.PIPE); "
+            "p = subprocess.Popen(['sleep', '60'], shell=False, stdout=subprocess.PIPE); "
             "s += ':' + str(p.pid); "
             "print(s, flush=True); "
             "time.sleep(60)"
         )
         sh_cmd = ["python3", "-u", "-c", script]
 
-        p1 = os_ops.exec_command(
+        p1 = os_ops.popen(
             sh_cmd,
-            get_process=True,
             encoding="utf-8",
         )
 
-        assert isinstance(p1, subprocess.Popen)
+        assert isinstance(p1, OsProcessController)
         assert p1.stdout is not None
 
         line = p1.stdout.readline()
@@ -2784,6 +2861,8 @@ print('b', file=sys.stderr)
         logging.info(f"Parent PID from stdout: {parent_pid}")
         logging.info(f"Expected Child PID from stdout: {expected_child_pid}")
 
+        assert parent_pid == p1.pid
+
         # A short pause to ensure registration in the OS
         # time.sleep(0.5)
 
@@ -2797,6 +2876,26 @@ print('b', file=sys.stderr)
         logging.info(f"Actual Child PID from get_process_children: {actual_child_pid}")
 
         assert actual_child_pid == expected_child_pid
+
+        child_cmdline = childs[0].cmdline()
+
+        logging.info("child cmdline: {}".format(
+            child_cmdline,
+        ))
+        assert type(child_cmdline) is list
+
+        if child_cmdline == ["sleep", "60"]:
+            pass
+        elif child_cmdline == ['/usr/bin/coreutils', '--coreutils-prog-shebang=sleep', '/usr/bin/sleep', '60']:
+            # Rocky Linux
+            pass
+        elif child_cmdline == ['/bin/sh', '-c', 'exec sleep 60']:
+            # Rocky Linux 10 (GitHub CI)
+            pass
+        else:
+            raise RuntimeError("Unknown child_cmdline {}".format(
+                child_cmdline,
+            ))
 
         p1.terminate()
         p1.wait()
@@ -2815,22 +2914,21 @@ print('b', file=sys.stderr)
         script = (
             "import time, os, subprocess; "
             "s = str(os.getpid()); "
-            "p1 = subprocess.Popen('exec sleep 60', shell=True, stdout=subprocess.PIPE); "
-            "p2 = subprocess.Popen('exec sleep 60', shell=True, stdout=subprocess.PIPE); "
-            "p3 = subprocess.Popen('exec sleep 60', shell=True, stdout=subprocess.PIPE); "
+            "p1 = subprocess.Popen(['sleep', '60'], shell=False, stdout=subprocess.PIPE); "
+            "p2 = subprocess.Popen(['sleep', '60'], shell=False, stdout=subprocess.PIPE); "
+            "p3 = subprocess.Popen(['sleep', '60'], shell=False, stdout=subprocess.PIPE); "
             "s += ':' + str(p1.pid) + ':' + str(p2.pid) + ':' + str(p3.pid); "
             "print(s, flush=True); "
             "time.sleep(60)"
         )
         sh_cmd = ["python3", "-u", "-c", script]
 
-        p = os_ops.exec_command(
+        p = os_ops.popen(
             sh_cmd,
-            get_process=True,
             encoding="utf-8",
         )
 
-        assert isinstance(p, subprocess.Popen)
+        assert isinstance(p, OsProcessController)
         assert p.stdout is not None
 
         line = p.stdout.readline()
@@ -2848,6 +2946,8 @@ print('b', file=sys.stderr)
         # A short pause to ensure registration in the OS
         # time.sleep(0.5)
 
+        assert parent_pid == p.pid
+
         childs = os_ops.get_process_children(parent_pid)
 
         assert childs is not None
@@ -2858,6 +2958,29 @@ print('b', file=sys.stderr)
         logging.info(f"Actual Child PIDs: {actual_child_pids}")
 
         assert actual_child_pids == expected_child_pids
+
+        for i in range(len(childs)):
+            child_cmdline = childs[i].cmdline()
+
+            logging.info("child cmdline: {}".format(
+                child_cmdline,
+            ))
+            assert type(child_cmdline) is list
+
+            if child_cmdline == ["sleep", "60"]:
+                pass
+            elif child_cmdline == ['/usr/bin/coreutils', '--coreutils-prog-shebang=sleep', '/usr/bin/sleep', '60']:
+                # Rocky Linux
+                pass
+            elif child_cmdline == ['/bin/sh', '-c', 'exec sleep 60']:
+                # Rocky Linux 10 (GitHub CI)
+                pass
+            else:
+                logging.error("Unknown child[{}] cmdline {}".format(
+                    i,
+                    child_cmdline,
+                ))
+            continue
 
         p.terminate()
         p.wait()
@@ -3870,6 +3993,2550 @@ print('b', file=sys.stderr)
             logging.info("SUCCESS. Concurrent thread safety and environment isolation verified successfully.")
         else:
             logging.info("Total number of errors: {}".format(total_error_count))
+        return
+
+    @dataclasses.dataclass
+    class tagPOpenTestData:
+        param_text: typing.Optional[bool]
+        param_encoding: typing.Optional[str]
+        expected_result: typing.Union[str, bytes]
+
+        def gen_sign(self) -> str:
+            return "text={!r}; encoding={!r}".format(
+                self.param_text,
+                self.param_encoding,
+            )
+
+    sm_POpenTestDatas: typing.List[tagPOpenTestData] = [
+        tagPOpenTestData(
+            param_text=None,
+            param_encoding=None,
+            expected_result=b"hello\n",
+        ),
+        tagPOpenTestData(
+            param_text=False,
+            param_encoding=None,
+            expected_result=b"hello\n",
+        ),
+        tagPOpenTestData(
+            param_text=True,
+            param_encoding=None,
+            expected_result="hello\n",
+        ),
+        tagPOpenTestData(
+            param_text=None,
+            param_encoding="utf-8",
+            expected_result="hello\n",
+        ),
+        tagPOpenTestData(
+            param_text=True,
+            param_encoding="utf-8",
+            expected_result="hello\n",
+        ),
+    ]
+
+    @pytest.fixture(
+        params=[
+            pytest.param(
+                x,
+                id=x.gen_sign(),
+            )
+            for x in sm_POpenTestDatas
+        ]
+    )
+    def popen_data(self, request: pytest.FixtureRequest) -> tagPOpenTestData:
+        assert isinstance(request, pytest.FixtureRequest)
+        return request.param
+
+    def test_popen_controller_stdout(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data: tagPOpenTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "echo hello"]
+
+        controller = os_ops.popen(
+            cmd,
+            text=popen_data.param_text,
+            encoding=popen_data.param_encoding,
+        )
+        assert isinstance(controller, OsProcessController)
+        assert controller.args == cmd
+        assert controller.args is not cmd
+
+        with controller:
+            returncode = controller.wait()
+            assert returncode == 0
+            assert controller.stdout is not None
+            v = controller.stdout.read()
+            assert type(v) is type(popen_data.expected_result)
+            assert len(v) > 0
+            logging.info("stdout: {!r}".format(v))
+            assert v == popen_data.expected_result
+
+            assert controller.stderr is not None
+            x = controller.stderr.read()
+            assert len(x) == 0
+            pass
+
+        return
+
+    def test_popen_controller_stderr(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data: tagPOpenTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "echo hello >&2"]
+
+        controller = os_ops.popen(
+            cmd,
+            text=popen_data.param_text,
+            encoding=popen_data.param_encoding,
+        )
+        assert isinstance(controller, OsProcessController)
+        assert controller.args == cmd
+        assert controller.args is not cmd
+
+        with controller:
+            returncode = controller.wait()
+            assert returncode == 0
+            assert controller.stderr is not None
+            v = controller.stderr.read()
+            assert type(v) is type(popen_data.expected_result)
+            assert len(v) > 0
+            logging.info("stderr: {!r}".format(v))
+            assert v == popen_data.expected_result
+
+            assert controller.stdout is not None
+            x = controller.stdout.read()
+            assert len(x) == 0
+            pass
+
+        return
+
+    def test_popen_controller_stdin(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data: tagPOpenTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "cat"]
+
+        controller = os_ops.popen(
+            cmd,
+            text=popen_data.param_text,
+            encoding=popen_data.param_encoding,
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            assert controller.stdin is not None
+            controller.stdin.write(popen_data.expected_result)
+            controller.stdin.close()
+
+            returncode = controller.wait()
+            assert returncode == 0
+            assert controller.stdout is not None
+            v = controller.stdout.read()
+            assert type(v) is type(popen_data.expected_result)
+            assert len(v) > 0
+            logging.info("stdout: {!r}".format(v))
+            assert v == popen_data.expected_result
+
+            assert controller.stderr is not None
+            x = controller.stderr.read()
+            assert len(x) == 0
+            pass
+
+        return
+
+    def test_popen_stdin_stream(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data: tagPOpenTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "cat"]
+
+        file_mode = "w+t" if popen_data.param_text or popen_data.param_encoding else "w+b"
+
+        def LOCAL_f(data):
+            f = tempfile.TemporaryFile(
+                mode=file_mode,
+                encoding=popen_data.param_encoding,
+            )
+            f.write(data)
+            f.seek(0)
+            return f
+
+        tmp_stdin: typing.Optional[typing.IO[typing.Any]] = None
+
+        controller: typing.Optional[OsProcessController] = None
+
+        try:
+            tmp_stdin = LOCAL_f(
+                popen_data.expected_result,
+            )
+
+            controller = os_ops.popen(
+                cmd,
+                text=popen_data.param_text,
+                encoding=popen_data.param_encoding,
+                stdin=tmp_stdin,
+            )
+
+            assert isinstance(controller, OsProcessController)
+
+            returncode = controller.wait()
+            assert returncode == 0
+            assert controller.stdout is not None
+            v = controller.stdout.read()
+            assert type(v) is type(popen_data.expected_result)
+            assert len(v) > 0
+            logging.info("stdout: {!r}".format(v))
+            assert v == popen_data.expected_result
+
+            assert controller.stderr is not None
+            x = controller.stderr.read()
+            assert len(x) == 0
+        finally:
+            if controller is not None:
+                controller.close()
+
+            if tmp_stdin is not None:
+                tmp_stdin.close()
+
+        return
+
+    @dataclasses.dataclass
+    class tagPOpenTestData2:
+        param_text: typing.Optional[bool]
+        param_encoding: typing.Optional[str]
+        expected_result1: typing.Union[str, bytes]
+        expected_result2: typing.Union[str, bytes]
+
+        def gen_sign(self) -> str:
+            return "text={!r}; encoding={!r}".format(
+                self.param_text,
+                self.param_encoding,
+            )
+
+    sm_POpenTestDatas2: typing.List[tagPOpenTestData2] = [
+        tagPOpenTestData2(
+            param_text=None,
+            param_encoding=None,
+            expected_result1=b"hello1\n",
+            expected_result2=b"hello2\n",
+        ),
+        tagPOpenTestData2(
+            param_text=False,
+            param_encoding=None,
+            expected_result1=b"hello1\n",
+            expected_result2=b"hello2\n",
+        ),
+        tagPOpenTestData2(
+            param_text=True,
+            param_encoding=None,
+            expected_result1="hello1\n",
+            expected_result2="hello2\n",
+        ),
+        tagPOpenTestData2(
+            param_text=None,
+            param_encoding="utf-8",
+            expected_result1="hello1\n",
+            expected_result2="hello2\n",
+        ),
+        tagPOpenTestData2(
+            param_text=True,
+            param_encoding="utf-8",
+            expected_result1="hello1\n",
+            expected_result2="hello2\n",
+        ),
+    ]
+
+    @pytest.fixture(
+        params=[
+            pytest.param(
+                x,
+                id=x.gen_sign(),
+            )
+            for x in sm_POpenTestDatas2
+        ]
+    )
+    def popen_data2(self, request: pytest.FixtureRequest) -> tagPOpenTestData2:
+        assert isinstance(request, pytest.FixtureRequest)
+        assert type(request.param).__name__ == "tagPOpenTestData2"
+        return request.param
+
+    def test_popen_controller_stderr_and_stdout(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data2: tagPOpenTestData2,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "echo hello1 && echo hello2 >&2"]
+
+        controller = os_ops.popen(
+            cmd,
+            text=popen_data2.param_text,
+            encoding=popen_data2.param_encoding,
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            returncode = controller.wait()
+            assert returncode == 0
+
+            assert controller.stdout is not None
+            v1 = controller.stdout.read()
+            assert type(v1) is type(popen_data2.expected_result1)
+            assert len(v1) > 0
+            logging.info("stdout: {!r}".format(v1))
+            assert v1 == popen_data2.expected_result1
+
+            assert controller.stderr is not None
+            v2 = controller.stderr.read()
+            assert type(v2) is type(popen_data2.expected_result2)
+            assert len(v2) > 0
+            logging.info("stderr: {!r}".format(v2))
+            assert v2 == popen_data2.expected_result2
+            pass
+
+        return
+
+    def test_popen_stderr_and_stdout__streams(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data2: tagPOpenTestData2,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "echo hello1 && echo hello2 >&2"]
+
+        # Configure the file opening mode (text or binary) based on the data matrix
+        file_mode = "w+t" if popen_data2.param_text or popen_data2.param_encoding else "w+b"
+
+        def LOCAL_f():
+            return tempfile.TemporaryFile(
+                mode=file_mode,
+                encoding=popen_data2.param_encoding,
+            )
+
+        tmp_stderr: typing.Optional[typing.IO[typing.Any]] = None
+        tmp_stdout: typing.Optional[typing.IO[typing.Any]] = None
+        controller: typing.Optional[OsProcessController] = None
+
+        try:
+            tmp_stderr = LOCAL_f()
+            tmp_stdout = LOCAL_f()
+            controller = os_ops.popen(
+                cmd,
+                text=popen_data2.param_text,
+                encoding=popen_data2.param_encoding,
+                stdout=tmp_stdout,
+                stderr=tmp_stderr,
+            )
+
+            assert isinstance(controller, OsProcessController)
+            assert controller.wait() == 0
+            assert controller.returncode == 0
+            assert controller.stdout is None
+            assert controller.stderr is None
+
+            tmp_stdout.seek(0)
+            v1 = tmp_stdout.read()
+            assert type(v1) is type(popen_data2.expected_result1)
+            assert len(v1) > 0
+            logging.info("stdout: {!r}".format(v1))
+            assert v1 == popen_data2.expected_result1
+
+            tmp_stderr.seek(0)
+            v2 = tmp_stderr.read()
+            assert type(v2) is type(popen_data2.expected_result2)
+            assert len(v2) > 0
+            logging.info("stderr: {!r}".format(v2))
+            assert v2 == popen_data2.expected_result2
+        finally:
+            if controller is not None:
+                controller.close()
+
+            if tmp_stdout is not None:
+                tmp_stdout.close()
+
+            if tmp_stderr is not None:
+                tmp_stderr.close()
+
+        return
+
+    def test_popen_pid(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "printf \"%s!\" \"$$\""]
+
+        controller = os_ops.popen(
+            cmd,
+            encoding="utf-8",
+        )
+        assert isinstance(controller, OsProcessController)
+        assert controller.stdout is not None
+
+        with controller:
+            framework_pid = controller.pid
+
+            v = ""
+
+            nPass = 0
+
+            while True:
+                if nPass > 1:
+                    time.sleep(0.1)
+
+                if nPass == 100:
+                    raise RuntimeError("Test hanged.")
+
+                v += controller.stdout.read()
+
+                actual_pid = __class__.helper__parse_pid_resp_str(v)
+
+                if actual_pid is not None:
+                    break
+
+                continue
+
+            assert framework_pid == actual_pid
+            pass
+        return
+
+    @staticmethod
+    def helper__parse_pid_resp_str(data: str) -> typing.Optional[int]:
+        assert type(data) is str
+
+        i = 0
+        c = len(data)
+
+        while True:
+            if i == c:
+                return None
+
+            ch = data[i]
+            assert type(ch) is str
+
+            if (ch.isdigit()):
+                i += 1
+                continue
+
+            if ch == '!' and i > 0 and (i + 1) == c:
+                return int(data[:i])
+
+            raise RuntimeError("Bad data in pid responsed data: {!r}.".format(
+                data,
+            ))
+
+    def test_popen_returncode_stopped(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        for rc in range(256):
+            logging.info("test result code {}".format(rc))
+
+            cmd = ["sh", "-c", "exit {}".format(rc)]
+
+            controller = os_ops.popen(cmd)
+            assert isinstance(controller, OsProcessController)
+
+            with controller:
+                controller.wait()
+                returncode = controller.returncode
+                assert returncode == rc
+                assert controller.stderr is not None
+                v = controller.stderr.read()
+                assert len(v) == 0
+
+                assert controller.stdout is not None
+                v = controller.stdout.read()
+                assert len(v) == 0
+                pass
+            continue
+
+        return
+
+    def test_popen_returncode_active(
+        self,
+        os_ops_descr: OsOpsDescr,
+        fx_data_wait_timeout: tagPOpenWaitTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+        assert type(fx_data_wait_timeout) is __class__.tagPOpenWaitTestData
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        logging.info("cmd={}".format(
+            fx_data_wait_timeout.cmd,
+        ))
+
+        controller = os_ops.popen(
+            fx_data_wait_timeout.cmd,
+            shell=type(fx_data_wait_timeout.cmd) is str
+        )
+
+        assert isinstance(controller, OsProcessController)
+        assert controller.args == fx_data_wait_timeout.cmd
+        assert type(controller.args) is type(fx_data_wait_timeout.cmd)
+        # it must be a copy
+        if type(controller.args) is str:
+            pass
+        else:
+            assert controller.args is not fx_data_wait_timeout.cmd
+            pass
+
+        with controller:
+            try:
+                logging.info("controller.pid={}".format(
+                    controller.pid,
+                ))
+
+                assert controller.returncode is None
+                pass
+            finally:
+                logging.info("kill")
+                controller.kill()
+            pass
+            logging.info("EXIT1")
+            exit1_ts = time.monotonic()
+
+        logging.info("EXIT2")
+        exit2_ts = time.monotonic()
+
+        assert exit1_ts <= exit2_ts
+
+        duration = exit2_ts - exit1_ts
+
+        if 15 < duration:
+            raise RuntimeError("Test stops too long - {} second(s).".format(
+                duration,
+            ))
+
+        return
+
+    def test_popen_wait_returncode(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        for rc in range(256):
+            logging.info("test result code {}".format(rc))
+
+            cmd = ["sh", "-c", "exit {}".format(rc)]
+
+            controller = os_ops.popen(cmd)
+            assert isinstance(controller, OsProcessController)
+
+            with controller:
+                returncode = controller.wait()
+                assert returncode == rc
+                assert controller.stderr is not None
+                v = controller.stderr.read()
+                assert len(v) == 0
+
+                assert controller.stdout is not None
+                v = controller.stdout.read()
+                assert len(v) == 0
+                pass
+            continue
+
+        return
+
+    def test_popen_terminate(self, os_ops_descr: OsOpsDescr):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+        os_ops = os_ops_descr.os_ops
+
+        cmd1 = ["sleep", "100"]
+        controller = os_ops.popen(cmd1)
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            assert controller.pid > 0
+
+            # Check that the process is alive (returncode is still None)
+            assert controller.returncode is None
+
+            # Send polite terminate
+            controller.terminate()
+
+            # Waiting for completion. In Unix, a process killed by SIGTERM returns exit code -15 (or 143),
+            # depending on how `wait` reports the result locally versus remotely.
+            # The standard `subprocess` module returns the negative signal number (-15).
+            rc = controller.wait(timeout=5.0)
+            assert rc is not None
+            logging.info(f"Process terminated with exit code: {rc}")
+
+            if type(os_ops).__name__ == "LocalOperations":
+                assert rc == -15
+            elif type(os_ops).__name__ == "RemoteOperations":
+                assert rc == 143
+            else:
+                raise RuntimeError("Unknown os_ops type: {}".format(
+                    type(os_ops).__name__,
+                ))
+            pass
+            pass
+        return
+
+    def test_popen_kill(self, os_ops_descr: OsOpsDescr):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+        os_ops = os_ops_descr.os_ops
+
+        # 2. Теперь тестируем жесткий kill()
+        cmd2 = ["sleep", "100"]
+        controller = os_ops.popen(cmd2)
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            assert controller.pid > 0
+            assert controller.returncode is None
+
+            # Forcefully kill the process
+            controller.kill()
+
+            # Waiting for completion. A process killed via SIGKILL returns code -9 (or 137).
+            rc = controller.wait(timeout=5.0)
+            assert rc is not None
+            logging.info(f"Process killed with exit code: {rc}")
+
+            if type(os_ops).__name__ == "LocalOperations":
+                assert rc == -9
+            elif type(os_ops).__name__ == "RemoteOperations":
+                assert rc == 137
+            else:
+                raise RuntimeError("Unknown os_ops type: {}".format(
+                    type(os_ops).__name__,
+                ))
+            pass
+        return
+
+    @dataclasses.dataclass
+    class tagPOpenWaitTestData:
+        cmd: OsOperations.T_CMD
+
+        def gen_sign(self) -> str:
+            return type(self.cmd).__name__ + ":" + repr(self.cmd)
+
+    sm_POpenWaitTestDatas: typing.List[tagPOpenWaitTestData] = [
+        tagPOpenWaitTestData(
+            cmd="sleep 100",
+        ),
+        tagPOpenWaitTestData(
+            cmd="sh -c \"sleep 100\"",
+        ),
+        tagPOpenWaitTestData(
+            cmd=["sleep", "100"],
+        ),
+        tagPOpenWaitTestData(
+            cmd=["sh", "-c", "sleep 100"],
+        ),
+        tagPOpenWaitTestData(
+            cmd=["bash", "-c", "sleep 100"],
+        ),
+    ]
+
+    @pytest.fixture(
+        params=[
+            pytest.param(
+                x,
+                id=x.gen_sign(),
+            )
+            for x in sm_POpenWaitTestDatas
+        ]
+    )
+    def fx_data_wait_timeout(self, request: pytest.FixtureRequest) -> tagPOpenWaitTestData:
+        assert isinstance(request, pytest.FixtureRequest)
+        assert type(request.param).__name__ == "tagPOpenWaitTestData"
+        return request.param
+
+    def test_popen_wait_timeout(
+        self,
+        os_ops_descr: OsOpsDescr,
+        fx_data_wait_timeout: tagPOpenWaitTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+        assert type(fx_data_wait_timeout) is __class__.tagPOpenWaitTestData
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        logging.info("cmd={}".format(
+            fx_data_wait_timeout.cmd,
+        ))
+
+        controller = os_ops.popen(
+            fx_data_wait_timeout.cmd,
+            shell=type(fx_data_wait_timeout.cmd) is str
+        )
+
+        assert isinstance(controller, OsProcessController)
+        assert controller.args == fx_data_wait_timeout.cmd
+        assert type(controller.args) is type(fx_data_wait_timeout.cmd)
+        # it must be a copy
+        if type(controller.args) is str:
+            pass
+        else:
+            assert controller.args is not fx_data_wait_timeout.cmd
+            pass
+
+        with controller:
+            try:
+                logging.info("controller.pid={}".format(
+                    controller.pid,
+                ))
+
+                with pytest.raises(expected_exception=ExecTimeoutException) as x:
+                    controller.wait(1)
+
+                assert type(x.value) is ExecTimeoutException
+                assert type(x.value.cmd) is type(fx_data_wait_timeout.cmd)
+                assert x.value.cmd == fx_data_wait_timeout.cmd
+                assert x.value.timeout == 1
+                assert x.value.output is None
+                assert x.value.error is None
+                assert x.value.source == type(controller).__name__ + "::wait"
+                pass
+            finally:
+                logging.info("kill")
+                controller.kill()
+            pass
+            logging.info("EXIT1")
+            exit1_ts = time.monotonic()
+
+        logging.info("EXIT2")
+        exit2_ts = time.monotonic()
+
+        assert exit1_ts <= exit2_ts
+
+        duration = exit2_ts - exit1_ts
+
+        if 15 < duration:
+            raise RuntimeError("Test stops too long - {} second(s).".format(
+                duration,
+            ))
+
+        return
+
+    def test_popen_del(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "printf \"%s!\" \"$$\""]
+
+        controller = os_ops.popen(
+            cmd,
+            encoding="utf-8",
+        )
+
+        del controller
+        return
+
+    def test_popen_garbage_collection(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        if type(os_ops).__name__ == "LocalOperations":
+            pytest.skip("It is not required")
+
+        # Перехватываем системные предупреждения (ResourceWarning)
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            # Включаем отображение ResourceWarning (по умолчанию в Python они могут быть скрыты)
+            warnings.simplefilter("always", ResourceWarning)
+
+            # 1. Запускаем бесконечный процесс и умышленно НЕ используем контекстный менеджер
+            # Переменная 'controller' держит единственную ссылку на объект
+            cmd = ["sleep", "100"]
+            controller = os_ops.popen(cmd)
+            assert isinstance(controller, OsProcessController)
+
+            # Запоминаем локальный процесс транспорта, чтобы проверить его смерть в конце
+            if type(controller).__name__ == "LocalProcessController":
+                local_p = controller._local_process
+            elif type(controller).__name__ == "RemoteProcessController":
+                local_p = controller._local_process
+            else:
+                raise RuntimeError("Unknown controller type: {}.".format(
+                    type(controller).__name__
+                ))
+
+            assert local_p is not None
+
+            # 2. Уничтожаем ЕДИНСТВЕННУЮ ссылку на контроллер (имитируем неаккуратность разработчика)
+            del controller
+
+            # 3. Принудительно запускаем сборщик мусора Python, чтобы он очистил память
+            # и вызвал наш __del__ прямо здесь
+            gc.collect()
+
+            # 4. Проверяем, что деструктор честно предупредил нас об утечке
+            assert len(caught_warnings) >= 1, "__del__ did not trigger any ResourceWarning!"
+
+            # Ищем наше кастомное предупреждение в списке пойманных
+            has_our_warning = any(
+                "is still running inside" in str(w.message) or "is still running" in str(w.message)
+                for w in caught_warnings
+            )
+            assert has_our_warning is True, "Our specific process leak warning was not found"
+
+        # 5. Проверяем, что деструктор отработал как санитар:
+        # Локальный процесс SSH-клиента или sleep должен быть принудительно убит,
+        # чтобы дескрипторы не утекли в систему.
+        # Ожидаем завершения с коротким таймаутом (деструктор должен был сделать kill)
+        rc = local_p.wait(timeout=1.0)
+        assert rc is not None
+        logging.info(f"Leaked transport process reaped by __del__ with exit code: {rc}")
+        return
+
+    def test_popen_set_env(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        envs: T_OS_EXEC_ENV = {
+            "AAA": "abcdefg",
+        }
+
+        cmd = ["sh", "-c", "printf \"%s!\" \"$AAA\""]
+
+        controller = os_ops.popen(
+            cmd,
+            encoding="utf-8",
+            exec_env=envs,
+        )
+
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            assert controller.wait() == 0
+
+            assert controller.stdout is not None
+            s = controller.stdout.read()
+
+            assert s == "abcdefg!"
+
+        return
+
+    def test_popen_set_env_via_os_ops(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        os_ops.set_env("AAA", "12345")
+
+        cmd = ["sh", "-c", "printf \"%s!\" \"$AAA\""]
+
+        controller = os_ops.popen(
+            cmd,
+            encoding="utf-8",
+        )
+
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            assert controller.wait() == 0
+            assert controller.stdout is not None
+            s = controller.stdout.read()
+            assert s == "12345!"
+
+        return
+
+    def test_popen_unset_env(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        printenv = os_ops.find_executable("printenv")
+        assert type(printenv) is str
+        assert printenv != ""
+
+        cmd = [printenv, "PATH"]
+
+        controller = os_ops.popen(
+            cmd,
+            encoding="utf-8",
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            assert controller.wait() == 0
+            assert controller.stdout is not None
+            s = controller.stdout.read()
+            assert s != ""
+
+        envs: T_OS_EXEC_ENV = {
+            "PATH": None,
+        }
+
+        controller = os_ops.popen(
+            cmd,
+            encoding="utf-8",
+            exec_env=envs,
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            r = controller.wait()
+            assert controller.stdout is not None
+            s = controller.stdout.read()
+            assert s == ""
+            assert controller.stderr is not None
+            s = controller.stderr.read()
+            assert s == ""
+            assert r == 1
+
+        return
+
+    def test_popen_unset_env_of_os_ops(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        os_ops.set_env("AAA", "abcdef")
+
+        printenv = os_ops.find_executable("printenv")
+        assert type(printenv) is str
+        assert printenv != ""
+
+        cmd = [printenv, "AAA"]
+
+        controller = os_ops.popen(
+            cmd,
+            encoding="utf-8",
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            assert controller.wait() == 0
+            assert controller.stdout is not None
+            s = controller.stdout.read()
+            assert s == "abcdef\n"
+            assert controller.stderr is not None
+            s = controller.stderr.read()
+            assert s == ""
+
+        envs: T_OS_EXEC_ENV = {
+            "AAA": None,
+        }
+
+        controller = os_ops.popen(
+            cmd,
+            encoding="utf-8",
+            exec_env=envs,
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            r = controller.wait()
+            assert controller.stdout is not None
+            s = controller.stdout.read()
+            assert s == ""
+            assert controller.stderr is not None
+            s = controller.stderr.read()
+            assert s == ""
+            assert r == 1
+
+        return
+
+    def test_popen_replace_env_of_os_ops(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        os_ops.set_env("AAA", "abcdef")
+
+        printenv = os_ops.find_executable("printenv")
+        assert type(printenv) is str
+        assert printenv != ""
+
+        cmd = [printenv, "AAA"]
+
+        controller = os_ops.popen(
+            cmd,
+            encoding="utf-8",
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            assert controller.wait() == 0
+            assert controller.stdout is not None
+            s = controller.stdout.read()
+            assert s == "abcdef\n"
+            assert controller.stderr is not None
+            s = controller.stderr.read()
+            assert s == ""
+
+        envs: T_OS_EXEC_ENV = {
+            "AAA": "xyz",
+        }
+
+        controller = os_ops.popen(
+            cmd,
+            encoding="utf-8",
+            exec_env=envs,
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            r = controller.wait()
+            assert controller.stdout is not None
+            s = controller.stdout.read()
+            assert s == "xyz\n"
+            assert controller.stderr is not None
+            s = controller.stderr.read()
+            assert s == ""
+            assert r == 0
+
+        return
+
+    def test_popen_cwd(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        printenv = os_ops.find_executable("printenv")
+        assert type(printenv) is str
+        assert printenv != ""
+
+        cmd = ["pwd"]
+
+        controller = os_ops.popen(
+            cmd,
+            encoding="utf-8",
+            cwd="/etc",
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            assert controller.wait() == 0
+            assert controller.stdout is not None
+            s = controller.stdout.read()
+            assert s == "/etc\n"
+            assert controller.stderr is not None
+            s = controller.stderr.read()
+            assert s == ""
+
+    def test_popen_communicate_timeout(
+        self,
+        os_ops_descr: OsOpsDescr,
+        fx_data_wait_timeout: tagPOpenWaitTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+        assert type(fx_data_wait_timeout) is __class__.tagPOpenWaitTestData
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        logging.info("cmd={}".format(
+            fx_data_wait_timeout.cmd,
+        ))
+
+        controller = os_ops.popen(
+            fx_data_wait_timeout.cmd,
+            shell=type(fx_data_wait_timeout.cmd) is str
+        )
+
+        assert isinstance(controller, OsProcessController)
+        assert controller.args == fx_data_wait_timeout.cmd
+        assert type(controller.args) is type(fx_data_wait_timeout.cmd)
+        # it must be a copy
+        if type(controller.args) is str:
+            pass
+        else:
+            assert controller.args is not fx_data_wait_timeout.cmd
+            pass
+
+        with controller:
+            try:
+                logging.info("controller.pid={}".format(
+                    controller.pid,
+                ))
+
+                with pytest.raises(expected_exception=ExecTimeoutException) as x:
+                    controller.communicate(timeout=1)
+
+                assert type(x.value) is ExecTimeoutException
+                assert type(x.value.cmd) is type(fx_data_wait_timeout.cmd)
+                assert x.value.cmd == fx_data_wait_timeout.cmd
+                assert x.value.timeout == 1
+                assert x.value.output is None
+                assert x.value.error is None
+                assert x.value.source == type(controller).__name__ + "::communicate"
+                pass
+            finally:
+                logging.info("kill")
+                controller.kill()
+            pass
+            logging.info("EXIT1")
+            exit1_ts = time.monotonic()
+
+        logging.info("EXIT2")
+        exit2_ts = time.monotonic()
+
+        assert exit1_ts <= exit2_ts
+
+        duration = exit2_ts - exit1_ts
+
+        if 15 < duration:
+            raise RuntimeError("Test stops too long - {} second(s).".format(
+                duration,
+            ))
+
+        return
+
+    def test_popen_communicate(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data2: tagPOpenTestData2,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "echo hello1 && echo hello2 >&2"]
+
+        controller = os_ops.popen(
+            cmd,
+            text=popen_data2.param_text,
+            encoding=popen_data2.param_encoding,
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            r = controller.communicate()
+            assert type(r) is tuple
+            assert len(r) == 2
+
+            v1 = r[0]
+            assert v1 is not None
+            assert type(v1) is type(popen_data2.expected_result1)
+            assert len(v1) > 0
+            logging.info("stdout: {!r}".format(v1))
+            assert v1 == popen_data2.expected_result1
+
+            v2 = r[1]
+            assert v2 is not None
+            assert type(v2) is type(popen_data2.expected_result2)
+            assert len(v2) > 0
+            logging.info("stderr: {!r}".format(v2))
+            assert v2 == popen_data2.expected_result2
+            pass
+
+        return
+
+    def test_popen_communicate_with_input(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data2: tagPOpenTestData2,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "cat && echo hello2 >&2"]
+
+        controller = os_ops.popen(
+            cmd,
+            text=popen_data2.param_text,
+            encoding=popen_data2.param_encoding,
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            r = controller.communicate(input=popen_data2.expected_result1)
+            assert type(r) is tuple
+            assert len(r) == 2
+
+            v1 = r[0]
+            assert v1 is not None
+            assert type(v1) is type(popen_data2.expected_result1)
+            assert len(v1) > 0
+            logging.info("stdout: {!r}".format(v1))
+            assert v1 == popen_data2.expected_result1
+
+            v2 = r[1]
+            assert v2 is not None
+            assert type(v2) is type(popen_data2.expected_result2)
+            assert len(v2) > 0
+            logging.info("stderr: {!r}".format(v2))
+            assert v2 == popen_data2.expected_result2
+            pass
+
+        return
+
+    @dataclasses.dataclass
+    class tagTextParams:
+        text: typing.Optional[bool]
+        encoding: typing.Optional[str]
+
+        @property
+        def sign(self) -> str:
+            return "text={}, encoding={}".format(
+                self.text,
+                self.encoding,
+            )
+
+    sm_text_params: typing.List[tagTextParams] = [
+        tagTextParams(
+            text=None,
+            encoding=None,
+        ),
+        tagTextParams(
+            text=True,
+            encoding=None,
+        ),
+        tagTextParams(
+            text=None,
+            encoding="utf-8",
+        ),
+        tagTextParams(
+            text=True,
+            encoding="utf-8",
+        ),
+        tagTextParams(
+            text=False,
+            encoding=None,
+        ),
+    ]
+
+    @pytest.fixture(
+        params=[
+            pytest.param(
+                x,
+                id=x.sign,
+            )
+            for x in sm_text_params
+        ]
+    )
+    def fx_text_params(self, request: pytest.FixtureRequest) -> tagTextParams:
+        assert isinstance(request, pytest.FixtureRequest)
+        assert type(request.param).__name__ == "tagTextParams"
+        return request.param
+
+    def test_popen_communicate_with_input__bin(
+        self,
+        os_ops_descr: OsOpsDescr,
+        fx_text_params: tagTextParams,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "cat"]
+
+        controller = os_ops.popen(
+            cmd,
+            text=fx_text_params.text,
+            encoding=fx_text_params.encoding,
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            input = b"0" + "1234".encode()
+            assert type(input) is bytes
+            assert len(input) == 5
+            r = controller.communicate(input=input)
+            assert type(r) is tuple
+            assert len(r) == 2
+
+            x = r[0]
+            assert x is not None
+
+            if type(x) is str:
+                b = x.encode()
+            else:
+                assert type(x) is bytes
+                b = x
+
+            assert b == input
+            pass
+
+        return
+
+    def test_popen_communicate_with_input__str(
+        self,
+        os_ops_descr: OsOpsDescr,
+        fx_text_params: tagTextParams,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "cat"]
+
+        controller = os_ops.popen(
+            cmd,
+            text=fx_text_params.text,
+            encoding=fx_text_params.encoding,
+        )
+        assert isinstance(controller, OsProcessController)
+
+        with controller:
+            input = "1234"
+            assert type(input) is str
+            assert len(input) == 4
+            r = controller.communicate(input=input)
+            assert type(r) is tuple
+            assert len(r) == 2
+
+            x = r[0]
+            assert x is not None
+
+            if type(x) is bytes:
+                s = x.decode()
+            else:
+                assert type(x) is str
+                s = x
+
+            assert s == input
+            pass
+
+        return
+
+    def test_popen_pool_stopped(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        for rc in range(256):
+            logging.info("test result code {}".format(rc))
+
+            cmd = ["sh", "-c", "exit {}".format(rc)]
+
+            controller = os_ops.popen(cmd)
+            assert isinstance(controller, OsProcessController)
+
+            with controller:
+                controller.wait()
+                returncode = controller.poll()
+                assert returncode is not None
+                assert type(returncode) is int
+                assert returncode == rc
+                assert controller.stderr is not None
+                v = controller.stderr.read()
+                assert len(v) == 0
+
+                assert controller.stdout is not None
+                v = controller.stdout.read()
+                assert len(v) == 0
+                pass
+            continue
+
+        return
+
+    def test_popen_poll_active(
+        self,
+        os_ops_descr: OsOpsDescr,
+        fx_data_wait_timeout: tagPOpenWaitTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+        assert type(fx_data_wait_timeout) is __class__.tagPOpenWaitTestData
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        logging.info("cmd={}".format(
+            fx_data_wait_timeout.cmd,
+        ))
+
+        controller = os_ops.popen(
+            fx_data_wait_timeout.cmd,
+            shell=type(fx_data_wait_timeout.cmd) is str
+        )
+
+        assert isinstance(controller, OsProcessController)
+        assert controller.args == fx_data_wait_timeout.cmd
+        assert type(controller.args) is type(fx_data_wait_timeout.cmd)
+        # it must be a copy
+        if type(controller.args) is str:
+            pass
+        else:
+            assert controller.args is not fx_data_wait_timeout.cmd
+            pass
+
+        with controller:
+            try:
+                logging.info("controller.pid={}".format(
+                    controller.pid,
+                ))
+
+                assert controller.poll() is None
+                pass
+            finally:
+                logging.info("kill")
+                controller.kill()
+            pass
+            logging.info("EXIT1")
+            exit1_ts = time.monotonic()
+
+        logging.info("EXIT2")
+        exit2_ts = time.monotonic()
+
+        assert exit1_ts <= exit2_ts
+
+        duration = exit2_ts - exit1_ts
+
+        if 15 < duration:
+            raise RuntimeError("Test stops too long - {} second(s).".format(
+                duration,
+            ))
+
+        return
+
+    def test_run_success(self, os_ops_descr: OsOpsDescr):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "python3 --version"]
+
+        exec_r = os_ops.run(cmd)
+        assert type(exec_r) is OsCommandResult
+        assert type(exec_r.stdout) is bytes
+        assert type(exec_r.stderr) is bytes
+        assert b'Python 3.' in exec_r.stdout
+        assert exec_r.stderr == b''
+        return
+
+    def test_run_failure(self, os_ops_descr: OsOpsDescr):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        cmd = ["sh", "-c", "nonexistent_command"]
+
+        while True:
+            try:
+                os_ops.run(cmd)
+            except ExecUtilException as e:
+                assert type(e.exit_code) is int
+                assert e.exit_code == 127
+
+                assert type(e.message) is str
+                assert type(e.error) is bytes
+
+                assert e.message.startswith("Utility exited with non-zero code (127). Error:")
+                assert "nonexistent_command" in e.message
+                assert "not found" in e.message
+                assert b"nonexistent_command" in e.error
+                assert b"not found" in e.error
+                break
+            raise Exception("We wait an exception!")
+        return
+
+    def test_run_stdout(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data: tagPOpenTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "echo hello"]
+
+        exec_r = os_ops.run(
+            cmd,
+            text=popen_data.param_text,
+            encoding=popen_data.param_encoding,
+        )
+        assert type(exec_r) is OsCommandResult
+
+        assert exec_r.returncode == 0
+        assert exec_r.stdout is not None
+        v = exec_r.stdout
+        assert type(v) is type(popen_data.expected_result)
+        assert len(v) > 0
+        logging.info("stdout: {!r}".format(v))
+        assert v == popen_data.expected_result
+
+        assert exec_r.stderr is not None
+        x = exec_r.stderr
+        assert len(x) == 0
+
+        return
+
+    def test_run_stdout_stream(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data: tagPOpenTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        # Author: Mark G <mark@google.com>
+
+        RunConditions.skip_if_windows()
+        os_ops = os_ops_descr.os_ops
+
+        cmd = ["sh", "-c", "echo hello"]
+
+        # Configure the file opening mode (text or binary) based on the data matrix
+        file_mode = "w+t" if popen_data.param_text or popen_data.param_encoding else "w+b"
+
+        # Create a temporary file where the utility will write its stdout
+        with tempfile.TemporaryFile(mode=file_mode, encoding=popen_data.param_encoding) as tmp_stdout:
+
+            exec_r = os_ops.run(
+                cmd,
+                text=popen_data.param_text,
+                encoding=popen_data.param_encoding,
+                # Forwarding our stream for writing!
+                stdout=tmp_stdout,
+            )
+            assert isinstance(exec_r, OsCommandResult)
+            assert exec_r.returncode == 0
+            assert exec_r.stdout is None
+            assert exec_r.stderr is not None
+            assert len(exec_r.stderr) == 0
+
+            # By design, since stdout is redirected to a file,
+            # communicate() returns an empty placeholder (None, "" or b"")
+            # Let's verify that the result structure is empty here:
+            assert not exec_r.stdout, f"Expected empty result.stdout, but got: {exec_r.stdout!r}"
+
+            # Now we verify that the data has been physically written to our stream:
+            tmp_stdout.seek(0)
+            file_content = tmp_stdout.read()
+
+            assert type(file_content) is type(popen_data.expected_result)
+            assert file_content == popen_data.expected_result
+            logging.info("stdout stream content: {!r}".format(file_content))
+
+        return
+
+    def test_run_stderr(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data: tagPOpenTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "echo hello >&2"]
+
+        exec_r = os_ops.run(
+            cmd,
+            text=popen_data.param_text,
+            encoding=popen_data.param_encoding,
+        )
+        assert type(exec_r) is OsCommandResult
+
+        assert exec_r.returncode == 0
+        assert exec_r.stderr is not None
+        v = exec_r.stderr
+        assert type(v) is type(popen_data.expected_result)
+        assert len(v) > 0
+        logging.info("stderr: {!r}".format(v))
+        assert v == popen_data.expected_result
+
+        assert exec_r.stdout is not None
+        x = exec_r.stdout
+        assert len(x) == 0
+
+        return
+
+    def test_run_stderr_stream(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data: tagPOpenTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        # Author: Mark G <mark@google.com>
+
+        RunConditions.skip_if_windows()
+        os_ops = os_ops_descr.os_ops
+
+        cmd = ["sh", "-c", "echo hello >&2"]
+
+        # Configure the file opening mode (text or binary) based on the data matrix
+        file_mode = "w+t" if popen_data.param_text or popen_data.param_encoding else "w+b"
+
+        # Create a temporary file where the utility will write its stdout
+        with tempfile.TemporaryFile(mode=file_mode, encoding=popen_data.param_encoding) as tmp_stderr:
+
+            exec_r = os_ops.run(
+                cmd,
+                text=popen_data.param_text,
+                encoding=popen_data.param_encoding,
+                # Forwarding our stream for writing!
+                stderr=tmp_stderr,
+            )
+            assert isinstance(exec_r, OsCommandResult)
+            assert exec_r.returncode == 0
+            assert exec_r.stderr is None
+            assert exec_r.stdout is not None
+            assert len(exec_r.stdout) == 0
+
+            assert not exec_r.stdout, f"Expected empty result.stdout, but got: {exec_r.stdout!r}"
+
+            tmp_stderr.seek(0)
+            file_content = tmp_stderr.read()
+
+            assert type(file_content) is type(popen_data.expected_result)
+            assert file_content == popen_data.expected_result
+            logging.info("stdout stream content: {!r}".format(file_content))
+
+        return
+
+    def test_run_stderr_and_stdout(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data2: tagPOpenTestData2,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "echo hello1 && echo hello2 >&2"]
+
+        exec_r = os_ops.run(
+            cmd,
+            text=popen_data2.param_text,
+            encoding=popen_data2.param_encoding,
+        )
+        assert type(exec_r) is OsCommandResult
+
+        assert exec_r.returncode == 0
+
+        assert exec_r.stdout is not None
+        v1 = exec_r.stdout
+        assert type(v1) is type(popen_data2.expected_result1)
+        assert len(v1) > 0
+        logging.info("stdout: {!r}".format(v1))
+        assert v1 == popen_data2.expected_result1
+
+        assert exec_r.stderr is not None
+        v2 = exec_r.stderr
+        assert type(v2) is type(popen_data2.expected_result2)
+        assert len(v2) > 0
+        logging.info("stderr: {!r}".format(v2))
+        assert v2 == popen_data2.expected_result2
+
+        return
+
+    def test_run_stderr_and_stdout__streams(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data2: tagPOpenTestData2,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "echo hello1 && echo hello2 >&2"]
+
+        # Configure the file opening mode (text or binary) based on the data matrix
+        file_mode = "w+t" if popen_data2.param_text or popen_data2.param_encoding else "w+b"
+
+        def LOCAL_f():
+            return tempfile.TemporaryFile(
+                mode=file_mode,
+                encoding=popen_data2.param_encoding,
+            )
+
+        with LOCAL_f() as tmp_stderr, LOCAL_f() as tmp_stdout:
+            exec_r = os_ops.run(
+                cmd,
+                text=popen_data2.param_text,
+                encoding=popen_data2.param_encoding,
+                stdout=tmp_stdout,
+                stderr=tmp_stderr,
+            )
+            assert type(exec_r) is OsCommandResult
+
+            assert exec_r.returncode == 0
+            assert exec_r.stdout is None
+            assert exec_r.stderr is None
+
+            tmp_stdout.seek(0)
+            v1 = tmp_stdout.read()
+            assert type(v1) is type(popen_data2.expected_result1)
+            assert len(v1) > 0
+            logging.info("stdout: {!r}".format(v1))
+            assert v1 == popen_data2.expected_result1
+
+            tmp_stderr.seek(0)
+            v2 = tmp_stderr.read()
+            assert type(v2) is type(popen_data2.expected_result2)
+            assert len(v2) > 0
+            logging.info("stderr: {!r}".format(v2))
+            assert v2 == popen_data2.expected_result2
+
+        return
+
+    def test_run_input(
+        self,
+        os_ops_descr: OsOpsDescr,
+        popen_data: tagPOpenTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "cat"]
+
+        exec_r = os_ops.run(
+            cmd,
+            text=popen_data.param_text,
+            encoding=popen_data.param_encoding,
+            input=popen_data.expected_result,
+        )
+        assert type(exec_r) is OsCommandResult
+
+        assert exec_r.returncode == 0
+        assert exec_r.stdout is not None
+        v = exec_r.stdout
+        assert type(v) is type(popen_data.expected_result)
+        assert len(v) > 0
+        logging.info("stdout: {!r}".format(v))
+        assert v == popen_data.expected_result
+
+        assert exec_r.stderr is not None
+        x = exec_r.stderr
+        assert len(x) == 0
+        pass
+
+        return
+
+    def test_run_cwd(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        printenv = os_ops.find_executable("printenv")
+        assert type(printenv) is str
+        assert printenv != ""
+
+        cmd = ["pwd"]
+
+        exec_r = os_ops.run(
+            cmd,
+            encoding="utf-8",
+            cwd="/etc",
+        )
+        assert type(exec_r) is OsCommandResult
+
+        assert exec_r.returncode == 0
+        assert exec_r.stdout is not None
+        assert exec_r.stdout == "/etc\n"
+        assert exec_r.stderr is not None
+        assert exec_r.stderr == ""
+        return
+
+    def test_run_set_env(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        envs: T_OS_EXEC_ENV = {
+            "AAA": "abcdefg",
+        }
+
+        cmd = ["sh", "-c", "printf \"%s!\" \"$AAA\""]
+
+        exec_r = os_ops.run(
+            cmd,
+            encoding="utf-8",
+            exec_env=envs,
+        )
+
+        assert type(exec_r) is OsCommandResult
+
+        assert exec_r.returncode == 0
+        assert exec_r.stdout is not None
+        assert exec_r.stdout == "abcdefg!"
+        return
+
+    def test_run_set_env_via_os_ops(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        os_ops.set_env("AAA", "12345")
+
+        cmd = ["sh", "-c", "printf \"%s!\" \"$AAA\""]
+
+        exec_r = os_ops.run(
+            cmd,
+            encoding="utf-8",
+        )
+
+        assert type(exec_r) is OsCommandResult
+
+        assert exec_r.returncode == 0
+        assert exec_r.stdout is not None
+        assert exec_r.stdout == "12345!"
+        return
+
+    def test_run_unset_env(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        printenv = os_ops.find_executable("printenv")
+        assert type(printenv) is str
+        assert printenv != ""
+
+        cmd = [printenv, "PATH"]
+
+        exec_r = os_ops.run(
+            cmd,
+            encoding="utf-8",
+        )
+        assert type(exec_r) is OsCommandResult
+
+        assert exec_r.returncode == 0
+        assert exec_r.stdout is not None
+        assert exec_r.stdout != ""
+
+        envs: T_OS_EXEC_ENV = {
+            "PATH": None,
+        }
+
+        exec_r = os_ops.run(
+            cmd,
+            encoding="utf-8",
+            exec_env=envs,
+            check=False,
+        )
+        assert type(exec_r) is OsCommandResult
+
+        assert exec_r.returncode == 1
+        assert exec_r.stdout == ""
+        assert exec_r.stderr == ""
+        return
+
+    def test_run_unset_env_of_os_ops(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        os_ops.set_env("AAA", "abcdef")
+
+        printenv = os_ops.find_executable("printenv")
+        assert type(printenv) is str
+        assert printenv != ""
+
+        cmd = [printenv, "AAA"]
+
+        exec_r = os_ops.run(
+            cmd,
+            encoding="utf-8",
+        )
+        assert type(exec_r) is OsCommandResult
+
+        assert exec_r.returncode == 0
+        assert exec_r.stdout is not None
+        s = exec_r.stdout
+        assert s == "abcdef\n"
+        assert exec_r.stderr is not None
+        s = exec_r.stderr
+        assert s == ""
+
+        envs: T_OS_EXEC_ENV = {
+            "AAA": None,
+        }
+
+        exec_r = os_ops.run(
+            cmd,
+            encoding="utf-8",
+            exec_env=envs,
+            check=False,
+        )
+        assert type(exec_r) is OsCommandResult
+
+        r = exec_r.returncode
+        assert exec_r.stdout is not None
+        s = exec_r.stdout
+        assert s == ""
+        assert exec_r.stderr is not None
+        s = exec_r.stderr
+        assert s == ""
+        assert r == 1
+
+        return
+
+    def test_run_replace_env_of_os_ops(
+        self,
+        os_ops_descr: OsOpsDescr,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+
+        os_ops.set_env("AAA", "abcdef")
+
+        printenv = os_ops.find_executable("printenv")
+        assert type(printenv) is str
+        assert printenv != ""
+
+        cmd = [printenv, "AAA"]
+
+        exec_r = os_ops.run(
+            cmd,
+            encoding="utf-8",
+        )
+        assert type(exec_r) is OsCommandResult
+
+        assert exec_r.returncode == 0
+        assert exec_r.stdout is not None
+        s = exec_r.stdout
+        assert s == "abcdef\n"
+        assert exec_r.stderr is not None
+        s = exec_r.stderr
+        assert s == ""
+
+        envs: T_OS_EXEC_ENV = {
+            "AAA": "xyz",
+        }
+
+        exec_r = os_ops.run(
+            cmd,
+            encoding="utf-8",
+            exec_env=envs,
+        )
+        assert type(exec_r) is OsCommandResult
+
+        r = exec_r.returncode
+        assert exec_r.stdout is not None
+        s = exec_r.stdout
+        assert s == "xyz\n"
+        assert exec_r.stderr is not None
+        s = exec_r.stderr
+        assert s == ""
+        assert r == 0
+
+        return
+
+    def test_run_timeout(
+        self,
+        os_ops_descr: OsOpsDescr,
+        fx_data_wait_timeout: tagPOpenWaitTestData,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+        assert type(fx_data_wait_timeout) is __class__.tagPOpenWaitTestData
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        logging.info("cmd={}".format(
+            fx_data_wait_timeout.cmd,
+        ))
+
+        start_ts = time.monotonic()
+
+        with pytest.raises(expected_exception=ExecTimeoutException) as x:
+            os_ops.run(
+                fx_data_wait_timeout.cmd,
+                shell=type(fx_data_wait_timeout.cmd) is str,
+                timeout=1,
+            )
+
+        stop_ts = time.monotonic()
+
+        assert type(x.value) is ExecTimeoutException
+        assert type(x.value.cmd) is type(fx_data_wait_timeout.cmd)
+        assert x.value.cmd == fx_data_wait_timeout.cmd
+        assert x.value.timeout == 1
+        assert x.value.output is None
+        assert x.value.error is None
+
+        if type(os_ops).__name__ == "LocalOperations":
+            assert x.value.source == "LocalProcessController::communicate"
+        elif type(os_ops).__name__ == "RemoteOperations":
+            assert x.value.source == "RemoteProcessController::communicate"
+        else:
+            raise RuntimeError("Unknown os_ops type {}".format(
+                type(os_ops).__name__,
+            ))
+
+        assert start_ts <= stop_ts
+        duration = stop_ts - start_ts
+        assert duration <= 10  # OK?
+
+        return
+
+    def test_run_large_input_output(self, os_ops_descr: OsOpsDescr):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        # Author: Mark G <mark@google.com>
+
+        RunConditions.skip_if_windows()
+        os_ops = os_ops_descr.os_ops
+
+        # Generate a 256 KB test string (deliberately larger than the 64 KB pipe buffer)
+        # If we used a simple wait() instead of communicate(), this volume of data would cause a deadlock.
+        chunk = "A" * 1024 + "\n"
+        large_text = chunk * 256  # 256 Килобайт текста
+
+        # Run `cat` in text mode. It should ingest the entire input and spit it back out.
+        cmd = ["cat"]
+
+        start_ts = time.monotonic()
+
+        result = os_ops.run(
+            cmd=cmd,
+            text=True,
+            encoding="utf-8",
+            input=large_text,
+            # With a margin for network transmission in RemoteOperations
+            timeout=30.0,
+        )
+
+        duration = time.monotonic() - start_ts
+        logging.info(f"Processed 256KB via run() in {duration:.4f} seconds.")
+
+        # Strict result checks
+        assert isinstance(result, OsCommandResult)
+        assert result.returncode == 0
+        assert type(result.stdout) is str
+        assert len(result.stdout) == len(large_text)
+        assert result.stdout == large_text
+        # cat should not write anything to stderr
+        assert result.stderr == ""
+        return
+
+    def test_run_check_exception(self, os_ops_descr: OsOpsDescr):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        # Author: Mark G <mark@google.com>
+
+        RunConditions.skip_if_windows()
+        os_ops = os_ops_descr.os_ops
+
+        # A command guaranteed to fail (exit code 1)
+        # and write messages to both streams
+        cmd = ["sh", "-c", "echo normal_out && echo error_err >&2 && exit 1"]
+
+        # 1. Check default behavior (check=True)
+        # Expect our strict framework exception
+        with pytest.raises(expected_exception=Exception) as x:
+            os_ops.run(cmd, text=True, encoding="utf-8", check=True)
+
+        # Verify that the correct exception was raised
+        assert x.type is ExecUtilException
+
+        # Verify that the exception contains the correct output streams
+        # Check the field names (error, out, exit_code) against your RaiseError
+        assert getattr(x.value, "exit_code", 1) == 1
+        assert getattr(x.value, "out", "").strip() == "normal_out"
+        assert getattr(x.value, "error", "").strip() == "error_err"
+
+        # 2. Test the negative scenario with validation disabled (check=False)
+        # The method must not fail; instead, it should return a valid result object.
+        result = os_ops.run(cmd, text=True, encoding="utf-8", check=False)
+
+        assert isinstance(result, OsCommandResult)
+        assert result.returncode == 1
+        assert type(result.stdout) is str
+        assert type(result.stderr) is str
+        assert result.stdout.strip() == "normal_out"
+        assert result.stderr.strip() == "error_err"
+        return
+
+    def test_run_stdin_stream(self, os_ops_descr: OsOpsDescr):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        # Author: Mark G <mark@google.com>
+
+        RunConditions.skip_if_windows()
+        os_ops = os_ops_descr.os_ops
+
+        expected_text = "hello from file stream stdin\n"
+
+        # 1. Create a local temporary file with data
+        # Use tempfile, which is guaranteed to clean itself up
+        with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as tmp_file:
+            tmp_file.write(expected_text)
+            # Reset the pointer to the beginning so the process can read the data
+            tmp_file.seek(0)
+
+            # Launch the cat utility.
+            # Instead of an input parameter, pass an active file descriptor to stdin.
+            cmd = ["cat"]
+
+            result = os_ops.run(
+                cmd=cmd,
+                text=True,
+                encoding="utf-8",
+                stdin=tmp_file,  # Forwarding the stream!
+                input=None,      # Explicitly test the scenario without input
+                check=True,
+            )
+
+        # 2. Strict checks
+        assert isinstance(result, OsCommandResult)
+        assert result.returncode == 0
+        assert type(result.stdout) is str
+        assert result.stdout == expected_text
+        assert result.stderr == ""
+        return
+
+    def test_run_check_exception2__list(self, os_ops_descr: OsOpsDescr):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+        os_ops = os_ops_descr.os_ops
+
+        cmd = ["sh", "-c", "echo normal_out && echo error_err >&2 && exit 1"]
+
+        # 1. Check default behavior (check=True)
+        with pytest.raises(expected_exception=ExecUtilException) as x:
+            os_ops.run(cmd, text=True, encoding="utf-8", check=True)
+
+        assert x.type is ExecUtilException
+        assert type(x.value.out) is str
+        assert type(x.value.error) is str
+        assert x.value.exit_code == 1
+        assert x.value.out == "normal_out\n"
+        assert x.value.error == "error_err\n"
+        assert x.value.command == cmd
+        assert type(x.value.description) is str
+        assert x.value.description == (
+            """Utility exited with non-zero code (1). Error: `error_err`"""
+        )
+        assert type(x.value.message) is str
+        assert x.value.message == (
+            """Utility exited with non-zero code (1). Error: `error_err`\n"""
+            """Command: sh -c echo normal_out && echo error_err >&2 && exit 1\n"""
+            """Exit code: 1\n"""
+            """---- Error:\n"""
+            """error_err\n"""
+            """\n"""
+            """---- Out:\n"""
+            """normal_out\n"""
+        )
+
+        # 2. Test the negative scenario with validation disabled (check=False)
+        result = os_ops.run(cmd, text=True, encoding="utf-8", check=False)
+
+        assert isinstance(result, OsCommandResult)
+        assert result.returncode == 1
+        assert type(result.stdout) is str
+        assert type(result.stderr) is str
+        assert result.stdout == "normal_out\n"
+        assert result.stderr == "error_err\n"
+        return
+
+    def test_run_check_exception3__str(self, os_ops_descr: OsOpsDescr):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+        os_ops = os_ops_descr.os_ops
+
+        cmd = "sh -c \"echo normal_out && echo error_err >&2 && exit 1\""
+
+        # 1. Check default behavior (check=True)
+        with pytest.raises(expected_exception=ExecUtilException) as x:
+            os_ops.run(cmd, text=True, encoding="utf-8", shell=True, check=True)
+
+        assert x.type is ExecUtilException
+        assert type(x.value.out) is str
+        assert type(x.value.error) is str
+        assert x.value.exit_code == 1
+        assert x.value.out == "normal_out\n"
+        assert x.value.error == "error_err\n"
+        assert x.value.command == cmd
+        assert type(x.value.description) is str
+        assert x.value.description == (
+            """Utility exited with non-zero code (1). Error: `error_err`"""
+        )
+        assert type(x.value.message) is str
+        assert x.value.message == (
+            """Utility exited with non-zero code (1). Error: `error_err`\n"""
+            """Command: sh -c \"echo normal_out && echo error_err >&2 && exit 1\"\n"""
+            """Exit code: 1\n"""
+            """---- Error:\n"""
+            """error_err\n"""
+            """\n"""
+            """---- Out:\n"""
+            """normal_out\n"""
+        )
+
+        # 2. Test the negative scenario with validation disabled (check=False)
+        result = os_ops.run(cmd, text=True, encoding="utf-8", shell=True, check=False)
+
+        assert isinstance(result, OsCommandResult)
+        assert result.returncode == 1
+        assert type(result.stdout) is str
+        assert type(result.stderr) is str
+        assert result.stdout == "normal_out\n"
+        assert result.stderr == "error_err\n"
+        return
+
+    def test_run_with_input__bin(
+        self,
+        os_ops_descr: OsOpsDescr,
+        fx_text_params: tagTextParams,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "cat"]
+
+        input = b"0" + "1234".encode()
+        assert type(input) is bytes
+        assert len(input) == 5
+
+        exec_r = os_ops.run(
+            cmd,
+            text=fx_text_params.text,
+            encoding=fx_text_params.encoding,
+            input=input,
+        )
+        assert type(exec_r) is OsCommandResult
+
+        if type(exec_r.stdout) is str:
+            b = exec_r.stdout.encode()
+        else:
+            assert type(exec_r.stdout) is bytes
+            b = exec_r.stdout
+
+        assert b == input
+        return
+
+    def test_run_with_input__str(
+        self,
+        os_ops_descr: OsOpsDescr,
+        fx_text_params: tagTextParams,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "cat"]
+
+        input = "1234"
+        assert type(input) is str
+        assert len(input) == 4
+
+        exec_r = os_ops.run(
+            cmd,
+            text=fx_text_params.text,
+            encoding=fx_text_params.encoding,
+            input=input,
+        )
+        assert type(exec_r) is OsCommandResult
+
+        if type(exec_r.stdout) is bytes:
+            s = exec_r.stdout.decode()
+        else:
+            assert type(exec_r.stdout) is str
+            s = exec_r.stdout
+
+        assert s == input
+        return
+
+    def test_exec_command_with_input__bin(
+        self,
+        os_ops_descr: OsOpsDescr,
+        fx_text_params: tagTextParams,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "cat"]
+
+        input = b"0" + "1234".encode()
+        assert type(input) is bytes
+        assert len(input) == 5
+
+        stdout = os_ops.exec_command(
+            cmd,
+            encoding=fx_text_params.encoding,
+            input=input,
+        )
+        if type(stdout) is str:
+            b = stdout.encode()
+        else:
+            assert type(stdout) is bytes
+            b = stdout
+
+        assert b == input
+        return
+
+    def test_exec_command_with_input__str(
+        self,
+        os_ops_descr: OsOpsDescr,
+        fx_text_params: tagTextParams,
+    ):
+        assert type(os_ops_descr) is OsOpsDescr
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        cmd = ["sh", "-c", "cat"]
+
+        input = "1234"
+        assert type(input) is str
+        assert len(input) == 4
+
+        stdout = os_ops.exec_command(
+            cmd,
+            encoding=fx_text_params.encoding,
+            input=input,
+        )
+
+        if type(stdout) is bytes:
+            s = stdout.decode()
+        else:
+            assert type(stdout) is str
+            s = stdout
+
+        assert s == input
         return
 
     @staticmethod

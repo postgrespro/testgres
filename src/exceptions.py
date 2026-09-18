@@ -6,6 +6,7 @@ import typing
 from testgres.operations.exceptions import TestgresException
 from testgres.operations.exceptions import ExecUtilException
 from testgres.operations.exceptions import InvalidOperationException
+from testgres.operations.exceptions import ExecTimeoutException
 
 
 class PortForException(TestgresException):
@@ -298,3 +299,4 @@ class BackupException(TestgresException):
 
 assert ExecUtilException.__name__ == "ExecUtilException"
 assert InvalidOperationException.__name__ == "InvalidOperationException"
+assert ExecTimeoutException.__name__ == "ExecTimeoutException"
