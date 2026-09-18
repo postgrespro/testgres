@@ -2370,7 +2370,22 @@ class PostgresNode(object):
         ]
         upgrade_command += options
 
-        return self._os_ops.exec_command(upgrade_command, expect_error=expect_error)
+        r: typing.Optional[typing.Any] = None
+        try:
+            r = self._os_ops.run(upgrade_command).stdout
+        except BaseException as e:
+            if not expect_error:
+                raise
+
+            logging.info("Exception ({}): {}".format(
+                type(e).__name__,
+                e,
+            ))
+
+        if expect_error:
+            raise RuntimeError("Operation executed without any errors.")
+
+        return r
 
     def _release_resources(self):
         self._free_port()
