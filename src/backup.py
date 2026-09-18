@@ -15,9 +15,10 @@ from .exceptions import BackupException
 
 from testgres.operations.os_ops import OsOperations
 
+from . import utils
+
 from .utils import \
     get_bin_path2, \
-    execute_utility2, \
     clean_on_error
 
 
@@ -86,7 +87,13 @@ class NodeBackup(object):
             "-X", xlog_method.value
         ]  # yapf: disable
         _params += options
-        execute_utility2(self.os_ops, _params, self.log_file)
+
+        utils.execute_utility3(
+            self.os_ops,
+            _params,
+            self.log_file,
+        )
+        return
 
     def __enter__(self):
         return self

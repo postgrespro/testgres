@@ -1,18 +1,8 @@
 # coding: utf-8
 
+from __future__ import annotations
 from __future__ import division
 from __future__ import print_function
-
-import os
-import sys
-import time
-
-from contextlib import contextmanager
-from packaging.version import Version, InvalidVersion
-import re
-import typing
-
-from six import iteritems
 
 from .exceptions import ExecUtilException, InvalidOperationException
 from .config import testgres_config as tconf
@@ -21,7 +11,10 @@ from .enums import NodeStatus
 from .consts import PG_CTL__STATUS__OK
 from .consts import PG_CTL__STATUS__NODE_IS_STOPPED
 from .consts import PG_CTL__STATUS__BAD_DATADIR
+from testgres.operations.types import T_OS_CMD
+from testgres.operations.types import T_OS_EXEC_ENV
 from testgres.operations.os_ops import OsOperations
+from testgres.operations.os_ops import OsCommandResult
 from testgres.operations.remote_ops import RemoteOperations
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.helpers import Helpers as OsHelpers
@@ -30,6 +23,17 @@ from .impl.port_manager__generic2 import PortManager__Generic2
 
 from .impl.platforms import internal_platform_utils_factory
 from .impl import internal_utils
+
+import os
+import sys
+import time
+import re
+import typing
+
+from six import iteritems
+from contextlib import contextmanager
+from packaging.version import Version, InvalidVersion
+
 
 # rows returned by PG_CONFIG
 _pg_config_data = {}
@@ -81,16 +85,21 @@ def execute_utility(args, logfile=None, verbose=False):
     Returns:
         stdout of executed utility.
     """
-    return execute_utility2(tconf.os_ops, args, logfile, verbose)
+    return execute_utility2(
+        tconf.os_ops,
+        args,
+        logfile,
+        verbose,
+    )
 
 
 def execute_utility2(
-        os_ops: OsOperations,
-        args,
-        logfile=None,
-        verbose=False,
-        ignore_errors=False,
-        exec_env=None,
+    os_ops: OsOperations,
+    args,
+    logfile=None,
+    verbose=False,
+    ignore_errors=False,
+    exec_env=None,
 ):
     assert os_ops is not None
     assert isinstance(os_ops, OsOperations)
@@ -98,45 +107,76 @@ def execute_utility2(
     assert type(ignore_errors) is bool
     assert exec_env is None or type(exec_env) is dict
 
-    exec_r = os_ops.exec_command(
+    exec_r = execute_utility3(
+        os_ops,
         args,
-        verbose=True,
-        ignore_errors=ignore_errors,
+        logfile,
+        check=not ignore_errors,
+        exec_env=exec_env,
+    )
+
+    assert type(exec_r) is OsCommandResult
+
+    assert type(exec_r.returncode) is int
+    assert exec_r.stdout is None or type(exec_r.stdout) is str
+    assert exec_r.stderr is None or type(exec_r.stderr) is str
+
+    if not verbose:
+        return exec_r.stdout
+
+    return exec_r.returncode, exec_r.stdout, exec_r.stderr
+
+
+def execute_utility3(
+    os_ops: OsOperations,
+    args: T_OS_CMD,
+    logfile: typing.Optional[str] = None,
+    check: bool = True,
+    exec_env: typing.Optional[T_OS_EXEC_ENV] = None,
+) -> OsCommandResult:
+    assert os_ops is not None
+    assert isinstance(os_ops, OsOperations)
+    assert type(check) is bool
+    assert exec_env is None or type(exec_env) is dict
+
+    exec_r = os_ops.run(
+        args,
+        check=check,
         encoding=OsHelpers.GetDefaultEncoding(),
         exec_env=exec_env,
     )
 
-    assert type(exec_r) is tuple
-    assert len(exec_r) == 3
-
-    exit_status, out, _ = exec_r
-
-    assert type(exit_status) is int
-    assert type(out) is str
+    assert type(exec_r) is OsCommandResult
 
     # write new log entry if possible
     if logfile:
         try:
+            log_lines = [
+                os_ops.join_command_arguments(args),
+            ]
+
+            if exec_r.stdout is None:
+                log_lines.append("# #NONE#")
+            else:
+                # comment-out lines
+                assert type(exec_r.stdout) is str
+                log_lines += ['# ' + line for line in exec_r.stdout.splitlines()]
+
+            log_lines.append("")
+
             os_ops.write(
                 filename=logfile,
-                data=os_ops.join_command_arguments(args),
+                data="\n".join(log_lines),
                 truncate=False,
             )
-            if out:
-                # comment-out lines
-                lines = [u'\n'] + ['# ' + line for line in out.splitlines()] + [u'\n']
-                os_ops.write(
-                    filename=logfile,
-                    data=lines,
-                    truncate=False,
-                )
         except IOError:
             raise ExecUtilException(
-                "Problem with writing to logfile `{}` during run command `{}`".format(logfile, args))
-    if verbose:
-        return exec_r
+                "Problem with writing to logfile `{}` during run command `{}`".format(
+                    logfile,
+                    args,
+                ))
 
-    return out
+    return exec_r
 
 
 def get_bin_path(filename):
@@ -449,13 +489,16 @@ def get_pg_node_state(
             time.sleep(sleep_time)
             sleep_time = sleep_time * C_SLEEP_TIME_MULT
 
-        status_code, out, error = execute_utility2(
+        exec_r = execute_utility3(
             os_ops,
             _params,
             utils_log_file,
-            verbose=True,
-            ignore_errors=True,
+            check=False,
         )
+
+        status_code = exec_r.returncode
+        out = exec_r.stdout
+        error = exec_r.stderr
 
         assert type(status_code) is int
         assert type(out) is str

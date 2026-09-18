@@ -8,13 +8,11 @@ from .consts import XLOG_CONTROL_FILE
 
 from .defaults import generate_system_id
 
+from . import utils
+
 from .exceptions import \
     InitNodeException, \
     ExecUtilException
-
-from .utils import \
-    get_bin_path2, \
-    execute_utility2
 
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.os_ops import OsOperations
@@ -39,13 +37,17 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = No
         if bin_path:
             return os_ops.build_path(bin_path, name)
 
-        return get_bin_path2(os_ops, name)
+        return utils.get_bin_path2(os_ops, name)
 
     def call_initdb(initdb_dir, log=logfile):
         try:
             initdb_path = make_utility_path("initdb")
             _params = [initdb_path, "-D", initdb_dir, "-N"]
-            execute_utility2(os_ops, _params + (params or []), log)
+            utils.execute_utility3(
+                os_ops,
+                _params + (params or []),
+                log,
+            )
         except ExecUtilException as e:
             raise_from(InitNodeException("Failed to run initdb"), e)
 
@@ -78,7 +80,12 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = No
 
                 # XXX: build new WAL segment with our system id
                 _params = [make_utility_path("pg_resetwal"), "-D", data_dir, "-f"]
-                execute_utility2(os_ops, _params, logfile)
+
+                utils.execute_utility3(
+                    os_ops,
+                    _params,
+                    logfile,
+                )
 
         except ExecUtilException as e:
             msg = "Failed to reset WAL for system id"
