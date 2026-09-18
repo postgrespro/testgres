@@ -264,7 +264,7 @@ def get_pg_config2(os_ops: OsOperations, pg_config_path):
 
     def cache_pg_config_data(cmd):
         # execute pg_config and get the output
-        out = os_ops.exec_command(cmd, encoding='utf-8')
+        out = os_ops.run(cmd, encoding='utf-8').stdout
         assert type(out) is str
 
         data = {}
