@@ -101,6 +101,7 @@ from .backup import NodeBackup
 
 from testgres.operations.os_ops import OsOperations
 from testgres.operations.os_ops import OsCommandResult
+from testgres.operations.os_ops import OsProcessController
 from testgres.operations.local_ops import LocalOperations
 
 InternalError = pglib.InternalError
@@ -2066,12 +2067,14 @@ class PostgresNode(object):
                             dbname=dbname, username=username, **params)
         # yapf: enable
 
-    def pgbench(self,
-                dbname=None,
-                username=None,
-                stdout=None,
-                stderr=None,
-                options=None):
+    def pgbench(
+        self,
+        dbname=None,
+        username=None,
+        stdout=None,
+        stderr=None,
+        options=None,
+    ) -> OsProcessController:
         """
         Spawn a pgbench process.
 
@@ -2083,7 +2086,7 @@ class PostgresNode(object):
             options: additional options for pgbench (list).
 
         Returns:
-            Process created by subprocess.Popen.
+            OsProcessController.
         """
         if options is None:
             options = []
@@ -2100,10 +2103,14 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        proc = self._os_ops.exec_command(_params, stdout=stdout, stderr=stderr, get_process=True)
+        proc = self._os_ops.popen(
+            _params,
+            stdout=stdout,
+            stderr=stderr,
+        )
 
         # [2026-06-21] It is so
-        assert isinstance(proc, subprocess.Popen)
+        assert isinstance(proc, OsProcessController)
         return proc
 
     def pgbench_with_wait(self,
