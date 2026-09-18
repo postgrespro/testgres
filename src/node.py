@@ -100,6 +100,7 @@ from .raise_error import RaiseError
 from .backup import NodeBackup
 
 from testgres.operations.os_ops import OsOperations
+from testgres.operations.os_ops import OsCommandResult
 from testgres.operations.local_ops import LocalOperations
 
 InternalError = pglib.InternalError
@@ -1598,7 +1599,7 @@ class PostgresNode(object):
         assert port is None or type(port) is int
         assert type(variables) is dict
 
-        return self._psql(
+        r = self._psql(
             ignore_errors=True,
             query=query,
             filename=filename,
@@ -1609,6 +1610,8 @@ class PostgresNode(object):
             port=port,
             **variables
         )
+        assert type(r) is OsCommandResult
+        return r.returncode, r.stdout, r.stderr
 
     def _psql(
             self,
@@ -1620,7 +1623,8 @@ class PostgresNode(object):
             input=None,
             host: typing.Optional[str] = None,
             port: typing.Optional[int] = None,
-            **variables):
+            **variables
+    ) -> OsCommandResult:
         assert host is None or type(host) is str
         assert port is None or type(port) is int
         assert type(variables) is dict
@@ -1670,13 +1674,15 @@ class PostgresNode(object):
         else:
             raise QueryException('Query or filename must be provided')
 
-        return self._os_ops.exec_command(
+        r = self._os_ops.run(
             psql_params,
-            verbose=True,
             input=input,
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            ignore_errors=ignore_errors)
+            check=not ignore_errors,
+        )
+        assert type(r) is OsCommandResult
+        return r
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def safe_psql(self, query=None, expect_error=False, **kwargs):
@@ -1704,7 +1710,7 @@ class PostgresNode(object):
         # force this setting
         kwargs['ON_ERROR_STOP'] = 1
         try:
-            ret, out, err = self._psql(ignore_errors=False, query=query, **kwargs)
+            exec_r = self._psql(ignore_errors=False, query=query, **kwargs)
         except ExecUtilException as e:
             if not expect_error:
                 raise QueryException(e.message, query)
@@ -1719,7 +1725,7 @@ class PostgresNode(object):
         if expect_error:
             raise InvalidOperationException("Exception was expected, but query finished successfully: `{}`.".format(query))
 
-        return out
+        return exec_r.stdout
 
     def dump(self,
              filename=None,
