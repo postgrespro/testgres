@@ -19,6 +19,8 @@ from testgres.operations.remote_ops import RemoteOperations
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.helpers import Helpers as OsHelpers
 
+from . import consts
+
 from .impl.port_manager__generic2 import PortManager__Generic2
 
 from .impl.platforms import internal_platform_utils_factory
@@ -327,16 +329,20 @@ def get_pg_version2(os_ops: OsOperations, bin_dir=None):
     assert os_ops is not None
     assert isinstance(os_ops, OsOperations)
 
-    C_POSTGRES_BINARY = "postgres"
-
     # Get raw version (e.g., postgres (PostgreSQL) 9.5.7)
     if bin_dir is None:
-        postgres_path = get_bin_path2(os_ops, C_POSTGRES_BINARY)
+        postgres_path = get_bin_path2(
+            os_ops,
+            consts.BINARY_NAME__POSTGRES,
+        )
     else:
         # [2025-06-25] OK ?
         assert type(bin_dir) is str
         assert bin_dir != ""
-        postgres_path = os_ops.build_path(bin_dir, 'postgres')
+        postgres_path = os_ops.build_path(
+            bin_dir,
+            consts.BINARY_NAME__POSTGRES,
+        )
 
     cmd = [postgres_path, '--version']
     raw_ver = os_ops.run(cmd, encoding='utf-8').stdout
