@@ -1,29 +1,6 @@
 # coding: utf-8
 from __future__ import annotations
 
-import logging
-import signal
-import subprocess
-
-import time
-import typing
-
-try:
-    from collections.abc import Iterable
-except ImportError:
-    from collections import Iterable
-
-# we support both pg8000 and psycopg2
-try:
-    import psycopg2 as pglib
-except ImportError:
-    try:
-        import pg8000 as pglib
-    except ImportError:
-        raise ImportError("You must have psycopg2 or pg8000 modules installed")
-
-from six import raise_from, iteritems, text_type
-
 from .enums import \
     NodeStatus, \
     ProcessType, \
@@ -86,16 +63,40 @@ from .pubsub import Publication, Subscription
 
 from .standby import First
 
-from . import utils
-
 from .raise_error import RaiseError
 
 from .backup import NodeBackup
+
+from . import utils
 
 from testgres.operations.os_ops import OsOperations
 from testgres.operations.os_ops import OsCommandResult
 from testgres.operations.os_ops import OsProcessController
 from testgres.operations.local_ops import LocalOperations
+
+import logging
+import signal
+import subprocess
+
+import time
+import typing
+
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
+
+# we support both pg8000 and psycopg2
+try:
+    import psycopg2 as pglib
+except ImportError:
+    try:
+        import pg8000 as pglib
+    except ImportError:
+        raise ImportError("You must have psycopg2 or pg8000 modules installed")
+
+from six import raise_from, iteritems, text_type
+
 
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
