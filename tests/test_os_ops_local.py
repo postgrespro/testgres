@@ -28,7 +28,10 @@ class TestOsOpsLocal:
         os_ops = os_ops_descr.os_ops
         assert isinstance(os_ops, OsOperations)
 
-        with pytest.raises(FileNotFoundError, match=re.escape("[Errno 2] No such file or directory: '/dummy'")):
+        with pytest.raises(
+            FileNotFoundError,
+            match=re.escape("[Errno 2] No such file or directory: '/dummy'"),
+        ):
             os_ops.read("/dummy")
         return
 
@@ -46,8 +49,9 @@ class TestOsOpsLocal:
         assert isinstance(os_ops, OsOperations)
 
         with pytest.raises(
-                FileNotFoundError,
-                match=re.escape("[Errno 2] No such file or directory: '/dummy'")):
+            FileNotFoundError,
+            match=re.escape("[Errno 2] No such file or directory: '/dummy'"),
+        ):
             os_ops.read_binary("/dummy", 0)
         return
 
@@ -64,7 +68,10 @@ class TestOsOpsLocal:
         os_ops = os_ops_descr.os_ops
         assert isinstance(os_ops, OsOperations)
 
-        with pytest.raises(FileNotFoundError, match=re.escape("[Errno 2] No such file or directory: '/dummy'")):
+        with pytest.raises(
+            FileNotFoundError,
+            match=re.escape("[Errno 2] No such file or directory: '/dummy'"),
+        ):
             os_ops.get_file_size("/dummy")
         return
 

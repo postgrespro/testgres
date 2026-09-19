@@ -1,29 +1,6 @@
 # coding: utf-8
 from __future__ import annotations
 
-import logging
-import signal
-import subprocess
-
-import time
-import typing
-
-try:
-    from collections.abc import Iterable
-except ImportError:
-    from collections import Iterable
-
-# we support both pg8000 and psycopg2
-try:
-    import psycopg2 as pglib
-except ImportError:
-    try:
-        import pg8000 as pglib
-    except ImportError:
-        raise ImportError("You must have psycopg2 or pg8000 modules installed")
-
-from six import raise_from, iteritems, text_type
-
 from .enums import \
     NodeStatus, \
     ProcessType, \
@@ -86,23 +63,40 @@ from .pubsub import Publication, Subscription
 
 from .standby import First
 
-from . import utils
-
-from .utils import \
-    PgVer, \
-    eprint, \
-    get_pg_version2, \
-    options_string, \
-    clean_on_error
-
 from .raise_error import RaiseError
 
 from .backup import NodeBackup
+
+from . import utils
 
 from testgres.operations.os_ops import OsOperations
 from testgres.operations.os_ops import OsCommandResult
 from testgres.operations.os_ops import OsProcessController
 from testgres.operations.local_ops import LocalOperations
+
+import logging
+import signal
+import subprocess
+
+import time
+import typing
+
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
+
+# we support both pg8000 and psycopg2
+try:
+    import psycopg2 as pglib
+except ImportError:
+    try:
+        import pg8000 as pglib
+    except ImportError:
+        raise ImportError("You must have psycopg2 or pg8000 modules installed")
+
+from six import raise_from, iteritems, text_type
+
 
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
@@ -220,7 +214,13 @@ class PostgresNode(object):
 
         assert type(self._bin_dir) is str
 
-        self._pg_version = PgVer(get_pg_version2(self._os_ops, self._bin_dir))
+        raw_version = utils.get_pg_version2(
+            self._os_ops,
+            self._bin_dir,
+        )
+        self._pg_version = utils.PgVer(
+            raw_version,
+        )
         self._base_dir = base_dir
         self._prefix = prefix
         self._logger = None
@@ -655,7 +655,7 @@ class PostgresNode(object):
             except ExecUtilException:
                 continue  # one more time
             except Exception:
-                eprint('cannot stop node {}'.format(self.name))
+                utils.eprint('cannot stop node {}'.format(self.name))
                 break
 
             return  # OK
@@ -691,7 +691,10 @@ class PostgresNode(object):
                 ps_command)
 
         try:
-            eprint('Force stopping node {0} with PID {1}'.format(self.name, node_pid))
+            utils.eprint('Force stopping node {0} with PID {1}'.format(
+                self.name,
+                node_pid,
+            ))
             self._os_ops.kill(node_pid, signal.SIGKILL)
         except Exception:
             # The node has already stopped
@@ -706,11 +709,15 @@ class PostgresNode(object):
         assert type(ps_output) is str
 
         if ps_output == "":
-            eprint('Node {0} has been stopped successfully.'.format(self.name))
+            utils.eprint('Node {0} has been stopped successfully.'.format(
+                self.name,
+            ))
             return
 
         if ps_output == str(node_pid):
-            eprint('Failed to stop node {0}.'.format(self.name))
+            utils.eprint('Failed to stop node {0}.'.format(
+                self.name,
+            ))
             return
 
         __class__._throw_bugcheck__unexpected_result_of_ps(
@@ -755,11 +762,11 @@ class PostgresNode(object):
         except ValueError:
             conninfo["host"] = master.host
 
-        line = (
-            "primary_conninfo='{}'\n"
-        ).format(options_string(**conninfo))  # yapf: disable
+        line = "primary_conninfo='{}'\n".format(
+            utils.options_string(**conninfo),
+        )
         # Since 12 recovery.conf had disappeared
-        if self.version >= PgVer('12'):
+        if self.version >= utils.PgVer('12'):
             assert self._os_ops is not None
             assert isinstance(self._os_ops, OsOperations)
 
@@ -793,7 +800,7 @@ class PostgresNode(object):
 
             line += "primary_slot_name={}\n".format(slot)
 
-        if self.version >= PgVer('12'):
+        if self.version >= utils.PgVer('12'):
             self.append_conf(line=line)
         else:
             self.append_conf(filename=RECOVERY_CONF_FILE, line=line)
@@ -898,45 +905,62 @@ class PostgresNode(object):
         # hba file is updated
         self._default_conf__hba()
 
-        postgres_conf = self._os_ops.build_path(self.data_dir, PG_CONF_FILE)
+        postgres_conf = self._os_ops.build_path(
+            self.data_dir,
+            PG_CONF_FILE,
+        )
 
         # overwrite config file
         self._os_ops.write(postgres_conf, '', truncate=True)
 
-        self.append_conf(fsync=fsync,
-                         max_worker_processes=MAX_WORKER_PROCESSES,
-                         log_statement=log_statement,
-                         listen_addresses=self._host,
-                         port=self.port)  # yapf:disable
+        self.append_conf(
+            fsync=fsync,
+            max_worker_processes=MAX_WORKER_PROCESSES,
+            log_statement=log_statement,
+            listen_addresses=self._host,
+            port=self.port,
+        )
 
         # common replication settings
         if allow_streaming or allow_logical:
-            self.append_conf(max_replication_slots=MAX_REPLICATION_SLOTS,
-                             max_wal_senders=MAX_WAL_SENDERS)  # yapf: disable
+            self.append_conf(
+                max_replication_slots=MAX_REPLICATION_SLOTS,
+                max_wal_senders=MAX_WAL_SENDERS,
+            )
 
         # binary replication
         if allow_streaming:
             # select a proper wal_level for PostgreSQL
-            wal_level = 'replica' if self._pg_version >= PgVer('9.6') else 'hot_standby'
-
-            if self._pg_version < PgVer('13'):
-                self.append_conf(hot_standby=True,
-                                 wal_keep_segments=WAL_KEEP_SEGMENTS,
-                                 wal_level=wal_level)  # yapf: disable
+            if self._pg_version >= utils.PgVer('9.6'):
+                wal_level = 'replica'
             else:
-                self.append_conf(hot_standby=True,
-                                 wal_keep_size=WAL_KEEP_SIZE,
-                                 wal_level=wal_level)  # yapf: disable
+                wal_level = 'hot_standby'
+
+            if self._pg_version < utils.PgVer('13'):
+                self.append_conf(
+                    hot_standby=True,
+                    wal_keep_segments=WAL_KEEP_SEGMENTS,
+                    wal_level=wal_level,
+                )
+            else:
+                self.append_conf(
+                    hot_standby=True,
+                    wal_keep_size=WAL_KEEP_SIZE,
+                    wal_level=wal_level,
+                )
 
         # logical replication
         if allow_logical:
-            if self._pg_version < PgVer('10'):
-                raise InitNodeException("Logical replication is only "
-                                        "available on PostgreSQL 10 and newer")
+            if self._pg_version < utils.PgVer('10'):
+                raise InitNodeException(
+                    "Logical replication is only "
+                    "available on PostgreSQL 10 and newer",
+                )
 
             self.append_conf(
                 max_logical_replication_workers=MAX_LOGICAL_REPLICATION_WORKERS,
-                wal_level='logical')
+                wal_level='logical',
+            )
 
         # disable UNIX sockets if asked to
         if not unix_sockets:
@@ -1089,7 +1113,7 @@ class PostgresNode(object):
             self._os_ops,
             self.bin_dir,
             self.data_dir,
-            self.utils_log_file
+            self.utils_log_file,
         )
 
     def get_control_data(self):
@@ -1099,7 +1123,7 @@ class PostgresNode(object):
 
         # this one is tricky (blame PG 9.4)
         _params = [self._get_bin_path("pg_controldata")]
-        _params += ["-D"] if self._pg_version >= PgVer('9.5') else []
+        _params += ["-D"] if self._pg_version >= utils.PgVer('9.5') else []
         _params += [self.data_dir]
 
         exec_r = utils.execute_utility3(
@@ -1154,7 +1178,7 @@ class PostgresNode(object):
                 InternalError,
                 QueryException,
                 ProgrammingError,
-                OperationalError
+                OperationalError,
             }
 
             self.poll_query_until(
@@ -1303,7 +1327,10 @@ class PostgresNode(object):
                     assert nAttempt > 0
                     assert nAttempt <= __class__._C_MAX_START_ATEMPTS
                     if nAttempt == __class__._C_MAX_START_ATEMPTS:
-                        self._raise_cannot_start_node(e, "Cannot start node after multiple attempts.")
+                        self._raise_cannot_start_node(
+                            e,
+                            "Cannot start node after multiple attempts.",
+                        )
 
                     is_it_port_conflict = PostgresNodeUtils.detect_port_conflict(log_reader)
 
@@ -1311,7 +1338,10 @@ class PostgresNode(object):
                         LOCAL__raise_cannot_start_node__std(e)
 
                     logging.warning(
-                        "Detected a conflict with using the port {0}. Trying another port after a {1}-second sleep...".format(self._port, timeout)
+                        "Detected a conflict with using the port {}. Trying another port after a {}-second sleep...".format(
+                            self._port,
+                            timeout,
+                        ),
                     )
                     time.sleep(timeout)
                     timeout = min(2 * timeout, 5)
@@ -1333,14 +1363,18 @@ class PostgresNode(object):
     def _raise_cannot_start_node(
         self,
         from_exception: typing.Optional[Exception],
-        msg: str
+        msg: str,
     ):
         assert from_exception is None or isinstance(from_exception, Exception)
         assert type(msg) is str
         files = self._collect_special_files()
         raise_from(StartNodeException(msg, files), from_exception)
 
-    def stop(self, params=[], wait=True):
+    def stop(
+        self,
+        params=[],
+        wait=True,
+    ):
         """
         Stops the PostgreSQL node using pg_ctl if the node has been started.
 
@@ -1355,7 +1389,7 @@ class PostgresNode(object):
             self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
             "-w" if wait else '-W',  # --wait or --no-wait
-            "stop"
+            "stop",
         ] + params  # yapf: disable
 
         try:
@@ -1420,7 +1454,7 @@ class PostgresNode(object):
             "-D", self.data_dir,
             "-l", self.pg_log_file,
             "-w",  # wait
-            "restart"
+            "restart",
         ] + params  # yapf: disable
 
         try:
@@ -1457,7 +1491,7 @@ class PostgresNode(object):
         _params = [
             self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
-            "reload"
+            "reload",
         ] + params  # yapf: disable
 
         utils.execute_utility3(
@@ -1494,14 +1528,16 @@ class PostgresNode(object):
 
         # for versions below 10 `promote` is asynchronous so we need to wait
         # until it actually becomes writable
-        if self._pg_version < PgVer('10'):
+        if self._pg_version < utils.PgVer('10'):
             check_query = "SELECT pg_is_in_recovery()"
 
-            self.poll_query_until(query=check_query,
-                                  expected=False,
-                                  dbname=dbname,
-                                  username=username,
-                                  max_attempts=0)    # infinite
+            self.poll_query_until(
+                query=check_query,
+                expected=False,
+                dbname=dbname,
+                username=username,
+                max_attempts=0,
+            )    # infinite
 
         # node becomes master itself
         self._master = None
@@ -1522,7 +1558,7 @@ class PostgresNode(object):
         _params = [
             self._get_bin_path("pg_ctl"),
             "-D", self.data_dir,
-            "-w"  # wait
+            "-w",  # wait
         ] + params  # yapf: disable
 
         return utils.execute_utility3(
@@ -1544,7 +1580,12 @@ class PostgresNode(object):
         """
         return self._free_port()
 
-    def cleanup(self, max_attempts=3, full=False, release_resources=False):
+    def cleanup(
+        self,
+        max_attempts=3,
+        full=False,
+        release_resources=False,
+    ):
         """
         Stop node if needed and remove its data/logs directory.
         NOTE: take a look at TestgresConfig.node_cleanup_full.
@@ -1573,15 +1614,17 @@ class PostgresNode(object):
         return self
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
-    def psql(self,
-             query=None,
-             filename=None,
-             dbname=None,
-             username=None,
-             input=None,
-             host: typing.Optional[str] = None,
-             port: typing.Optional[int] = None,
-             **variables):
+    def psql(
+        self,
+        query=None,
+        filename=None,
+        dbname=None,
+        username=None,
+        input=None,
+        host: typing.Optional[str] = None,
+        port: typing.Optional[int] = None,
+        **variables,
+    ):
         """
         Execute a query using psql.
 
@@ -1617,22 +1660,22 @@ class PostgresNode(object):
             input=input,
             host=host,
             port=port,
-            **variables
+            **variables,
         )
         assert type(r) is OsCommandResult
         return r.returncode, r.stdout, r.stderr
 
     def _psql(
-            self,
-            ignore_errors,
-            query=None,
-            filename=None,
-            dbname=None,
-            username=None,
-            input=None,
-            host: typing.Optional[str] = None,
-            port: typing.Optional[int] = None,
-            **variables
+        self,
+        ignore_errors,
+        query=None,
+        filename=None,
+        dbname=None,
+        username=None,
+        input=None,
+        host: typing.Optional[str] = None,
+        port: typing.Optional[int] = None,
+        **variables,
     ) -> OsCommandResult:
         assert host is None or type(host) is str
         assert port is None or type(port) is int
@@ -1694,7 +1737,12 @@ class PostgresNode(object):
         return r
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
-    def safe_psql(self, query=None, expect_error=False, **kwargs):
+    def safe_psql(
+        self,
+        query=None,
+        expect_error=False,
+        **kwargs,
+    ):
         """
         Execute a query using psql.
 
@@ -1736,12 +1784,14 @@ class PostgresNode(object):
 
         return exec_r.stdout
 
-    def dump(self,
-             filename=None,
-             dbname=None,
-             username=None,
-             format=DumpFormat.Plain,
-             options=None):
+    def dump(
+        self,
+        filename=None,
+        dbname=None,
+        username=None,
+        format=DumpFormat.Plain,
+        options=None,
+    ):
         """
         Dump database into a file using pg_dump.
         NOTE: the file is not removed automatically.
@@ -1797,7 +1847,12 @@ class PostgresNode(object):
 
         return filename
 
-    def restore(self, filename, dbname=None, username=None):
+    def restore(
+        self,
+        filename,
+        dbname=None,
+        username=None,
+    ):
         """
         Restore database from pg_dump's file.
 
@@ -1817,7 +1872,7 @@ class PostgresNode(object):
             "-h", self._host,
             "-U", username,
             "-d", dbname,
-            filename
+            filename,
         ]  # yapf: disable
 
         # try pg_restore if dump is binary format, and psql if not
@@ -1873,10 +1928,12 @@ class PostgresNode(object):
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
             try:
-                res = self.execute(dbname=dbname,
-                                   query=query,
-                                   username=username,
-                                   commit=commit)
+                res = self.execute(
+                    dbname=dbname,
+                    query=query,
+                    username=username,
+                    commit=commit,
+                )
 
                 if expected is None and res is None:
                     return    # done
@@ -1904,12 +1961,14 @@ class PostgresNode(object):
         raise QueryTimeoutException('Query timeout', query)
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
-    def execute(self,
-                query,
-                dbname=None,
-                username=None,
-                password=None,
-                commit=True):
+    def execute(
+        self,
+        query,
+        dbname=None,
+        username=None,
+        password=None,
+        commit=True,
+    ):
         """
         Execute a query and return all rows as list.
 
@@ -1924,16 +1983,21 @@ class PostgresNode(object):
             A list of tuples representing rows.
         """
 
-        with self.connect(dbname=dbname,
-                          username=username,
-                          password=password,
-                          autocommit=commit) as node_con:  # yapf: disable
+        node_con = self.connect(
+            dbname=dbname,
+            username=username,
+            password=password,
+            autocommit=commit,
+        )
 
+        with node_con:  # yapf: disable
             res = node_con.execute(query)
-
             return res
 
-    def backup(self, **kwargs):
+    def backup(
+        self,
+        **kwargs,
+    ) -> NodeBackup:
         """
         Perform pg_basebackup.
 
@@ -1946,9 +2010,17 @@ class PostgresNode(object):
             A smart object of type NodeBackup.
         """
 
-        return NodeBackup(node=self, **kwargs)
+        return NodeBackup(
+            node=self,
+            **kwargs,
+        )
 
-    def replicate(self, name=None, slot=None, **kwargs):
+    def replicate(
+        self,
+        name=None,
+        slot=None,
+        **kwargs,
+    ):
         """
         Create a binary replica of this node.
 
@@ -1961,8 +2033,12 @@ class PostgresNode(object):
         """
 
         # transform backup into a replica
-        with clean_on_error(self.backup(**kwargs)) as backup:
-            return backup.spawn_replica(name=name, destroy=True, slot=slot)
+        with utils.clean_on_error(self.backup(**kwargs)) as backup:
+            return backup.spawn_replica(
+                name=name,
+                destroy=True,
+                slot=slot,
+            )
 
     def set_synchronous_standbys(self, standbys):
         """
@@ -1990,7 +2066,7 @@ class PostgresNode(object):
                 master.restart()
 
         """
-        if self._pg_version >= PgVer('9.6'):
+        if self._pg_version >= utils.PgVer('9.6'):
             if isinstance(standbys, Iterable):
                 standbys = First(1, standbys)
         else:
@@ -1998,8 +2074,10 @@ class PostgresNode(object):
                 standbys = u", ".join(u"\"{}\"".format(r.name)
                                       for r in standbys)
             else:
-                raise TestgresException("Feature isn't supported in "
-                                        "Postgres 9.5 and below")
+                raise TestgresException(
+                    "Feature isn't supported in "
+                    "Postgres 9.5 and below",
+                )
 
         self.append_conf("synchronous_standby_names = '{}'".format(standbys))
 
@@ -2011,7 +2089,7 @@ class PostgresNode(object):
         if not self.master:
             raise TestgresException("Node doesn't have a master")
 
-        if self._pg_version >= PgVer('10'):
+        if self._pg_version >= utils.PgVer('10'):
             poll_lsn = "select pg_catalog.pg_current_wal_lsn()::text"
             wait_lsn = "select pg_catalog.pg_last_wal_replay_lsn() >= '{}'::pg_lsn"
         else:
@@ -2020,15 +2098,19 @@ class PostgresNode(object):
 
         try:
             # fetch latest LSN
-            lsn = self.master.execute(query=poll_lsn,
-                                      dbname=dbname,
-                                      username=username)[0][0]  # yapf: disable
+            lsn = self.master.execute(
+                query=poll_lsn,
+                dbname=dbname,
+                username=username,
+            )[0][0]
 
             # wait until this LSN reaches replica
-            self.poll_query_until(query=wait_lsn.format(lsn),
-                                  dbname=dbname,
-                                  username=username,
-                                  max_attempts=0)    # infinite
+            self.poll_query_until(
+                query=wait_lsn.format(lsn),
+                dbname=dbname,
+                username=username,
+                max_attempts=0,
+            )
         except Exception as e:
             raise_from(CatchUpException("Failed to catch up."), e)
 
@@ -2044,12 +2126,14 @@ class PostgresNode(object):
         """
         return Publication(name=name, node=self, **kwargs)
 
-    def subscribe(self,
-                  publication,
-                  name,
-                  dbname=None,
-                  username=None,
-                  **params):
+    def subscribe(
+        self,
+        publication,
+        name,
+        dbname=None,
+        username=None,
+        **params,
+    ):
         """
         Create subscription for logical replication
 
@@ -2063,8 +2147,14 @@ class PostgresNode(object):
                  for details)
         """
         # yapf: disable
-        return Subscription(name=name, node=self, publication=publication,
-                            dbname=dbname, username=username, **params)
+        return Subscription(
+            name=name,
+            node=self,
+            publication=publication,
+            dbname=dbname,
+            username=username,
+            **params,
+        )
         # yapf: enable
 
     def pgbench(
@@ -2113,12 +2203,14 @@ class PostgresNode(object):
         assert isinstance(proc, OsProcessController)
         return proc
 
-    def pgbench_with_wait(self,
-                          dbname=None,
-                          username=None,
-                          stdout=None,
-                          stderr=None,
-                          options=None):
+    def pgbench_with_wait(
+        self,
+        dbname=None,
+        username=None,
+        stdout=None,
+        stderr=None,
+        options=None,
+    ):
         """
         Do pgbench command and wait.
 
@@ -2136,7 +2228,10 @@ class PostgresNode(object):
             pgbench.wait()
         return
 
-    def pgbench_init(self, **kwargs):
+    def pgbench_init(
+        self,
+        **kwargs,
+    ):
         """
         Small wrapper for pgbench_run().
         Sets initialize=True.
@@ -2145,11 +2240,20 @@ class PostgresNode(object):
             This instance of :class:`.PostgresNode`.
         """
 
-        self.pgbench_run(initialize=True, **kwargs)
+        self.pgbench_run(
+            initialize=True,
+            **kwargs,
+        )
 
         return self
 
-    def pgbench_run(self, dbname=None, username=None, options=[], **kwargs):
+    def pgbench_run(
+        self,
+        dbname=None,
+        username=None,
+        options=[],
+        **kwargs,
+    ):
         """
         Run pgbench with some options.
         This event is logged (see self.utils_log_file).
@@ -2199,11 +2303,13 @@ class PostgresNode(object):
             self.utils_log_file,
         ).stdout
 
-    def connect(self,
-                dbname=None,
-                username=None,
-                password=None,
-                autocommit=False):
+    def connect(
+        self,
+        dbname=None,
+        username=None,
+        password=None,
+        autocommit=False,
+    ):
         """
         Connect to a database.
 
@@ -2219,16 +2325,18 @@ class PostgresNode(object):
             An instance of :class:`.NodeConnection`.
         """
 
-        return NodeConnection(node=self,
-                              dbname=dbname,
-                              username=username,
-                              password=password,
-                              autocommit=autocommit)  # yapf: disable
+        return NodeConnection(
+            node=self,
+            dbname=dbname,
+            username=username,
+            password=password,
+            autocommit=autocommit,
+        )
 
     def table_checksum(
         self,
         table: str,
-        dbname: str = "postgres"
+        dbname: str = "postgres",
     ) -> int:
         assert type(table) is str
         assert type(dbname) is str
@@ -2250,13 +2358,13 @@ class PostgresNode(object):
         'pgbench_branches',
         'pgbench_tellers',
         'pgbench_accounts',
-        'pgbench_history'
+        'pgbench_history',
     ]
 
     def pgbench_table_checksums(
         self,
         dbname: str = "postgres",
-        pgbench_tables: typing.Iterable[str] = sm_pgbench_tables
+        pgbench_tables: typing.Iterable[str] = sm_pgbench_tables,
     ) -> typing.Set[typing.Tuple[str, int]]:
         assert type(dbname) is str
 
@@ -2267,7 +2375,12 @@ class PostgresNode(object):
         assert type(r2) is set
         return r2
 
-    def set_auto_conf(self, options, config='postgresql.auto.conf', rm_options={}):
+    def set_auto_conf(
+        self,
+        options,
+        config='postgresql.auto.conf',
+        rm_options={},
+    ):
         """
         Update or remove configuration options in the specified configuration file,
         updates the options specified in the options dictionary, removes any options
@@ -2337,7 +2450,12 @@ class PostgresNode(object):
 
         self._os_ops.write(path, auto_conf, truncate=True)
 
-    def upgrade_from(self, old_node, options=None, expect_error=False):
+    def upgrade_from(
+        self,
+        old_node,
+        options=None,
+        expect_error=False,
+    ):
         """
         Upgrade this node from an old node using pg_upgrade.
 
@@ -2366,7 +2484,7 @@ class PostgresNode(object):
             "--old-datadir", old_node.data_dir,
             "--new-datadir", self.data_dir,
             "--old-port", str(old_node.port),
-            "--new-port", str(self.port)
+            "--new-port", str(self.port),
         ]
         upgrade_command += options
 
@@ -2539,7 +2657,7 @@ class PostgresNodeLogReader:
             self,
             file_name: str,
             position: int,
-            data: str
+            data: str,
         ):
             assert type(file_name) is str
             assert type(position) is int
@@ -2728,7 +2846,9 @@ class PostgresNodeLogReader:
 
 class PostgresNodeUtils:
     @staticmethod
-    def detect_port_conflict(log_reader: PostgresNodeLogReader) -> bool:
+    def detect_port_conflict(
+        log_reader: PostgresNodeLogReader,
+    ) -> bool:
         assert type(log_reader) is PostgresNodeLogReader
 
         blocks = log_reader.read()
@@ -2739,5 +2859,7 @@ class PostgresNodeUtils:
 
             if 'Is another postmaster already running on port' in block.data:
                 return True
+
+            continue
 
         return False

@@ -19,6 +19,8 @@ from testgres.operations.remote_ops import RemoteOperations
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.helpers import Helpers as OsHelpers
 
+from . import consts
+
 from .impl.port_manager__generic2 import PortManager__Generic2
 
 from .impl.platforms import internal_platform_utils_factory
@@ -312,7 +314,11 @@ def get_pg_config2(os_ops: OsOperations, pg_config_path):
         pg_config_data = cache_pg_config_data("pg_config")
     except Exception:
         raise InvalidOperationException(
-            "Failed to determine how to start pg_config. Either specify the path to pg_config in PG_CONFIG or specify the path to the Postgres directory containing pg_config in PG_BIN, or put pg_config into the system PATH.")
+            "Failed to determine how to start pg_config. "
+            "Either specify the path to pg_config in PG_CONFIG or "
+            "specify the path to the Postgres directory containing "
+            "pg_config in PG_BIN, or put pg_config into the system PATH.",
+        )
     return pg_config_data
 
 
@@ -323,16 +329,20 @@ def get_pg_version2(os_ops: OsOperations, bin_dir=None):
     assert os_ops is not None
     assert isinstance(os_ops, OsOperations)
 
-    C_POSTGRES_BINARY = "postgres"
-
     # Get raw version (e.g., postgres (PostgreSQL) 9.5.7)
     if bin_dir is None:
-        postgres_path = get_bin_path2(os_ops, C_POSTGRES_BINARY)
+        postgres_path = get_bin_path2(
+            os_ops,
+            consts.BINARY_NAME__POSTGRES,
+        )
     else:
         # [2025-06-25] OK ?
         assert type(bin_dir) is str
         assert bin_dir != ""
-        postgres_path = os_ops.build_path(bin_dir, 'postgres')
+        postgres_path = os_ops.build_path(
+            bin_dir,
+            consts.BINARY_NAME__POSTGRES,
+        )
 
     cmd = [postgres_path, '--version']
     raw_ver = os_ops.run(cmd, encoding='utf-8').stdout
@@ -422,7 +432,7 @@ class PostgresNodeState:
     def __init__(
         self,
         node_status: NodeStatus,
-        pid: typing.Optional[int]
+        pid: typing.Optional[int],
     ):
         assert type(node_status) is NodeStatus
         assert pid is None or type(pid) is int
@@ -485,7 +495,7 @@ def get_pg_node_state(
         if attempt > 1:
             internal_utils.send_log_debug("Sleep {} second(s) before an attempt #{}".format(
                 sleep_time,
-                attempt
+                attempt,
             ))
             time.sleep(sleep_time)
             sleep_time = sleep_time * C_SLEEP_TIME_MULT
@@ -527,7 +537,7 @@ def get_pg_node_state(
             if i == -1:
                 RaiseError.pg_ctl_returns_an_unexpected_string(
                     out,
-                    _params
+                    _params,
                 )
 
             assert i > 0
@@ -542,7 +552,7 @@ def get_pg_node_state(
                 if i == len(out):
                     RaiseError.pg_ctl_returns_an_unexpected_string(
                         out,
-                        _params
+                        _params,
                     )
 
                 ch = out[i]
@@ -556,14 +566,14 @@ def get_pg_node_state(
 
                 RaiseError.pg_ctl_returns_an_unexpected_string(
                     out,
-                    _params
+                    _params,
                 )
                 assert False
 
             if i == start_pid_s:
                 RaiseError.pg_ctl_returns_an_unexpected_string(
                     out,
-                    _params
+                    _params,
                 )
 
             # TODO: Let's verify a length of pid string.
@@ -573,7 +583,7 @@ def get_pg_node_state(
             if pid == 0:
                 RaiseError.pg_ctl_returns_a_zero_pid(
                     out,
-                    _params
+                    _params,
                 )
 
             assert pid != 0
@@ -631,14 +641,14 @@ def get_pg_node_state(
                 # Postmaster is alive. Let's wait a few seconds and check its status again.
                 internal_utils.send_log_debug(
                     "Postmaster is found and has PID {}.".format(
-                        find_postmaster_r.pid
+                        find_postmaster_r.pid,
                     ))
 
                 if attempt < C_MAX_ATTEMPTS:
                     continue
 
         errMsg = "Getting of a node status [data_dir is {0}] failed.".format(
-            data_dir
+            data_dir,
         )
 
         raise ExecUtilException(

@@ -67,10 +67,10 @@ class NodeApp:
         return self._nodes_to_cleanup
 
     def make_empty(
-            self,
-            base_dir: str,
-            port: typing.Optional[int] = None,
-            bin_dir: typing.Optional[str] = None
+        self,
+        base_dir: str,
+        port: typing.Optional[int] = None,
+        bin_dir: typing.Optional[str] = None
     ) -> PostgresNode:
         assert type(base_dir) is str
         assert port is None or type(port) is int
@@ -112,15 +112,15 @@ class NodeApp:
         return node
 
     def make_simple(
-            self,
-            base_dir: str,
-            port: typing.Optional[int] = None,
-            set_replication: bool = False,
-            ptrack_enable: bool = False,
-            initdb_params: typing.Optional[T_LIST_STR] = None,
-            pg_options: typing.Optional[T_DICT_STR_STR] = None,
-            checksum: bool = True,
-            bin_dir: typing.Optional[str] = None
+        self,
+        base_dir: str,
+        port: typing.Optional[int] = None,
+        set_replication: bool = False,
+        ptrack_enable: bool = False,
+        initdb_params: typing.Optional[T_LIST_STR] = None,
+        pg_options: typing.Optional[T_DICT_STR_STR] = None,
+        checksum: bool = True,
+        bin_dir: typing.Optional[str] = None,
     ) -> PostgresNode:
         assert type(base_dir) is str
         assert port is None or type(port) is int
@@ -134,7 +134,7 @@ class NodeApp:
         node = self.make_empty(
             base_dir,
             port,
-            bin_dir=bin_dir
+            bin_dir=bin_dir,
         )
 
         final_initdb_params = initdb_params
@@ -143,7 +143,7 @@ class NodeApp:
             final_initdb_params = __class__._paramlist_append_if_not_exist(
                 initdb_params,
                 final_initdb_params,
-                '--data-checksums'
+                '--data-checksums',
             )
             assert final_initdb_params is not None
             assert '--data-checksums' in final_initdb_params
@@ -209,14 +209,18 @@ class NodeApp:
         # https://github.com/postgrespro/testgres/issues/54
         # for PG >= 13 remove 'wal_keep_segments' parameter
         if node.major_version >= 13:
-            node.set_auto_conf({}, 'postgresql.conf', ['wal_keep_segments'])
+            node.set_auto_conf(
+                {},
+                'postgresql.conf',
+                ['wal_keep_segments'],
+            )
 
         return node
 
     @staticmethod
     def _paramlist_has_param(
         params: typing.Optional[T_LIST_STR],
-        param: str
+        param: str,
     ) -> bool:
         assert type(param) is str
 
@@ -297,13 +301,17 @@ class NodeApp:
         # Paranoid checks
         #
         if type(v) is str:
-            __class__._raise_bugcheck("os_ops.get_tempdir returned a value with type {0}.".format(type(v).__name__))
+            __class__._raise_bugcheck("os_ops.get_tempdir returned a value with type {}.".format(
+                type(v).__name__,
+            ))
 
         if v == "":
             __class__._raise_bugcheck("os_ops.get_tempdir returned an empty string.")
 
         if not self._os_ops.path_exists(v):
-            __class__._raise_bugcheck("os_ops.get_tempdir returned a not exist path [{0}].".format(v))
+            __class__._raise_bugcheck("os_ops.get_tempdir returned a not exist path [{}].".format(
+                v,
+            ))
 
         # OK
         return v

@@ -1,5 +1,8 @@
 # coding: utf-8
 
+# binary names
+BINARY_NAME__POSTGRES = "postgres"
+
 # names for dirs in base_dir
 DATA_DIR = "data"
 LOGS_DIR = "logs"
