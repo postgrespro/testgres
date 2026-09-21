@@ -300,7 +300,7 @@ class NodeApp:
         #
         # Paranoid checks
         #
-        if type(v) is str:
+        if type(v) is not str:
             __class__._raise_bugcheck("os_ops.get_tempdir returned a value with type {}.".format(
                 type(v).__name__,
             ))
