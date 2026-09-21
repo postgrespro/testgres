@@ -7,7 +7,8 @@ if [ -z ${TEST_FILTER+x} ]; then
     export TEST_FILTER="TestTestgresLocal or (TestTestgresCommon and (not remote))"
 fi
 
-echo NPROC: $(nproc)
+# There is no nproc on macOS, so we use sysctl
+echo NPROC: $(sysctl -n hw.ncpu)
 
 # Check for the presence of pg_config
 echo check that pg_config is in PATH
@@ -28,21 +29,6 @@ rm -f $COVERAGE_FILE
 
 pip install coverage
 
-if [ -n "${TEST_CFG__REMOTE_HOST:-}" ] && [ -n "${TEST_CFG__REMOTE_USERNAME:-}" ]; then
-    cmd_str="ssh"
-
-    if [ -n "${TEST_CFG__REMOTE_PASSWORD:-}" ]; then
-        cmd_str="sshpass -p \"$TEST_CFG__REMOTE_PASSWORD\" $cmd_str"
-    fi
-
-    [ -n "${TEST_CFG__REMOTE_SSH_KEY:-}" ] && cmd_str="$cmd_str -i \"$TEST_CFG__REMOTE_SSH_KEY\""
-    [ -n "${TEST_CFG__REMOTE_PORT:-}" ]    && cmd_str="$cmd_str -p \"$TEST_CFG__REMOTE_PORT\""
-
-    REMOTE_SSH_PREFIX="$cmd_str \"$TEST_CFG__REMOTE_USERNAME@$TEST_CFG__REMOTE_HOST\""
-else
-    REMOTE_SSH_PREFIX=""
-fi
-
 exec_command() {
     local cmd="$1"
     local prefix="$2"
@@ -57,7 +43,8 @@ show_fs_state__impl() {
     set +x
     echo "------------- ${host_label} FS STATE"
     set -x
-    exec_command "df -T" "$prefix"
+    # Change for macOS: use the cross-platform -P flag instead of -T
+    exec_command "df -P" "$prefix"
 }
 
 check_leftover_ports__impl() {
@@ -97,18 +84,10 @@ check_leftover_ports__impl() {
     set -x
 }
 
-fs_verification__impl() {
-    show_fs_state__impl "$1" "$2"
-
-    check_leftover_ports__impl "$1" "$2"
-}
-
 fs_verification() {
-    fs_verification__impl "" "LOCAL"
+    show_fs_state__impl "" "LOCAL"
 
-    if [ -n "$REMOTE_SSH_PREFIX" ]; then
-        fs_verification__impl "$REMOTE_SSH_PREFIX" "REMOTE"
-    fi
+    check_leftover_ports__impl "" "LOCAL"
 }
 
 # ---------------------------------------- PATH
@@ -153,18 +132,3 @@ fs_verification
 coverage report
 
 pip uninstall -y coverage
-
-# build documentation
-pip install Sphinx
-
-cd docs
-make html
-cd ..
-
-pip uninstall -y Sphinx
-
-# attempt to fix codecov
-set +eux
-
-# send coverage stats to Codecov
-bash <(curl -s https://codecov.io/bash)
