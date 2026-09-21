@@ -103,7 +103,7 @@ fs_verification
 
 # run tests (PG_BIN)
 PG_BIN=$(pg_config --bindir) \
-time coverage run -a -m pytest -l -vvv -n 4 -k "${TEST_FILTER}"
+time coverage run -a -m pytest -l -vvv -n 4 --color=yes -k "${TEST_FILTER}"
 
 # ---------------------------------------- PG_CONFIG
 
