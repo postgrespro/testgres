@@ -246,6 +246,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             pid_to_ppid,
         )
 
+    # --------------------------------------------------------------------
     def ProcessIsZombi_soft_check(
         self,
         os_ops: OsOperations,
@@ -282,6 +283,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             # If the file disappeared right during reading, it means the process is completely erased
             if __class__._is_file_not_found_exception(e):
                 result = False
+            raise
 
         return result
 
@@ -316,7 +318,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
     ) -> typing.NoReturn:
         assert type(lines) is list
         assert type(i_line) is int
-        assert type(hint) is int
+        assert type(hint) is str
 
         error_lines: typing.List[str] = []
         error_lines.append(
