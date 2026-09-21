@@ -95,7 +95,7 @@ fs_verification() {
 fs_verification
 
 # run tests (PATH)
-time coverage run -a -m pytest -l -vvv -n 4 -k "${TEST_FILTER}"
+time coverage run -a -m pytest -l -vvv -n auto -k "${TEST_FILTER}"
 
 # ---------------------------------------- PG_BIN
 
@@ -103,7 +103,7 @@ fs_verification
 
 # run tests (PG_BIN)
 PG_BIN=$(pg_config --bindir) \
-time coverage run -a -m pytest -l -vvv -n 4 --color=yes -k "${TEST_FILTER}"
+time coverage run -a -m pytest -l -vvv -n auto --color=yes -k "${TEST_FILTER}"
 
 # ---------------------------------------- PG_CONFIG
 
@@ -111,7 +111,7 @@ fs_verification
 
 # run tests (PG_CONFIG)
 PG_CONFIG=$(pg_config --bindir)/pg_config \
-time coverage run -a -m pytest -l -vvv -n 4 -k "${TEST_FILTER}"
+time coverage run -a -m pytest -l -vvv -n auto -k "${TEST_FILTER}"
 
 # ---------------------------------------- pg8000
 
@@ -121,7 +121,7 @@ fs_verification
 pip uninstall -y psycopg2
 pip install pg8000
 PG_CONFIG=$(pg_config --bindir)/pg_config \
-time coverage run -a -m pytest -l -vvv -n 4 -k "${TEST_FILTER}"
+time coverage run -a -m pytest -l -vvv -n auto -k "${TEST_FILTER}"
 
 # ---------------------------------------- finish
 
