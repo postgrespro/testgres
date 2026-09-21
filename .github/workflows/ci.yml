@@ -345,7 +345,7 @@ jobs:
 
         export TEST_CFG__LOG_DIR="${{ github.workspace }}/${{ env.RUN_CFG__LOGS_DIR }}"
 
-        export TEST_FILTER="TestTestgresLocal or (TestTestgresCommon and (not remote))"
+        export TEST_FILTER="not remote"
         export PYTHON_BINARY="python3"
 
         bash run_tests-darwin.sh
