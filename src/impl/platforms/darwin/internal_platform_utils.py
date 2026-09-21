@@ -284,6 +284,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             return proc_status.startswith("Z")
 
         except Exception as e:
+            # If the file disappeared right during reading, it means the process is completely erased
             if __class__._is_file_not_found_exception(e):
                 return False
             raise
@@ -296,6 +297,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         if isinstance(e, ExecUtilException):
             if e.exit_code == 2:
                 return True
+
         return False
 
     T_PID_TO_PPID = typing.Dict[int, int]
@@ -307,6 +309,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         for pid, ppid in pid_to_ppid.items():
             result += sep + " {}->{}".format(ppid, pid)
             sep = ", "
+            continue
         return result
 
     @staticmethod
