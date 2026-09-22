@@ -43,7 +43,6 @@ show_fs_state__impl() {
     set +x
     echo "------------- ${host_label} FS STATE"
     set -x
-    # Change for macOS: use the cross-platform -P flag instead of -T
     exec_command "df -P" "$prefix"
 }
 
