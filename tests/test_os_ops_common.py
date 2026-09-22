@@ -225,7 +225,7 @@ class TestOsOpsCommon:
         p = os_ops.get_platform()
         assert p is not None
         assert type(p) is str
-        assert p in {"win32", "linux"}
+        assert p in {"win32", "linux", "darwin"}
         return
 
     def test_create_clone(
@@ -422,11 +422,12 @@ class TestOsOpsCommon:
         assert not os_ops.path_exists(tmp_file)
         return
 
-    def test_exec_command_with_cwd(self, os_ops_descr: OsOpsDescr):
+    def test_exec_command_with_cwd__linux(self, os_ops_descr: OsOpsDescr):
         assert type(os_ops_descr) is OsOpsDescr
         assert isinstance(os_ops_descr.os_ops, OsOperations)
 
         RunConditions.skip_if_windows()
+        RunConditions.skip_if_darwin()
 
         os_ops = os_ops_descr.os_ops
         assert isinstance(os_ops, OsOperations)
@@ -616,7 +617,7 @@ class TestOsOpsCommon:
         assert not os_ops.path_exists(path)
         return
 
-    def test_makedirs_failure(
+    def test_makedirs_failure__linux(
         self,
         os_ops_descr: OsOpsDescr,
         name_with_surprize: tagNameWithSurprize,
@@ -633,6 +634,7 @@ class TestOsOpsCommon:
         assert isinstance(os_ops, OsOperations)
 
         RunConditions.skip_if_windows()
+        RunConditions.skip_if_darwin()
 
         path = "/root/test_dir-{}-{}".format(
             name_with_surprize.value,
@@ -645,6 +647,42 @@ class TestOsOpsCommon:
 
         if type(os_ops).__name__ == "LocalOperations":
             assert type(x.value) is PermissionError
+        elif type(os_ops).__name__ == "RemoteOperations":
+            assert type(x.value) is ExecUtilException
+        else:
+            __class__.helper__bug_check__unknown_os_ops_type(os_ops)
+        return
+
+    def test_makedirs_failure__darwin(
+        self,
+        os_ops_descr: OsOpsDescr,
+        name_with_surprize: tagNameWithSurprize,
+    ):
+        """
+        Test makedirs for failure.
+        """
+        # Try to create a directory in a read-only location
+        assert type(os_ops_descr) is OsOpsDescr
+        assert type(name_with_surprize) is __class__.tagNameWithSurprize
+        assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        os_ops = os_ops_descr.os_ops
+        assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+        RunConditions.skip_if_linux()
+
+        path = "/root/test_dir-{}-{}".format(
+            name_with_surprize.value,
+            uuid.uuid4().bytes.hex(),
+        )
+
+        # Test makedirs
+        with pytest.raises(Exception) as x:
+            os_ops.makedirs(path)
+
+        if type(os_ops).__name__ == "LocalOperations":
+            assert type(x.value) is OSError
         elif type(os_ops).__name__ == "RemoteOperations":
             assert type(x.value) is ExecUtilException
         else:
@@ -2559,12 +2597,15 @@ print('b', file=sys.stderr)
         return
 
     # --------------------------------------------------------------------
-    def test_get_abs_path(
+    def test_get_abs_path__linux(
         self,
         os_ops_descr: OsOpsDescr,
     ):
         assert type(os_ops_descr) is OsOpsDescr
         assert isinstance(os_ops_descr.os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+        RunConditions.skip_if_darwin()
 
         os_ops = os_ops_descr.os_ops
         assert isinstance(os_ops, OsOperations)
@@ -3154,7 +3195,7 @@ print('b', file=sys.stderr)
         assert lines == result_bin
         return
 
-    def test_prove_environment_isolation(
+    def test_prove_environment_isolation__linux(
         self,
         os_ops_descr: OsOpsDescr,
     ):
@@ -3165,6 +3206,9 @@ print('b', file=sys.stderr)
         assert type(os_ops_descr) is OsOpsDescr
         os_ops = os_ops_descr.os_ops
         assert isinstance(os_ops, OsOperations)
+
+        RunConditions.skip_if_windows()
+        RunConditions.skip_if_darwin()
 
         logging.info("=================== COKANUM PROOF START ===================")
         logging.info(f"Target environment type: [{os_ops_descr.sign}]")
@@ -5130,7 +5174,7 @@ print('b', file=sys.stderr)
 
         return
 
-    def test_popen_cwd(
+    def test_popen_cwd__linux(
         self,
         os_ops_descr: OsOpsDescr,
     ):
@@ -5138,6 +5182,7 @@ print('b', file=sys.stderr)
         assert isinstance(os_ops_descr.os_ops, OsOperations)
 
         RunConditions.skip_if_windows()
+        RunConditions.skip_if_darwin()
 
         os_ops = os_ops_descr.os_ops
 
@@ -5908,7 +5953,7 @@ print('b', file=sys.stderr)
 
         return
 
-    def test_run_cwd(
+    def test_run_cwd__linux(
         self,
         os_ops_descr: OsOpsDescr,
     ):
@@ -5916,6 +5961,7 @@ print('b', file=sys.stderr)
         assert isinstance(os_ops_descr.os_ops, OsOperations)
 
         RunConditions.skip_if_windows()
+        RunConditions.skip_if_darwin()
 
         os_ops = os_ops_descr.os_ops
 

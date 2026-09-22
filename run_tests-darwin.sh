@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+
+set -eux
+
+# Filter tests for local execution (without remote/ssh)
+if [ -z ${TEST_FILTER+x} ]; then
+    export TEST_FILTER="TestTestgresLocal or (TestTestgresCommon and (not remote))"
+fi
+
+# There is no nproc on macOS, so we use sysctl
+echo NPROC: $(sysctl -n hw.ncpu)
+
+# Check for the presence of pg_config
+echo check that pg_config is in PATH
+command -v pg_config
+
+# Setting up the Python environment
+VENV_PATH="/tmp/testgres_venv"
+rm -rf $VENV_PATH
+${PYTHON_BINARY} -m venv "${VENV_PATH}"
+export VIRTUAL_ENV_DISABLE_PROMPT=1
+source "${VENV_PATH}/bin/activate"
+pip install --upgrade pip setuptools wheel
+pip install -r tests/requirements.txt
+
+# remove existing coverage file
+export COVERAGE_FILE=.coverage
+rm -f $COVERAGE_FILE
+
+pip install coverage
+
+exec_command() {
+    local cmd="$1"
+    local prefix="$2"
+
+    eval "$prefix $cmd"
+}
+
+show_fs_state__impl() {
+    local prefix="$1"
+    local host_label="$2"
+
+    set +x
+    echo "------------- ${host_label} FS STATE"
+    set -x
+    # Change for macOS: use the cross-platform -P flag instead of -T
+    exec_command "df -P" "$prefix"
+}
+
+check_leftover_ports__impl() {
+    local prefix="$1"
+    local host_label="$2"
+    local ports_dir="/tmp/testgres/ports"
+
+    set +x
+    echo "------------- Checking ${host_label} ports lock directory"
+    set -x
+
+    # Check command: will print FOUND if the directory exists and is not empty
+    local check_cmd="if [ -d '${ports_dir}' ] && [ \"\$(ls -A '${ports_dir}' 2>/dev/null)\" ]; then echo 'FOUND'; fi"
+
+    # Temporarily disable bash's instant drop (set +e) to safely intercept the result
+    set +e
+    local result
+    result=$(exec_command "$check_cmd" "$prefix")
+    set -e
+
+    set +x
+    if [ "$result" = "FOUND" ]; then
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        echo "ERROR: Leftover ports detected in $ports_dir on $host_label machine!"
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        set -x
+
+        # We display a list of frozen ports so that the culprits can be identified
+        exec_command "ls -la '$ports_dir'" "$prefix"
+
+        # We hard-drop the entire control script
+        # sleep 3600
+        exit 1
+    else
+        echo "Clear. No leftover port locks."
+    fi
+    set -x
+}
+
+fs_verification() {
+    show_fs_state__impl "" "LOCAL"
+
+    check_leftover_ports__impl "" "LOCAL"
+}
+
+# ---------------------------------------- PATH
+
+fs_verification
+
+# run tests (PATH)
+time coverage run -a -m pytest -l -vvv -n auto --color=yes -k "${TEST_FILTER}"
+
+# ---------------------------------------- PG_BIN
+
+fs_verification
+
+# run tests (PG_BIN)
+PG_BIN=$(pg_config --bindir) \
+time coverage run -a -m pytest -l -vvv -n auto --color=yes -k "${TEST_FILTER}"
+
+# ---------------------------------------- PG_CONFIG
+
+fs_verification
+
+# run tests (PG_CONFIG)
+PG_CONFIG=$(pg_config --bindir)/pg_config \
+time coverage run -a -m pytest -l -vvv -n auto --color=yes -k "${TEST_FILTER}"
+
+# ---------------------------------------- pg8000
+
+fs_verification
+
+# test pg8000
+pip uninstall -y psycopg2
+pip install pg8000
+PG_CONFIG=$(pg_config --bindir)/pg_config \
+time coverage run -a -m pytest -l -vvv -n auto --color=yes -k "${TEST_FILTER}"
+
+# ---------------------------------------- finish
+
+fs_verification
+
+# ---------------------------------------- coverage
+
+coverage report
+
+pip uninstall -y coverage
