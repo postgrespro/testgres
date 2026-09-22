@@ -295,10 +295,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Testing stable versions of Python on Apple Silicon (M1) architecture
-        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
-        # Primary target version of PostgreSQL for the native environment
-        postgres: ["17"]
+        include:
+          - python: "3.9"
+            postgres: "17"
+            case_suffix: "py3_09_xx-pg17_xx"
+          - python: "3.10"
+            postgres: "17"
+            case_suffix: "py3_10_xx-pg17_xx"
+          - python: "3.11"
+            postgres: "17"
+            case_suffix: "py3_11_xx-pg17_xx"
+          - python: "3.12"
+            postgres: "17"
+            case_suffix: "py3_12_xx-pg17_xx"
+          - python: "3.13"
+            postgres: "17"
+            case_suffix: "py3_13_xx-pg17_xx"
+          - python: "3.14"
+            postgres: "17"
+            case_suffix: "py3_14_xx-pg17_xx"
+
+    name: "test: macos-14 | ${{ matrix.case_suffix }}"
 
     env:
       BASE_SIGN: "macos-py${{ matrix.python }}-pg${{ matrix.postgres }}"
