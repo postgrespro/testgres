@@ -57,7 +57,7 @@ show_fs_state__impl() {
     set +x
     echo "------------- ${host_label} FS STATE"
     set -x
-    exec_command "df -T" "$prefix"
+    exec_command "df -P" "$prefix"
 }
 
 check_leftover_ports__impl() {
