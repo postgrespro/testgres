@@ -9,7 +9,7 @@ from testgres.operations.os_ops import OsOperations
 class InternalPlatformUtils:
     class FindPostmasterResultCode(enum.Enum):
         ok = 0
-        not_found = 1,
+        not_found = 1
         not_implemented = 2
         many_processes = 3
         has_problems = 4
