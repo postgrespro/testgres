@@ -2,17 +2,18 @@
 
 set -eux
 
-if [ -z ${TEST_FILTER+x} ]; \
-then export TEST_FILTER="TestTestgresLocal or (TestTestgresCommon and (not remote))"; \
+# Filter tests for local execution (without remote/ssh)
+if [ -z ${TEST_FILTER+x} ]; then
+    export TEST_FILTER="TestTestgresLocal or (TestTestgresCommon and (not remote))"
 fi
 
 echo NPROC: $(nproc)
 
-# fail early
+# Check for the presence of pg_config
 echo check that pg_config is in PATH
 command -v pg_config
 
-# prepare python environment
+# Setting up the Python environment
 VENV_PATH="/tmp/testgres_venv"
 rm -rf $VENV_PATH
 ${PYTHON_BINARY} -m venv "${VENV_PATH}"
@@ -86,7 +87,7 @@ check_leftover_ports__impl() {
 
         # We display a list of frozen ports so that the culprits can be identified
         exec_command "ls -la '$ports_dir'" "$prefix"
-        
+
         # We hard-drop the entire control script
         # sleep 3600
         exit 1
@@ -104,7 +105,7 @@ fs_verification__impl() {
 
 fs_verification() {
     fs_verification__impl "" "LOCAL"
-    
+
     if [ -n "$REMOTE_SSH_PREFIX" ]; then
         fs_verification__impl "$REMOTE_SSH_PREFIX" "REMOTE"
     fi
