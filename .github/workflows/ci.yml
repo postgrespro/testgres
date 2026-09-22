@@ -68,7 +68,6 @@ jobs:
         twine check dist/*
 
   test-linux-container:
-    if: false
     runs-on: ubuntu-latest
     needs: build-check
     strategy:
