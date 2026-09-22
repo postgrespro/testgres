@@ -13,6 +13,7 @@ import re
 import shlex
 import typing
 import time
+import subprocess
 
 
 class InternalPlatformUtils(base.InternalPlatformUtils):
@@ -107,15 +108,12 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         assert type(pg_path_e) is str
         assert type(data_dir_e) is str
 
-        # The regular expression remains the same since the output structure pid, ppid, args is the same
         regexp = r"^\s*[0-9]+\s+[0-9]+\s+" + pg_path_e + r"(\s+.*)?\s+\-[D]\s+" + data_dir_e + r"(\s+.*)?"
 
-        # Change for macOS: Instead of Linux flag-combo "-ewwo"
-        # we use the standard POSIX "-eo", which works on macOS without trimming argument strings
         cmd = [
             __class__.C_BASH_EXE,
             "-c",
-            "ps -eo \"pid=,ppid=,args=\" | grep -E " + shlex.quote(regexp),
+            "ps -ewwo \"pid=,ppid=,args=\" | grep -E " + shlex.quote(regexp),
         ]
 
         exec_r = os_ops.run(
@@ -260,46 +258,73 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
 
         # Change for macOS: Instead of reading non-existent /proc/PID/stat,
         # we make a native call to the system ps and request the status (state) of the process.
-        cmd = ["ps", "-p", str(pid), "-o", "state="]
+        cmd = ["ps", "-p", str(pid), "-wwo", "state="]
 
-        try:
-            exec_r = os_ops.run(
-                cmd=cmd,
-                check=False,
-                exec_env=__class__.sm_exec_env,
-            )
+        exec_r = os_ops.run(
+            cmd=cmd,
+            check=False,
+            exec_env=__class__.sm_exec_env,
+            stdout=subprocess.PIPE,
+        )
 
-            assert type(exec_r) is OsCommandResult
+        assert type(exec_r) is OsCommandResult
+        assert type(exec_r.stdout) is bytes
 
-            # Если процесс не найден (уже завершился и стерт), ps вернет код 1
-            if exec_r.returncode != 0:
-                return False
+        # If the process is not found (already terminated and deleted), ps will return code 1
+        if exec_r.returncode == 1:
+            return False
 
-            proc_status = exec_r.stdout.decode("utf-8", errors="ignore").strip()
+        if exec_r.returncode != 0:
+            return None
 
-            if not proc_status:
-                return False
+        proc_status = exec_r.stdout.decode("utf-8").rstrip()
 
-            # В BSD-системах статус зомби обозначается буквой 'Z'
-            return proc_status.startswith("Z")
+        if not proc_status:
+            return None
 
-        except Exception as e:
-            # If the file disappeared right during reading, it means the process is completely erased
-            if __class__._is_file_not_found_exception(e):
-                return False
+        assert len(proc_status) > 0
 
-        return None
+        # state   The state is given by a sequence of letters, for example,
+        #         "RWNA".  The first letter indicates the run state of the process:
+        #
+        #   D       Marks a process in disk (or other short term, uninterruptible) wait.[legacy option]
+        #   I       Marks a process that is idle (sleeping for longer than about 20 seconds).
+        #   R       Marks a runnable process.
+        #   S       Marks a process that is sleeping for less than about 20 seconds.
+        #   T       Marks a stopped process.
+        #   U       Marks a process in uninterruptible wait.
+        #   Z       Marks a dead process (a 'zombie').
+        #
+        #   Additional characters after these, if any, indicate additional
+        #   state information:
+        #
+        #   +       The process is in the foreground process group of its control terminal.
+        #   <       The process has raised CPU scheduling priority.
+        #   >       The process has specified a soft limit on memory requirements and is currently
+        #           exceeding that limit; such a process is (necessarily) not swapped.
+        #   A       the process has asked for random page replacement
+        #           (VA_ANOM, from vadvise(2), for example, lisp(1) in a garbage collect).
+        #   E       The process is trying to exit.
+        #   L       The process has pages locked in core (for example, for raw I/O).
+        #   N       The process has reduced CPU scheduling priority (see setpriority(2)).
+        #   S       The process has asked for FIFO page replacement (VA_SEQL,
+        #           from vadvise(2), for example, a large image processing
+        #           program using virtual memory to sequentially address
+        #           voluminous data).
+        #   s       The process is a session leader.
+        #   V       The process is suspended during a vfork.
+        #   W       The process is swapped out.
+        #   X       The process is being traced or debugged.
 
-    @staticmethod
-    def _is_file_not_found_exception(e: Exception) -> bool:
-        if isinstance(e, FileNotFoundError):
+        ch1 = proc_status[0]
+
+        if ch1 == "Z":
             return True
 
-        if isinstance(e, ExecUtilException):
-            if e.exit_code == 2:
-                return True
+        if ch1 in "DIRSTU":
+            return False
 
-        return False
+        return None
 
     T_PID_TO_PPID = typing.Dict[int, int]
 
