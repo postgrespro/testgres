@@ -287,7 +287,8 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             # If the file disappeared right during reading, it means the process is completely erased
             if __class__._is_file_not_found_exception(e):
                 return False
-            raise
+
+        return None
 
     @staticmethod
     def _is_file_not_found_exception(e: Exception) -> bool:
