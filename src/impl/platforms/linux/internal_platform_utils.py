@@ -113,7 +113,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             __class__.C_BASH_EXE,
             "-c",
             "ps -ewwo \"pid=,ppid=,args=\" | grep -E " + shlex.quote(regexp),
-           ]
+        ]
 
         exec_r = os_ops.run(
             cmd=cmd,
