@@ -60,7 +60,7 @@ from testgres.operations.os_ops import OsProcessController
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.remote_ops import RemoteOperations
 
-__version__ = "1.16.2"
+__version__ = "1.16.3"
 
 __all__ = [
     "get_new_node",
