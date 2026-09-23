@@ -264,7 +264,10 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
 
         try:
             # Read one line from /proc/PID/stat
-            stat_content = os_ops.read_binary(proc_stat_file, 0).decode("utf-8", errors="ignore")
+            stat_content_b = os_ops.read_binary(proc_stat_file, 0)
+            assert type(stat_content_b) is bytes
+
+            stat_content = stat_content_b.decode("utf-8", errors="ignore")
 
             # We look for the closing parenthesis of the process name to ensure that
             # we start from it and not depend on spaces inside the parentheses!
