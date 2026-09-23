@@ -2,7 +2,6 @@ pytest
 pytest-env
 pytest-xdist
 psutil
-six
 psycopg2
 testgres.os_ops>=3.3.3,<4.0.0
 testgres.postgres_configuration>=0.2.2,<1.0.0
