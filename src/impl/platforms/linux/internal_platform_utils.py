@@ -284,13 +284,13 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
                 result = proc_status == "Z"
         except Exception as e:
             # If the file disappeared right during reading, it means the process is completely erased
-            if __class__._is_file_not_found_exception(e):
+            if __class__._is_zombie_file_exception(e):
                 result = False
 
         return result
 
     @staticmethod
-    def _is_file_not_found_exception(e: Exception) -> bool:
+    def _is_zombie_file_exception(e: Exception) -> bool:
         if isinstance(e, FileNotFoundError):
             return True
 
