@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from .helpers.global_data import OsOpsDescrs
-from .helpers.global_data import OsOpsDescr
-from .helpers.global_data import PostgresNodeService
-from .helpers.global_data import PostgresNodeServices
-from .helpers.global_data import OsOperations
-from .helpers.global_data import PortManager
-from .helpers.pg_cfg_os_ops import PgCfgOsOps
+from tests.helpers.global_data import OsOpsDescrs
+from tests.helpers.global_data import OsOpsDescr
+from tests.helpers.global_data import PostgresNodeService
+from tests.helpers.global_data import PostgresNodeServices
+from tests.helpers.global_data import OsOperations
+from tests.helpers.global_data import PortManager
+from tests.helpers.pg_cfg_os_ops import PgCfgOsOps
 
 from src import __version__ as testgres_version
 from src.node import PostgresNode
