@@ -81,8 +81,6 @@ import subprocess
 import time
 import typing
 
-from collections.abc import Iterable
-
 # we support both pg8000 and psycopg2
 try:
     import psycopg2 as pglib
@@ -2064,10 +2062,10 @@ class PostgresNode(object):
 
         """
         if self._pg_version >= utils.PgVer('9.6'):
-            if isinstance(standbys, Iterable):
+            if isinstance(standbys, typing.Iterable):
                 standbys = First(1, standbys)
         else:
-            if isinstance(standbys, Iterable):
+            if isinstance(standbys, typing.Iterable):
                 standbys = u", ".join(u"\"{}\"".format(r.name)
                                       for r in standbys)
             else:
