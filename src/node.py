@@ -90,7 +90,7 @@ except ImportError:
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
-from six import raise_from, text_type
+from six import text_type
 
 
 InternalError = pglib.InternalError
@@ -1363,7 +1363,7 @@ class PostgresNode(object):
         assert from_exception is None or isinstance(from_exception, Exception)
         assert type(msg) is str
         files = self._collect_special_files()
-        raise_from(StartNodeException(msg, files), from_exception)
+        raise StartNodeException(msg, files) from from_exception
 
     def stop(
         self,
@@ -1466,7 +1466,7 @@ class PostgresNode(object):
         except ExecUtilException as e:
             msg = 'Cannot restart node'
             files = self._collect_special_files()
-            raise_from(StartNodeException(msg, files), e)
+            raise StartNodeException(msg, files) from e
 
         self._maybe_start_logger()
 
@@ -2106,7 +2106,7 @@ class PostgresNode(object):
                 max_attempts=0,
             )
         except Exception as e:
-            raise_from(CatchUpException("Failed to catch up."), e)
+            raise CatchUpException("Failed to catch up.") from e
 
     def publish(self, name, **kwargs):
         """

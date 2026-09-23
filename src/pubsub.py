@@ -42,8 +42,6 @@ PostgresNode(name='...', port=..., base_dir='...')
 [(1, 1), (2, 2)]
 """
 
-from six import raise_from
-
 from .consts import LOGICAL_REPL_MAX_CATCHUP_ATTEMPTS
 from .defaults import default_dbname, default_username2
 from .exceptions import CatchUpException
@@ -341,4 +339,4 @@ class Subscription(object):
                 max_attempts=LOGICAL_REPL_MAX_CATCHUP_ATTEMPTS,
             )
         except Exception as e:
-            raise_from(CatchUpException("Failed to catch up"), e)
+            raise CatchUpException("Failed to catch up") from e
