@@ -6,6 +6,20 @@ import typing
 
 class RaiseError:
     @staticmethod
+    def method_is_not_implemented(
+        class_type: type,
+        method_name: str,
+    ) -> typing.NoReturn:
+        assert type(class_type) is type
+        assert type(method_name) is str
+
+        err_msg = "Method {}::{} is not implemented.".format(
+            class_type.__name__,
+            method_name,
+        )
+        raise NotImplementedError(err_msg)
+
+    @staticmethod
     def pg_ctl_returns_an_empty_string(_params) -> typing.NoReturn:
         errLines = []
         errLines.append("Utility pg_ctl returns an empty string.")
