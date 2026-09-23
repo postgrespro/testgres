@@ -8,6 +8,8 @@ from tests.helpers.global_data import OsOperations
 from tests.helpers.global_data import PortManager
 from tests.helpers.pg_cfg_os_ops import PgCfgOsOps
 
+from tests.conftest_helpers import TestServices
+
 from src import __version__ as testgres_version
 from src.node import PostgresNode
 from src.node import NodeConnection
@@ -27,6 +29,7 @@ from src import NodeStatus
 from src import IsolationLevel
 from src import NodeApp
 from src import enums
+from src import consts as testgres_consts
 
 # New name prevents to collect test-functions in TestgresException and fixes
 # the problem with pytest warning.
@@ -645,7 +648,18 @@ class TestTestgresCommon:
             assert expected_msg == x.value.error
         return
 
-    sm_false_true = [False, True]
+    sm_sleep_time_after_clean_pm_pid = [
+        0,
+        1,
+        5,
+        10,
+        30,
+        50,
+        55,
+        60,
+        65,
+        90,
+    ]
 
     @pytest.fixture(
         params=[
@@ -653,20 +667,22 @@ class TestTestgresCommon:
                 x,
                 id="sleep_after_clean={}".format(x),
             )
-            for x in sm_false_true
+            for x in sm_sleep_time_after_clean_pm_pid
         ]
     )
-    def sleep_after_clean(self, request: pytest.FixtureRequest) -> bool:
+    def sleep_time_after_clean_pm_pid(self, request: pytest.FixtureRequest) -> int:
         assert isinstance(request, pytest.FixtureRequest)
-        assert type(request.param) is bool
+        assert type(request.param) is int
         return request.param
 
     def test_status__force_clean_postmaster_pid(
         self,
         node_svc: PostgresNodeService,
-        sleep_after_clean: bool,
+        sleep_time_after_clean_pm_pid: int,
     ):
         assert isinstance(node_svc, PostgresNodeService)
+        assert type(sleep_time_after_clean_pm_pid) is int
+        assert sleep_time_after_clean_pm_pid >= 0
 
         assert (NodeStatus.Running)
         assert not (NodeStatus.Stopped)
@@ -683,10 +699,13 @@ class TestTestgresCommon:
             assert node.status() == NodeStatus.Running
             logging.info("Postmaster PID is {}.".format(node.pid))
 
-            postmaster_pid_file = node.os_ops.build_path(node.data_dir, "postmaster.pid")
+            postmaster_pid_file = node.os_ops.build_path(
+                node.data_dir,
+                testgres_consts.PG_PID_FILE,
+            )
 
             logging.info("Clean postmaster pid file [{}].".format(
-                postmaster_pid_file
+                postmaster_pid_file,
             ))
 
             logging.info("Clean pid file...")
@@ -696,10 +715,8 @@ class TestTestgresCommon:
                 truncate=True,
             )
 
-            if sleep_after_clean:
-                # server removes pid file and shutdown within 60 seconds.
-                logging.info("SLEEP 65 sec!")
-                time.sleep(65)
+            # server removes pid file and shutdown within 60 seconds.
+            TestServices.SleepWithPrint(sleep_time_after_clean_pm_pid)
 
             logging.info("Check node status...")
             node_status: typing.Optional[NodeStatus]
@@ -708,7 +725,7 @@ class TestTestgresCommon:
             except ExecUtilException as e:
                 logging.info("Catch exception ({}): {}".format(
                     type(e).__name__,
-                    str(e),
+                    TestServices.ExceptionToHumanText(e),
                 ))
 
                 expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
