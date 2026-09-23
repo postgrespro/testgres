@@ -404,8 +404,8 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def options_string(separator=u" ", **kwargs):
-    return separator.join(u"{}={}".format(k, v) for k, v in iteritems(kwargs))
+def options_string(separator=" ", **kwargs):
+    return separator.join("{}={}".format(k, v) for k, v in iteritems(kwargs))
 
 
 @contextmanager
