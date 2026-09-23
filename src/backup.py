@@ -1,7 +1,5 @@
 # coding: utf-8
 
-from six import raise_from
-
 from .enums import XLogMethod
 
 from .consts import \
@@ -131,7 +129,7 @@ class NodeBackup(object):
                 # Copy backup to new data dir
                 self.os_ops.copytree(data1, data2)
             except Exception as e:
-                raise_from(BackupException('Failed to copy files'), e)
+                raise BackupException('Failed to copy files') from e
         else:
             dest_base_dir = self.base_dir
 

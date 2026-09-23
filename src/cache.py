@@ -1,7 +1,5 @@
 # coding: utf-8
 
-from six import raise_from
-
 from .config import testgres_config
 
 from .consts import XLOG_CONTROL_FILE
@@ -49,7 +47,7 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = No
                 log,
             )
         except ExecUtilException as e:
-            raise_from(InitNodeException("Failed to run initdb"), e)
+            raise InitNodeException("Failed to run initdb") from e
 
     if params or not testgres_config.cache_initdb or not cached:
         call_initdb(data_dir, logfile)
@@ -89,7 +87,7 @@ def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = No
 
         except ExecUtilException as e:
             msg = "Failed to reset WAL for system id"
-            raise_from(InitNodeException(msg), e)
+            raise InitNodeException(msg) from e
 
         except Exception as e:
-            raise_from(InitNodeException("Failed to spawn a node"), e)
+            raise InitNodeException("Failed to spawn a node") from e
