@@ -1,6 +1,5 @@
 # coding: utf-8
 
-import six
 import typing
 
 from testgres.operations.exceptions import TestgresException
@@ -75,7 +74,7 @@ class QueryException(TestgresException):
         if self._query:
             msg.append(u'Query: {}'.format(self._query))
 
-        r = six.text_type('\n').join(msg)
+        r = '\n'.join(msg)
         assert type(r) is str
         return r
 
@@ -194,7 +193,7 @@ class StartNodeException(TestgresException):
             assert type(lines) in [str, bytes]
             msg.append(u'{}\n----\n{}\n'.format(f, lines))
 
-        return six.text_type('\n').join(msg)
+        return '\n'.join(msg)
 
     @property
     def description(self) -> typing.Optional[str]:
