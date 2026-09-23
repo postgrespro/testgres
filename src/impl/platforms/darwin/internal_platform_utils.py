@@ -248,7 +248,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         )
 
     # --------------------------------------------------------------------
-    def ProcessIsZombi_soft_check(
+    def ProcessIsZombie_soft_check(
         self,
         os_ops: OsOperations,
         pid: int,
