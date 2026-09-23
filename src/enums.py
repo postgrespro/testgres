@@ -1,5 +1,4 @@
 from enum import Enum, IntEnum
-from six import iteritems
 from psutil import NoSuchProcess
 
 
@@ -83,7 +82,7 @@ class ProcessType(Enum):
             if cmdline.startswith(ptype.value.replace(' ', '')):
                 return ptype
 
-        for ptype, names in iteritems(alternative_names):
+        for ptype, names in alternative_names.items():
             for name in names:
                 if cmdline.startswith(name.replace(' ', '')):
                     return ptype

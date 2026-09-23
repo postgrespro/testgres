@@ -90,7 +90,7 @@ except ImportError:
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
-from six import raise_from, iteritems, text_type
+from six import raise_from, text_type
 
 
 InternalError = pglib.InternalError
@@ -1067,7 +1067,7 @@ class PostgresNode(object):
 
         lines = [line]
 
-        for option, value in iteritems(kwargs):
+        for option, value in kwargs.items():
             if isinstance(value, bool):
                 value = 'on' if value else 'off'
             elif not str(value).replace('.', '', 1).isdigit():
@@ -1710,7 +1710,7 @@ class PostgresNode(object):
         ]  # yapf: disable
 
         # set variables before execution
-        for key, value in iteritems(variables):
+        for key, value in variables.items():
             psql_params.extend(["--set", '{}={}'.format(key, value)])
 
         # select query source
@@ -2277,7 +2277,7 @@ class PostgresNode(object):
             "-U", username or self._os_ops.username
         ] + options  # yapf: disable
 
-        for key, value in iteritems(kwargs):
+        for key, value in kwargs.items():
             # rename keys for pgbench
             key = key.replace('_', '-')
 

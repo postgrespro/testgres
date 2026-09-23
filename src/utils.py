@@ -30,7 +30,6 @@ import time
 import re
 import typing
 
-from six import iteritems
 from contextlib import contextmanager
 from packaging.version import Version, InvalidVersion
 
@@ -405,7 +404,7 @@ def eprint(*args, **kwargs):
 
 
 def options_string(separator=" ", **kwargs):
-    return separator.join("{}={}".format(k, v) for k, v in iteritems(kwargs))
+    return separator.join("{}={}".format(k, v) for k, v in kwargs.items())
 
 
 @contextmanager
