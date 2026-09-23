@@ -74,6 +74,7 @@ from testgres.operations.os_ops import OsCommandResult
 from testgres.operations.os_ops import OsProcessController
 from testgres.operations.local_ops import LocalOperations
 
+import ipaddress
 import logging
 import signal
 import subprocess
@@ -749,7 +750,6 @@ class PostgresNode(object):
 
         # host is tricky
         try:
-            import ipaddress
             ipaddress.ip_address(master.host)
             conninfo["hostaddr"] = master.host
         except ValueError:
