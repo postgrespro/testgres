@@ -21,9 +21,10 @@ class First:
         self.standbys = standbys
 
     def __str__(self):
-        return u"{} ({})".format(
+        return "{} ({})".format(
             self.sync_num,
-            u", ".join(u"\"{}\"".format(r.name) for r in self.standbys))
+            ", ".join("\"{}\"".format(r.name) for r in self.standbys),
+        )
 
 
 @six.python_2_unicode_compatible
@@ -44,6 +45,7 @@ class Any:
         self.standbys = standbys
 
     def __str__(self):
-        return u"ANY {} ({})".format(
+        return "ANY {} ({})".format(
             self.sync_num,
-            u", ".join(u"\"{}\"".format(r.name) for r in self.standbys))
+            ", ".join("\"{}\"".format(r.name) for r in self.standbys),
+        )

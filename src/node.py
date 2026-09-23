@@ -2066,8 +2066,7 @@ class PostgresNode(object):
                 standbys = First(1, standbys)
         else:
             if isinstance(standbys, typing.Iterable):
-                standbys = u", ".join(u"\"{}\"".format(r.name)
-                                      for r in standbys)
+                standbys = ", ".join("\"{}\"".format(r.name) for r in standbys)
             else:
                 raise TestgresException(
                     "Feature isn't supported in "
