@@ -100,7 +100,7 @@ OperationalError = pglib.OperationalError
 assert TimeoutException == QueryTimeoutException
 
 
-class ProcessProxy(object):
+class ProcessProxy:
     """
     Wrapper for psutil.Process
 
@@ -144,7 +144,7 @@ class ProcessProxy(object):
         return self._ptype
 
 
-class PostgresNode(object):
+class PostgresNode:
     # a max number of node start attempts
     _C_MAX_START_ATEMPTS = 5
 

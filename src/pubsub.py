@@ -48,7 +48,7 @@ from .exceptions import CatchUpException
 from .utils import options_string
 
 
-class Publication(object):
+class Publication:
     def __init__(self, name, node, tables=None, dbname=None, username=None):
         """
         Constructor. Use :meth:`.PostgresNode.publish()` instead of direct
@@ -132,7 +132,7 @@ class Publication(object):
         )
 
 
-class Subscription(object):
+class Subscription:
     def __init__(
         self,
         node,

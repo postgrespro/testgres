@@ -20,7 +20,7 @@ from .utils import \
     clean_on_error
 
 
-class NodeBackup(object):
+class NodeBackup:
     """
     Smart object responsible for backups
     """
