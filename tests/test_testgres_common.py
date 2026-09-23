@@ -50,7 +50,6 @@ from src import First, Any
 from contextlib import contextmanager
 
 import pytest
-import six
 import logging
 import time
 import tempfile
@@ -161,7 +160,7 @@ class TestTestgresCommon:
         version = get_pg_version2(node_svc.os_ops)
 
         with __class__.helper__get_node(node_svc) as node:
-            assert (isinstance(version, six.string_types))
+            assert (isinstance(version, str))
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
 
