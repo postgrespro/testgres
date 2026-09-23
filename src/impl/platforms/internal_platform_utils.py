@@ -61,7 +61,7 @@ class InternalPlatformUtils:
         assert type(data_dir) is str
         raise NotImplementedError("InternalPlatformUtils::FindPostmaster is not implemented.")
 
-    def ProcessIsZombi_soft_check(
+    def ProcessIsZombie_soft_check(
         self,
         os_ops: OsOperations,
         pid: int,

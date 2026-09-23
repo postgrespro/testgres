@@ -566,7 +566,7 @@ class PostgresNodeStateUtils:
                 assert pid != 0
 
                 # ----------------- detect zombie
-                if platform_utils_provider.get().ProcessIsZombi_soft_check(os_ops, pid) is True:
+                if platform_utils_provider.get().ProcessIsZombie_soft_check(os_ops, pid) is True:
                     internal_utils.send_log_debug("Postmaster process {} is a zombie.".format(
                         pid,
                     ))
