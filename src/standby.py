@@ -1,9 +1,6 @@
 # coding: utf-8
 
-import six
 
-
-@six.python_2_unicode_compatible
 class First:
     """
     Specifies a priority-based synchronous replication and makes transaction
@@ -27,7 +24,6 @@ class First:
         )
 
 
-@six.python_2_unicode_compatible
 class Any:
     """
     Specifies a quorum-based synchronous replication and makes transaction
