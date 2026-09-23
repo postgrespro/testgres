@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from .helpers.global_data import OsOpsDescrs
-from .helpers.global_data import OsOpsDescr
-from .helpers.global_data import PostgresNodeService
-from .helpers.global_data import PostgresNodeServices
-from .helpers.global_data import OsOperations
-from .helpers.global_data import PortManager
-from .helpers.pg_cfg_os_ops import PgCfgOsOps
+from tests.helpers.global_data import OsOpsDescrs
+from tests.helpers.global_data import OsOpsDescr
+from tests.helpers.global_data import PostgresNodeService
+from tests.helpers.global_data import PostgresNodeServices
+from tests.helpers.global_data import OsOperations
+from tests.helpers.global_data import PortManager
+from tests.helpers.pg_cfg_os_ops import PgCfgOsOps
+from tests.helpers.pg_msg_builder import PgMsgBuilder
+
+from tests.conftest_helpers import TestServices
 
 from src import __version__ as testgres_version
 from src.node import PostgresNode
@@ -27,6 +30,7 @@ from src import NodeStatus
 from src import IsolationLevel
 from src import NodeApp
 from src import enums
+from src import consts as testgres_consts
 
 # New name prevents to collect test-functions in TestgresException and fixes
 # the problem with pytest warning.
@@ -57,9 +61,12 @@ import subprocess
 import typing
 import types
 import psutil
+import threading
 import testgres.postgres_configuration as testgres_pgconf
 
 from packaging.version import Version
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future as ThreadFuture
 
 
 @contextmanager
@@ -628,24 +635,38 @@ class TestTestgresCommon:
 
             node.init()
 
-            postmaster_pid_file = node.os_ops.build_path(node.data_dir, "postmaster.pid")
+            postmaster_pid_file = node.os_ops.build_path(
+                node.data_dir,
+                testgres_consts.PG_PID_FILE,
+            )
 
             node.os_ops.write(
                 postmaster_pid_file,
-                ""
+                "",
             )
 
             with pytest.raises(expected_exception=ExecUtilException) as x:
                 node.status()
 
-            expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
-                postmaster_pid_file
-            )
+            expected_msg = PgMsgBuilder.pg_ctl__pid_file_is_empty(
+                postmaster_pid_file,
+            ) + "\n"
 
             assert expected_msg == x.value.error
         return
 
-    sm_false_true = [False, True]
+    sm_sleep_time_after_clean_pm_pid = [
+        0,
+        1,
+        5,
+        10,
+        30,
+        50,
+        55,
+        60,
+        65,
+        90,
+    ]
 
     @pytest.fixture(
         params=[
@@ -653,20 +674,22 @@ class TestTestgresCommon:
                 x,
                 id="sleep_after_clean={}".format(x),
             )
-            for x in sm_false_true
+            for x in sm_sleep_time_after_clean_pm_pid
         ]
     )
-    def sleep_after_clean(self, request: pytest.FixtureRequest) -> bool:
+    def sleep_time_after_clean_pm_pid(self, request: pytest.FixtureRequest) -> int:
         assert isinstance(request, pytest.FixtureRequest)
-        assert type(request.param) is bool
+        assert type(request.param) is int
         return request.param
 
     def test_status__force_clean_postmaster_pid(
         self,
         node_svc: PostgresNodeService,
-        sleep_after_clean: bool,
+        sleep_time_after_clean_pm_pid: int,
     ):
         assert isinstance(node_svc, PostgresNodeService)
+        assert type(sleep_time_after_clean_pm_pid) is int
+        assert sleep_time_after_clean_pm_pid >= 0
 
         assert (NodeStatus.Running)
         assert not (NodeStatus.Stopped)
@@ -683,10 +706,13 @@ class TestTestgresCommon:
             assert node.status() == NodeStatus.Running
             logging.info("Postmaster PID is {}.".format(node.pid))
 
-            postmaster_pid_file = node.os_ops.build_path(node.data_dir, "postmaster.pid")
+            postmaster_pid_file = node.os_ops.build_path(
+                node.data_dir,
+                testgres_consts.PG_PID_FILE,
+            )
 
             logging.info("Clean postmaster pid file [{}].".format(
-                postmaster_pid_file
+                postmaster_pid_file,
             ))
 
             logging.info("Clean pid file...")
@@ -696,10 +722,8 @@ class TestTestgresCommon:
                 truncate=True,
             )
 
-            if sleep_after_clean:
-                # server removes pid file and shutdown within 60 seconds.
-                logging.info("SLEEP 65 sec!")
-                time.sleep(65)
+            # server removes pid file and shutdown within 60 seconds.
+            TestServices.SleepWithPrint(sleep_time_after_clean_pm_pid)
 
             logging.info("Check node status...")
             node_status: typing.Optional[NodeStatus]
@@ -708,13 +732,37 @@ class TestTestgresCommon:
             except ExecUtilException as e:
                 logging.info("Catch exception ({}): {}".format(
                     type(e).__name__,
-                    str(e),
+                    TestServices.ExceptionToHumanText(e),
                 ))
 
-                expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
-                    postmaster_pid_file
-                )
-                assert expected_msg == e.error
+                error_is_detected = False
+                if e.exit_code != 1:
+                    error_is_detected = True
+                    logging.error("Unexpected exit_code: {}".format(
+                        e.exit_code,
+                    ))
+
+                assert type(e.error) is str
+                assert e.error.endswith("\n")
+
+                expected_msgs = [
+                    PgMsgBuilder.pg_ctl__pid_file_is_empty(
+                        postmaster_pid_file,
+                    ),
+                    PgMsgBuilder.pg_ctl__invalid_data_in_pid_file(
+                        postmaster_pid_file,
+                    ),
+                ]
+
+                if e.error[:-1] not in expected_msgs:
+                    error_is_detected = True
+                    logging.error("Unexpected error msg: {}".format(
+                        e.error,
+                    ))
+
+                if error_is_detected:
+                    raise RuntimeError("Unexpected exception is catched.") from e
+
             else:
                 assert node_status is not None
 
@@ -827,6 +875,186 @@ class TestTestgresCommon:
                 logging.error("Node has unknown status: {}.".format(s.name))
                 break
         finally:
+            if node.is_started:
+                node.stop()
+
+        node.cleanup(release_resources=True)
+        return
+
+    def test_kill__ok__mt(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        N_WORKERS = 4
+
+        class tagCtx:
+            m_stop_guard: typing.Any
+            m_stop_flag: bool
+
+            def __init__(self):
+                self.m_stop_guard = threading.Lock()
+                self.m_stop_flag = False
+
+            @property
+            def is_stopped(self) -> bool:
+                assert self.m_stop_guard is not None
+                with self.m_stop_guard:
+                    assert type(self.m_stop_flag) is bool
+                    return self.m_stop_flag
+
+            def set_stop(self) -> None:
+                with self.m_stop_guard:
+                    assert type(self.m_stop_flag) is bool
+                    self.m_stop_flag = False
+                return
+
+        def LOCAL__worker(
+            ctx: tagCtx,
+            worker_id: int,
+            node: PostgresNode,
+        ) -> bool:
+            assert type(ctx) is tagCtx
+            assert type(worker_id) is int
+            assert type(node) is PostgresNode
+
+            logging.info("Worker [{}] is started.".format(
+                worker_id,
+            ))
+
+            node_status: typing.Optional[NodeStatus] = None
+
+            try:
+                while True:
+                    if ctx.is_stopped:
+                        logging.info("Worker [{}] is stopped.".format(
+                            worker_id,
+                        ))
+                        break
+
+                    node_status = node.status()
+                    assert type(node_status) is NodeStatus
+
+                    if node_status == NodeStatus.Stopped:
+                        logging.info("Worker [{}] detected that node is stopped.".format(
+                            worker_id,
+                        ))
+                        break
+                    continue
+            except BaseException as e:
+                logging.error("Worker [id: {}] catch an exception ({}): {}".format(
+                    worker_id,
+                    type(e).__name__,
+                    TestServices.ExceptionToHumanText(e),
+                ))
+                raise
+
+            return node_status == NodeStatus.Stopped
+
+        class tadWorkerData:
+            future: ThreadFuture
+
+        workCtx = tagCtx()
+
+        node = __class__.helper__get_node(node_svc)
+
+        try:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+            assert not node.is_started
+            node.slow_start()
+            assert node.is_started
+
+            assert node.status() == NodeStatus.Running
+
+            workerDatas: typing.List[tadWorkerData] = list()
+
+            logging.info("Worker are creating ...")
+            threadPool = ThreadPoolExecutor(
+                max_workers=N_WORKERS,
+                thread_name_prefix="ex_creator",
+            )
+            nErrors = 0
+
+            try:
+                for n in range(N_WORKERS):
+                    logging.info("worker #{} is creating ...".format(n))
+
+                    workerDatas.append(tadWorkerData())
+
+                    workerDatas[n].future = threadPool.submit(
+                        LOCAL__worker,
+                        workCtx,
+                        n,
+                        node,
+                    )
+
+                    assert workerDatas[n].future is not None
+                    continue
+
+                logging.info("OK. All the workers were created!")
+            except BaseException as e:
+                nErrors += 1
+                logging.error("A problem is detected ({}): {}".format(
+                    type(e).__name__,
+                    TestServices.ExceptionToHumanText(e),
+                ))
+
+            TestServices.SleepWithPrint(5)
+
+            logging.info("Kill node")
+            node.kill()
+            assert not node.is_started
+
+            TestServices.SleepWithPrint(5)
+
+            workCtx.set_stop()
+
+            logging.info("Will wait for stop of all the workers...")
+
+            nWorkers = 0
+
+            assert type(workerDatas) is list
+
+            for i in range(len(workerDatas)):
+                worker = workerDatas[i].future
+
+                if worker is None:
+                    break
+
+                nWorkers += 1
+
+                assert isinstance(worker, ThreadFuture)
+
+                try:
+                    logging.info("Wait for worker #{}".format(i))
+                    worker_r = worker.result()
+                    assert type(worker_r) is bool
+
+                    if worker_r is not True:
+                        logging.error("Worker [{}] did not detect node stop.".format(
+                            i
+                        ))
+                except BaseException as e:
+                    nErrors += 1
+                    logging.error("Worker #{} finished with error ({}): {}".format(
+                        i,
+                        type(e).__name__,
+                        TestServices.ExceptionToHumanText(e),
+                    ))
+                continue
+
+            assert nWorkers == N_WORKERS
+
+            if nErrors != 0:
+                raise RuntimeError("Some problems were detected. Please examine the log messages.")
+        finally:
+            workCtx.set_stop()
+
             if node.is_started:
                 node.stop()
 

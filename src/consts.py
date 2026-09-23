@@ -2,6 +2,7 @@
 
 # binary names
 BINARY_NAME__POSTGRES = "postgres"
+BINARY_NAME__PG_CTL = "pg_ctl"
 
 # names for dirs in base_dir
 DATA_DIR = "data"
@@ -44,5 +45,7 @@ MAX_WAL_SENDERS = 10
 LOGICAL_REPL_MAX_CATCHUP_ATTEMPTS = 60
 
 PG_CTL__STATUS__OK = 0
+
+PG_CTL__STATUS__FAILED = 1
 PG_CTL__STATUS__NODE_IS_STOPPED = 3
 PG_CTL__STATUS__BAD_DATADIR = 4
