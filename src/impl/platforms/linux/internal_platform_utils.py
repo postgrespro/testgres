@@ -291,9 +291,13 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         if isinstance(e, FileNotFoundError):
             return True
 
+        if isinstance(e, ProcessLookupError):
+            return True
+
         if isinstance(e, ExecUtilException):
-            if e.exit_code == 2:
+            if e.exit_code == 1:
                 return True
+            return False
 
         return False
 
