@@ -90,8 +90,6 @@ except ImportError:
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
-from six import text_type
-
 
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
@@ -1081,7 +1079,7 @@ class PostgresNode(object):
         config_name = self._os_ops.build_path(self.data_dir, filename)
         conf_text = ''
         for line in lines:
-            conf_text += text_type(line) + '\n'
+            conf_text += str(line) + '\n'
         self._os_ops.write(config_name, conf_text)
 
         return self
