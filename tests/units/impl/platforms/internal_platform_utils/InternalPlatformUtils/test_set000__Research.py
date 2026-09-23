@@ -68,7 +68,7 @@ class TestSet001__Reseach:
         file: typing.Optional[io.IOBase] = None
 
         try:
-            #1: Run a long-running background process
+            # 1: Run a long-running background process
             proc = subprocess.Popen(
                 ["sleep", "120"],
                 stdout=subprocess.PIPE,
