@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ...raise_error import RaiseError
+
 import enum
 import typing
 
@@ -59,7 +61,7 @@ class InternalPlatformUtils:
         assert isinstance(os_ops, OsOperations)
         assert type(bin_dir) is str
         assert type(data_dir) is str
-        raise NotImplementedError("InternalPlatformUtils::FindPostmaster is not implemented.")
+        RaiseError.method_is_not_implemented(__class__, "FindPostmaster")
 
     def ProcessIsZombie_soft_check(
         self,
@@ -68,4 +70,4 @@ class InternalPlatformUtils:
     ) -> typing.Optional[bool]:
         assert isinstance(os_ops, OsOperations)
         assert type(pid) is int
-        raise NotImplementedError("InternalPlatformUtils::ProcessIsZombi_soft_ver is not implemented.")
+        RaiseError.method_is_not_implemented(__class__, "ProcessIsZombie_soft_check")
