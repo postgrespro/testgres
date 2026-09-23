@@ -60,9 +60,12 @@ import subprocess
 import typing
 import types
 import psutil
+import threading
 import testgres.postgres_configuration as testgres_pgconf
 
 from packaging.version import Version
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future as ThreadFuture
 
 
 @contextmanager
@@ -844,6 +847,186 @@ class TestTestgresCommon:
                 logging.error("Node has unknown status: {}.".format(s.name))
                 break
         finally:
+            if node.is_started:
+                node.stop()
+
+        node.cleanup(release_resources=True)
+        return
+
+    def test_kill__ok__mt(
+        self,
+        node_svc: PostgresNodeService
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        N_WORKERS = 4
+
+        class tagCtx:
+            m_stop_guard: typing.Any
+            m_stop_flag: bool
+
+            def __init__(self):
+                self.m_stop_guard = threading.Lock()
+                self.m_stop_flag = False
+
+            @property
+            def is_stopped(self) -> bool:
+                assert self.m_stop_guard is not None
+                with self.m_stop_guard:
+                    assert type(self.m_stop_flag) is bool
+                    return self.m_stop_flag
+
+            def set_stop(self) -> None:
+                with self.m_stop_guard:
+                    assert type(self.m_stop_flag) is bool
+                    self.m_stop_flag = False
+                return
+
+        def LOCAL__worker(
+            ctx: tagCtx,
+            worker_id: int,
+            node: PostgresNode,
+        ) -> bool:
+            assert type(ctx) is tagCtx
+            assert type(worker_id) is int
+            assert type(node) is PostgresNode
+
+            logging.info("Worker [{}] is started.".format(
+                worker_id,
+            ))
+
+            node_status: typing.Optional[NodeStatus] = None
+
+            try:
+                while True:
+                    if ctx.is_stopped:
+                        logging.info("Worker [{}] is stopped.".format(
+                            worker_id,
+                        ))
+                        break
+
+                    node_status = node.status()
+                    assert type(node_status) is NodeStatus
+
+                    if node_status == NodeStatus.Stopped:
+                        logging.info("Worker [{}] detected that node is stopped.".format(
+                            worker_id,
+                        ))
+                        break
+                    continue
+            except BaseException as e:
+                logging.error("Worker [id: {}] catch an exception ({}): {}".format(
+                    worker_id,
+                    type(e).__name__,
+                    TestServices.ExceptionToHumanText(e),
+                ))
+                raise
+
+            return node_status == NodeStatus.Stopped
+
+        class tadWorkerData:
+            future: ThreadFuture
+
+        workCtx = tagCtx()
+
+        node = __class__.helper__get_node(node_svc)
+
+        try:
+            assert isinstance(node, PostgresNode)
+            assert (node.pid == 0)
+            assert (node.status() == NodeStatus.Uninitialized)
+
+            node.init()
+            assert not node.is_started
+            node.slow_start()
+            assert node.is_started
+
+            assert node.status() == NodeStatus.Running
+
+            workerDatas: typing.List[tadWorkerData] = list()
+
+            logging.info("Worker are creating ...")
+            threadPool = ThreadPoolExecutor(
+                max_workers=N_WORKERS,
+                thread_name_prefix="ex_creator",
+            )
+            nErrors = 0
+
+            try:
+                for n in range(N_WORKERS):
+                    logging.info("worker #{} is creating ...".format(n))
+
+                    workerDatas.append(tadWorkerData())
+
+                    workerDatas[n].future = threadPool.submit(
+                        LOCAL__worker,
+                        workCtx,
+                        n,
+                        node,
+                    )
+
+                    assert workerDatas[n].future is not None
+                    continue
+
+                logging.info("OK. All the workers were created!")
+            except BaseException as e:
+                nErrors += 1
+                logging.error("A problem is detected ({}): {}".format(
+                    type(e).__name__,
+                    TestServices.ExceptionToHumanText(e),
+                ))
+
+            TestServices.SleepWithPrint(5)
+
+            logging.info("Kill node")
+            node.kill()
+            assert not node.is_started
+
+            TestServices.SleepWithPrint(5)
+
+            workCtx.set_stop()
+
+            logging.info("Will wait for stop of all the workers...")
+
+            nWorkers = 0
+
+            assert type(workerDatas) is list
+
+            for i in range(len(workerDatas)):
+                worker = workerDatas[i].future
+
+                if worker is None:
+                    break
+
+                nWorkers += 1
+
+                assert isinstance(worker, ThreadFuture)
+
+                try:
+                    logging.info("Wait for worker #{}".format(i))
+                    worker_r = worker.result()
+                    assert type(worker_r) is bool
+
+                    if worker_r is not True:
+                        logging.error("Worker [{}] did not detect node stop.".format(
+                            i
+                        ))
+                except BaseException as e:
+                    nErrors += 1
+                    logging.error("Worker #{} finished with error ({}): {}".format(
+                        i,
+                        type(e).__name__,
+                        TestServices.ExceptionToHumanText(e),
+                    ))
+                continue
+
+            assert nWorkers == N_WORKERS
+
+            if nErrors != 0:
+                raise RuntimeError("Some problems were detected. Please examine the log messages.")
+        finally:
+            workCtx.set_stop()
+
             if node.is_started:
                 node.stop()
 
