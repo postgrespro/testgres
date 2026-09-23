@@ -7,6 +7,7 @@ from tests.helpers.global_data import PostgresNodeServices
 from tests.helpers.global_data import OsOperations
 from tests.helpers.global_data import PortManager
 from tests.helpers.pg_cfg_os_ops import PgCfgOsOps
+from tests.helpers.pg_msg_builder import PgMsgBuilder
 
 from tests.conftest_helpers import TestServices
 
@@ -634,19 +635,22 @@ class TestTestgresCommon:
 
             node.init()
 
-            postmaster_pid_file = node.os_ops.build_path(node.data_dir, "postmaster.pid")
+            postmaster_pid_file = node.os_ops.build_path(
+                node.data_dir,
+                testgres_consts.PG_PID_FILE,
+            )
 
             node.os_ops.write(
                 postmaster_pid_file,
-                ""
+                "",
             )
 
             with pytest.raises(expected_exception=ExecUtilException) as x:
                 node.status()
 
-            expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
-                postmaster_pid_file
-            )
+            expected_msg = PgMsgBuilder.pg_ctl__pid_file_is_empty(
+                postmaster_pid_file,
+            ) + "\n"
 
             assert expected_msg == x.value.error
         return
@@ -731,10 +735,34 @@ class TestTestgresCommon:
                     TestServices.ExceptionToHumanText(e),
                 ))
 
-                expected_msg = "pg_ctl: the PID file \"{}\" is empty\n".format(
-                    postmaster_pid_file
-                )
-                assert expected_msg == e.error
+                error_is_detected = False
+                if e.exit_code != 1:
+                    error_is_detected = True
+                    logging.error("Unexpected exit_code: {}".format(
+                        e.exit_code,
+                    ))
+
+                assert type(e.error) is str
+                assert e.error.endswith("\n")
+
+                expected_msgs = [
+                    PgMsgBuilder.pg_ctl__pid_file_is_empty(
+                        postmaster_pid_file,
+                    ),
+                    PgMsgBuilder.pg_ctl__invalid_data_in_pid_file(
+                        postmaster_pid_file,
+                    ),
+                ]
+
+                if e.error[:-1] not in expected_msgs:
+                    error_is_detected = True
+                    logging.error("Unexpected error msg: {}".format(
+                        e.error,
+                    ))
+
+                if error_is_detected:
+                    raise RuntimeError("Unexpected exception is catched.") from e
+
             else:
                 assert node_status is not None
 
