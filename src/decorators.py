@@ -1,4 +1,3 @@
-import six
 import functools
 
 
@@ -18,7 +17,7 @@ def positional_args_hack(*special_cases):
 
     for case in special_cases:
         k = len(case)
-        assert k not in six.iterkeys(cases), 'len must be unique'
+        assert k not in cases, 'len must be unique'
         cases[k] = case
 
     def decorator(function):
@@ -26,7 +25,7 @@ def positional_args_hack(*special_cases):
         def wrapper(*args, **kwargs):
             k = len(args)
 
-            if k in six.iterkeys(cases):
+            if k in cases:
                 case = cases[k]
 
                 for i in range(0, k):
