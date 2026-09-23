@@ -81,10 +81,7 @@ import subprocess
 import time
 import typing
 
-try:
-    from collections.abc import Iterable
-except ImportError:
-    from collections import Iterable
+from collections.abc import Iterable
 
 # we support both pg8000 and psycopg2
 try:
