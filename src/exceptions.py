@@ -44,7 +44,6 @@ class PortForException(TestgresException):
         return result
 
 
-@six.python_2_unicode_compatible
 class QueryException(TestgresException):
     _description: typing.Optional[str]
     _query: typing.Optional[str]
@@ -162,7 +161,6 @@ class CatchUpException(TestgresException):
         return result
 
 
-@six.python_2_unicode_compatible
 class StartNodeException(TestgresException):
     _description: typing.Optional[str]
     _files: typing.Optional[typing.Iterable]
