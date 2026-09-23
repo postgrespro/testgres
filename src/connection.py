@@ -25,7 +25,7 @@ ProgrammingError = pglib.ProgrammingError
 OperationalError = pglib.OperationalError
 
 
-class NodeConnection(object):
+class NodeConnection:
     """
     Transaction wrapper returned by Node
     """
