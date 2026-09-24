@@ -450,7 +450,7 @@ def get_pg_node_state(
     assert type(data_dir) is str
     assert utils_log_file is None or type(utils_log_file) is str
 
-    return PostgresNodeStateUtils.exec(
+    return PostgresNodeStateUtils.get_pg_node_state(
         os_ops,
         bin_dir,
         data_dir,
@@ -488,7 +488,7 @@ class PostgresNodeStateUtils:
     T_PLATFORM_UTILS = InternalPlaformUtilsProvider.T_PLATFORM_UTILS
 
     @staticmethod
-    def exec(
+    def get_pg_node_state(
         os_ops: OsOperations,
         bin_dir: str,
         data_dir: str,
