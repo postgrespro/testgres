@@ -1,4 +1,10 @@
 from testgres.operations.os_ops import OsOperations
+from testgres.operations.os_ops import OsCommandResult
+from testgres.operations.types import T_OS_CMD
+from testgres.operations.types import T_OS_EXEC_ENV
+from testgres.operations.helpers import Helpers as OsHelpers
+
+from ..exceptions import ExecUtilException
 
 import logging
 import typing
@@ -90,3 +96,55 @@ def read_line_to_pos__bin(
     assert type(result) is bytes
     assert len(result) <= (position - read_position)
     return result
+
+
+def execute_utility3(
+    os_ops: OsOperations,
+    args: T_OS_CMD,
+    logfile: typing.Optional[str] = None,
+    check: bool = True,
+    exec_env: typing.Optional[T_OS_EXEC_ENV] = None,
+) -> OsCommandResult:
+    assert os_ops is not None
+    assert isinstance(os_ops, OsOperations)
+    assert type(check) is bool
+    assert exec_env is None or type(exec_env) is dict
+
+    exec_r = os_ops.run(
+        args,
+        check=check,
+        encoding=OsHelpers.GetDefaultEncoding(),
+        exec_env=exec_env,
+    )
+
+    assert type(exec_r) is OsCommandResult
+
+    # write new log entry if possible
+    if logfile:
+        try:
+            log_lines = [
+                os_ops.join_command_arguments(args),
+            ]
+
+            if exec_r.stdout is None:
+                log_lines.append("# #NONE#")
+            else:
+                # comment-out lines
+                assert type(exec_r.stdout) is str
+                log_lines += ['# ' + line for line in exec_r.stdout.splitlines()]
+
+            log_lines.append("")
+
+            os_ops.write(
+                filename=logfile,
+                data="\n".join(log_lines),
+                truncate=False,
+            )
+        except IOError:
+            raise ExecUtilException(
+                "Problem with writing to logfile `{}` during run command `{}`".format(
+                    logfile,
+                    args,
+                ))
+
+    return exec_r
