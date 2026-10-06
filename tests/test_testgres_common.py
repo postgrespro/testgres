@@ -458,6 +458,52 @@ class TestTestgresCommon:
 
         return
 
+    def test_failure_during_slow_start(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+            assert not node.is_started
+            assert node.status() == NodeStatus.Stopped
+
+            bad_command = (
+                "if [ ! -f fail_counter ]; then echo 1 > fail_counter; set -e; sleep 5; expr 1 / 0; exit 0; fi; "
+                "COUNT=$(cat fail_counter); "
+                "if [ $COUNT -lt 3 ]; then echo $((COUNT+1)) > fail_counter; set -e; sleep 5; expr 1 / 0; exit 0; "
+                "else kill -6 $$; fi"
+            )
+
+            # Enable recovery mode to ensure Postgres calls this command
+            if node.version >= PgVer("12"):
+                node.os_ops.write(
+                    node.os_ops.build_path(node.data_dir, "postgresql.conf"),
+                    f"\nrestore_command = '{bad_command}'\n",
+                    truncate=False,
+                )
+                node.os_ops.write(
+                    node.os_ops.build_path(node.data_dir, "standby.signal"),
+                    "",
+                    truncate=True,
+                )
+            else:
+                node.os_ops.write(
+                    node.os_ops.build_path(node.data_dir, "recovery.conf"),
+                    f"restore_command = '{bad_command}'\n",
+                    truncate=True,
+                )
+
+            with pytest.raises(expected_exception=Exception) as x:
+                node.slow_start(max_attempts=10)
+
+            TestServices.PrintExceptionOK(x.value)
+
+            assert x.value.__context__ is None
+            assert type(x.value) is QueryTimeoutException
+
+            assert not node.is_started
+            assert node.status() == NodeStatus.Stopped
+        return
+
     def test_restart(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
 
