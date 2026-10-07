@@ -95,6 +95,7 @@ except ImportError:
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
 OperationalError = pglib.OperationalError
+InterfaceError = pglib.InterfaceError
 
 
 assert TimeoutException == QueryTimeoutException
@@ -1172,6 +1173,7 @@ class PostgresNode:
                 QueryException,
                 ProgrammingError,
                 OperationalError,
+                InterfaceError,  # pg8000
             }
 
             self.poll_query_until(
@@ -1182,7 +1184,14 @@ class PostgresNode:
                 max_attempts=max_attempts,
             )
         except:  # noqa: E722
-            self.stop()
+            state = self._get_node_state()
+
+            if state.node_status == NodeStatus.Running:
+                assert type(state.pid) is int
+                self.stop()
+            else:
+                self._manually_started_pm_pid = state.pid
+
             raise
         return
 
