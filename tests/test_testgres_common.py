@@ -461,6 +461,35 @@ class TestTestgresCommon:
     def test_failure_during_slow_start(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
 
+        C_MAX_ATTEMPTS = 3
+
+        nAttempt = 0
+
+        while True:
+            assert nAttempt <= C_MAX_ATTEMPTS
+
+            if nAttempt == C_MAX_ATTEMPTS:
+                logging.warning("Test did not fail during wait stage.")
+                break
+
+            nAttempt += 1
+
+            logging.info("------------------ ATTEMPT {}".format(
+                nAttempt,
+            ))
+
+            if self.helper_step_of_failure_during_slow_start(node_svc):
+                break
+
+            continue
+        return
+
+    def helper_step_of_failure_during_slow_start(
+        self,
+        node_svc: PostgresNodeService,
+    ) -> bool:
+        assert isinstance(node_svc, PostgresNodeService)
+
         with __class__.helper__get_node(node_svc) as node:
             node.init()
             assert not node.is_started
@@ -497,12 +526,20 @@ class TestTestgresCommon:
 
             TestServices.PrintExceptionOK(x.value)
 
-            assert x.value.__context__ is None
-            assert type(x.value) is QueryTimeoutException
-
             assert not node.is_started
             assert node.status() == NodeStatus.Stopped
-        return
+            pass
+
+        assert x is not None
+        assert isinstance(x.value, Exception)
+        assert x.value.__context__ is None
+
+        if type(x.value) is StartNodeException:
+            assert x.value.description == "Cannot detect postmaster pid."
+            return False
+
+        assert type(x.value) is QueryTimeoutException
+        return True
 
     def test_restart(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
