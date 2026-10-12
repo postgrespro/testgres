@@ -315,17 +315,35 @@ class PostgresNode:
         # TODO: Throw the exception "Please define a port manager." ?
         return PortManager__Generic2(os_ops)
 
-    def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
+    def clone_with_new_name_and_base_dir(
+        self,
+        name: str,
+        base_dir: str,
+        target_os_ops: typing.Optional[OsOperations] = None,
+        target_host: typing.Optional[str] = None,
+        target_port: typing.Optional[int] = None,
+    ):
         assert name is None or type(name) is str
         assert base_dir is None or type(base_dir) is str
+        assert target_os_ops is None or isinstance(target_os_ops, OsOperations)
+        assert target_host is None or type(target_host) is str
+        assert target_port is None or type(target_port) is int
 
         assert __class__ == PostgresNode
 
-        if self._port_manager is None:
-            raise InvalidOperationException("PostgresNode without PortManager can't be cloned.")
+        if target_os_ops is None:
+            target_os_ops = self._os_ops
 
-        assert self._port_manager is not None
-        assert isinstance(self._port_manager, PortManager)
+        if target_port is None and target_os_ops is self._os_ops:
+            if self._port_manager is None:
+                raise InvalidOperationException(
+                    "PostgresNode without PortManager can't be cloned."
+                )
+
+            target_port_manager = self._port_manager
+        else:
+            target_port_manager = None
+
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
         assert type(self._host) is str
@@ -333,11 +351,12 @@ class PostgresNode:
         node = PostgresNode(
             name=name,
             base_dir=base_dir,
+            port=target_port,
             bin_dir=self._bin_dir,
             prefix=self._prefix,
-            os_ops=self._os_ops,
-            port_manager=self._port_manager,
-            host=self._host,
+            os_ops=target_os_ops,
+            port_manager=target_port_manager,
+            host=target_host if target_host is not None else self._host,
         )
 
         return node
@@ -534,9 +553,6 @@ class PostgresNode:
             raise TestgresException("Node doesn't have a master")
 
         assert type(self.master) is PostgresNode
-
-        # master should be on the same host
-        assert self.master.host == self._host
 
         with self.master.connect() as con:
             for row in con.execute(sql, self.name):
@@ -2021,6 +2037,9 @@ class PostgresNode:
         self,
         name=None,
         slot=None,
+        target_os_ops=None,
+        target_host=None,
+        target_port=None,
         **kwargs,
     ):
         """
@@ -2029,9 +2048,18 @@ class PostgresNode:
         Args:
             name: replica's application name.
             slot: create a replication slot with the specified name.
+            target_os_ops: OS operations object for the replica. If omitted,
+                use this node's os_ops.
+            target_host: host/address for the replica. If omitted, use this
+                node's host.
+            target_port: explicit port for the replica. If omitted, reserve a
+                port in the target execution context.
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
             base_dir: the base directory for data files and logs
+
+        If target_os_ops differs from this node's os_ops, both execution
+        contexts must see the backup directory at the same path.
         """
 
         # transform backup into a replica
@@ -2040,6 +2068,9 @@ class PostgresNode:
                 name=name,
                 destroy=True,
                 slot=slot,
+                target_os_ops=target_os_ops,
+                target_host=target_host,
+                target_port=target_port,
             )
 
     def set_synchronous_standbys(self, standbys):

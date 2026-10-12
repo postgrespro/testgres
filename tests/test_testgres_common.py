@@ -17,6 +17,7 @@ from src.node import NodeConnection
 from src.node import PostgresNodeLogReader
 from src.node import PostgresNodeUtils
 from src.node import ProcessProxy
+from src.node import PortManager__Generic2
 from src.utils import PgVer
 from src.utils import get_pg_version2
 from src.utils import file_tail
@@ -62,6 +63,7 @@ import types
 import psutil
 import threading
 import testgres.postgres_configuration as testgres_pgconf
+from testgres.operations.local_ops import LocalOperations
 
 from packaging.version import Version
 from concurrent.futures import ThreadPoolExecutor
@@ -238,6 +240,51 @@ class TestTestgresCommon:
                 assert node2._os_ops is node._os_ops
                 assert node2._port_manager is node._port_manager
         return
+
+    def test_node_clone__target_context(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            target_port = node_svc.port_manager.reserve_port()
+            try:
+                nodedir = node_svc.os_ops.mkdtemp(prefix="node-target--")
+
+                with node.clone_with_new_name_and_base_dir(
+                    name="target",
+                    base_dir=nodedir,
+                    target_os_ops=node_svc.os_ops,
+                    target_host=node.host,
+                    target_port=target_port,
+                ) as node2:
+                    assert node2.os_ops is node_svc.os_ops
+                    assert node2.host == node.host
+                    assert node2.port == target_port
+                    assert node2.port_manager is None
+            finally:
+                node_svc.port_manager.release_port(target_port)
+
+    def test_node_clone__different_os_ops(self):
+        source_svc = PostgresNodeServices.sm_local
+        target_os_ops = LocalOperations()
+
+        assert target_os_ops is not source_svc.os_ops
+
+        unique_id = uuid.uuid4().hex
+        tmpdir = target_os_ops.get_tempdir()
+
+        with __class__.helper__get_node(source_svc) as node:
+            nodedir = target_os_ops.build_path(tmpdir, "node-target--" + unique_id)
+
+            with node.clone_with_new_name_and_base_dir(
+                name="target",
+                base_dir=nodedir,
+                target_os_ops=target_os_ops,
+            ) as node2:
+                assert node2.os_ops is target_os_ops
+                assert node2.host == node.host
+                assert node2.port != node.port
+                assert node2.port_manager is not node.port_manager
+                assert type(node2.port_manager) is PortManager__Generic2
 
     def test_node_repr(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -2050,6 +2097,44 @@ class TestTestgresCommon:
 
                 res = node.execute('select * from test')
                 assert (res == [])
+
+    def test_replicate__target_context(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as master:
+            master.init(allow_streaming=True).start()
+
+            target_port = node_svc.port_manager.reserve_port()
+            try:
+                # For local operations use an equivalent host spelling to
+                # exercise source_walsender with different host strings.  A
+                # remote host must keep its configured address.
+                if isinstance(node_svc.os_ops, LocalOperations):
+                    target_host = "localhost" if master.host != "localhost" else "127.0.0.1"
+                else:
+                    target_host = master.host
+
+                with master.replicate(
+                    target_os_ops=node_svc.os_ops,
+                    target_host=target_host,
+                    target_port=target_port,
+                ).start() as replica:
+                    assert replica.os_ops is node_svc.os_ops
+                    assert replica.host == target_host
+                    assert replica.port == target_port
+                    assert replica.port_manager is None
+
+                    master.execute('create table test_target_context (val int)', commit=True)
+                    master.execute('insert into test_target_context values (42)', commit=True)
+
+                    replica.catchup()
+
+                    res = replica.execute('select val from test_target_context')
+                    assert res == [(42, )]
+
+                    assert replica.source_walsender is not None
+            finally:
+                node_svc.port_manager.release_port(target_port)
 
     def test_synchronous_replication(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
