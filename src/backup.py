@@ -35,7 +35,8 @@ class NodeBackup:
                  base_dir=None,
                  username=None,
                  xlog_method=XLogMethod.fetch,
-                 options=None):
+                 options=None,
+                 os_ops=None):
         """
         Create a new backup.
 
@@ -44,13 +45,18 @@ class NodeBackup:
             base_dir: where should we store it?
             username: database user name.
             xlog_method: none | fetch | stream (see docs)
+            os_ops: execution context where pg_basebackup is run and the
+                backup is stored. If omitted, use the source node's os_ops.
+                The source node must be reachable from this context using its
+                configured host and port.
         """
         assert node.os_ops is not None
         assert isinstance(node.os_ops, OsOperations)
+        assert os_ops is None or isinstance(os_ops, OsOperations)
 
         if not options:
             options = []
-        self.os_ops = node.os_ops
+        self.os_ops = os_ops if os_ops is not None else node.os_ops
         if not node.status():
             raise BackupException('Node must be running')
 
@@ -63,7 +69,9 @@ class NodeBackup:
                 raise BackupException(msg)
 
         # Set default arguments
-        username = username or self.os_ops.get_user()
+        # The username belongs to the source PostgreSQL instance, not to the
+        # environment where pg_basebackup happens to run.
+        username = username or node.os_ops.get_user()
         base_dir = base_dir or self.os_ops.mkdtemp(prefix=TMP_BACKUP)
 
         # public
@@ -143,7 +151,6 @@ class NodeBackup:
         self,
         name=None,
         destroy=True,
-        target_os_ops=None,
         target_host=None,
         target_port=None,
     ):
@@ -153,15 +160,11 @@ class NodeBackup:
         Args:
             name: primary's application name.
             destroy: should we convert this backup into a node?
-            target_os_ops: OS operations object for the new node. If omitted,
-                use the source node's os_ops.
-            target_host: host/address for the new node. If omitted, use the
-                source node's host.
+            target_host: host/address for the new node. If omitted, preserve
+                the source host when the backup uses the source os_ops,
+                otherwise use the backup os_ops host.
             target_port: explicit port for the new node. If omitted, reserve a
-                port in the target execution context.
-
-        If target_os_ops differs from the source node's os_ops, both execution
-        contexts must see base_dir at the same path.
+                port in the backup's execution context.
 
         Returns:
             New instance of :class:`.PostgresNode`.
@@ -176,7 +179,7 @@ class NodeBackup:
         node = self.original_node.clone_with_new_name_and_base_dir(
             name=name,
             base_dir=base_dir,
-            target_os_ops=target_os_ops,
+            target_os_ops=self.os_ops,
             target_host=target_host,
             target_port=target_port,
         )
@@ -201,7 +204,6 @@ class NodeBackup:
         name=None,
         destroy=True,
         slot=None,
-        target_os_ops=None,
         target_host=None,
         target_port=None,
     ):
@@ -212,12 +214,11 @@ class NodeBackup:
             name: replica's application name.
             slot: create a replication slot with the specified name.
             destroy: should we convert this backup into a node?
-            target_os_ops: OS operations object for the replica. If omitted,
-                use the source node's os_ops.
-            target_host: host/address for the replica. If omitted, use the
-                source node's host.
+            target_host: host/address for the replica. If omitted, preserve
+                the source host when the backup uses the source os_ops,
+                otherwise use the backup os_ops host.
             target_port: explicit port for the replica. If omitted, reserve a
-                port in the target execution context.
+                port in the backup's execution context.
 
         Returns:
             New instance of :class:`.PostgresNode`.
@@ -227,7 +228,6 @@ class NodeBackup:
         node = self.spawn_primary(
             name=name,
             destroy=destroy,
-            target_os_ops=target_os_ops,
             target_host=target_host,
             target_port=target_port,
         )

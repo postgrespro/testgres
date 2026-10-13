@@ -273,7 +273,10 @@ class TestTestgresCommon:
         tmpdir = target_os_ops.get_tempdir()
 
         with __class__.helper__get_node(source_svc) as node:
-            nodedir = target_os_ops.build_path(tmpdir, "node-target--" + unique_id)
+            nodedir = target_os_ops.build_path(
+                tmpdir,
+                "node-target--" + unique_id,
+            )
 
             with node.clone_with_new_name_and_base_dir(
                 name="target",
@@ -281,7 +284,7 @@ class TestTestgresCommon:
                 target_os_ops=target_os_ops,
             ) as node2:
                 assert node2.os_ops is target_os_ops
-                assert node2.host == node.host
+                assert node2.host == target_os_ops.host
                 assert node2.port != node.port
                 assert node2.port_manager is not node.port_manager
                 assert type(node2.port_manager) is PortManager__Generic2
@@ -1913,6 +1916,35 @@ class TestTestgresCommon:
                         backup.spawn_primary('node2', destroy=False) as node2:
                     assert (node1.base_dir != node2.base_dir)
 
+    @pytest.mark.parametrize(
+        ("source_svc", "target_svc"),
+        [
+            pytest.param(
+                PostgresNodeServices.sm_remote,
+                PostgresNodeServices.sm_local,
+                id="remote_to_local",
+            ),
+        ],
+    )
+    def test_backup__different_os_ops(
+        self,
+        source_svc: PostgresNodeService,
+        target_svc: PostgresNodeService,
+    ):
+        assert source_svc.os_ops is not target_svc.os_ops
+
+        with __class__.helper__get_node(source_svc) as source:
+            source.init(allow_streaming=True).start()
+
+            with source.backup(os_ops=target_svc.os_ops) as backup:
+                assert backup.os_ops is target_svc.os_ops
+
+                with backup.spawn_primary(destroy=False) as target:
+                    assert target.os_ops is target_svc.os_ops
+                    assert target.host == target_svc.os_ops.host
+                    assert target.base_dir != backup.base_dir
+                    assert target_svc.os_ops.isdir(target.data_dir)
+
     def test_backup_exhaust(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
         with __class__.helper__get_node(node_svc) as node:
@@ -2135,6 +2167,48 @@ class TestTestgresCommon:
                     assert replica.source_walsender is not None
             finally:
                 node_svc.port_manager.release_port(target_port)
+
+    @pytest.mark.parametrize(
+        ("source_svc", "target_svc"),
+        [
+            pytest.param(
+                PostgresNodeServices.sm_remote,
+                PostgresNodeServices.sm_local,
+                id="remote_to_local",
+            ),
+        ],
+    )
+    def test_replicate__different_os_ops(
+        self,
+        source_svc: PostgresNodeService,
+        target_svc: PostgresNodeService,
+    ):
+        assert source_svc.os_ops is not target_svc.os_ops
+
+        with __class__.helper__get_node(source_svc) as master:
+            master.init(allow_streaming=True).start()
+
+            with master.replicate(
+                target_os_ops=target_svc.os_ops,
+            ).start() as replica:
+                assert replica.os_ops is target_svc.os_ops
+                assert replica.host == target_svc.os_ops.host
+
+                master.execute(
+                    'create table test_cross_context (val int)',
+                    commit=True,
+                )
+                master.execute(
+                    'insert into test_cross_context values (42)',
+                    commit=True,
+                )
+
+                replica.catchup()
+
+                res = replica.execute('select val from test_cross_context')
+                assert res == [(42, )]
+
+                assert replica.source_walsender is not None
 
     def test_synchronous_replication(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)

@@ -334,7 +334,9 @@ class PostgresNode:
         if target_os_ops is None:
             target_os_ops = self._os_ops
 
-        if target_port is None and target_os_ops is self._os_ops:
+        same_os_ops = target_os_ops is self._os_ops
+
+        if target_port is None and same_os_ops:
             if self._port_manager is None:
                 raise InvalidOperationException(
                     "PostgresNode without PortManager can't be cloned."
@@ -344,6 +346,14 @@ class PostgresNode:
         else:
             target_port_manager = None
 
+        # Paths and default host names belong to an OsOperations context.
+        # Reusing them for another context is only safe when it is the same
+        # OsOperations object.  Otherwise let PostgresNode resolve them using
+        # the target environment.
+        target_bin_dir = self._bin_dir if same_os_ops else None
+        if target_host is None and same_os_ops:
+            target_host = self._host
+
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
         assert type(self._host) is str
@@ -352,11 +362,11 @@ class PostgresNode:
             name=name,
             base_dir=base_dir,
             port=target_port,
-            bin_dir=self._bin_dir,
+            bin_dir=target_bin_dir,
             prefix=self._prefix,
             os_ops=target_os_ops,
             port_manager=target_port_manager,
-            host=target_host if target_host is not None else self._host,
+            host=target_host,
         )
 
         return node
@@ -2023,6 +2033,10 @@ class PostgresNode:
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
             base_dir: the base directory for data files and logs
+            os_ops: execution context where pg_basebackup is run and the
+                backup is stored. If omitted, use this node's os_ops. This
+                node must be reachable from that context using its configured
+                host and port.
 
         Returns:
             A smart object of type NodeBackup.
@@ -2049,26 +2063,34 @@ class PostgresNode:
             name: replica's application name.
             slot: create a replication slot with the specified name.
             target_os_ops: OS operations object for the replica. If omitted,
-                use this node's os_ops.
-            target_host: host/address for the replica. If omitted, use this
-                node's host.
+                use this node's os_ops. pg_basebackup is executed in this
+                context and writes the backup directly there. The primary must
+                be reachable from this context using its configured host and
+                port.
+            target_host: host/address for the replica. If omitted, preserve
+                the source host in the same execution context, otherwise use
+                the host from target_os_ops.
             target_port: explicit port for the replica. If omitted, reserve a
                 port in the target execution context.
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
             base_dir: the base directory for data files and logs
-
-        If target_os_ops differs from this node's os_ops, both execution
-        contexts must see the backup directory at the same path.
         """
 
-        # transform backup into a replica
-        with utils.clean_on_error(self.backup(**kwargs)) as backup:
+        backup_os_ops = (
+            target_os_ops if target_os_ops is not None else self._os_ops
+        )
+
+        # Create the backup in the same execution context where the replica
+        # will live.  This avoids copying a backup across OsOperations
+        # instances and also makes _prepare_dir() operate in the right context.
+        with utils.clean_on_error(
+            self.backup(os_ops=backup_os_ops, **kwargs)
+        ) as backup:
             return backup.spawn_replica(
                 name=name,
                 destroy=True,
                 slot=slot,
-                target_os_ops=target_os_ops,
                 target_host=target_host,
                 target_port=target_port,
             )
