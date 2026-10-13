@@ -239,6 +239,9 @@ class TestTestgresCommon:
                 assert node2._port != node._port
                 assert node2._os_ops is node._os_ops
                 assert node2._port_manager is node._port_manager
+
+                assert node2.name == C_NODE2_NAME
+                assert node2.base_dir == nodedir2
         return
 
     def test_node_clone__target_context(self, node_svc: PostgresNodeService):
@@ -253,18 +256,26 @@ class TestTestgresCommon:
                     name="target",
                     base_dir=nodedir,
                     target_os_ops=node_svc.os_ops,
-                    target_host=node.host,
+                    target_host="abc",
                     target_port=target_port,
                 ) as node2:
+                    assert node2 is not node
                     assert node2.os_ops is node_svc.os_ops
-                    assert node2.host == node.host
+                    assert node2.name == "target"
+                    assert node2.host == "abc"
                     assert node2.port == target_port
                     assert node2.port_manager is None
             finally:
                 node_svc.port_manager.release_port(target_port)
+        return
 
-    def test_node_clone__different_os_ops(self):
-        source_svc = PostgresNodeServices.sm_local
+    def test_node_clone__different_os_ops(
+        self,
+        node_svc: PostgresNodeService,
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        source_svc = node_svc
         target_os_ops = LocalOperations()
 
         assert target_os_ops is not source_svc.os_ops
@@ -283,11 +294,15 @@ class TestTestgresCommon:
                 base_dir=nodedir,
                 target_os_ops=target_os_ops,
             ) as node2:
+                assert node2 is not node
                 assert node2.os_ops is target_os_ops
+                assert node2.name == "target"
+                assert node2.base_dir == nodedir
                 assert node2.host == target_os_ops.host
                 assert node2.port != node.port
                 assert node2.port_manager is not node.port_manager
                 assert type(node2.port_manager) is PortManager__Generic2
+        return
 
     def test_node_repr(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -1940,10 +1955,18 @@ class TestTestgresCommon:
                 assert backup.os_ops is target_svc.os_ops
 
                 with backup.spawn_primary(destroy=False) as target:
+                    assert target is not source
+                    assert type(target) is PostgresNode
                     assert target.os_ops is target_svc.os_ops
                     assert target.host == target_svc.os_ops.host
                     assert target.base_dir != backup.base_dir
-                    assert target_svc.os_ops.isdir(target.data_dir)
+                    assert target.os_ops.isdir(target.data_dir)
+                    assert target.port_manager is not None
+                    assert target.port_manager is not source.port_manager
+
+                    target.slow_start()
+                    target.stop()
+        return
 
     def test_backup_exhaust(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -2137,6 +2160,7 @@ class TestTestgresCommon:
             master.init(allow_streaming=True).start()
 
             target_port = node_svc.port_manager.reserve_port()
+            assert target_port != master.port
             try:
                 # For local operations use an equivalent host spelling to
                 # exercise source_walsender with different host strings.  A
@@ -2150,11 +2174,14 @@ class TestTestgresCommon:
                     target_os_ops=node_svc.os_ops,
                     target_host=target_host,
                     target_port=target_port,
-                ).start() as replica:
+                ) as replica:
+                    assert type(replica) is PostgresNode
                     assert replica.os_ops is node_svc.os_ops
                     assert replica.host == target_host
                     assert replica.port == target_port
                     assert replica.port_manager is None
+
+                    replica.start()
 
                     master.execute('create table test_target_context (val int)', commit=True)
                     master.execute('insert into test_target_context values (42)', commit=True)
@@ -2167,6 +2194,7 @@ class TestTestgresCommon:
                     assert replica.source_walsender is not None
             finally:
                 node_svc.port_manager.release_port(target_port)
+        return
 
     @pytest.mark.parametrize(
         ("source_svc", "target_svc"),
