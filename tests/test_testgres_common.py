@@ -603,6 +603,11 @@ class TestTestgresCommon:
             assert x.value.description == "Cannot detect postmaster pid."
             return False
 
+        if type(x.value) is ConnectionResetError:
+            # pg8000
+            assert "Connection reset by peer" in str(x.value)
+            return False
+
         assert type(x.value) is QueryTimeoutException
         return True
 
