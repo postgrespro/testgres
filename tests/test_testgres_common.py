@@ -3353,6 +3353,8 @@ where c.relname=%s;"""
                 assert cn.execute("insert into ttt values(1);") is None
                 assert cn.execute("update ttt set id=2;") is None
                 assert cn.execute("select id from ttt;") == [(2, )]
+                assert cn.execute("select id from ttt where id=%s;", '2') == [(2, )]
+                assert cn.execute("select id from ttt where id=%s and (id + 1) = %s;", '2', 3) == [(2, )]
                 assert cn.execute("delete from ttt where id=2;") is None
                 assert cn.execute("select id from ttt;") == []
                 assert cn.execute("drop table ttt;") is None
