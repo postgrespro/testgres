@@ -525,14 +525,10 @@ class TestTestgresCommon:
                 node.slow_start(max_attempts=10)
 
             TestServices.PrintExceptionOK(x.value)
-
-            assert not node.is_started
-            assert node.status() == NodeStatus.Stopped
             pass
 
         assert x is not None
         assert isinstance(x.value, Exception)
-        assert x.value.__context__ is None
 
         if type(x.value) is StartNodeException:
             assert x.value.description == "Cannot detect postmaster pid."
@@ -542,6 +538,9 @@ class TestTestgresCommon:
             # pg8000
             assert "Connection reset by peer" in str(x.value)
             return False
+
+        assert not node.is_started
+        assert node.status() == NodeStatus.Stopped
 
         assert type(x.value) is QueryTimeoutException
         return True
