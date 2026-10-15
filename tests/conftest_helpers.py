@@ -709,9 +709,8 @@ class TestServices:
             err_msg = "Exception ({}).".format(type(exc).__name__)
             assert type(err_msg) is str
 
-            exc_info_lines = traceback.format_exception(exc)
-            assert type(exc_info_lines) is list
-            err_msg2 = "".join(exc_info_lines).strip()
+            err_msg2 = __class__.Helper__GetTraceBack(exc)
+            assert type(err_msg2) is str
 
             if err_msg2 != "":
                 err_msg += " " + err_msg2
@@ -793,10 +792,21 @@ class TestServices:
         assert isinstance(exc, BaseException)
 
         if isinstance(exc, AssertionError):
-            exc_info_lines = traceback.format_exception(exc)
-            assert type(exc_info_lines) is list
-            return "".join(exc_info_lines).strip()
+            return __class__.Helper__GetTraceBack(exc)
 
         return str(exc)
+
+    # --------------------------------------------------------------------
+    @staticmethod
+    def Helper__GetTraceBack(exc: BaseException) -> str:
+        assert isinstance(exc, BaseException)
+
+        exc_info_lines = traceback.format_exception(
+            type(exc),
+            exc,
+            exc.__traceback__,
+        )
+        assert type(exc_info_lines) is list
+        return "".join(exc_info_lines).strip()
 
 # /////////////////////////////////////////////////////////////////////////////
