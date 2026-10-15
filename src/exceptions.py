@@ -302,6 +302,85 @@ class BackupException(TestgresException):
         return result
 
 
+class NodeConnectionException(TestgresException):
+    _message: typing.Optional[str]
+
+    def __init__(
+        self,
+        message: typing.Optional[str] = None,
+    ):
+        assert message is None or type(message) is str
+        super().__init__(message)
+        self._message = message
+        return
+
+    @property
+    def message(self) -> str:
+        assert self._message is None or type(self._message) is str
+        if self._message is None:
+            return ""
+        return self._message
+
+    def __repr__(self) -> str:
+        args = []
+
+        if self._message is not None:
+            args.append(("message", self._message))
+
+        result = "{}(".format(type(self).__name__)
+        sep = ""
+        for a in args:
+            result += sep + a[0] + "=" + repr(a[1])
+            sep = ", "
+            continue
+        result += ")"
+        return result
+
+
+class NodeConnectionInterfaceException(NodeConnectionException):
+    pass
+
+
+class NodeConnectionDatabaseException(NodeConnectionException):
+    pass
+
+
+class NodeConnectionDataException(NodeConnectionDatabaseException):
+    pass
+
+
+class NodeConnectionOperationalException(NodeConnectionDatabaseException):
+    pass
+
+
+class NodeConnectionIntegrityException(NodeConnectionDatabaseException):
+    pass
+
+
+class NodeConnectionInternalException(NodeConnectionDatabaseException):
+    pass
+
+
+class NodeConnectionProgrammingException(NodeConnectionDatabaseException):
+    pass
+
+
+class NodeConnectionNotSupportedException(NodeConnectionDatabaseException):
+    pass
+
+
+class NodeConnectionQueryCanceledException(NodeConnectionOperationalException):
+    pass
+
+
+class NodeConnectionTransactionRollbackException(NodeConnectionOperationalException):
+    pass
+
+
+class NodeConnectionArrayContentNotSupportedException(NodeConnectionNotSupportedException):
+    pass
+
+
 assert ExecUtilException.__name__ == "ExecUtilException"
 assert InvalidOperationException.__name__ == "InvalidOperationException"
 assert ExecTimeoutException.__name__ == "ExecTimeoutException"

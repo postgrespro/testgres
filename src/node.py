@@ -10,7 +10,7 @@ from .cache import cached_initdb
 
 from .config import testgres_config
 
-from .connection import NodeConnection
+from .connection import NodeConnection, pglib
 
 from .consts import \
     DATA_DIR, \
@@ -70,6 +70,7 @@ from .raise_error import RaiseError
 from .backup import NodeBackup
 
 from . import utils
+from . import exceptions
 
 from testgres.operations.os_ops import OsOperations
 from testgres.operations.os_ops import OsCommandResult
@@ -84,22 +85,14 @@ import subprocess
 import time
 import typing
 
-# we support both pg8000 and psycopg2
-try:
-    import psycopg2 as pglib
-except ImportError:
-    try:
-        import pg8000 as pglib
-    except ImportError:
-        raise ImportError("You must have psycopg2 or pg8000 modules installed")
+InternalError = exceptions.NodeConnectionInternalException
+ProgrammingError = exceptions.NodeConnectionProgrammingException
+OperationalError = exceptions.NodeConnectionOperationalException
+InterfaceError = exceptions.NodeConnectionInterfaceException
 
 
-InternalError = pglib.InternalError
-ProgrammingError = pglib.ProgrammingError
-OperationalError = pglib.OperationalError
-InterfaceError = pglib.InterfaceError
-
-
+# to backward compatibility
+assert pglib is not None
 assert TimeoutException == QueryTimeoutException
 
 
