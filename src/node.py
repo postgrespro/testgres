@@ -46,6 +46,7 @@ from .exceptions import \
     QueryException,     \
     QueryTimeoutException, \
     StartNodeException, \
+    StopNodeException, \
     TimeoutException,   \
     InitNodeException,  \
     TestgresException,  \
@@ -1410,6 +1411,10 @@ class PostgresNode:
                 logfile=self.utils_log_file,
             )
             self._manually_started_pm_pid = None
+        except ExecUtilException as e:
+            msg = 'Cannot stop node'
+            files = self._collect_special_files()
+            raise StopNodeException(msg, files) from e
         finally:
             # always stop the reader thread, even if pg_ctl stop failed,
             # so it can't leak into interpreter shutdown.

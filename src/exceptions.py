@@ -160,7 +160,7 @@ class CatchUpException(TestgresException):
         return result
 
 
-class StartNodeException(TestgresException):
+class NodeException(TestgresException):
     _description: typing.Optional[str]
     _files: typing.Optional[typing.Iterable]
 
@@ -222,6 +222,14 @@ class StartNodeException(TestgresException):
             continue
         result += ")"
         return result
+
+
+class StartNodeException(NodeException):
+    pass
+
+
+class StopNodeException(NodeException):
+    pass
 
 
 class InitNodeException(TestgresException):

@@ -24,6 +24,7 @@ from .exceptions import \
     TimeoutException, \
     CatchUpException, \
     StartNodeException, \
+    StopNodeException, \
     InitNodeException, \
     BackupException, \
     InvalidOperationException
@@ -73,6 +74,7 @@ __all__ = [
     "QueryTimeoutException",
     "TimeoutException", "CatchUpException", "StartNodeException", "InitNodeException", "BackupException", "InvalidOperationException",
     "XLogMethod", "IsolationLevel", "NodeStatus", "ProcessType", "DumpFormat",
+    "StopNodeException",
     "NodeApp",
     "PostgresNode",
     "PortManager",
