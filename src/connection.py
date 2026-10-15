@@ -1,6 +1,4 @@
 # coding: utf-8
-import logging
-
 # we support both pg8000 and psycopg2
 try:
     import psycopg2 as pglib
@@ -106,15 +104,13 @@ class NodeConnection:
 
     def execute(self, query, *args):
         self.cursor.execute(query, args)
-        try:
-            # pg8000 might return tuples
-            res = [tuple(t) for t in self.cursor.fetchall()]
-            return res
-        except ProgrammingError:
+
+        if self.cursor.description is None:
             return None
-        except Exception as e:
-            logging.error("Error executing query: {}\n {}".format(repr(e), query))
-            return None
+
+        # pg8000 might return tuples
+        res = [tuple(t) for t in self.cursor.fetchall()]
+        return res
 
     def close(self):
         self.cursor.close()

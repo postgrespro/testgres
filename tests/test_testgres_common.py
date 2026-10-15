@@ -3343,6 +3343,30 @@ where c.relname=%s;"""
             assert node.status() == NodeStatus.Running
         return
 
+    def test_node_connection__execute(
+        self,
+        node_svc: PostgresNodeService,
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+            node.start()
+
+            with node.connect("postgres") as cn:
+                assert cn.execute("create table ttt (id integer);") is None
+                assert cn.execute("insert into ttt values(1);") is None
+                assert cn.execute("update ttt set id=2;") is None
+                assert cn.execute("select id from ttt;") == [(2, )]
+                assert cn.execute("select id from ttt where id=%s;", '2') == [(2, )]
+                assert cn.execute("select id from ttt where id=%s and (id + 1) = %s;", '2', 3) == [(2, )]
+                assert cn.execute("delete from ttt where id=2;") is None
+                assert cn.execute("select id from ttt;") == []
+                assert cn.execute("drop table ttt;") is None
+                pass
+            pass
+        return
+
     @staticmethod
     def helper__get_node(
         node_svc: PostgresNodeService,
