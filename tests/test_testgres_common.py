@@ -525,29 +525,28 @@ class TestTestgresCommon:
             with pytest.raises(expected_exception=Exception) as x:
                 node.slow_start(max_attempts=10)
 
+            assert x is not None
+            assert isinstance(x.value, Exception)
+
             TestServices.PrintExceptionOK(x.value)
-            pass
 
-        assert x is not None
-        assert isinstance(x.value, Exception)
+            if type(x.value) is StartNodeException:
+                assert x.value.description == "Cannot detect postmaster pid."
+                return False
 
-        if type(x.value) is StartNodeException:
-            assert x.value.description == "Cannot detect postmaster pid."
-            return False
+            if type(x.value) is ConnectionResetError:
+                # pg8000
+                assert "Connection reset by peer" in str(x.value)
+                return False
 
-        if type(x.value) is ConnectionResetError:
-            # pg8000
-            assert "Connection reset by peer" in str(x.value)
-            return False
+            if type(x.value) is StopNodeException:
+                return True
 
-        if type(x.value) is StopNodeException:
+            assert not node.is_started
+            assert node.status() == NodeStatus.Stopped
+
+            assert type(x.value) is QueryTimeoutException
             return True
-
-        assert not node.is_started
-        assert node.status() == NodeStatus.Stopped
-
-        assert type(x.value) is QueryTimeoutException
-        return True
 
     def test_restart(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
