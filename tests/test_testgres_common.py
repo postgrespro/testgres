@@ -38,6 +38,7 @@ from src import TestgresException as testgres_TestgresException
 
 from src import InitNodeException
 from src import StartNodeException
+from src import StopNodeException
 from src import QueryException
 from src import ExecUtilException
 from src import QueryTimeoutException
@@ -524,27 +525,28 @@ class TestTestgresCommon:
             with pytest.raises(expected_exception=Exception) as x:
                 node.slow_start(max_attempts=10)
 
+            assert x is not None
+            assert isinstance(x.value, Exception)
+
             TestServices.PrintExceptionOK(x.value)
+
+            if type(x.value) is StartNodeException:
+                assert x.value.description == "Cannot detect postmaster pid."
+                return False
+
+            if type(x.value) is ConnectionResetError:
+                # pg8000
+                assert "Connection reset by peer" in str(x.value)
+                return False
+
+            if type(x.value) is StopNodeException:
+                return True
 
             assert not node.is_started
             assert node.status() == NodeStatus.Stopped
-            pass
 
-        assert x is not None
-        assert isinstance(x.value, Exception)
-        assert x.value.__context__ is None
-
-        if type(x.value) is StartNodeException:
-            assert x.value.description == "Cannot detect postmaster pid."
-            return False
-
-        if type(x.value) is ConnectionResetError:
-            # pg8000
-            assert "Connection reset by peer" in str(x.value)
-            return False
-
-        assert type(x.value) is QueryTimeoutException
-        return True
+            assert type(x.value) is QueryTimeoutException
+            return True
 
     def test_restart(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -643,7 +645,11 @@ class TestTestgresCommon:
                 node.stop()
 
             assert x is not None
-            assert "Is server running?" in str(x.value)
+            e1 = x.value
+            assert type(e1) is StopNodeException
+            e2 = e1.__cause__
+            assert type(e2) is ExecUtilException
+            assert "Is server running?" in str(e2)
 
             assert not node.is_started
 
@@ -2039,7 +2045,7 @@ class TestTestgresCommon:
             try:
                 node.stop(wait=False)
                 break
-            except ExecUtilException as e:
+            except StopNodeException as e:
                 # it's ok to get this exception here since node
                 # could be not started yet
                 logging.info("Node is not stopped. Exception ({0}): {1}".format(type(e).__name__, e))
