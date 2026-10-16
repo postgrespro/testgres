@@ -294,7 +294,6 @@ def test_cleanup_when_postgres_was_sigkilled(capsys):
     p = lab.create_primary("p1", node_ip(lab, 10))
     p.init().start()
 
-    postmaster_pid = p.execute("select pg_postmaster_start_time() is not null, pg_backend_pid()")[0][1]
 
     # Find actual postmaster pid from postmaster.pid, then kill -9 it.
     pgdata = Path(p.pg.data_dir)
