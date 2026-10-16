@@ -310,17 +310,45 @@ class PostgresNode:
         # TODO: Throw the exception "Please define a port manager." ?
         return PortManager__Generic2(os_ops)
 
-    def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
+    def clone_with_new_name_and_base_dir(
+        self,
+        name: str,
+        base_dir: str,
+        target_os_ops: typing.Optional[OsOperations] = None,
+        target_host: typing.Optional[str] = None,
+        target_port: typing.Optional[int] = None,
+    ):
         assert name is None or type(name) is str
         assert base_dir is None or type(base_dir) is str
+        assert target_os_ops is None or isinstance(target_os_ops, OsOperations)
+        assert target_host is None or type(target_host) is str
+        assert target_port is None or type(target_port) is int
 
         assert __class__ == PostgresNode
 
-        if self._port_manager is None:
-            raise InvalidOperationException("PostgresNode without PortManager can't be cloned.")
+        if target_os_ops is None:
+            target_os_ops = self._os_ops
 
-        assert self._port_manager is not None
-        assert isinstance(self._port_manager, PortManager)
+        same_os_ops = target_os_ops is self._os_ops
+
+        if target_port is None and same_os_ops:
+            if self._port_manager is None:
+                raise InvalidOperationException(
+                    "PostgresNode without PortManager can't be cloned."
+                )
+
+            target_port_manager = self._port_manager
+        else:
+            target_port_manager = None
+
+        # Paths and default host names belong to an OsOperations context.
+        # Reusing them for another context is only safe when it is the same
+        # OsOperations object.  Otherwise let PostgresNode resolve them using
+        # the target environment.
+        target_bin_dir = self._bin_dir if same_os_ops else None
+        if target_host is None and same_os_ops:
+            target_host = self._host
+
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
         assert type(self._host) is str
@@ -328,11 +356,12 @@ class PostgresNode:
         node = PostgresNode(
             name=name,
             base_dir=base_dir,
-            bin_dir=self._bin_dir,
+            port=target_port,
+            bin_dir=target_bin_dir,
             prefix=self._prefix,
-            os_ops=self._os_ops,
-            port_manager=self._port_manager,
-            host=self._host,
+            os_ops=target_os_ops,
+            port_manager=target_port_manager,
+            host=target_host,
         )
 
         return node
@@ -529,9 +558,6 @@ class PostgresNode:
             raise TestgresException("Node doesn't have a master")
 
         assert type(self.master) is PostgresNode
-
-        # master should be on the same host
-        assert self.master.host == self._host
 
         with self.master.connect() as con:
             for row in con.execute(sql, self.name):
@@ -2014,6 +2040,10 @@ class PostgresNode:
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
             base_dir: the base directory for data files and logs
+            os_ops: execution context where pg_basebackup is run and the
+                backup is stored. If omitted, use this node's os_ops. This
+                node must be reachable from that context using its configured
+                host and port.
 
         Returns:
             A smart object of type NodeBackup.
@@ -2028,6 +2058,9 @@ class PostgresNode:
         self,
         name=None,
         slot=None,
+        target_os_ops=None,
+        target_host=None,
+        target_port=None,
         **kwargs,
     ):
         """
@@ -2036,17 +2069,37 @@ class PostgresNode:
         Args:
             name: replica's application name.
             slot: create a replication slot with the specified name.
+            target_os_ops: OS operations object for the replica. If omitted,
+                use this node's os_ops. pg_basebackup is executed in this
+                context and writes the backup directly there. The primary must
+                be reachable from this context using its configured host and
+                port.
+            target_host: host/address for the replica. If omitted, preserve
+                the source host in the same execution context, otherwise use
+                the host from target_os_ops.
+            target_port: explicit port for the replica. If omitted, reserve a
+                port in the target execution context.
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
             base_dir: the base directory for data files and logs
         """
 
-        # transform backup into a replica
-        with utils.clean_on_error(self.backup(**kwargs)) as backup:
+        backup_os_ops = (
+            target_os_ops if target_os_ops is not None else self._os_ops
+        )
+
+        # Create the backup in the same execution context where the replica
+        # will live.  This avoids copying a backup across OsOperations
+        # instances and also makes _prepare_dir() operate in the right context.
+        with utils.clean_on_error(
+            self.backup(os_ops=backup_os_ops, **kwargs)
+        ) as backup:
             return backup.spawn_replica(
                 name=name,
                 destroy=True,
                 slot=slot,
+                target_host=target_host,
+                target_port=target_port,
             )
 
     def set_synchronous_standbys(self, standbys):

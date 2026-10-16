@@ -35,7 +35,8 @@ class NodeBackup:
                  base_dir=None,
                  username=None,
                  xlog_method=XLogMethod.fetch,
-                 options=None):
+                 options=None,
+                 os_ops=None):
         """
         Create a new backup.
 
@@ -44,13 +45,18 @@ class NodeBackup:
             base_dir: where should we store it?
             username: database user name.
             xlog_method: none | fetch | stream (see docs)
+            os_ops: execution context where pg_basebackup is run and the
+                backup is stored. If omitted, use the source node's os_ops.
+                The source node must be reachable from this context using its
+                configured host and port.
         """
         assert node.os_ops is not None
         assert isinstance(node.os_ops, OsOperations)
+        assert os_ops is None or isinstance(os_ops, OsOperations)
 
         if not options:
             options = []
-        self.os_ops = node.os_ops
+        self.os_ops = os_ops if os_ops is not None else node.os_ops
         if not node.status():
             raise BackupException('Node must be running')
 
@@ -63,7 +69,9 @@ class NodeBackup:
                 raise BackupException(msg)
 
         # Set default arguments
-        username = username or self.os_ops.get_user()
+        # The username belongs to the source PostgreSQL instance, not to the
+        # environment where pg_basebackup happens to run.
+        username = username or node.os_ops.get_user()
         base_dir = base_dir or self.os_ops.mkdtemp(prefix=TMP_BACKUP)
 
         # public
@@ -139,13 +147,24 @@ class NodeBackup:
         # Return path to new node
         return dest_base_dir
 
-    def spawn_primary(self, name=None, destroy=True):
+    def spawn_primary(
+        self,
+        name=None,
+        destroy=True,
+        target_host=None,
+        target_port=None,
+    ):
         """
         Create a primary node from a backup.
 
         Args:
             name: primary's application name.
             destroy: should we convert this backup into a node?
+            target_host: host/address for the new node. If omitted, preserve
+                the source host when the backup uses the source os_ops,
+                otherwise use the backup os_ops host.
+            target_port: explicit port for the new node. If omitted, reserve a
+                port in the backup's execution context.
 
         Returns:
             New instance of :class:`.PostgresNode`.
@@ -157,19 +176,37 @@ class NodeBackup:
         # Build a new PostgresNode
         assert self.original_node is not None
 
-        node = self.original_node.clone_with_new_name_and_base_dir(name=name, base_dir=base_dir)
+        node = self.original_node.clone_with_new_name_and_base_dir(
+            name=name,
+            base_dir=base_dir,
+            target_os_ops=self.os_ops,
+            target_host=target_host,
+            target_port=target_port,
+        )
 
         assert node is not None
         assert type(node) is self.original_node.__class__
 
         with clean_on_error(node) as node:
-            # Set a new port
+            # The backup contains the source node's connection settings.
+            # Override settings that belong to the spawned node.
             node.append_conf(filename=PG_CONF_FILE, line='\n')
-            node.append_conf(filename=PG_CONF_FILE, port=node.port)
+            node.append_conf(
+                filename=PG_CONF_FILE,
+                listen_addresses=node.host,
+                port=node.port,
+            )
 
             return node
 
-    def spawn_replica(self, name=None, destroy=True, slot=None):
+    def spawn_replica(
+        self,
+        name=None,
+        destroy=True,
+        slot=None,
+        target_host=None,
+        target_port=None,
+    ):
         """
         Create a replica of the original node from a backup.
 
@@ -177,13 +214,23 @@ class NodeBackup:
             name: replica's application name.
             slot: create a replication slot with the specified name.
             destroy: should we convert this backup into a node?
+            target_host: host/address for the replica. If omitted, preserve
+                the source host when the backup uses the source os_ops,
+                otherwise use the backup os_ops host.
+            target_port: explicit port for the replica. If omitted, reserve a
+                port in the backup's execution context.
 
         Returns:
             New instance of :class:`.PostgresNode`.
         """
 
         # Build a new PostgresNode
-        node = self.spawn_primary(name=name, destroy=destroy)
+        node = self.spawn_primary(
+            name=name,
+            destroy=destroy,
+            target_host=target_host,
+            target_port=target_port,
+        )
         assert node is not None
 
         try:
