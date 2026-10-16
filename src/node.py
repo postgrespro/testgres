@@ -10,7 +10,7 @@ from .cache import cached_initdb
 
 from .config import testgres_config
 
-from .connection import NodeConnection
+from .connection import NodeConnection, pglib
 
 from .consts import \
     DATA_DIR, \
@@ -46,6 +46,7 @@ from .exceptions import \
     QueryException,     \
     QueryTimeoutException, \
     StartNodeException, \
+    StopNodeException, \
     TimeoutException,   \
     InitNodeException,  \
     TestgresException,  \
@@ -55,6 +56,7 @@ from .exceptions import \
 from .port_manager import PortManager
 from .impl.port_manager__this_host import PortManager__ThisHost
 from .impl.port_manager__generic2 import PortManager__Generic2
+from .impl.error_utils import ErrorUtils
 from .impl import internal_utils
 
 from .logger import TestgresLogger
@@ -68,6 +70,7 @@ from .raise_error import RaiseError
 from .backup import NodeBackup
 
 from . import utils
+from . import exceptions
 
 from testgres.operations.os_ops import OsOperations
 from testgres.operations.os_ops import OsCommandResult
@@ -82,22 +85,14 @@ import subprocess
 import time
 import typing
 
-# we support both pg8000 and psycopg2
-try:
-    import psycopg2 as pglib
-except ImportError:
-    try:
-        import pg8000 as pglib
-    except ImportError:
-        raise ImportError("You must have psycopg2 or pg8000 modules installed")
+InternalError = exceptions.NodeConnectionInternalException
+ProgrammingError = exceptions.NodeConnectionProgrammingException
+OperationalError = exceptions.NodeConnectionOperationalException
+InterfaceError = exceptions.NodeConnectionInterfaceException
 
 
-InternalError = pglib.InternalError
-ProgrammingError = pglib.ProgrammingError
-OperationalError = pglib.OperationalError
-InterfaceError = pglib.InterfaceError
-
-
+# to backward compatibility
+assert pglib is not None
 assert TimeoutException == QueryTimeoutException
 
 
@@ -1209,15 +1204,23 @@ class PostgresNode:
                 suppress=suppressed_exceptions,
                 max_attempts=max_attempts,
             )
-        except:  # noqa: E722
-            state = self._get_node_state()
-
-            if state.node_status == NodeStatus.Running:
-                assert type(state.pid) is int
+        except BaseException as exc1:
+            internal_utils.send_log_debug(
+                "Failed to wait for node initialization. {}".format(
+                    ErrorUtils.ExceptionToHumanText(exc1)
+                )
+            )
+            try:
                 self.stop()
-            else:
-                self._manually_started_pm_pid = state.pid
-
+            except BaseException as exc2:
+                internal_utils.send_log_debug(
+                    "Failed to stop a node after initialization failure. {}".format(
+                        ErrorUtils.ExceptionToHumanText(exc2)
+                    )
+                )
+                # Try to stabilization our internal state
+                self._manually_started_pm_pid = self._get_node_state().pid
+                raise
             raise
         return
 
@@ -1427,6 +1430,10 @@ class PostgresNode:
                 logfile=self.utils_log_file,
             )
             self._manually_started_pm_pid = None
+        except ExecUtilException as e:
+            msg = 'Cannot stop node'
+            files = self._collect_special_files()
+            raise StopNodeException(msg, files) from e
         finally:
             # always stop the reader thread, even if pg_ctl stop failed,
             # so it can't leak into interpreter shutdown.
