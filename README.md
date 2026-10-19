@@ -120,34 +120,6 @@ with testgres.get_new_node('master') as master:
         print(replica.execute('postgres', 'select 1'))
 ```
 
-### Linux fault injection with PgLab
-
-`testgres.pglab` builds Linux-isolated PostgreSQL nodes on top of the normal
-Testgres lifecycle. Each PgLab node gets its own network namespace and cgroup,
-while Testgres still owns `initdb`, `pg_ctl`, `pg_basebackup`, replication and
-SQL access.
-
-This is also a concrete use case for the target execution-context arguments of
-`PostgresNode.replicate()`: a replica must be created with its own
-`OsOperations`, host and port, and `pg_basebackup` must run in that target
-context.
-
-```python
-from testgres.pglab import PgLab
-
-with PgLab(pg_bin='/path/to/postgres/bin', os_user='postgres') as lab:
-    primary = lab.create_primary('p1', '10.203.0.10').init().start()
-    replica = lab.create_replica('p1', 'r1', '10.203.0.11').start()
-    replica.catchup()
-
-    lab.partition('p1', 'r1')
-    lab.heal_partition('p1', 'r1')
-```
-
-PgLab is Linux-only and currently requires root privileges because it creates
-network namespaces, veth devices and cgroups. Its privileged integration suite
-is run separately in CI.
-
 ### Benchmarks
 
 Use `pgbench` through `testgres` to run quick benchmarks:
