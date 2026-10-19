@@ -461,6 +461,7 @@ class PgLab:
         self._firewall_source_added = False
         self._iptables_rule_added = False
 
+
         hosts = self.subnet.hosts()
         default_bridge_ip = str(next(hosts))
         self.bridge_ip = bridge_ip or default_bridge_ip
