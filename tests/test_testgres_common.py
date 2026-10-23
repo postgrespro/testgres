@@ -2386,7 +2386,7 @@ class TestTestgresCommon:
             # create new publication and subscription for specific table
             # (omitting copying data as it's already done)
             pub = node1.publish('newpub', tables=['test'])
-            sub = node2.subscribe(pub, 'newsub', copy_data=False)
+            sub = node2.subscribe(pub, 'newsub', copy_data=False, enabled=True)
 
             node1.safe_psql('insert into test values (4, 4)')
             sub.catchup()

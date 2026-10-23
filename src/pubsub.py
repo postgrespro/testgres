@@ -183,7 +183,7 @@ class Subscription:
 
         # additional parameters
         if params:
-            query += " with ({})".format(options_string(**params))
+            query += " with ({})".format(options_string(separator=", ", **params))
 
         # Note: cannot run 'create subscription' query in transaction mode
         self.node.execute(
