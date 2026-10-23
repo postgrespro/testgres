@@ -1,6 +1,10 @@
 # /////////////////////////////////////////////////////////////////////////////
 # PyTest Configuration
 
+from .conftest_helpers import TestStartupData
+from .conftest_helpers import TestServices
+from .conftest_helpers import TestExitStatus
+
 import pluggy
 import pytest
 import os
@@ -10,16 +14,12 @@ import math
 import datetime
 import typing
 import enum
+import threading
 
 import _pytest.outcomes
-import _pytest.unittest
 import _pytest.logging
 
 from packaging.version import Version
-
-# /////////////////////////////////////////////////////////////////////////////
-
-C_ROOT_DIR__RELATIVE = ".."
 
 # /////////////////////////////////////////////////////////////////////////////
 
@@ -58,117 +58,14 @@ class T_TEST_PROCESS_MODE(enum.Enum):
 
 
 # /////////////////////////////////////////////////////////////////////////////
-
-g_test_process_kind: typing.Optional[T_TEST_PROCESS_KIND] = None
-g_test_process_mode: typing.Optional[T_TEST_PROCESS_MODE] = None
-
-g_worker_log_is_created: typing.Optional[bool] = None
-
-# /////////////////////////////////////////////////////////////////////////////
-# TestConfigPropNames
+# TPDATA
 
 
-class TestConfigPropNames:
-    TEST_CFG__LOG_DIR = "TEST_CFG__LOG_DIR"
+class TPDATA:
+    test_process_kind: typing.Optional[T_TEST_PROCESS_KIND] = None
+    test_process_mode: typing.Optional[T_TEST_PROCESS_MODE] = None
+    worker_log_is_created: typing.Optional[bool] = None
 
-
-# /////////////////////////////////////////////////////////////////////////////
-# TestStartupData__Helper
-
-
-class TestStartupData__Helper:
-    sm_StartTS = datetime.datetime.now()
-
-    # --------------------------------------------------------------------
-    @staticmethod
-    def GetStartTS() -> datetime.datetime:
-        assert type(__class__.sm_StartTS) is datetime.datetime
-        return __class__.sm_StartTS
-
-    # --------------------------------------------------------------------
-    @staticmethod
-    def CalcRootDir() -> str:
-        r = os.path.abspath(__file__)
-        r = os.path.dirname(r)
-        r = os.path.join(r, C_ROOT_DIR__RELATIVE)
-        r = os.path.abspath(r)
-        return r
-
-    # --------------------------------------------------------------------
-    @staticmethod
-    def CalcRootLogDir() -> str:
-        if TestConfigPropNames.TEST_CFG__LOG_DIR in os.environ:
-            resultPath = os.environ[TestConfigPropNames.TEST_CFG__LOG_DIR]
-        else:
-            rootDir = __class__.CalcRootDir()
-            resultPath = os.path.join(rootDir, "logs")
-
-        assert type(resultPath) is str
-        return resultPath
-
-    # --------------------------------------------------------------------
-    @staticmethod
-    def CalcCurrentTestWorkerSignature() -> str:
-        currentPID = os.getpid()
-        assert type(currentPID) is int
-
-        startTS = __class__.sm_StartTS
-        assert type(startTS) is datetime.datetime
-
-        result = "pytest-{0:04d}{1:02d}{2:02d}_{3:02d}{4:02d}{5:02d}".format(
-            startTS.year,
-            startTS.month,
-            startTS.day,
-            startTS.hour,
-            startTS.minute,
-            startTS.second,
-        )
-
-        gwid = os.environ.get("PYTEST_XDIST_WORKER")
-
-        if gwid is not None:
-            result += "--xdist_" + str(gwid)
-
-        result += "--" + "pid" + str(currentPID)
-        return result
-
-
-# /////////////////////////////////////////////////////////////////////////////
-# TestStartupData
-
-
-class TestStartupData:
-    sm_RootDir: str = TestStartupData__Helper.CalcRootDir()
-    sm_CurrentTestWorkerSignature: str = (
-        TestStartupData__Helper.CalcCurrentTestWorkerSignature()
-    )
-
-    sm_RootLogDir: str = TestStartupData__Helper.CalcRootLogDir()
-
-    # --------------------------------------------------------------------
-    @staticmethod
-    def GetRootDir() -> str:
-        assert type(__class__.sm_RootDir) is str
-        return __class__.sm_RootDir
-
-    # --------------------------------------------------------------------
-    @staticmethod
-    def GetRootLogDir() -> str:
-        assert type(__class__.sm_RootLogDir) is str
-        return __class__.sm_RootLogDir
-
-    # --------------------------------------------------------------------
-    @staticmethod
-    def GetCurrentTestWorkerSignature() -> str:
-        assert type(__class__.sm_CurrentTestWorkerSignature) is str
-        return __class__.sm_CurrentTestWorkerSignature
-
-
-# /////////////////////////////////////////////////////////////////////////////
-# TEST_PROCESS_STATS
-
-
-class TEST_PROCESS_STATS:
     cTotalTests: int = 0
     cNotExecutedTests: int = 0
     cExecutedTests: int = 0
@@ -201,6 +98,7 @@ class TEST_PROCESS_STATS:
         __class__.cTotalTests += 1
 
         assert __class__.cTotalTests > 0
+        return
 
     # --------------------------------------------------------------------
     @staticmethod
@@ -211,6 +109,7 @@ class TEST_PROCESS_STATS:
         __class__.cNotExecutedTests += 1
 
         assert __class__.cNotExecutedTests > 0
+        return
 
     # --------------------------------------------------------------------
     @staticmethod
@@ -232,6 +131,7 @@ class TEST_PROCESS_STATS:
         __class__.cPassedTests += 1
 
         assert __class__.cPassedTests > 0
+        return
 
     # --------------------------------------------------------------------
     @staticmethod
@@ -257,6 +157,7 @@ class TEST_PROCESS_STATS:
         __class__.cTotalErrors += errCount
 
         assert __class__.cTotalErrors > 0
+        return
 
     # --------------------------------------------------------------------
     @staticmethod
@@ -274,6 +175,7 @@ class TEST_PROCESS_STATS:
         assert len(__class__.XFailedTests) > 0
         assert __class__.cXFailedTests > 0
         assert len(__class__.XFailedTests) == __class__.cXFailedTests
+        return
 
     # --------------------------------------------------------------------
     @staticmethod
@@ -284,6 +186,7 @@ class TEST_PROCESS_STATS:
         __class__.cSkippedTests += 1
 
         assert __class__.cSkippedTests > 0
+        return
 
     # --------------------------------------------------------------------
     @staticmethod
@@ -299,6 +202,7 @@ class TEST_PROCESS_STATS:
         assert len(__class__.NotXFailedTests) > 0
         assert __class__.cNotXFailedTests > 0
         assert len(__class__.NotXFailedTests) == __class__.cNotXFailedTests
+        return
 
     # --------------------------------------------------------------------
     @staticmethod
@@ -325,6 +229,7 @@ class TEST_PROCESS_STATS:
         __class__.cTotalWarnings += warningCount
 
         assert __class__.cTotalWarnings > 0
+        return
 
     # --------------------------------------------------------------------
     @staticmethod
@@ -335,6 +240,7 @@ class TEST_PROCESS_STATS:
         __class__.cUnexpectedTests += 1
 
         assert __class__.cUnexpectedTests > 0
+        return
 
     # --------------------------------------------------------------------
     @staticmethod
@@ -350,6 +256,7 @@ class TEST_PROCESS_STATS:
         assert len(__class__.AchtungTests) > 0
         assert __class__.cAchtungTests > 0
         assert len(__class__.AchtungTests) == __class__.cAchtungTests
+        return
 
 
 # /////////////////////////////////////////////////////////////////////////////
@@ -397,6 +304,14 @@ def helper__build_test_id(item: pytest.Function) -> str:
 # /////////////////////////////////////////////////////////////////////////////
 
 
+def helper__exc_to_text(exc: BaseException) -> str:
+    assert isinstance(exc, BaseException)
+    return TestServices.ExceptionToHumanText(exc)
+
+
+# /////////////////////////////////////////////////////////////////////////////
+
+
 def helper__makereport__setup(
     item: pytest.Function, call: pytest.CallInfo, outcome: T_PLUGGY_RESULT
 ):
@@ -412,20 +327,20 @@ def helper__makereport__setup(
 
     # logging.info("pytest_runtest_makereport - setup")
 
-    TEST_PROCESS_STATS.incrementTotalTestCount()
+    TPDATA.incrementTotalTestCount()
 
     rep: pytest.TestReport = outcome.get_result()
     assert rep is not None
     assert type(rep) is pytest.TestReport
 
     if rep.outcome == "skipped":
-        TEST_PROCESS_STATS.incrementNotExecutedTestCount()
+        TPDATA.incrementNotExecutedTestCount()
         return
 
     testID = helper__build_test_id(item)
 
     if rep.outcome == "passed":
-        testNumber = TEST_PROCESS_STATS.incrementExecutedTestCount()
+        testNumber = TPDATA.incrementExecutedTestCount()
 
         logging.info(C_LINE1)
         logging.info("* START TEST {0}".format(testID))
@@ -437,7 +352,7 @@ def helper__makereport__setup(
 
     assert rep.outcome != "passed"
 
-    TEST_PROCESS_STATS.incrementAchtungTestCount(testID)
+    TPDATA.incrementAchtungTestCount(testID)
 
     logging.info(C_LINE1)
     logging.info("* ACHTUNG TEST {0}".format(testID))
@@ -449,20 +364,10 @@ def helper__makereport__setup(
         assert call.excinfo is not None
         assert call.excinfo.value is not None
         logging.info("*")
-        logging.error(call.excinfo.value)
+        logging.error(helper__exc_to_text(call.excinfo.value))
 
     logging.info("*")
     return
-
-
-# ------------------------------------------------------------------------
-class ExitStatusNames:
-    FAILED = "FAILED"
-    PASSED = "PASSED"
-    XFAILED = "XFAILED"
-    NOT_XFAILED = "NOT XFAILED"
-    SKIPPED = "SKIPPED"
-    UNEXPECTED = "UNEXPECTED"
 
 
 # ------------------------------------------------------------------------
@@ -513,7 +418,7 @@ def helper__makereport__call(
     assert type(testDurration) is datetime.timedelta
 
     # --------
-    exitStatus = None
+    exitStatus: typing.Optional[TestExitStatus] = None
     exitStatusInfo = None
     if rep.outcome == "skipped":
         assert call.excinfo is not None  # research
@@ -522,21 +427,21 @@ def helper__makereport__call(
         if type(call.excinfo.value) is _pytest.outcomes.Skipped:
             assert not hasattr(rep, "wasxfail")
 
-            exitStatus = ExitStatusNames.SKIPPED
+            exitStatus = TestExitStatus.SKIPPED
             reasonText = str(call.excinfo.value)
             reasonMsgTempl = "SKIP REASON: {0}"
 
-            TEST_PROCESS_STATS.incrementSkippedTestCount()
+            TPDATA.incrementSkippedTestCount()
 
         elif type(call.excinfo.value) is _pytest.outcomes.XFailed:
-            exitStatus = ExitStatusNames.XFAILED
+            exitStatus = TestExitStatus.XFAILED
             reasonText = str(call.excinfo.value)
             reasonMsgTempl = "XFAIL REASON: {0}"
 
-            TEST_PROCESS_STATS.incrementXFailedTestCount(testID, item_error_msg_count)
+            TPDATA.incrementXFailedTestCount(testID, item_error_msg_count)
 
         else:
-            exitStatus = ExitStatusNames.XFAILED
+            exitStatus = TestExitStatus.XFAILED
             assert hasattr(rep, "wasxfail")
             assert rep.wasxfail is not None
             assert type(rep.wasxfail) is str
@@ -547,10 +452,10 @@ def helper__makereport__call(
             if type(call.excinfo.value) is SIGNAL_EXCEPTION:
                 pass
             else:
-                logging.error(call.excinfo.value)
+                logging.error(helper__exc_to_text(call.excinfo.value))
                 item_error_msg_count += 1
 
-            TEST_PROCESS_STATS.incrementXFailedTestCount(testID, item_error_msg_count)
+            TPDATA.incrementXFailedTestCount(testID, item_error_msg_count)
 
         assert type(reasonText) is str
 
@@ -567,20 +472,20 @@ def helper__makereport__call(
             assert item_error_msg_count > 0
             pass
         else:
-            logging.error(call.excinfo.value)
+            logging.error(helper__exc_to_text(call.excinfo.value))
             item_error_msg_count += 1
 
         assert item_error_msg_count > 0
-        TEST_PROCESS_STATS.incrementFailedTestCount(testID, item_error_msg_count)
+        TPDATA.incrementFailedTestCount(testID, item_error_msg_count)
 
-        exitStatus = ExitStatusNames.FAILED
+        exitStatus = TestExitStatus.FAILED
     elif rep.outcome == "passed":
         assert call.excinfo is None
 
         if hasattr(rep, "wasxfail"):
             assert type(rep.wasxfail) is str
 
-            TEST_PROCESS_STATS.incrementNotXFailedTests(testID)
+            TPDATA.incrementNotXFailedTests(testID)
 
             warnMsg = "NOTE: Test is marked as xfail"
 
@@ -588,41 +493,44 @@ def helper__makereport__call(
                 warnMsg += " [" + rep.wasxfail + "]"
 
             logging.info(warnMsg)
-            exitStatus = ExitStatusNames.NOT_XFAILED
+            exitStatus = TestExitStatus.NOT_XFAILED
         else:
             assert not hasattr(rep, "wasxfail")
 
-            TEST_PROCESS_STATS.incrementPassedTestCount()
-            exitStatus = ExitStatusNames.PASSED
+            TPDATA.incrementPassedTestCount()
+            exitStatus = TestExitStatus.PASSED
     else:
-        TEST_PROCESS_STATS.incrementUnexpectedTests()
-        exitStatus = ExitStatusNames.UNEXPECTED
+        TPDATA.incrementUnexpectedTests()
+        exitStatus = TestExitStatus.UNEXPECTED
         exitStatusInfo = rep.outcome
         # [2025-03-28] It may create a useless problem in new environment.
         # assert False
 
     # --------
     if item_warning_msg_count > 0:
-        TEST_PROCESS_STATS.incrementWarningTestCount(testID, item_warning_msg_count)
+        TPDATA.incrementWarningTestCount(testID, item_warning_msg_count)
 
     # --------
     assert exitStatus is not None
-    assert type(exitStatus) is str
+    assert type(exitStatus) is TestExitStatus
 
-    if exitStatus == ExitStatusNames.FAILED:
-        assert item_error_msg_count > 0
-        pass
+    assert exitStatus != TestExitStatus.FAILED or item_error_msg_count > 0
+
+    TestServices.CleanTestTmpDirBeforeExit(
+        item,
+        exitStatus,
+    )
 
     # --------
-    assert type(TEST_PROCESS_STATS.cTotalDuration) is datetime.timedelta
+    assert type(TPDATA.cTotalDuration) is datetime.timedelta
     assert type(testDurration) is datetime.timedelta
 
-    TEST_PROCESS_STATS.cTotalDuration += testDurration
+    TPDATA.cTotalDuration += testDurration
 
-    assert testDurration <= TEST_PROCESS_STATS.cTotalDuration
+    assert testDurration <= TPDATA.cTotalDuration
 
     # --------
-    exitStatusLineData = exitStatus
+    exitStatusLineData = exitStatus.value
 
     if exitStatusInfo is not None:
         exitStatusLineData += " [{}]".format(exitStatusInfo)
@@ -637,6 +545,7 @@ def helper__makereport__call(
     logging.info("*")
     logging.info("* STOP TEST {0}".format(testID))
     logging.info("*")
+    return
 
 
 # /////////////////////////////////////////////////////////////////////////////
@@ -689,6 +598,7 @@ def pytest_runtest_makereport(item: pytest.Function, call: pytest.CallInfo):
 
 
 class LogWrapper2:
+    _guard: threading.Lock
     _old_method: typing.Any
     _err_counter: typing.Optional[int]
     _warn_counter: typing.Optional[int]
@@ -697,14 +607,18 @@ class LogWrapper2:
 
     # --------------------------------------------------------------------
     def __init__(self):
+        self._guard = threading.Lock()
         self._old_method = None
         self._err_counter = None
         self._warn_counter = None
 
         self._critical_counter = None
+        return
 
     # --------------------------------------------------------------------
     def __enter__(self):
+        assert self._guard is not None
+        # assert isinstance(self._guard, threading.Lock)
         assert self._old_method is None
         assert self._err_counter is None
         assert self._warn_counter is None
@@ -725,6 +639,8 @@ class LogWrapper2:
 
     # --------------------------------------------------------------------
     def __exit__(self, exc_type, exc_val, exc_tb):
+        assert self._guard is not None
+        # assert isinstance(self._guard, threading.Lock)
         assert self._old_method is not None
         assert self._err_counter is not None
         assert self._warn_counter is not None
@@ -746,6 +662,8 @@ class LogWrapper2:
     def __call__(self, record: logging.LogRecord):
         assert record is not None
         assert isinstance(record, logging.LogRecord)
+        assert self._guard is not None
+        # assert isinstance(self._guard, threading.Lock)
         assert self._old_method is not None
         assert self._err_counter is not None
         assert self._warn_counter is not None
@@ -760,15 +678,16 @@ class LogWrapper2:
 
         r = self._old_method(record)
 
-        if record.levelno == logging.ERROR:
-            self._err_counter += 1
-            assert self._err_counter > 0
-        elif record.levelno == logging.WARNING:
-            self._warn_counter += 1
-            assert self._warn_counter > 0
-        elif record.levelno == logging.CRITICAL:
-            self._critical_counter += 1
-            assert self._critical_counter > 0
+        with self._guard:
+            if record.levelno == logging.ERROR:
+                self._err_counter += 1
+                assert self._err_counter > 0
+            elif record.levelno == logging.WARNING:
+                self._warn_counter += 1
+                assert self._warn_counter > 0
+            elif record.levelno == logging.CRITICAL:
+                self._critical_counter += 1
+                assert self._critical_counter > 0
 
         return r
 
@@ -938,28 +857,24 @@ def pytest_sessionfinish():
     # NOTE: It should execute after logging.pytest_sessionfinish
     #
 
-    global g_test_process_kind  # noqa: F824
-    global g_test_process_mode  # noqa: F824
-    global g_worker_log_is_created  # noqa: F824
+    assert TPDATA.test_process_kind is not None
+    assert type(TPDATA.test_process_kind) is T_TEST_PROCESS_KIND
 
-    assert g_test_process_kind is not None
-    assert type(g_test_process_kind) is T_TEST_PROCESS_KIND
-
-    if g_test_process_kind == T_TEST_PROCESS_KIND.Master:
+    if TPDATA.test_process_kind == T_TEST_PROCESS_KIND.Master:
         return
 
-    assert g_test_process_kind == T_TEST_PROCESS_KIND.Worker
+    assert TPDATA.test_process_kind == T_TEST_PROCESS_KIND.Worker
 
-    assert g_test_process_mode is not None
-    assert type(g_test_process_mode) is T_TEST_PROCESS_MODE
+    assert TPDATA.test_process_mode is not None
+    assert type(TPDATA.test_process_mode) is T_TEST_PROCESS_MODE
 
-    if g_test_process_mode == T_TEST_PROCESS_MODE.Collect:
+    if TPDATA.test_process_mode == T_TEST_PROCESS_MODE.Collect:
         return
 
-    assert g_test_process_mode == T_TEST_PROCESS_MODE.ExecTests
+    assert TPDATA.test_process_mode == T_TEST_PROCESS_MODE.ExecTests
 
-    assert type(g_worker_log_is_created) is bool
-    assert g_worker_log_is_created
+    assert type(TPDATA.worker_log_is_created) is bool
+    assert TPDATA.worker_log_is_created
 
     C_LINE1 = "---------------------------"
 
@@ -1004,67 +919,67 @@ def pytest_sessionfinish():
     # fmt: off
     LOCAL__print_test_list(
         "ACHTUNG TESTS",
-        TEST_PROCESS_STATS.cAchtungTests,
-        TEST_PROCESS_STATS.AchtungTests,
+        TPDATA.cAchtungTests,
+        TPDATA.AchtungTests,
     )
 
     LOCAL__print_test_list2(
         "FAILED TESTS",
-        TEST_PROCESS_STATS.cFailedTests,
-        TEST_PROCESS_STATS.FailedTests
+        TPDATA.cFailedTests,
+        TPDATA.FailedTests
     )
 
     LOCAL__print_test_list2(
         "XFAILED TESTS",
-        TEST_PROCESS_STATS.cXFailedTests,
-        TEST_PROCESS_STATS.XFailedTests,
+        TPDATA.cXFailedTests,
+        TPDATA.XFailedTests,
     )
 
     LOCAL__print_test_list(
         "NOT XFAILED TESTS",
-        TEST_PROCESS_STATS.cNotXFailedTests,
-        TEST_PROCESS_STATS.NotXFailedTests,
+        TPDATA.cNotXFailedTests,
+        TPDATA.NotXFailedTests,
     )
 
     LOCAL__print_test_list2(
         "WARNING TESTS",
-        TEST_PROCESS_STATS.cWarningTests,
-        TEST_PROCESS_STATS.WarningTests,
+        TPDATA.cWarningTests,
+        TPDATA.WarningTests,
     )
     # fmt: on
 
     LOCAL__print_line1_with_header("SUMMARY STATISTICS")
     logging.info("")
     logging.info("[TESTS]")
-    logging.info(" TOTAL        : {0}".format(TEST_PROCESS_STATS.cTotalTests))
-    logging.info(" EXECUTED     : {0}".format(TEST_PROCESS_STATS.cExecutedTests))
-    logging.info(" NOT EXECUTED : {0}".format(TEST_PROCESS_STATS.cNotExecutedTests))
-    logging.info(" ACHTUNG      : {0}".format(TEST_PROCESS_STATS.cAchtungTests))
+    logging.info(" TOTAL        : {0}".format(TPDATA.cTotalTests))
+    logging.info(" EXECUTED     : {0}".format(TPDATA.cExecutedTests))
+    logging.info(" NOT EXECUTED : {0}".format(TPDATA.cNotExecutedTests))
+    logging.info(" ACHTUNG      : {0}".format(TPDATA.cAchtungTests))
     logging.info("")
-    logging.info(" PASSED       : {0}".format(TEST_PROCESS_STATS.cPassedTests))
-    logging.info(" FAILED       : {0}".format(TEST_PROCESS_STATS.cFailedTests))
-    logging.info(" XFAILED      : {0}".format(TEST_PROCESS_STATS.cXFailedTests))
-    logging.info(" NOT XFAILED  : {0}".format(TEST_PROCESS_STATS.cNotXFailedTests))
-    logging.info(" SKIPPED      : {0}".format(TEST_PROCESS_STATS.cSkippedTests))
-    logging.info(" WITH WARNINGS: {0}".format(TEST_PROCESS_STATS.cWarningTests))
-    logging.info(" UNEXPECTED   : {0}".format(TEST_PROCESS_STATS.cUnexpectedTests))
+    logging.info(" PASSED       : {0}".format(TPDATA.cPassedTests))
+    logging.info(" FAILED       : {0}".format(TPDATA.cFailedTests))
+    logging.info(" XFAILED      : {0}".format(TPDATA.cXFailedTests))
+    logging.info(" NOT XFAILED  : {0}".format(TPDATA.cNotXFailedTests))
+    logging.info(" SKIPPED      : {0}".format(TPDATA.cSkippedTests))
+    logging.info(" WITH WARNINGS: {0}".format(TPDATA.cWarningTests))
+    logging.info(" UNEXPECTED   : {0}".format(TPDATA.cUnexpectedTests))
     logging.info("")
 
-    assert type(TEST_PROCESS_STATS.cTotalDuration) is datetime.timedelta
+    assert type(TPDATA.cTotalDuration) is datetime.timedelta
 
     LOCAL__print_line1_with_header("TIME")
     logging.info("")
     logging.info(
         " TOTAL DURATION: {0}".format(
-            timedelta_to_human_text(TEST_PROCESS_STATS.cTotalDuration)
+            timedelta_to_human_text(TPDATA.cTotalDuration)
         )
     )
     logging.info("")
 
     LOCAL__print_line1_with_header("TOTAL INFORMATION")
     logging.info("")
-    logging.info(" TOTAL ERROR COUNT  : {0}".format(TEST_PROCESS_STATS.cTotalErrors))
-    logging.info(" TOTAL WARNING COUNT: {0}".format(TEST_PROCESS_STATS.cTotalWarnings))
+    logging.info(" TOTAL ERROR COUNT  : {0}".format(TPDATA.cTotalErrors))
+    logging.info(" TOTAL WARNING COUNT: {0}".format(TPDATA.cTotalWarnings))
     logging.info("")
 
 
@@ -1107,7 +1022,9 @@ def helper__pytest_configure__logging(config: pytest.Config) -> None:
 
     pathlib.Path(log_dir).mkdir(exist_ok=True)
 
-    logging_plugin = config.pluginmanager.get_plugin("logging-plugin")
+    logging_plugin = config.pluginmanager.get_plugin(
+        "logging-plugin",
+    )
 
     assert logging_plugin is not None
     assert isinstance(logging_plugin, _pytest.logging.LoggingPlugin)
@@ -1125,31 +1042,27 @@ def helper__pytest_configure__logging(config: pytest.Config) -> None:
 def pytest_configure(config: pytest.Config) -> None:
     assert isinstance(config, pytest.Config)
 
-    global g_test_process_kind
-    global g_test_process_mode
-    global g_worker_log_is_created
+    assert TPDATA.test_process_kind is None
+    assert TPDATA.test_process_mode is None
+    assert TPDATA.worker_log_is_created is None
 
-    assert g_test_process_kind is None
-    assert g_test_process_mode is None
-    assert g_worker_log_is_created is None
+    TPDATA.test_process_mode = helper__detect_test_process_mode(config)
+    TPDATA.test_process_kind = helper__detect_test_process_kind(config)
 
-    g_test_process_mode = helper__detect_test_process_mode(config)
-    g_test_process_kind = helper__detect_test_process_kind(config)
+    assert type(TPDATA.test_process_kind) is T_TEST_PROCESS_KIND
+    assert type(TPDATA.test_process_mode) is T_TEST_PROCESS_MODE
 
-    assert type(g_test_process_kind) is T_TEST_PROCESS_KIND
-    assert type(g_test_process_mode) is T_TEST_PROCESS_MODE
-
-    if g_test_process_kind == T_TEST_PROCESS_KIND.Master:
+    if TPDATA.test_process_kind == T_TEST_PROCESS_KIND.Master:
         pass
     else:
-        assert g_test_process_kind == T_TEST_PROCESS_KIND.Worker
+        assert TPDATA.test_process_kind == T_TEST_PROCESS_KIND.Worker
 
-        if g_test_process_mode == T_TEST_PROCESS_MODE.Collect:
-            g_worker_log_is_created = False
+        if TPDATA.test_process_mode == T_TEST_PROCESS_MODE.Collect:
+            TPDATA.worker_log_is_created = False
         else:
-            assert g_test_process_mode == T_TEST_PROCESS_MODE.ExecTests
+            assert TPDATA.test_process_mode == T_TEST_PROCESS_MODE.ExecTests
             helper__pytest_configure__logging(config)
-            g_worker_log_is_created = True
+            TPDATA.worker_log_is_created = True
 
     return
 

@@ -24,6 +24,7 @@ from .exceptions import \
     TimeoutException, \
     CatchUpException, \
     StartNodeException, \
+    StopNodeException, \
     InitNodeException, \
     BackupException, \
     InvalidOperationException
@@ -60,7 +61,7 @@ from testgres.operations.os_ops import OsProcessController
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.remote_ops import RemoteOperations
 
-__version__ = "1.16.1"
+__version__ = "1.17.0"
 
 __all__ = [
     "get_new_node",
@@ -73,6 +74,7 @@ __all__ = [
     "QueryTimeoutException",
     "TimeoutException", "CatchUpException", "StartNodeException", "InitNodeException", "BackupException", "InvalidOperationException",
     "XLogMethod", "IsolationLevel", "NodeStatus", "ProcessType", "DumpFormat",
+    "StopNodeException",
     "NodeApp",
     "PostgresNode",
     "PortManager",

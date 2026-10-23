@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ...raise_error import RaiseError
+
 import enum
 import typing
 
@@ -9,7 +11,7 @@ from testgres.operations.os_ops import OsOperations
 class InternalPlatformUtils:
     class FindPostmasterResultCode(enum.Enum):
         ok = 0
-        not_found = 1,
+        not_found = 1
         not_implemented = 2
         many_processes = 3
         has_problems = 4
@@ -59,13 +61,13 @@ class InternalPlatformUtils:
         assert isinstance(os_ops, OsOperations)
         assert type(bin_dir) is str
         assert type(data_dir) is str
-        raise NotImplementedError("InternalPlatformUtils::FindPostmaster is not implemented.")
+        RaiseError.method_is_not_implemented(__class__, "FindPostmaster")
 
-    def ProcessIsZombi_soft_check(
+    def ProcessIsZombie_soft_check(
         self,
         os_ops: OsOperations,
         pid: int,
     ) -> typing.Optional[bool]:
         assert isinstance(os_ops, OsOperations)
         assert type(pid) is int
-        raise NotImplementedError("InternalPlatformUtils::ProcessIsZombi_soft_ver is not implemented.")
+        RaiseError.method_is_not_implemented(__class__, "ProcessIsZombie_soft_check")

@@ -4,35 +4,28 @@ from __future__ import annotations
 from __future__ import division
 from __future__ import print_function
 
-from .exceptions import ExecUtilException, InvalidOperationException
+from .exceptions import InvalidOperationException
 from .config import testgres_config as tconf
-from .raise_error import RaiseError
-from .enums import NodeStatus
-from .consts import PG_CTL__STATUS__OK
-from .consts import PG_CTL__STATUS__NODE_IS_STOPPED
-from .consts import PG_CTL__STATUS__BAD_DATADIR
+from .node_state import PostgresNodeState
+
 from testgres.operations.types import T_OS_CMD
 from testgres.operations.types import T_OS_EXEC_ENV
 from testgres.operations.os_ops import OsOperations
 from testgres.operations.os_ops import OsCommandResult
 from testgres.operations.remote_ops import RemoteOperations
 from testgres.operations.local_ops import LocalOperations
-from testgres.operations.helpers import Helpers as OsHelpers
 
 from . import consts
 
-from .impl.port_manager__generic2 import PortManager__Generic2
-
-from .impl.platforms import internal_platform_utils_factory
 from .impl import internal_utils
+from .impl.internal_node_utils import InternalNodeUtils
+from .impl.port_manager__generic2 import PortManager__Generic2
 
 import os
 import sys
-import time
 import re
 import typing
 
-from six import iteritems
 from contextlib import contextmanager
 from packaging.version import Version, InvalidVersion
 
@@ -141,44 +134,13 @@ def execute_utility3(
     assert type(check) is bool
     assert exec_env is None or type(exec_env) is dict
 
-    exec_r = os_ops.run(
+    return internal_utils.execute_utility3(
+        os_ops,
         args,
-        check=check,
-        encoding=OsHelpers.GetDefaultEncoding(),
-        exec_env=exec_env,
+        logfile,
+        check,
+        exec_env,
     )
-
-    assert type(exec_r) is OsCommandResult
-
-    # write new log entry if possible
-    if logfile:
-        try:
-            log_lines = [
-                os_ops.join_command_arguments(args),
-            ]
-
-            if exec_r.stdout is None:
-                log_lines.append("# #NONE#")
-            else:
-                # comment-out lines
-                assert type(exec_r.stdout) is str
-                log_lines += ['# ' + line for line in exec_r.stdout.splitlines()]
-
-            log_lines.append("")
-
-            os_ops.write(
-                filename=logfile,
-                data="\n".join(log_lines),
-                truncate=False,
-            )
-        except IOError:
-            raise ExecUtilException(
-                "Problem with writing to logfile `{}` during run command `{}`".format(
-                    logfile,
-                    args,
-                ))
-
-    return exec_r
 
 
 def get_bin_path(filename):
@@ -406,8 +368,8 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def options_string(separator=u" ", **kwargs):
-    return separator.join(u"{}={}".format(k, v) for k, v in iteritems(kwargs))
+def options_string(separator=" ", **kwargs):
+    return separator.join("{}={}".format(k, v) for k, v in kwargs.items())
 
 
 @contextmanager
@@ -425,23 +387,6 @@ def clean_on_error(node):
         raise
 
 
-class PostgresNodeState:
-    node_status: NodeStatus
-    pid: typing.Optional[int]
-
-    def __init__(
-        self,
-        node_status: NodeStatus,
-        pid: typing.Optional[int],
-    ):
-        assert type(node_status) is NodeStatus
-        assert pid is None or type(pid) is int
-
-        self.node_status = node_status
-        self.pid = pid
-        return
-
-
 def get_pg_node_state(
     os_ops: OsOperations,
     bin_dir: str,
@@ -453,208 +398,9 @@ def get_pg_node_state(
     assert type(data_dir) is str
     assert utils_log_file is None or type(utils_log_file) is str
 
-    C_MAX_ATTEMPTS = 3
-    C_SLEEP_TIME1 = 1
-    C_SLEEP_TIME_MULT = 2
-
-    _params = [
-        os_ops.build_path(bin_dir, "pg_ctl"),
-        "-D",
+    return InternalNodeUtils.get_pg_node_state(
+        os_ops,
+        bin_dir,
         data_dir,
-        "status",
-    ]
-
-    attempt = 0
-    sleep_time = C_SLEEP_TIME1
-
-    class tagPlaformUtilsProvider:
-        T_PLATFORM_UTILS = internal_platform_utils_factory.InternalPlatformUtils
-
-        _platform_utils: typing.Optional[T_PLATFORM_UTILS] = None
-
-        def __init__(self):
-            self._platform_utils = None
-
-        def get(self) -> T_PLATFORM_UTILS:
-            if self._platform_utils is None:
-                self._platform_utils = internal_platform_utils_factory.create_internal_platform_utils(os_ops)
-                assert isinstance(self._platform_utils, __class__.T_PLATFORM_UTILS)
-
-            assert isinstance(self._platform_utils, __class__.T_PLATFORM_UTILS)
-            return self._platform_utils
-
-    platform_utils_provider = tagPlaformUtilsProvider()
-
-    while True:
-        assert type(attempt) is int
-        assert attempt >= 0
-        assert attempt < C_MAX_ATTEMPTS
-
-        attempt += 1
-
-        if attempt > 1:
-            internal_utils.send_log_debug("Sleep {} second(s) before an attempt #{}".format(
-                sleep_time,
-                attempt,
-            ))
-            time.sleep(sleep_time)
-            sleep_time = sleep_time * C_SLEEP_TIME_MULT
-
-        exec_r = execute_utility3(
-            os_ops,
-            _params,
-            utils_log_file,
-            check=False,
-        )
-
-        status_code = exec_r.returncode
-        out = exec_r.stdout
-        error = exec_r.stderr
-
-        assert type(status_code) is int
-        assert type(out) is str
-        assert type(error) is str
-
-        # -----------------
-        if status_code == PG_CTL__STATUS__NODE_IS_STOPPED:
-            return PostgresNodeState(NodeStatus.Stopped, None)
-
-        # -----------------
-        if status_code == PG_CTL__STATUS__BAD_DATADIR:
-            return PostgresNodeState(NodeStatus.Uninitialized, None)
-
-        # -----------------
-        if status_code == PG_CTL__STATUS__OK:
-            if out == "":
-                RaiseError.pg_ctl_returns_an_empty_string(
-                    _params
-                )
-
-            C_PID_PREFIX = "(PID: "
-
-            i = out.find(C_PID_PREFIX)
-
-            if i == -1:
-                RaiseError.pg_ctl_returns_an_unexpected_string(
-                    out,
-                    _params,
-                )
-
-            assert i > 0
-            assert i < len(out)
-            assert len(C_PID_PREFIX) <= len(out)
-            assert i <= len(out) - len(C_PID_PREFIX)
-
-            i += len(C_PID_PREFIX)
-            start_pid_s = i
-
-            while True:
-                if i == len(out):
-                    RaiseError.pg_ctl_returns_an_unexpected_string(
-                        out,
-                        _params,
-                    )
-
-                ch = out[i]
-
-                if ch == ")":
-                    break
-
-                if ch.isdigit():
-                    i += 1
-                    continue
-
-                RaiseError.pg_ctl_returns_an_unexpected_string(
-                    out,
-                    _params,
-                )
-                assert False
-
-            if i == start_pid_s:
-                RaiseError.pg_ctl_returns_an_unexpected_string(
-                    out,
-                    _params,
-                )
-
-            # TODO: Let's verify a length of pid string.
-
-            pid = int(out[start_pid_s:i])
-
-            if pid == 0:
-                RaiseError.pg_ctl_returns_a_zero_pid(
-                    out,
-                    _params,
-                )
-
-            assert pid != 0
-
-            # ----------------- detect zombie
-            if platform_utils_provider.get().ProcessIsZombi_soft_check(os_ops, pid) is True:
-                internal_utils.send_log_debug("Postmaster process {} is a zombie.".format(
-                    pid,
-                ))
-                return PostgresNodeState(NodeStatus.Zombie, pid)
-
-            # -----------------
-            return PostgresNodeState(NodeStatus.Running, pid)
-
-        assert status_code != PG_CTL__STATUS__OK
-
-        errMsg = "Getting of a node status [data_dir is {0}] failed.".format(
-            data_dir
-        )
-
-        e1 = ExecUtilException(
-            message=errMsg,
-            command=_params,
-            exit_code=status_code,
-            out=out,
-            error=error,
-        )
-
-        pid_file = os_ops.build_path(data_dir, "postmaster.pid")
-
-        postmaster_pid_is_empty = "pg_ctl: the PID file \"{}\" is empty\n".format(
-            pid_file,
-        )
-
-        if error == postmaster_pid_is_empty:
-            internal_utils.send_log_debug(
-                "PID file [{}] is empty. A check is being carried out to ensure that the postmaster is alive [bindir: {}] ...".format(
-                    pid_file,
-                    bin_dir,
-                ))
-
-            try:
-                find_postmaster_r = platform_utils_provider.get().FindPostmaster(
-                    os_ops,
-                    bin_dir,
-                    data_dir,
-                )
-            except Exception as e2:
-                e2.__cause__ = e1
-                raise e2
-
-            assert type(find_postmaster_r) is internal_platform_utils_factory.InternalPlatformUtils.FindPostmasterResult
-
-            if find_postmaster_r.code == internal_platform_utils_factory.InternalPlatformUtils.FindPostmasterResultCode.ok:
-                # Postmaster is alive. Let's wait a few seconds and check its status again.
-                internal_utils.send_log_debug(
-                    "Postmaster is found and has PID {}.".format(
-                        find_postmaster_r.pid,
-                    ))
-
-                if attempt < C_MAX_ATTEMPTS:
-                    continue
-
-        errMsg = "Getting of a node status [data_dir is {0}] failed.".format(
-            data_dir,
-        )
-
-        raise ExecUtilException(
-            message=errMsg,
-            command=_params,
-            exit_code=status_code,
-            out=out,
-            error=error,
-        )
+        utils_log_file,
+    )

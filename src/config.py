@@ -17,7 +17,7 @@ log_format = os.getenv('LOGGING_FORMAT', '%(asctime)s - %(levelname)s - %(messag
 logging.basicConfig(level=log_level, format=log_format)
 
 
-class GlobalConfig(object):
+class GlobalConfig:
     """
     Global configuration object which allows user to override default settings.
     """

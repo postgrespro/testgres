@@ -19,5 +19,9 @@ def create_internal_platform_utils(
         from .win32 import internal_platform_utils as x
         return x.InternalPlatformUtils()
 
+    if platform_name == "darwin":
+        from .darwin import internal_platform_utils as x
+        return x.InternalPlatformUtils()
+
     # not implemented
     return InternalPlatformUtils()

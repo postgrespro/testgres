@@ -10,7 +10,7 @@ from .cache import cached_initdb
 
 from .config import testgres_config
 
-from .connection import NodeConnection
+from .connection import NodeConnection, pglib
 
 from .consts import \
     DATA_DIR, \
@@ -46,6 +46,7 @@ from .exceptions import \
     QueryException,     \
     QueryTimeoutException, \
     StartNodeException, \
+    StopNodeException, \
     TimeoutException,   \
     InitNodeException,  \
     TestgresException,  \
@@ -55,6 +56,7 @@ from .exceptions import \
 from .port_manager import PortManager
 from .impl.port_manager__this_host import PortManager__ThisHost
 from .impl.port_manager__generic2 import PortManager__Generic2
+from .impl.error_utils import ErrorUtils
 from .impl import internal_utils
 
 from .logger import TestgresLogger
@@ -68,12 +70,14 @@ from .raise_error import RaiseError
 from .backup import NodeBackup
 
 from . import utils
+from . import exceptions
 
 from testgres.operations.os_ops import OsOperations
 from testgres.operations.os_ops import OsCommandResult
 from testgres.operations.os_ops import OsProcessController
 from testgres.operations.local_ops import LocalOperations
 
+import ipaddress
 import logging
 import signal
 import subprocess
@@ -81,32 +85,18 @@ import subprocess
 import time
 import typing
 
-try:
-    from collections.abc import Iterable
-except ImportError:
-    from collections import Iterable
-
-# we support both pg8000 and psycopg2
-try:
-    import psycopg2 as pglib
-except ImportError:
-    try:
-        import pg8000 as pglib
-    except ImportError:
-        raise ImportError("You must have psycopg2 or pg8000 modules installed")
-
-from six import raise_from, iteritems, text_type
+InternalError = exceptions.NodeConnectionInternalException
+ProgrammingError = exceptions.NodeConnectionProgrammingException
+OperationalError = exceptions.NodeConnectionOperationalException
+InterfaceError = exceptions.NodeConnectionInterfaceException
 
 
-InternalError = pglib.InternalError
-ProgrammingError = pglib.ProgrammingError
-OperationalError = pglib.OperationalError
-
-
+# to backward compatibility
+assert pglib is not None
 assert TimeoutException == QueryTimeoutException
 
 
-class ProcessProxy(object):
+class ProcessProxy:
     """
     Wrapper for psutil.Process
 
@@ -150,7 +140,7 @@ class ProcessProxy(object):
         return self._ptype
 
 
-class PostgresNode(object):
+class PostgresNode:
     # a max number of node start attempts
     _C_MAX_START_ATEMPTS = 5
 
@@ -320,17 +310,45 @@ class PostgresNode(object):
         # TODO: Throw the exception "Please define a port manager." ?
         return PortManager__Generic2(os_ops)
 
-    def clone_with_new_name_and_base_dir(self, name: str, base_dir: str):
+    def clone_with_new_name_and_base_dir(
+        self,
+        name: str,
+        base_dir: str,
+        target_os_ops: typing.Optional[OsOperations] = None,
+        target_host: typing.Optional[str] = None,
+        target_port: typing.Optional[int] = None,
+    ):
         assert name is None or type(name) is str
         assert base_dir is None or type(base_dir) is str
+        assert target_os_ops is None or isinstance(target_os_ops, OsOperations)
+        assert target_host is None or type(target_host) is str
+        assert target_port is None or type(target_port) is int
 
         assert __class__ == PostgresNode
 
-        if self._port_manager is None:
-            raise InvalidOperationException("PostgresNode without PortManager can't be cloned.")
+        if target_os_ops is None:
+            target_os_ops = self._os_ops
 
-        assert self._port_manager is not None
-        assert isinstance(self._port_manager, PortManager)
+        same_os_ops = target_os_ops is self._os_ops
+
+        if target_port is None and same_os_ops:
+            if self._port_manager is None:
+                raise InvalidOperationException(
+                    "PostgresNode without PortManager can't be cloned."
+                )
+
+            target_port_manager = self._port_manager
+        else:
+            target_port_manager = None
+
+        # Paths and default host names belong to an OsOperations context.
+        # Reusing them for another context is only safe when it is the same
+        # OsOperations object.  Otherwise let PostgresNode resolve them using
+        # the target environment.
+        target_bin_dir = self._bin_dir if same_os_ops else None
+        if target_host is None and same_os_ops:
+            target_host = self._host
+
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
         assert type(self._host) is str
@@ -338,11 +356,12 @@ class PostgresNode(object):
         node = PostgresNode(
             name=name,
             base_dir=base_dir,
-            bin_dir=self._bin_dir,
+            port=target_port,
+            bin_dir=target_bin_dir,
             prefix=self._prefix,
-            os_ops=self._os_ops,
-            port_manager=self._port_manager,
-            host=self._host,
+            os_ops=target_os_ops,
+            port_manager=target_port_manager,
+            host=target_host,
         )
 
         return node
@@ -539,9 +558,6 @@ class PostgresNode(object):
             raise TestgresException("Node doesn't have a master")
 
         assert type(self.master) is PostgresNode
-
-        # master should be on the same host
-        assert self.master.host == self._host
 
         with self.master.connect() as con:
             for row in con.execute(sql, self.name):
@@ -756,7 +772,6 @@ class PostgresNode(object):
 
         # host is tricky
         try:
-            import ipaddress
             ipaddress.ip_address(master.host)
             conninfo["hostaddr"] = master.host
         except ValueError:
@@ -1072,7 +1087,7 @@ class PostgresNode(object):
 
         lines = [line]
 
-        for option, value in iteritems(kwargs):
+        for option, value in kwargs.items():
             if isinstance(value, bool):
                 value = 'on' if value else 'off'
             elif not str(value).replace('.', '', 1).isdigit():
@@ -1086,7 +1101,7 @@ class PostgresNode(object):
         config_name = self._os_ops.build_path(self.data_dir, filename)
         conf_text = ''
         for line in lines:
-            conf_text += text_type(line) + '\n'
+            conf_text += str(line) + '\n'
         self._os_ops.write(config_name, conf_text)
 
         return self
@@ -1179,6 +1194,7 @@ class PostgresNode(object):
                 QueryException,
                 ProgrammingError,
                 OperationalError,
+                InterfaceError,  # pg8000
             }
 
             self.poll_query_until(
@@ -1188,8 +1204,23 @@ class PostgresNode(object):
                 suppress=suppressed_exceptions,
                 max_attempts=max_attempts,
             )
-        except:  # noqa: E722
-            self.stop()
+        except BaseException as exc1:
+            internal_utils.send_log_debug(
+                "Failed to wait for node initialization. {}".format(
+                    ErrorUtils.ExceptionToHumanText(exc1)
+                )
+            )
+            try:
+                self.stop()
+            except BaseException as exc2:
+                internal_utils.send_log_debug(
+                    "Failed to stop a node after initialization failure. {}".format(
+                        ErrorUtils.ExceptionToHumanText(exc2)
+                    )
+                )
+                # Try to stabilization our internal state
+                self._manually_started_pm_pid = self._get_node_state().pid
+                raise
             raise
         return
 
@@ -1368,7 +1399,7 @@ class PostgresNode(object):
         assert from_exception is None or isinstance(from_exception, Exception)
         assert type(msg) is str
         files = self._collect_special_files()
-        raise_from(StartNodeException(msg, files), from_exception)
+        raise StartNodeException(msg, files) from from_exception
 
     def stop(
         self,
@@ -1399,6 +1430,10 @@ class PostgresNode(object):
                 logfile=self.utils_log_file,
             )
             self._manually_started_pm_pid = None
+        except ExecUtilException as e:
+            msg = 'Cannot stop node'
+            files = self._collect_special_files()
+            raise StopNodeException(msg, files) from e
         finally:
             # always stop the reader thread, even if pg_ctl stop failed,
             # so it can't leak into interpreter shutdown.
@@ -1471,7 +1506,7 @@ class PostgresNode(object):
         except ExecUtilException as e:
             msg = 'Cannot restart node'
             files = self._collect_special_files()
-            raise_from(StartNodeException(msg, files), e)
+            raise StartNodeException(msg, files) from e
 
         self._maybe_start_logger()
 
@@ -1715,7 +1750,7 @@ class PostgresNode(object):
         ]  # yapf: disable
 
         # set variables before execution
-        for key, value in iteritems(variables):
+        for key, value in variables.items():
             psql_params.extend(["--set", '{}={}'.format(key, value)])
 
         # select query source
@@ -2005,6 +2040,10 @@ class PostgresNode(object):
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
             base_dir: the base directory for data files and logs
+            os_ops: execution context where pg_basebackup is run and the
+                backup is stored. If omitted, use this node's os_ops. This
+                node must be reachable from that context using its configured
+                host and port.
 
         Returns:
             A smart object of type NodeBackup.
@@ -2019,6 +2058,9 @@ class PostgresNode(object):
         self,
         name=None,
         slot=None,
+        target_os_ops=None,
+        target_host=None,
+        target_port=None,
         **kwargs,
     ):
         """
@@ -2027,17 +2069,37 @@ class PostgresNode(object):
         Args:
             name: replica's application name.
             slot: create a replication slot with the specified name.
+            target_os_ops: OS operations object for the replica. If omitted,
+                use this node's os_ops. pg_basebackup is executed in this
+                context and writes the backup directly there. The primary must
+                be reachable from this context using its configured host and
+                port.
+            target_host: host/address for the replica. If omitted, preserve
+                the source host in the same execution context, otherwise use
+                the host from target_os_ops.
+            target_port: explicit port for the replica. If omitted, reserve a
+                port in the target execution context.
             username: database user name.
             xlog_method: a method for collecting the logs ('fetch' | 'stream').
             base_dir: the base directory for data files and logs
         """
 
-        # transform backup into a replica
-        with utils.clean_on_error(self.backup(**kwargs)) as backup:
+        backup_os_ops = (
+            target_os_ops if target_os_ops is not None else self._os_ops
+        )
+
+        # Create the backup in the same execution context where the replica
+        # will live.  This avoids copying a backup across OsOperations
+        # instances and also makes _prepare_dir() operate in the right context.
+        with utils.clean_on_error(
+            self.backup(os_ops=backup_os_ops, **kwargs)
+        ) as backup:
             return backup.spawn_replica(
                 name=name,
                 destroy=True,
                 slot=slot,
+                target_host=target_host,
+                target_port=target_port,
             )
 
     def set_synchronous_standbys(self, standbys):
@@ -2067,12 +2129,11 @@ class PostgresNode(object):
 
         """
         if self._pg_version >= utils.PgVer('9.6'):
-            if isinstance(standbys, Iterable):
+            if isinstance(standbys, typing.Iterable):
                 standbys = First(1, standbys)
         else:
-            if isinstance(standbys, Iterable):
-                standbys = u", ".join(u"\"{}\"".format(r.name)
-                                      for r in standbys)
+            if isinstance(standbys, typing.Iterable):
+                standbys = ", ".join("\"{}\"".format(r.name) for r in standbys)
             else:
                 raise TestgresException(
                     "Feature isn't supported in "
@@ -2112,7 +2173,7 @@ class PostgresNode(object):
                 max_attempts=0,
             )
         except Exception as e:
-            raise_from(CatchUpException("Failed to catch up."), e)
+            raise CatchUpException("Failed to catch up.") from e
 
     def publish(self, name, **kwargs):
         """
@@ -2283,7 +2344,7 @@ class PostgresNode(object):
             "-U", username or self._os_ops.username
         ] + options  # yapf: disable
 
-        for key, value in iteritems(kwargs):
+        for key, value in kwargs.items():
             # rename keys for pgbench
             key = key.replace('_', '-')
 

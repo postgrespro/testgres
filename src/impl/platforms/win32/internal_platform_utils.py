@@ -17,7 +17,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
         assert type(data_dir) is str
         return __class__.FindPostmasterResult.create_not_implemented()
 
-    def ProcessIsZombi_soft_check(
+    def ProcessIsZombie_soft_check(
         self,
         os_ops: OsOperations,
         pid: int,

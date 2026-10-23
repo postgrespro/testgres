@@ -113,7 +113,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             __class__.C_BASH_EXE,
             "-c",
             "ps -ewwo \"pid=,ppid=,args=\" | grep -E " + shlex.quote(regexp),
-           ]
+        ]
 
         exec_r = os_ops.run(
             cmd=cmd,
@@ -246,7 +246,8 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
             pid_to_ppid,
         )
 
-    def ProcessIsZombi_soft_check(
+    # --------------------------------------------------------------------
+    def ProcessIsZombie_soft_check(
         self,
         os_ops: OsOperations,
         pid: int,
@@ -263,7 +264,10 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
 
         try:
             # Read one line from /proc/PID/stat
-            stat_content = os_ops.read_binary(proc_stat_file, 0).decode("utf-8", errors="ignore")
+            stat_content_b = os_ops.read_binary(proc_stat_file, 0)
+            assert type(stat_content_b) is bytes
+
+            stat_content = stat_content_b.decode("utf-8", errors="ignore")
 
             # We look for the closing parenthesis of the process name to ensure that
             # we start from it and not depend on spaces inside the parentheses!
@@ -280,19 +284,23 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
                 result = proc_status == "Z"
         except Exception as e:
             # If the file disappeared right during reading, it means the process is completely erased
-            if __class__._is_file_not_found_exception(e):
+            if __class__._is_zombie_file_exception(e):
                 result = False
 
         return result
 
     @staticmethod
-    def _is_file_not_found_exception(e: Exception) -> bool:
+    def _is_zombie_file_exception(e: Exception) -> bool:
         if isinstance(e, FileNotFoundError):
             return True
 
+        if isinstance(e, ProcessLookupError):
+            return True
+
         if isinstance(e, ExecUtilException):
-            if e.exit_code == 2:
+            if e.exit_code == 1:
                 return True
+            return False
 
         return False
 
@@ -316,7 +324,7 @@ class InternalPlatformUtils(base.InternalPlatformUtils):
     ) -> typing.NoReturn:
         assert type(lines) is list
         assert type(i_line) is int
-        assert type(hint) is int
+        assert type(hint) is str
 
         error_lines: typing.List[str] = []
         error_lines.append(

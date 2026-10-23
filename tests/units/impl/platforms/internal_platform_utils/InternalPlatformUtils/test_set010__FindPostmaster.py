@@ -93,7 +93,7 @@ class TestSet010__FindPostmaster:
             r = platform_utils.FindPostmaster(
                 node.os_ops,
                 node.bin_dir,
-                node.data_dir
+                node.data_dir,
             )
 
             assert r is not None
