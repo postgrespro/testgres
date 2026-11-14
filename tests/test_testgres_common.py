@@ -6,7 +6,6 @@ from tests.helpers.global_data import PostgresNodeService
 from tests.helpers.global_data import PostgresNodeServices
 from tests.helpers.global_data import OsOperations
 from tests.helpers.global_data import PortManager
-from tests.helpers.pg_cfg_os_ops import PgCfgOsOps
 from tests.helpers.pg_msg_builder import PgMsgBuilder
 
 from tests.conftest_helpers import TestServices
@@ -26,6 +25,7 @@ from src.utils import execute_utility2
 from src.defaults import default_username
 from src.defaults import default_username2
 from src.config import testgres_config as tconf
+from src.impl.pg_cfg_os_ops import PgCfgOsOps
 from src import ProcessType
 from src import NodeStatus
 from src import IsolationLevel
@@ -3182,6 +3182,53 @@ where c.relname=%s;"""
                     e,
                 ))
         return ok
+
+    def test_set_auto_conf(
+        self,
+        node_svc: PostgresNodeService,
+    ):
+        # elements contain [property id, value, storage value]
+        options = {
+            "autovacuum_max_workers": 3,
+            "max_connections": 123,
+        }
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+
+            auto_conf_path = node.os_ops.build_path(
+                node.data_dir,
+                "postgresql.auto.conf",
+            )
+
+            node.set_auto_conf(
+                options,
+                config=auto_conf_path,
+            )
+            content = node.os_ops.read(
+                auto_conf_path,
+                encoding="utf-8",
+            )
+            assert type(content) is str
+            assert "autovacuum_max_workers = 3" in content
+            assert "max_connections = 123" in content
+
+            node.set_auto_conf(
+                {
+                    "max_connections": None,
+                },
+                config=auto_conf_path,
+                rm_options=["autovacuum_max_workers"],
+            )
+            content = node.os_ops.read(
+                auto_conf_path,
+                encoding="utf-8",
+            )
+            assert type(content) is str
+            assert "autovacuum_max_workers" not in content
+            assert "max_connections" not in content
+
+        return
 
     class tag_rmdirs_protector:
         _os_ops: OsOperations
