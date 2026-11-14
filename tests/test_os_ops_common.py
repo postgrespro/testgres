@@ -545,7 +545,7 @@ class TestOsOpsCommon:
 
         tmpdir = os_ops.mkdtemp(name_with_surprize.value)
 
-        cmd = ["sh", "-c", "cp -p /bin/sh " + os_ops.quote_path(tmpdir)]
+        cmd = ["sh", "-c", "cp /bin/sh " + os_ops.quote_path(tmpdir)]
 
         os_ops.exec_command(cmd)
 

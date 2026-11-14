@@ -292,8 +292,8 @@ jobs:
         name: testgres--test_logs--${{ env.RUN_CFG__NOW }}-${{ env.BASE_SIGN }}-id${{ github.run_id }}
         path: "${{ env.RUN_CFG__LOGS_DIR }}/"
 
-  test-macos-14:
-    runs-on: macos-14
+  test-macos:
+    runs-on: macos-latest
     needs: build-check
     strategy:
       fail-fast: false
@@ -318,7 +318,7 @@ jobs:
             postgres: "17"
             case_suffix: "py3_14_xx-pg17_xx"
 
-    name: "test: macos-14 | ${{ matrix.case_suffix }}"
+    name: "test: macos | ${{ matrix.case_suffix }}"
 
     env:
       BASE_SIGN: "macos-py${{ matrix.python }}-pg${{ matrix.postgres }}"
