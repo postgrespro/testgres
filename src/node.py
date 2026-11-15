@@ -58,6 +58,7 @@ from .impl.port_manager__this_host import PortManager__ThisHost
 from .impl.port_manager__generic2 import PortManager__Generic2
 from .impl.error_utils import ErrorUtils
 from .impl import internal_utils
+from .impl import pg_cfg_os_ops
 
 from .logger import TestgresLogger
 
@@ -76,6 +77,10 @@ from testgres.operations.os_ops import OsOperations
 from testgres.operations.os_ops import OsCommandResult
 from testgres.operations.os_ops import OsProcessController
 from testgres.operations.local_ops import LocalOperations
+
+from testgres.postgres_configuration import PostgresConfiguration
+from testgres.postgres_configuration import PostgresConfigurationReader
+from testgres.postgres_configuration import PostgresConfigurationWriter
 
 import ipaddress
 import logging
@@ -2438,9 +2443,9 @@ class PostgresNode:
 
     def set_auto_conf(
         self,
-        options,
+        options: typing.Dict[str, typing.Any],
         config='postgresql.auto.conf',
-        rm_options={},
+        rm_options: typing.Optional[typing.Iterable[str]] = None,
     ):
         """
         Update or remove configuration options in the specified configuration file,
@@ -2460,56 +2465,47 @@ class PostgresNode:
         assert isinstance(self._os_ops, OsOperations)
 
         # parse postgresql.auto.conf
-        path = self._os_ops.build_path(self.data_dir, config)
+        pgCfgOsOps = pg_cfg_os_ops.PgCfgOsOps(
+            self._os_ops,
+            "utf-8",
+        )
 
-        lines = self._os_ops.readlines(path)
-        current_options = {}
-        current_directives = []
-        for line in lines:
+        pgCfg = PostgresConfiguration(
+            self.data_dir,
+            cfgOsOps=pgCfgOsOps,
+            strategy=PostgresConfiguration.Strategy.Standard,
+        )
 
-            # ignore comments
-            if line.startswith('#'):
+        pgCfgFile = PostgresConfigurationReader.LoadConfigurationFile(
+            pgCfg,
+            config,
+        )
+        assert pgCfgFile is not None
+
+        if rm_options is None:
+            pass
+        else:
+            assert rm_options is not None
+            for optionName in rm_options:
+                assert type(optionName) is str
+                pgCfgFile.SetOptionValue(optionName, None)
                 continue
 
-            if line.strip() == '':
-                continue
+        for optionName in options:
+            assert type(optionName) is str
+            assert optionName != ""
+            assert optionName.strip() == optionName
 
-            if line.startswith('include'):
-                current_directives.append(line)
-                continue
+            optionValue = options[optionName]
 
-            name, var = line.partition('=')[::2]
-            name = name.strip()
+            pgCfgFile.SetOptionValue(
+                optionName,
+                optionValue,
+            )
+            continue
 
-            # Remove options specified in rm_options list
-            if name in rm_options:
-                continue
-
-            current_options[name] = var
-
-        for option in options:
-            assert type(option) is str
-            assert option != ""
-            assert option.strip() == option
-
-            value = options[option]
-            valueType = type(value)
-
-            if valueType is str:
-                value = __class__._escape_config_value(value)
-            elif valueType is bool:
-                value = "on" if value else "off"
-
-            current_options[option] = value
-
-        auto_conf = ''
-        for option in current_options:
-            auto_conf += option + " = " + str(current_options[option]) + "\n"
-
-        for directive in current_directives:
-            auto_conf += directive + "\n"
-
-        self._os_ops.write(path, auto_conf, truncate=True)
+        PostgresConfigurationWriter.WriteConfiguration(pgCfg)
+        return
 
     def upgrade_from(
         self,
