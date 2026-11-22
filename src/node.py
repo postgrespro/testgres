@@ -860,8 +860,16 @@ class PostgresNode:
             if not self._os_ops.path_exists(f):
                 continue
 
-            file_lines = self._os_ops.readlines(f, num_lines, binary=True, encoding=None)
-            assert type(file_lines) is bytes
+            file_lines = typing.cast(
+                typing.List[bytes],
+                self._os_ops.readlines(
+                    f,
+                    num_lines,
+                    binary=True,
+                    encoding=None,
+                ),
+            )
+            assert type(file_lines) is list
             lines = b''.join(file_lines)
 
             # fill list
