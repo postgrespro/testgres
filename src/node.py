@@ -860,7 +860,16 @@ class PostgresNode:
             if not self._os_ops.path_exists(f):
                 continue
 
-            file_lines = self._os_ops.readlines(f, num_lines, binary=True, encoding=None)
+            file_lines = typing.cast(
+                typing.List[bytes],
+                self._os_ops.readlines(
+                    f,
+                    num_lines,
+                    binary=True,
+                    encoding=None,
+                ),
+            )
+            assert type(file_lines) is list
             lines = b''.join(file_lines)
 
             # fill list
@@ -1010,6 +1019,7 @@ class PostgresNode:
         # We collect a list of rules that already exist in the file (in the form of word lists)
         existing_normalized = []
         for s in hba_conf_file:
+            assert type(s) is str
             s_clean = s.strip()
             if s_clean and not s_clean.startswith("#"):
                 existing_normalized.append(normalize_line(s_clean))
