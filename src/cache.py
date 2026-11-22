@@ -15,8 +15,17 @@ from .exceptions import \
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.os_ops import OsOperations
 
+import typing
 
-def cached_initdb(data_dir, logfile=None, params=None, os_ops: OsOperations = None, bin_path=None, cached=True):
+
+def cached_initdb(
+    data_dir,
+    logfile=None,
+    params=None,
+    os_ops: typing.Optional[OsOperations] = None,
+    bin_path=None,
+    cached=True,
+):
     """
     Perform initdb or use cached node files.
     """
