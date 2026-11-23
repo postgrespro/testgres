@@ -65,6 +65,7 @@ def cached_initdb(
         cached_data_dir = testgres_config.cached_initdb_dir
 
         # Initialize cached initdb
+        assert cached_data_dir is not None
 
         if not os_ops.path_exists(cached_data_dir) or \
                 not os_ops.listdir(cached_data_dir):
@@ -82,6 +83,8 @@ def cached_initdb(
                 pg_control = os_ops.build_path(data_dir, XLOG_CONTROL_FILE)
                 system_id = generate_system_id()
                 cur_pg_control = os_ops.read(pg_control, binary=True)
+                assert cur_pg_control is not None
+                assert type(cur_pg_control) is bytes
                 new_pg_control = system_id + cur_pg_control[len(system_id):]
                 os_ops.write(pg_control, new_pg_control, truncate=True, binary=True, read_and_write=True)
 
