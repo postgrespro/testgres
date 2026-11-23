@@ -25,19 +25,37 @@ from packaging.version import Version
 
 
 def util_exists(util):
-    def good_properties(f):
-        return (testgres_config.os_ops.path_exists(f) and  # noqa: W504
-                testgres_config.os_ops.isfile(f) and  # noqa: W504
-                testgres_config.os_ops.is_executable(f))  # yapf: disable
+    def LOCAL__good_properties(f):
+        if not testgres_config.os_ops.path_exists(f):
+            return False
+
+        if not testgres_config.os_ops.isfile(f):
+            return False
+
+        if not testgres_config.os_ops.is_executable(f):
+            return False
+
+        return True
 
     # try to resolve it
-    if good_properties(get_bin_path(util)):
+    if LOCAL__good_properties(get_bin_path(util)):
         return True
 
     # check if util is in PATH
-    for path in testgres_config.os_ops.environ("PATH").split(testgres_config.os_ops.pathsep):
-        if good_properties(os.path.join(path, util)):
-            return True
+    path = testgres_config.os_ops.environ("PATH")
+
+    if path is None:
+        return False
+
+    assert path is not None
+    assert type(path) is str
+
+    for path in path.split(testgres_config.os_ops.pathsep):
+        if not LOCAL__good_properties(os.path.join(path, util)):
+            continue
+        return True
+
+    return False
 
 
 class TestTestgresRemote:
