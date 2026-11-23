@@ -1615,36 +1615,46 @@ class TestTestgresCommon:
             # check 0 columns
             with pytest.raises(expected_exception=QueryException):
                 node.poll_query_until(
-                    query='select from pg_catalog.pg_class limit 1')
+                    query='select from pg_catalog.pg_class limit 1',
+                )
 
             # check None, fail
             with pytest.raises(expected_exception=QueryException):
-                node.poll_query_until(query='create table abc (val int)')
+                node.poll_query_until(
+                    query='create table abc (val int)',
+                )
 
             # check None, ok
-            node.poll_query_until(query='create table def()',
-                                  expected=None)    # returns nothing
+            node.poll_query_until(
+                query='create table def()',
+                expected=None,
+            )  # returns nothing
 
             # check 0 rows equivalent to expected=None
             node.poll_query_until(
                 query='select * from pg_catalog.pg_class where true = false',
-                expected=None)
+                expected=None,
+            )
 
             # check arbitrary expected value, fail
             with pytest.raises(expected_exception=QueryTimeoutException):
-                node.poll_query_until(query='select 3',
-                                      expected=1,
-                                      max_attempts=3,
-                                      sleep_time=0.01)
+                node.poll_query_until(
+                    query='select 3',
+                    expected=1,
+                    max_attempts=3,
+                    sleep_time=0.01,
+                )
 
             # check arbitrary expected value, ok
             node.poll_query_until(query='select 2', expected=2)
 
             # check timeout
             with pytest.raises(expected_exception=QueryTimeoutException):
-                node.poll_query_until(query='select 1 > 2',
-                                      max_attempts=3,
-                                      sleep_time=0.01)
+                node.poll_query_until(
+                    query='select 1 > 2',
+                    max_attempts=3,
+                    sleep_time=0.01,
+                )
 
             # check ProgrammingError, fail
             with pytest.raises(expected_exception=ProgrammingError):
@@ -1652,13 +1662,16 @@ class TestTestgresCommon:
 
             # check ProgrammingError, ok
             with pytest.raises(expected_exception=(QueryTimeoutException)):
-                node.poll_query_until(query='dummy2',
-                                      max_attempts=3,
-                                      sleep_time=0.01,
-                                      suppress={ProgrammingError})
+                node.poll_query_until(
+                    query='dummy2',
+                    max_attempts=3,
+                    sleep_time=0.01,
+                    suppress={ProgrammingError},
+                )
 
             # check 1 arg, ok
             node.poll_query_until('select true')
+            return
 
     def test_logging(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
