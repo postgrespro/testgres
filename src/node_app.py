@@ -157,11 +157,16 @@ class NodeApp:
         )
 
         # set major version
-        pg_version_file = self._os_ops.read(self._os_ops.build_path(node.data_dir, 'PG_VERSION'))
+        pg_version_file = self._os_ops.read(
+            self._os_ops.build_path(node.data_dir, 'PG_VERSION'),
+        )
+        assert type(pg_version_file) is str
 
         # What is it ???
-        node.major_version_str = str(pg_version_file.rstrip())
-        node.major_version = float(node.major_version_str)
+        major_version_str = pg_version_file.rstrip()
+        setattr(node, "major_version_str", major_version_str)
+        major_version = float(major_version_str)
+        setattr(node, "major_version", major_version)
 
         # Set default parameters
         options = {
@@ -187,7 +192,7 @@ class NodeApp:
             options['ptrack.map_size'] = '1'
             options['shared_preload_libraries'] = 'ptrack'
 
-        if node.major_version >= 13:
+        if major_version >= 13:
             options['wal_keep_size'] = '200MB'
         else:
             options['wal_keep_segments'] = '12'
@@ -208,7 +213,7 @@ class NodeApp:
         # kludge for testgres
         # https://github.com/postgrespro/testgres/issues/54
         # for PG >= 13 remove 'wal_keep_segments' parameter
-        if node.major_version >= 13:
+        if major_version >= 13:
             node.set_auto_conf(
                 {},
                 'postgresql.conf',
