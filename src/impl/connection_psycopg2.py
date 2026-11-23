@@ -90,7 +90,12 @@ class NodeConnection:
         self.close()
         return
 
-    def begin(self, isolation_level=IsolationLevel.ReadCommitted):
+    T_ISOLATIONLEVEL_OR_STR = typing.Union[IsolationLevel, str]
+
+    def begin(
+        self,
+        isolation_level: T_ISOLATIONLEVEL_OR_STR = IsolationLevel.ReadCommitted,
+    ):
         # Check if level isn't an IsolationLevel
         if not isinstance(isolation_level, IsolationLevel):
             # Get name of isolation level
