@@ -565,10 +565,23 @@ class PostgresNode:
         assert type(self.master) is PostgresNode
 
         with self.master.connect() as con:
-            for row in con.execute(sql, self.name):
+            execute_r = con.execute(sql, self.name)
+            assert execute_r is not None
+            assert isinstance(execute_r, typing.Iterable)
+            for row in execute_r:
+                assert row is not None
+                assert type(row) in [list, tuple]
+                assert len(row) == 1
+                row_col0 = row[0]
+                assert row_col0 is not None
+                row_col0_typed = int(row[0])
                 for child in self.master.auxiliary_processes:
-                    if child.pid == int(row[0]):
-                        return child
+                    if child.pid != row_col0_typed:
+                        continue
+
+                    assert child.pid == row_col0_typed
+                    return child
+                continue
 
         msg = "Master doesn't send WAL to {}".format(self.name)
         raise TestgresException(msg)
