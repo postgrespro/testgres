@@ -1958,6 +1958,8 @@ class PostgresNode:
         except ExecUtilException:
             self.psql(filename=filename, dbname=dbname, username=username)
 
+    T_SUPPRESS_EXCS = typing.Iterable[typing.Type[BaseException]]
+
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def poll_query_until(
         self,
@@ -1968,7 +1970,7 @@ class PostgresNode:
         sleep_time: typing.Union[int, float] = 1,
         expected: typing.Any = True,
         commit: bool = True,
-        suppress: typing.Optional[typing.Iterable[BaseException]] = None,
+        suppress: typing.Optional[T_SUPPRESS_EXCS] = None,
     ) -> None:
         """
         Run a query once per second until it returns 'expected'.
