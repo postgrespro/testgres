@@ -3253,7 +3253,13 @@ where c.relname=%s;"""
             self._os_ops.rmdirs = self._old_rmdirs
             return False
 
-        def proxy__rmdirs(self, path, ignore_errors=True):
+        def proxy__rmdirs(
+            self,
+            path,
+            ignore_errors=True,
+            attempts: int = 3,
+            delay: OsOperations.T_DELAY = 1,
+        ) -> bool:
             raise Exception("Call of rmdirs is not expected!")
 
     def test_node_app__make_empty__base_dir_is_None(self, node_svc: PostgresNodeService):
