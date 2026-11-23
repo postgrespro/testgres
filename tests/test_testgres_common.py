@@ -341,6 +341,7 @@ class TestTestgresCommon:
             # We collect a list of rules that already exist in the file (in the form of word lists)
             existing_normalized = []
             for s in lines:
+                assert type(s) is str
                 s_clean = s.strip()
                 if s_clean and not s_clean.startswith("#"):
                     existing_normalized.append(normalize_line(s_clean))
