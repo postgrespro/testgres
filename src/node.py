@@ -1809,13 +1809,30 @@ class PostgresNode:
         assert type(r) is OsCommandResult
         return r
 
-    @method_decorator(positional_args_hack(['dbname', 'query']))
+    @typing.overload
     def safe_psql(
+        self,
+        query: typing.Optional[str] = None,
+        expect_error: bool = False,
+        **kwargs: typing.Any,
+    ) -> typing.Any: ...
+
+    @typing.overload
+    def safe_psql(
+        self,
+        dbname: str,
+        query: str,
+        expect_error: bool = False,
+        **kwargs: typing.Any,
+    ) -> typing.Any: ...
+
+    @method_decorator(positional_args_hack(['dbname', 'query']))
+    def safe_psql(  # pyright: ignore[reportInconsistentOverload]
         self,
         query=None,
         expect_error=False,
         **kwargs,
-    ):
+    ) -> typing.Any:
         """
         Execute a query using psql.
 
