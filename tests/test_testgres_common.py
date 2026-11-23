@@ -2547,9 +2547,11 @@ class TestTestgresCommon:
             ).pgbench_run(time=2)
 
             # run TPC-B benchmark
-            proc = node.pgbench(stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                                options=['-T3'])
+            proc = node.pgbench(
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                options=['-T3'],
+            )
             out = proc.communicate()[0]
             assert (b'tps = ' in out)
 
