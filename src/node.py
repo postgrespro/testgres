@@ -709,11 +709,16 @@ class PostgresNode:
 
         ps_command = ['ps', '-o', 'pid=', '-p', str(node_pid)]
 
-        ps_output = self._os_ops.run(
+        run_r = self._os_ops.run(
             cmd=ps_command,
             shell=True,
             check=False,
-        ).stdout.decode('utf-8')
+        )
+        assert run_r is not None
+        assert run_r.stdout is not None
+        assert type(run_r.stdout) is bytes
+
+        ps_output = run_r.stdout.decode('utf-8')
         assert type(ps_output) is str
 
         if ps_output == "":
@@ -735,11 +740,16 @@ class PostgresNode:
             pass
 
         # Check that node stopped - print only column pid without headers
-        ps_output = self._os_ops.run(
+        run_r = self._os_ops.run(
             cmd=ps_command,
             shell=True,
             check=False,
-        ).stdout.decode('utf-8')
+        )
+        assert run_r is not None
+        assert run_r.stdout is not None
+        assert type(run_r.stdout) is bytes
+
+        ps_output = run_r.stdout.decode('utf-8')
         assert type(ps_output) is str
 
         if ps_output == "":
