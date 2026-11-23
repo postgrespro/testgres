@@ -249,7 +249,7 @@ class NodeApp:
 
         assert updated_params is not None
         if updated_params is user_params:
-            return [*user_params, param]
+            return [*updated_params, param]
 
         updated_params.append(param)
         return updated_params
