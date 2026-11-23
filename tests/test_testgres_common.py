@@ -380,9 +380,23 @@ class TestTestgresCommon:
 
         query = 'select system_identifier from pg_control_system()'
 
+        def LOCAL__read_id(exec_r) -> int:
+            assert exec_r is not None
+            assert type(exec_r) is list
+            assert len(exec_r) == 1
+            exec_r0 = exec_r[0]
+            assert exec_r0 is not None
+            assert type(exec_r0) in [list, tuple]
+            assert len(exec_r0) == 1
+            id = exec_r0[0]
+            assert id is not None
+            return int(id)
+
         with scoped_config(cache_initdb=False):
             with __class__.helper__get_node(node_svc).init().start() as node0:
-                id0 = node0.execute(query)[0]
+                id0 = LOCAL__read_id(node0.execute(query))
+
+        logging.info("id0={}".format(id0))
 
         with scoped_config(cache_initdb=True,
                            cached_initdb_unique=True) as config:
@@ -392,12 +406,16 @@ class TestTestgresCommon:
             # spawn two nodes; ids must be different
             with __class__.helper__get_node(node_svc).init().start() as node1, \
                     __class__.helper__get_node(node_svc).init().start() as node2:
-                id1 = node1.execute(query)[0]
-                id2 = node2.execute(query)[0]
+                id1 = LOCAL__read_id(node1.execute(query))
+                id2 = LOCAL__read_id(node2.execute(query))
+
+                logging.info("id1={}".format(id1))
+                logging.info("id2={}".format(id2))
 
                 # ids must increase
                 assert (id1 > id0)
                 assert (id2 > id1)
+        return
 
     def test_node_exit(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
