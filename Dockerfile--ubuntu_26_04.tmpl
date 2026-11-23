@@ -54,17 +54,14 @@ ENV PYTHON_BINARY=python3
 # --------------------------------------------- base2_with_python-3.12
 FROM base1 AS base2_with_python-3.12
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    software-properties-common \
-    gnupg \
-    && add-apt-repository -y ppa:deadsnakes/ppa \
-    && apt-get update && apt-get install -y --no-install-recommends \
-    python3.12 \
-    python3.12-venv \
-    python3.12-dev \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-ENV PYTHON_BINARY=/usr/bin/python3.12
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
+RUN uv python install 3.12 \
+    && ln -s "$(uv python find 3.12)" /usr/local/bin/python3.12 \
+    && ln -s "$(uv python find 3.12)" /usr/bin/python3
+
+ENV PYTHON_BINARY=/usr/local/bin/python3.12
 
 # --------------------------------------------- final
 FROM base2_with_python-${PYTHON_VERSION} AS final
