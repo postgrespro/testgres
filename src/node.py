@@ -1966,7 +1966,7 @@ class PostgresNode:
         username: typing.Optional[str] = None,
         max_attempts: int = 0,
         sleep_time: typing.Union[int, float] = 1,
-        expected: bool = True,
+        expected: typing.Any = True,
         commit: bool = True,
         suppress: typing.Optional[typing.Iterable[BaseException]] = None,
     ) -> None:
