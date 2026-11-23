@@ -2552,8 +2552,15 @@ class TestTestgresCommon:
                 stderr=subprocess.STDOUT,
                 options=['-T3'],
             )
-            out = proc.communicate()[0]
+            communicate_r = proc.communicate()
+            assert type(communicate_r) is not None
+            assert type(communicate_r) is tuple
+            assert len(communicate_r) == 2
+            out = communicate_r[0]
+            assert out is not None
+            assert type(out) is bytes
             assert (b'tps = ' in out)
+            return
 
     def test_unix_sockets(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
