@@ -5007,9 +5007,9 @@ print('b', file=sys.stderr)
 
             # Запоминаем локальный процесс транспорта, чтобы проверить его смерть в конце
             if type(controller).__name__ == "LocalProcessController":
-                local_p = controller._local_process
+                local_p = getattr(controller, "_local_process")
             elif type(controller).__name__ == "RemoteProcessController":
-                local_p = controller._local_process
+                local_p = getattr(controller, "_local_process")
             else:
                 raise RuntimeError("Unknown controller type: {}.".format(
                     type(controller).__name__,
