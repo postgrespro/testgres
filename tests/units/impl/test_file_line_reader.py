@@ -216,7 +216,11 @@ class TestFileLineReader:
                 continue
             continue
 
-        assert file_line_reader.read_line() is None
+        if file_line_reader is None:
+            pass
+        else:
+            assert file_line_reader.read_line() is None
+            pass
 
         os_ops.rmdirs(tmpdir)
         assert not os_ops.path_exists(tmpdir)

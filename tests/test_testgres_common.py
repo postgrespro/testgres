@@ -341,6 +341,7 @@ class TestTestgresCommon:
             # We collect a list of rules that already exist in the file (in the form of word lists)
             existing_normalized = []
             for s in lines:
+                assert type(s) is str
                 s_clean = s.strip()
                 if s_clean and not s_clean.startswith("#"):
                     existing_normalized.append(normalize_line(s_clean))
@@ -380,9 +381,23 @@ class TestTestgresCommon:
 
         query = 'select system_identifier from pg_control_system()'
 
+        def LOCAL__read_id(exec_r) -> int:
+            assert exec_r is not None
+            assert type(exec_r) is list
+            assert len(exec_r) == 1
+            exec_r0 = exec_r[0]
+            assert exec_r0 is not None
+            assert type(exec_r0) in [list, tuple]
+            assert len(exec_r0) == 1
+            id = exec_r0[0]
+            assert id is not None
+            return int(id)
+
         with scoped_config(cache_initdb=False):
             with __class__.helper__get_node(node_svc).init().start() as node0:
-                id0 = node0.execute(query)[0]
+                id0 = LOCAL__read_id(node0.execute(query))
+
+        logging.info("id0={}".format(id0))
 
         with scoped_config(cache_initdb=True,
                            cached_initdb_unique=True) as config:
@@ -392,15 +407,21 @@ class TestTestgresCommon:
             # spawn two nodes; ids must be different
             with __class__.helper__get_node(node_svc).init().start() as node1, \
                     __class__.helper__get_node(node_svc).init().start() as node2:
-                id1 = node1.execute(query)[0]
-                id2 = node2.execute(query)[0]
+                id1 = LOCAL__read_id(node1.execute(query))
+                id2 = LOCAL__read_id(node2.execute(query))
+
+                logging.info("id1={}".format(id1))
+                logging.info("id2={}".format(id2))
 
                 # ids must increase
                 assert (id1 > id0)
                 assert (id2 > id1)
+        return
 
     def test_node_exit(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
+
+        base_dir = None
 
         with pytest.raises(expected_exception=QueryException):
             with __class__.helper__get_node(node_svc).init() as node:
@@ -408,6 +429,7 @@ class TestTestgresCommon:
                 node.safe_psql('select 1')
 
         # we should save the DB for "debugging"
+        assert type(base_dir) is str
         assert (node_svc.os_ops.path_exists(base_dir))
         node_svc.os_ops.rmdirs(base_dir, ignore_errors=True)
 
@@ -416,6 +438,7 @@ class TestTestgresCommon:
 
         # should have been removed by default
         assert not (node_svc.os_ops.path_exists(base_dir))
+        return
 
     def test_double_start(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -735,8 +758,10 @@ class TestTestgresCommon:
 
             # check new value
             cmm_new = node.execute('show client_min_messages')
+            assert cmm_new is not None
             assert ('debug1' == cmm_new[0][0].lower())
             assert (cmm_old != cmm_new)
+        return
 
     def test_pg_ctl(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -745,7 +770,10 @@ class TestTestgresCommon:
             node.init().start()
 
             status = node.pg_ctl(['status'])
-            assert ('PID' in status)
+            assert status is not None
+            assert type(status) is str
+            assert 'PID' in status
+        return
 
     def test_status(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -1600,51 +1628,72 @@ class TestTestgresCommon:
 
     def test_poll_query_until(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
+
+        def LOCAL__get_col1(rows):
+            assert rows is not None
+            assert type(rows) is list
+            assert len(rows) == 1
+            row0 = rows[0]
+            assert row0 is not None
+            assert type(row0) in [list, tuple]
+            assert len(row0) == 1
+            return row0[0]
+
         with __class__.helper__get_node(node_svc) as node:
             node.init().start()
 
             get_time = 'select extract(epoch from now())'
             check_time = 'select extract(epoch from now()) - {} >= 5'
 
-            start_time = node.execute(get_time)[0][0]
+            start_time = LOCAL__get_col1(node.execute(get_time))
             node.poll_query_until(query=check_time.format(start_time))
-            end_time = node.execute(get_time)[0][0]
+            end_time = LOCAL__get_col1(node.execute(get_time))
 
             assert (end_time - start_time >= 5)
 
             # check 0 columns
             with pytest.raises(expected_exception=QueryException):
                 node.poll_query_until(
-                    query='select from pg_catalog.pg_class limit 1')
+                    query='select from pg_catalog.pg_class limit 1',
+                )
 
             # check None, fail
             with pytest.raises(expected_exception=QueryException):
-                node.poll_query_until(query='create table abc (val int)')
+                node.poll_query_until(
+                    query='create table abc (val int)',
+                )
 
             # check None, ok
-            node.poll_query_until(query='create table def()',
-                                  expected=None)    # returns nothing
+            node.poll_query_until(
+                query='create table def()',
+                expected=None,
+            )  # returns nothing
 
             # check 0 rows equivalent to expected=None
             node.poll_query_until(
                 query='select * from pg_catalog.pg_class where true = false',
-                expected=None)
+                expected=None,
+            )
 
             # check arbitrary expected value, fail
             with pytest.raises(expected_exception=QueryTimeoutException):
-                node.poll_query_until(query='select 3',
-                                      expected=1,
-                                      max_attempts=3,
-                                      sleep_time=0.01)
+                node.poll_query_until(
+                    query='select 3',
+                    expected=1,
+                    max_attempts=3,
+                    sleep_time=0.01,
+                )
 
             # check arbitrary expected value, ok
             node.poll_query_until(query='select 2', expected=2)
 
             # check timeout
             with pytest.raises(expected_exception=QueryTimeoutException):
-                node.poll_query_until(query='select 1 > 2',
-                                      max_attempts=3,
-                                      sleep_time=0.01)
+                node.poll_query_until(
+                    query='select 1 > 2',
+                    max_attempts=3,
+                    sleep_time=0.01,
+                )
 
             # check ProgrammingError, fail
             with pytest.raises(expected_exception=ProgrammingError):
@@ -1652,13 +1701,16 @@ class TestTestgresCommon:
 
             # check ProgrammingError, ok
             with pytest.raises(expected_exception=(QueryTimeoutException)):
-                node.poll_query_until(query='dummy2',
-                                      max_attempts=3,
-                                      sleep_time=0.01,
-                                      suppress={ProgrammingError})
+                node.poll_query_until(
+                    query='dummy2',
+                    max_attempts=3,
+                    sleep_time=0.01,
+                    suppress={ProgrammingError},
+                )
 
             # check 1 arg, ok
             node.poll_query_until('select true')
+            return
 
     def test_logging(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -1741,15 +1793,20 @@ class TestTestgresCommon:
                         master.start()
                         logging.info("Master node is restaring...")
                         master.restart()
-                        assert (master._logger.is_alive())
+                        assert master._logger is not None
+                        assert master._logger.is_alive()
             finally:
                 # It is a hack code to logging cleanup
-                with logging._lock:
+                logging_lock = getattr(logging, "_lock")
+                assert logging_lock is not None
+                with logging_lock:
                     assert logging.Logger.manager is not None
                     assert C_NODE_NAME in logging.Logger.manager.loggerDict.keys()
                     logging.Logger.manager.loggerDict.pop(C_NODE_NAME, None)
                     assert C_NODE_NAME not in logging.Logger.manager.loggerDict.keys()
-                    assert handler not in logging._handlers.values()
+                    logging_handlers = getattr(logging, "_handlers")
+                    assert logging_handlers is not None
+                    assert handler not in logging_handlers.values()
         # GO HOME!
         return
 
@@ -1841,6 +1898,8 @@ class TestTestgresCommon:
             res2 = __class__.helper__rm_carriage_returns(res)
 
             assert res2[0] != 0
+            assert res[2] is not None
+            assert type(res[2]) is bytes
             assert b"DUMMY_HOST_NAME" in res[2]
 
     def test_safe_psql__another_port(self, node_svc: PostgresNodeService):
@@ -2547,11 +2606,20 @@ class TestTestgresCommon:
             ).pgbench_run(time=2)
 
             # run TPC-B benchmark
-            proc = node.pgbench(stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT,
-                                options=['-T3'])
-            out = proc.communicate()[0]
+            proc = node.pgbench(
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                options=['-T3'],
+            )
+            communicate_r = proc.communicate()
+            assert type(communicate_r) is not None
+            assert type(communicate_r) is tuple
+            assert len(communicate_r) == 2
+            out = communicate_r[0]
+            assert out is not None
+            assert type(out) is bytes
             assert (b'tps = ' in out)
+            return
 
     def test_unix_sockets(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -3253,7 +3321,13 @@ where c.relname=%s;"""
             self._os_ops.rmdirs = self._old_rmdirs
             return False
 
-        def proxy__rmdirs(self, path, ignore_errors=True):
+        def proxy__rmdirs(
+            self,
+            path,
+            ignore_errors=True,
+            attempts: int = 3,
+            delay: OsOperations.T_DELAY = 1,
+        ) -> bool:
             raise Exception("Call of rmdirs is not expected!")
 
     def test_node_app__make_empty__base_dir_is_None(self, node_svc: PostgresNodeService):
@@ -3676,19 +3750,40 @@ where c.relname=%s;"""
             pytest.skip('might be missing')
 
     @staticmethod
-    def helper__util_exists(os_ops: OsOperations, util):
+    def helper__util_exists(
+        os_ops: OsOperations,
+        util: str,
+    ) -> bool:
         assert isinstance(os_ops, OsOperations)
 
-        def good_properties(f):
-            return (os_ops.path_exists(f) and  # noqa: W504
-                    os_ops.isfile(f) and  # noqa: W504
-                    os_ops.is_executable(f))  # yapf: disable
+        def LOCAL__good_properties(f):
+            if not os_ops.path_exists(f):
+                return False
+
+            if not os_ops.isfile(f):
+                return False
+
+            if not os_ops.is_executable(f):
+                return False
+
+            return True
 
         # try to resolve it
-        if good_properties(get_bin_path2(os_ops, util)):
+        if LOCAL__good_properties(get_bin_path2(os_ops, util)):
             return True
 
         # check if util is in PATH
-        for path in os_ops.environ("PATH").split(os.pathsep):
-            if good_properties(os.path.join(path, util)):
-                return True
+        path = os_ops.environ("PATH")
+
+        if path is None:
+            return False
+
+        assert path is not None
+        assert type(path) is str
+
+        for path in path.split(os.pathsep):
+            if not LOCAL__good_properties(os.path.join(path, util)):
+                continue
+            return True
+
+        return False

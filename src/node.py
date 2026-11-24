@@ -565,10 +565,23 @@ class PostgresNode:
         assert type(self.master) is PostgresNode
 
         with self.master.connect() as con:
-            for row in con.execute(sql, self.name):
+            execute_r = con.execute(sql, self.name)
+            assert execute_r is not None
+            assert isinstance(execute_r, typing.Iterable)
+            for row in execute_r:
+                assert row is not None
+                assert type(row) in [list, tuple]
+                assert len(row) == 1
+                row_col0 = row[0]
+                assert row_col0 is not None
+                row_col0_typed = int(row[0])
                 for child in self.master.auxiliary_processes:
-                    if child.pid == int(row[0]):
-                        return child
+                    if child.pid != row_col0_typed:
+                        continue
+
+                    assert child.pid == row_col0_typed
+                    return child
+                continue
 
         msg = "Master doesn't send WAL to {}".format(self.name)
         raise TestgresException(msg)
@@ -696,11 +709,16 @@ class PostgresNode:
 
         ps_command = ['ps', '-o', 'pid=', '-p', str(node_pid)]
 
-        ps_output = self._os_ops.run(
+        run_r = self._os_ops.run(
             cmd=ps_command,
             shell=True,
             check=False,
-        ).stdout.decode('utf-8')
+        )
+        assert run_r is not None
+        assert run_r.stdout is not None
+        assert type(run_r.stdout) is bytes
+
+        ps_output = run_r.stdout.decode('utf-8')
         assert type(ps_output) is str
 
         if ps_output == "":
@@ -722,11 +740,16 @@ class PostgresNode:
             pass
 
         # Check that node stopped - print only column pid without headers
-        ps_output = self._os_ops.run(
+        run_r = self._os_ops.run(
             cmd=ps_command,
             shell=True,
             check=False,
-        ).stdout.decode('utf-8')
+        )
+        assert run_r is not None
+        assert run_r.stdout is not None
+        assert type(run_r.stdout) is bytes
+
+        ps_output = run_r.stdout.decode('utf-8')
         assert type(ps_output) is str
 
         if ps_output == "":
@@ -1786,13 +1809,30 @@ class PostgresNode:
         assert type(r) is OsCommandResult
         return r
 
-    @method_decorator(positional_args_hack(['dbname', 'query']))
+    @typing.overload
     def safe_psql(
+        self,
+        query: typing.Optional[str] = None,
+        expect_error: bool = False,
+        **kwargs: typing.Any,
+    ) -> typing.Any: ...
+
+    @typing.overload
+    def safe_psql(
+        self,
+        dbname: str,
+        query: str,
+        expect_error: bool = False,
+        **kwargs: typing.Any,
+    ) -> typing.Any: ...
+
+    @method_decorator(positional_args_hack(['dbname', 'query']))
+    def safe_psql(  # pyright: ignore[reportInconsistentOverload]
         self,
         query=None,
         expect_error=False,
         **kwargs,
-    ):
+    ) -> typing.Any:
         """
         Execute a query using psql.
 
@@ -1935,6 +1975,8 @@ class PostgresNode:
         except ExecUtilException:
             self.psql(filename=filename, dbname=dbname, username=username)
 
+    T_SUPPRESS_EXCS = typing.Iterable[typing.Type[BaseException]]
+
     @method_decorator(positional_args_hack(['dbname', 'query']))
     def poll_query_until(
         self,
@@ -1943,9 +1985,9 @@ class PostgresNode:
         username: typing.Optional[str] = None,
         max_attempts: int = 0,
         sleep_time: typing.Union[int, float] = 1,
-        expected: bool = True,
+        expected: typing.Any = True,
         commit: bool = True,
-        suppress: typing.Optional[typing.Iterable[BaseException]] = None,
+        suppress: typing.Optional[T_SUPPRESS_EXCS] = None,
     ) -> None:
         """
         Run a query once per second until it returns 'expected'.

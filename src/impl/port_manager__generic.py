@@ -14,7 +14,7 @@ class PortManager__Generic(PortManager):
     _C_MAX_PORT_NUMBER = 65535
 
     _os_ops: OsOperations
-    _guard: object
+    _guard: typing.Any
     # TODO: is there better to use bitmap fot _available_ports?
     _available_ports: typing.Set[int]
     _reserved_ports: typing.Set[int]

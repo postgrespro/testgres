@@ -131,6 +131,7 @@ class TestTestgresLocal:
             with get_new_node(prefix='node_new', bin_dir=new_bin_dir) as node_new:
                 node_new.init(cached=False)
                 res = node_new.upgrade_from(old_node=node_old)
+                assert res is not None
                 node_new.start()
                 assert (b'Upgrade Complete' in res)
 
