@@ -4,6 +4,10 @@ ARG PYTHON_VERSION=3
 # --------------------------------------------- base1
 FROM alt:p11 AS base1
 
+RUN sed -i 's|ftp.altlinux.org/pub/distributions/ALTLinux|mirror.yandex.ru/altlinux|g' /etc/apt/sources.list.d/*.list && \
+    echo 'Acquire::Retries "5";' > /etc/apt/apt.conf.d/99retries && \
+    echo 'Acquire::http::Timeout "30";' >> /etc/apt/apt.conf.d/99retries
+
 RUN apt-get update && apt-get install -y \
     sudo \
     curl \
