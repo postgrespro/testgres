@@ -95,3 +95,4 @@ class PortManager__Generic(PortManager):
         s = "[port manager] "
         s += msg_template.format(*args)
         logging.debug(s)
+        return
